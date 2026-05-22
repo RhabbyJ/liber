@@ -1,18 +1,20 @@
 import type { Buyer } from "./mock-data";
+import { approximateBuyerPoint } from "./launch-market";
 
 export function mapboxStaticImageUrl(buyers: Buyer[], token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN) {
   if (!token) return null;
 
   const points = buyers
-    .filter((buyer) => Number.isFinite(buyer.lat) && Number.isFinite(buyer.lng))
+    .map((buyer) => ({ buyer, point: approximateBuyerPoint(buyer) }))
+    .filter(({ point }) => Number.isFinite(point.lat) && Number.isFinite(point.lng))
     .slice(0, 15);
   if (points.length === 0) return null;
 
-  const center = mapCenter(points);
+  const center = mapCenter(points.map(({ point }) => point));
   const markers = points
-    .map((buyer, index) => {
+    .map(({ point }, index) => {
       const label = Math.min(index + 1, 99);
-      return `pin-s-${label}+116149(${coordinate(buyer.lng)},${coordinate(buyer.lat)})`;
+      return `pin-s-${label}+116149(${coordinate(point.lng)},${coordinate(point.lat)})`;
     })
     .join(",");
 
@@ -21,7 +23,10 @@ export function mapboxStaticImageUrl(buyers: Buyer[], token = process.env.NEXT_P
 }
 
 export function mapPinPosition(buyer: Buyer, buyers: Buyer[]) {
-  const points = buyers.filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
+  const buyerPoint = approximateBuyerPoint(buyer);
+  const points = buyers
+    .map(approximateBuyerPoint)
+    .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
   if (points.length === 0) return { left: 50, top: 50 };
 
   const lats = points.map((item) => item.lat);
@@ -34,23 +39,23 @@ export function mapPinPosition(buyer: Buyer, buyers: Buyer[]) {
   const lngSpan = maxLng - minLng || 0.1;
 
   return {
-    left: clamp(((buyer.lng - minLng) / lngSpan) * 76 + 12),
-    top: clamp((1 - (buyer.lat - minLat) / latSpan) * 76 + 12),
+    left: clamp(((buyerPoint.lng - minLng) / lngSpan) * 76 + 12),
+    top: clamp((1 - (buyerPoint.lat - minLat) / latSpan) * 76 + 12),
   };
 }
 
-function mapCenter(buyers: Buyer[]) {
-  const total = buyers.reduce(
-    (sum, buyer) => ({
-      lat: sum.lat + buyer.lat,
-      lng: sum.lng + buyer.lng,
+function mapCenter(points: Array<{ lat: number; lng: number }>) {
+  const total = points.reduce(
+    (sum, point) => ({
+      lat: sum.lat + point.lat,
+      lng: sum.lng + point.lng,
     }),
     { lat: 0, lng: 0 },
   );
 
   return {
-    lat: total.lat / buyers.length,
-    lng: total.lng / buyers.length,
+    lat: total.lat / points.length,
+    lng: total.lng / points.length,
   };
 }
 

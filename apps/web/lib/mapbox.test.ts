@@ -11,7 +11,7 @@ describe("Mapbox static map helpers", () => {
     const url = mapboxStaticImageUrl(buyers, "test-token");
 
     expect(url).toContain("https://api.mapbox.com/styles/v1/mapbox/light-v11/static/");
-    expect(url).toContain("pin-s-1+116149(-118.53010,34.23810)");
+    expect(url).toContain("pin-s-1+116149(-118.55040,34.24100)");
     expect(url).toContain("access_token=test-token");
   });
 

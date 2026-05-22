@@ -11,8 +11,8 @@ export function BuyerMap({ buyers }: { buyers: Buyer[] }) {
       style={mapImageUrl ? { backgroundImage: `url("${mapImageUrl}")` } : undefined}
     >
       <div className="map-toolbar">
-        <strong>Los Angeles buyer map</strong>
-        <span className="muted">Map and list share the same result set.</span>
+        <strong>San Fernando Valley pilot map</strong>
+        <span className="muted">Approximate buyer pins. Same results as the list.</span>
       </div>
       <div className="map-pins">
         {buyers.map((buyer) => {

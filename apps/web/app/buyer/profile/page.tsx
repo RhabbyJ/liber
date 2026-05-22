@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BadgePill } from "../../../components/badge-pill";
+import { LocationLookupFields } from "../../../components/location-lookup-fields";
 import { PageTitle } from "../../../components/page-title";
 import { formatRange } from "../../../lib/format";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
@@ -46,26 +47,19 @@ export default async function BuyerProfileBuilderPage() {
               <label htmlFor="buyerType">Buyer type</label>
               <input id="buyerType" name="buyerType" defaultValue={buyer.type} />
             </div>
-            <div className="field">
-              <label htmlFor="city">City</label>
-              <input id="city" name="desiredCity" defaultValue={buyer.city} />
-            </div>
-            <div className="field">
-              <label htmlFor="state">State</label>
-              <input id="state" name="desiredState" defaultValue={buyer.state} />
-            </div>
-            <div className="field full">
-              <label htmlFor="desiredLocationText">Desired location label</label>
-              <input id="desiredLocationText" name="desiredLocationText" defaultValue={buyer.location} />
-            </div>
-            <div className="field">
-              <label htmlFor="desiredLat">Latitude</label>
-              <input id="desiredLat" name="desiredLat" defaultValue={buyer.lat || ""} />
-            </div>
-            <div className="field">
-              <label htmlFor="desiredLng">Longitude</label>
-              <input id="desiredLng" name="desiredLng" defaultValue={buyer.lng || ""} />
-            </div>
+            <LocationLookupFields
+              cityName="desiredCity"
+              defaultCity={buyer.city}
+              defaultLat={buyer.lat || ""}
+              defaultLng={buyer.lng || ""}
+              defaultLocation={buyer.location}
+              inputName="desiredLocationText"
+              intent="store"
+              label="Desired pilot area or ZIP"
+              latName="desiredLat"
+              lngName="desiredLng"
+              stateName="desiredState"
+            />
             <div className="field">
               <label htmlFor="budgetMin">Budget min</label>
               <input id="budgetMin" name="budgetMin" defaultValue={buyer.budgetMin} />

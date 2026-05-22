@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BuyerCard } from "../../../components/buyer-card";
 import { BuyerMap } from "../../../components/buyer-map";
+import { LocationLookupFields } from "../../../components/location-lookup-fields";
 import { PageTitle } from "../../../components/page-title";
 import { searchBuyers } from "../../../server/contracts";
 
@@ -8,6 +9,7 @@ export default async function SellerSearchPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    area?: string;
     badges?: string | string[];
     bathrooms?: string;
     bedrooms?: string;
@@ -59,8 +61,21 @@ export default async function SellerSearchPage({
 
       <section className="filter-panel">
         <form className="filter-bar">
-          <input aria-label="City" name="city" placeholder="City" defaultValue={params.city || ""} />
-          <input aria-label="State" name="state" placeholder="State" defaultValue={params.state || ""} />
+          <LocationLookupFields
+            cityName="city"
+            defaultCity={params.city || ""}
+            defaultLat={params.centerLat || ""}
+            defaultLng={params.centerLng || ""}
+            defaultLocation={params.area || params.city || ""}
+            defaultRadiusMiles={params.radiusMiles || 8}
+            inputName="area"
+            intent="search"
+            label="Pilot area or ZIP"
+            latName="centerLat"
+            lngName="centerLng"
+            radiusName="radiusMiles"
+            stateName="state"
+          />
           <select aria-label="Property subtype" name="propertySubtype" defaultValue={params.propertySubtype || ""}>
             <option value="">All property types</option>
             <option value="HOME">Home</option>
@@ -92,9 +107,6 @@ export default async function SellerSearchPage({
           <input aria-label="Lot size" name="lotSize" placeholder="Lot size" defaultValue={params.lotSize || ""} />
           <input aria-label="Cap rate" name="capRate" placeholder="Cap rate" defaultValue={params.capRate || ""} />
           <input aria-label="Units" name="units" placeholder="Units" defaultValue={params.units || ""} />
-          <input aria-label="Latitude" name="centerLat" placeholder="Lat" defaultValue={params.centerLat || ""} />
-          <input aria-label="Longitude" name="centerLng" placeholder="Lng" defaultValue={params.centerLng || ""} />
-          <input aria-label="Radius miles" name="radiusMiles" placeholder="Miles" defaultValue={params.radiusMiles || ""} />
           <select aria-label="Minimum rating" name="minRating" defaultValue={params.minRating || ""}>
             <option value="">Any rating</option>
             <option value="4">4+ stars</option>

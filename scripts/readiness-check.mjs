@@ -15,6 +15,8 @@ const required = [
 const productionChecks = [
   ["CRON_SECRET", "Maintenance route bearer secret"],
   ["NEXT_PUBLIC_MAPBOX_TOKEN", "Mapbox autocomplete/geocoding and production map rendering"],
+  ["ATTOM_API_KEY", "ATTOM property facts enrichment"],
+  ["ATTOM_BASE_URL", "ATTOM API base URL"],
   ["RESEND_API_KEY", "Resend transactional invite email"],
   ["RESEND_FROM_EMAIL", "Verified Resend sender address/domain"],
 ];
@@ -44,6 +46,7 @@ for (const [name, description] of optional) {
 }
 
 checkUrl("NEXT_PUBLIC_SUPABASE_URL", failures);
+checkUrl("ATTOM_BASE_URL", productionMode ? failures : warnings);
 checkPostgresUrl("DATABASE_URL", failures);
 checkPostgresUrl("DIRECT_URL", failures);
 checkEmailPair(warnings, failures);

@@ -102,6 +102,13 @@ Build:
 - Interactive seller search map with pins tied to the same server-filtered result set.
 - Clear empty, loading, token-missing, and geocode-failed states.
 
+Implementation note:
+
+- First production pass uses local SFV ZIP suggestions plus explicit lookup buttons only. Do not call Mapbox on every keystroke.
+- Mapbox geocoding is capped to 3 results, constrained to the SFV bounding box, and only runs after a user action.
+- Seller-facing buyer map pins are generated from approximate ZIP/neighborhood coordinates, not exact saved buyer coordinates.
+- ATTOM enrichment is called only for active pilot ZIPs and only after the seller clicks property autofill; returned facts are review/edit inputs before save.
+
 Keep:
 
 - PostGIS remains the source of truth for radius search.

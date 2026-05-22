@@ -764,6 +764,12 @@ textarea {
   resize: vertical;
 }
 
+.lookup-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .filter-panel {
   margin: 0 auto;
   max-width: 1300px;
@@ -1264,6 +1270,7 @@ textarea {
   }
 
   .search-bar,
+  .lookup-row,
   .popular-grid,
   .summary-grid,
   .buyer-row {
