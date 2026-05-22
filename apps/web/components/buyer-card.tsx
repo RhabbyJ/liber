@@ -16,7 +16,7 @@ export function BuyerCard({
 
   if (variant === "home") {
     return (
-      <article className="buyer-card home">
+      <article className="buyer-card home" data-buyer-id={buyer.id}>
         <div className={`buyer-card-media ${buyer.id}`} />
         <div className="buyer-card-body">
           <h3 style={{ margin: 0 }}>{buyer.name}</h3>
@@ -31,7 +31,7 @@ export function BuyerCard({
   }
 
   return (
-    <article className="buyer-row">
+    <article className="buyer-row" data-buyer-id={buyer.id}>
       <span />
       <div className={`buyer-avatar ${buyer.id}`}>{buyer.name.slice(0, 1)}</div>
       <div>

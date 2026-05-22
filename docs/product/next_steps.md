@@ -104,9 +104,11 @@ Build:
 
 Implementation note:
 
+- Seller search uses Mapbox GL JS for an interactive map, but only on `/seller/search`.
 - First production pass uses local SFV ZIP suggestions plus explicit lookup buttons only. Do not call Mapbox on every keystroke.
 - Mapbox geocoding is capped to 3 results, constrained to the SFV bounding box, and only runs after a user action.
 - Seller-facing buyer map pins are generated from approximate ZIP/neighborhood coordinates, not exact saved buyer coordinates.
+- Interactive map markers come only from the server-filtered Liber buyer result set; ATTOM and MLS/listing pins are not rendered.
 - ATTOM enrichment is called only for active pilot ZIPs and only after the seller clicks property autofill; returned facts are review/edit inputs before save.
 
 Keep:

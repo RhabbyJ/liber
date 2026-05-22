@@ -32,6 +32,9 @@ export default async function SellerSearchPage({
 }) {
   const params = await searchParams;
   const badges = Array.isArray(params.badges) ? params.badges : params.badges ? [params.badges] : [];
+  const centerLat = numberParam(params.centerLat);
+  const centerLng = numberParam(params.centerLng);
+  const radiusMiles = numberParam(params.radiusMiles);
   const { data: results } = await searchBuyers({
     badges,
     bathrooms: params.bathrooms || undefined,
@@ -133,7 +136,7 @@ export default async function SellerSearchPage({
       </section>
 
       <section className="grid search-grid">
-        <BuyerMap buyers={results} />
+        <BuyerMap buyers={results} centerLat={centerLat} centerLng={centerLng} radiusMiles={radiusMiles} />
         <div className="buyer-list">
           <div className="buyer-list-head">
             <h2>{params.city ? `${params.city} buyers for your property` : "Active buyers for your property"}</h2>
@@ -145,4 +148,10 @@ export default async function SellerSearchPage({
       </section>
     </div>
   );
+}
+
+function numberParam(value?: string) {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }

@@ -861,6 +861,12 @@ textarea {
   padding: 22px 0;
 }
 
+.buyer-row.active {
+  background: #f6fbf2;
+  outline: 2px solid rgba(112, 195, 74, 0.28);
+  outline-offset: 8px;
+}
+
 .buyer-row:last-child {
   border-bottom: 0;
 }
@@ -917,6 +923,82 @@ textarea {
 .map-shell.mapbox {
   background-position: center;
   background-size: cover;
+}
+
+.map-shell.interactive {
+  min-height: 540px;
+  padding: 0;
+}
+
+.map-shell.interactive .map-toolbar {
+  margin: 18px;
+}
+
+.map-canvas {
+  inset: 0;
+  position: absolute;
+}
+
+.map-status,
+.map-empty {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  left: 50%;
+  padding: 12px 14px;
+  position: absolute;
+  text-align: center;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+.map-empty {
+  top: calc(50% + 52px);
+}
+
+.map-search-area {
+  left: 50%;
+  position: absolute;
+  top: 78px;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.buyer-map-marker {
+  background: var(--brand);
+  border: 4px solid #fff;
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  height: 26px;
+  padding: 0;
+  transition: transform 0.16s ease, background 0.16s ease;
+  width: 26px;
+}
+
+.buyer-map-marker.active,
+.buyer-map-marker:hover {
+  background: var(--gold);
+  transform: scale(1.25);
+}
+
+.buyer-map-popup {
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.buyer-map-popup span {
+  color: #62666d;
+  font-size: 13px;
+}
+
+.buyer-map-popup a {
+  color: var(--brand-dark);
+  font-weight: 800;
+  margin-top: 4px;
 }
 
 .map-shell.small {
