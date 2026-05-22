@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import {
   createSellerProperty,
   grantBadge,
@@ -33,6 +34,7 @@ function isSubmittedFile(value: FormDataEntryValue): value is File {
 export async function submitBuyerProfile(formData: FormData) {
   const { data: buyer } = await updateBuyerProfile(formData);
   const avatar = formData.get("avatar");
+  const shouldPublish = formData.get("visibilityStatus") === "ACTIVE";
 
   if (avatar && isSubmittedFile(avatar)) {
     await uploadBuyerAvatarFile(avatar);
@@ -40,6 +42,10 @@ export async function submitBuyerProfile(formData: FormData) {
 
   revalidatePath("/buyer/profile");
   revalidatePath(`/buyers/${buyer.id}`);
+
+  if (shouldPublish) {
+    redirect(`/buyers/${buyer.id}`);
+  }
 }
 
 export async function submitBuyerCriteria(formData: FormData) {

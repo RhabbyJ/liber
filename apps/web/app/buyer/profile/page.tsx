@@ -105,7 +105,11 @@ export default async function BuyerProfileBuilderPage() {
               <BadgePill badge={badge} key={badge.label} />
             ))}
           </div>
-          <Link className="button secondary" href={`/buyers/${buyer.id}`}>View public profile</Link>
+          {buyer.visibility === "active" && buyer.id !== "new-profile" ? (
+            <Link className="button secondary" href={`/buyers/${buyer.id}`}>View public profile</Link>
+          ) : (
+            <p className="muted">Submit the profile before sharing the public page.</p>
+          )}
         </aside>
       </section>
     </div>
