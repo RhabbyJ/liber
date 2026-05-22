@@ -78,23 +78,48 @@ Verify:
 
 ### 2. Map And Geocoding System
 
+Decision state:
+
+- Launch geography starts with a `San Fernando Valley Pilot`, not all Los Angeles.
+- Use ZIP codes as the launch boundary because ZIPs are easier for search, ads, property data APIs, analytics, and "live in your area" messaging.
+- Recommended initial ZIP set: `91423` Sherman Oaks, `91604` Studio City, `91436` Encino, `91316` Encino, `91356` Tarzana, `91364` Woodland Hills, `91367` Woodland Hills, and `91326` Porter Ranch.
+- Optional next ZIPs after the first pilot proves usage: `91344` Granada Hills and `91324` Northridge.
+- Buyer map pins must be approximate. Sellers must not see exact buyer addresses or exact saved-location coordinates.
+- Seller-visible buyer financials remain hidden. Sellers may see trust badges such as `PRE_APPROVED`, but not buyer financial documents, lender files, down-payment proof, or other private financial details.
+- Pre-approval copy must state that pre-approval is not loan approval and loan approval is subject to final lender underwriting and other conditions. Final disclaimer copy is pending from the CEO/legal.
+- No MLS integration in v1. The next implementation path is seller-entered/off-market property details plus property-record enrichment.
+- Automatic property data population is approved as a product direction because sellers often do not know square footage, lot size, and property facts accurately.
+- ATTOM is the preferred property data API candidate for the first pass because it can provide assessor/property facts such as square footage, lot size, beds/baths, year built, sales/tax data, geocodes, and parcel/property identifiers. Confirm contract terms before storing returned property facts.
+
 Build:
 
+- Mapbox-powered map display for seller search, with a local fallback when `NEXT_PUBLIC_MAPBOX_TOKEN` is absent.
 - Address/city autocomplete for buyer desired location and seller property address.
-- Geocoding/reverse-geocoding that writes normalized city/state/lat/lng.
+- Geocoding/reverse-geocoding that writes normalized city/state/lat/lng only when storage rights are clear. If using Mapbox for stored coordinates, use Permanent Geocoding.
+- Approximate buyer pin generation. Store/search precise-enough coordinates internally for matching, but render seller-facing buyer pins at ZIP/neighborhood/rounded-coordinate level.
+- Seller property address enrichment flow: seller enters address, property data API fills known property facts, seller can review/edit before saving.
+- Launch ZIP gating for the SFV pilot so search and onboarding can clearly show whether an area is supported.
 - Interactive seller search map with pins tied to the same server-filtered result set.
 - Clear empty, loading, token-missing, and geocode-failed states.
 
 Keep:
 
 - PostGIS remains the source of truth for radius search.
+- Map/list results must come from the same server-filtered buyer set.
 - No demographic, identity, free-text bio, or Fair Housing-risk filters.
+- No MLS data ingestion or active listing inventory in v1.
+- Sellers never see buyer financial documents or raw financial details.
+- Property data enrichment assists seller-entered properties; it does not convert Liber into a traditional listing marketplace.
 
 Verify:
 
+- SFV pilot ZIP gating works for supported and unsupported ZIPs.
 - Searching by city and radius returns the expected buyer set.
 - Map pins and list cards match.
+- Buyer pins are visibly approximate and cannot reveal exact buyer locations.
+- Seller property autofill returns useful data for a known pilot-market address and degrades cleanly when the data provider has no match.
 - App works with and without `NEXT_PUBLIC_MAPBOX_TOKEN`.
+- API terms are documented before any third-party property data is persisted.
 
 ### 3. Transactional Email System
 
@@ -174,4 +199,3 @@ Verify:
 - Expired badges and stale invites are marked expired.
 - Private document previews use signed URLs only.
 - Production readiness command passes before launch.
-
