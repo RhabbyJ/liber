@@ -62,6 +62,13 @@ describe("seller buyer search", () => {
     expect(results.map((buyer) => buyer.id)).toContain("julie-p");
     expect(results.map((buyer) => buyer.id)).not.toContain("asha-k");
   });
+
+  it("excludes the current seller's own buyer profile", () => {
+    const results = searchBuyerDirectory({}, buyers, { excludeUserId: "user-marcus" });
+
+    expect(results.map((buyer) => buyer.id)).not.toContain("marcus-r");
+    expect(results.map((buyer) => buyer.id)).toContain("julie-p");
+  });
 });
 
 describe("route and invite authorization", () => {

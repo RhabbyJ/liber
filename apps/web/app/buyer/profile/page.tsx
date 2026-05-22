@@ -8,12 +8,11 @@ import { submitBuyerProfile } from "../../../server/form-actions";
 
 export default async function BuyerProfileBuilderPage() {
   const { data: buyer } = await getCurrentBuyerProfile();
-  const visibilityStatus = buyer.visibility === "active" ? "ACTIVE" : "DRAFT";
 
   return (
     <div className="page stack">
       <PageTitle eyebrow="Buyer" title="Profile builder">
-        Submit the profile when it is ready to appear in seller search.
+        Save a draft or submit the profile when it is ready to appear in seller search.
       </PageTitle>
 
       <section className="grid two">
@@ -28,13 +27,6 @@ export default async function BuyerProfileBuilderPage() {
             </span>
           </div>
           <div className="form-grid">
-            <div className="field">
-              <label htmlFor="visibilityStatus">Profile visibility</label>
-              <select id="visibilityStatus" name="visibilityStatus" defaultValue={visibilityStatus}>
-                <option value="DRAFT">Draft</option>
-                <option value="ACTIVE">Active</option>
-              </select>
-            </div>
             <div className="field">
               <label htmlFor="displayName">Display name</label>
               <input id="displayName" name="displayName" defaultValue={buyer.name} />
@@ -88,7 +80,8 @@ export default async function BuyerProfileBuilderPage() {
           <div className="actions">
             <Link className="button secondary" href="/buyer/criteria">Edit criteria</Link>
             <Link className="button secondary" href="/buyer/badges">Request admin pre-approval review</Link>
-            <button className="button" type="submit">Submit Profile</button>
+            <button className="button secondary" name="visibilityStatus" type="submit" value="DRAFT">Save Draft</button>
+            <button className="button" name="visibilityStatus" type="submit" value="ACTIVE">Submit Profile</button>
           </div>
         </form>
 

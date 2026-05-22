@@ -440,7 +440,7 @@ async function buyerProfileIdsWithinRadius(filters: SearchBuyersInput) {
   return rows.map((row) => row.id);
 }
 
-async function searchDbBuyerProfiles(filters: SearchBuyersInput) {
+async function searchDbBuyerProfiles(filters: SearchBuyersInput, excludeUserId?: string) {
   const radiusIds = await buyerProfileIdsWithinRadius(filters);
   if (radiusIds && radiusIds.length === 0) return [];
 
@@ -449,6 +449,7 @@ async function searchDbBuyerProfiles(filters: SearchBuyersInput) {
   };
   const and: Prisma.BuyerProfileWhereInput[] = [];
 
+  if (excludeUserId) where.userId = { not: excludeUserId };
   if (radiusIds) and.push({ id: { in: radiusIds } });
   if (filters.city) where.desiredCity = { equals: filters.city, mode: "insensitive" };
   if (filters.state) where.desiredState = filters.state.toUpperCase();
@@ -499,7 +500,7 @@ async function searchDbBuyerProfiles(filters: SearchBuyersInput) {
     take: 100,
   });
 
-  return searchBuyerDirectory(filters, profiles.map((profile: DbBuyerProfile) => buyerFromDb(profile)));
+  return searchBuyerDirectory(filters, profiles.map((profile: DbBuyerProfile) => buyerFromDb(profile)), { excludeUserId });
 }
 
 function propertyFitCriteriaWhere(filters: SearchBuyersInput) {
@@ -816,9 +817,9 @@ export async function respondToInvite(input: unknown) {
 }
 
 export async function searchBuyers(input: unknown) {
-  await requireCurrentUser("SELLER");
+  const seller = await requireCurrentUser("SELLER");
   const data = searchBuyersSchema.parse(input);
-  return { ok: true, data: await searchDbBuyerProfiles(data) };
+  return { ok: true, data: await searchDbBuyerProfiles(data, seller.id) };
 }
 
 export async function getBuyerProfileForSeller(buyerProfileId: string) {

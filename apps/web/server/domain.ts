@@ -21,9 +21,11 @@ export function hasActiveBadge(buyer: Buyer, badgeType: string) {
   return buyer.badges.some((badge) => badge.label === expected && isBadgeActive(badge));
 }
 
-export function searchBuyerDirectory(input: unknown, source: Buyer[] = buyers) {
+export function searchBuyerDirectory(input: unknown, source: Buyer[] = buyers, options: { excludeUserId?: string } = {}) {
   const filters = searchBuyersSchema.parse(input);
-  const results = activeBuyerProfiles(source).filter((buyer) => matchesBuyerFilters(buyer, filters));
+  const results = activeBuyerProfiles(source)
+    .filter((buyer) => !options.excludeUserId || buyer.userId !== options.excludeUserId)
+    .filter((buyer) => matchesBuyerFilters(buyer, filters));
 
   return results.sort((a, b) => compareBuyers(a, b, filters.sort));
 }
