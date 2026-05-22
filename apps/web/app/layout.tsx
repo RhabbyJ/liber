@@ -16,6 +16,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en">
       <body>
+        <a className="skip-link" href="#main-content">Skip to content</a>
         <div className="app-shell">
           <header className="topbar">
             <Link className="brand" href="/">
@@ -29,13 +30,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <div className="top-actions">
               {user ? (
                 <>
-                  <span className="notification-dot" aria-hidden="true" />
-                  <Link className="button" href="/onboarding/role">
+                  <Link className="notification-dot" href={notificationHrefForRoles(user.roles)} aria-label="Notifications" />
+                  <Link className="button" href={accountHrefForRoles(user.roles)}>
                     My Account
                   </Link>
-                  <a className="button secondary" href="/logout">
-                    Logout
-                  </a>
+                  <form action="/logout" method="post">
+                    <button className="button secondary" type="submit">Logout</button>
+                  </form>
                 </>
               ) : (
                 <>
@@ -49,9 +50,21 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               )}
             </div>
           </header>
-          <main>{children}</main>
+          <main id="main-content">{children}</main>
         </div>
       </body>
     </html>
   );
+}
+
+function accountHrefForRoles(roles: string[]) {
+  if (roles.includes("ADMIN")) return "/admin";
+  if (roles.includes("BUYER")) return "/buyer/profile";
+  if (roles.includes("SELLER")) return "/seller/search";
+  return "/onboarding/role";
+}
+
+function notificationHrefForRoles(roles: string[]) {
+  if (roles.includes("BUYER")) return "/buyer/notifications";
+  return accountHrefForRoles(roles);
 }

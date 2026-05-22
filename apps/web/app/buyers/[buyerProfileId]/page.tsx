@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BadgePill } from "../../../components/badge-pill";
+import { RatingStars } from "../../../components/rating-stars";
 import { formatRange } from "../../../lib/format";
 import { getPublicBuyerProfile } from "../../../server/contracts";
+import { getSessionUser } from "../../../server/session";
 
 export default async function PublicBuyerProfilePage({
   params,
@@ -11,8 +13,13 @@ export default async function PublicBuyerProfilePage({
 }) {
   const { buyerProfileId } = await params;
   const { data: buyer } = await getPublicBuyerProfile(buyerProfileId).catch(() => ({ data: null }));
+  const user = await getSessionUser();
 
   if (!buyer) notFound();
+
+  const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
+  const invitePath = `/seller/invite/${buyer.id}`;
+  const inviteHref = user ? invitePath : `/login?next=${encodeURIComponent(invitePath)}`;
 
   return (
     <div className="page">
@@ -41,11 +48,10 @@ export default async function PublicBuyerProfilePage({
             </div>
             <div>
               <p className="muted">Rankings</p>
-              <span className="rating">★★★★★ <strong>{buyer.rating}</strong></span>
-              <span className="muted"> ({buyer.reviewCount} reviews)</span>
+              <RatingStars rating={buyer.rating} reviewCount={buyer.reviewCount} />
             </div>
             <div className="pill-row">
-              {buyer.badges.map((badge) => (
+              {activeBadges.map((badge) => (
                 <BadgePill badge={badge} key={badge.label} />
               ))}
             </div>
@@ -57,7 +63,7 @@ export default async function PublicBuyerProfilePage({
               <strong>{formatRange(buyer.downPaymentMin, buyer.downPaymentMax)} down</strong>
               <strong>{formatRange(buyer.budgetMin, buyer.budgetMax)}</strong>
             </div>
-            <Link className="button self-start" href={`/seller/invite/${buyer.id}`}>Send Invite</Link>
+            <Link className="button self-start" href={inviteHref}>Send Invite</Link>
           </div>
 
           <div>

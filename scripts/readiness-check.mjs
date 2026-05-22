@@ -47,6 +47,7 @@ checkUrl("NEXT_PUBLIC_SUPABASE_URL", failures);
 checkPostgresUrl("DATABASE_URL", failures);
 checkPostgresUrl("DIRECT_URL", failures);
 checkEmailPair(warnings, failures);
+checkAutoConfirm(failures);
 
 console.log("");
 console.log("Production decisions still required outside env:");
@@ -149,5 +150,11 @@ function checkEmailPair(warningsCollection, failuresCollection) {
 
   if (hasKey !== hasFrom) {
     collection.push("RESEND_API_KEY and RESEND_FROM_EMAIL must be configured together for live invite email.");
+  }
+}
+
+function checkAutoConfirm(collection) {
+  if (productionMode && env.LIBER_AUTO_CONFIRM_SIGNUPS === "true") {
+    collection.push("LIBER_AUTO_CONFIRM_SIGNUPS must be unset or false in production.");
   }
 }

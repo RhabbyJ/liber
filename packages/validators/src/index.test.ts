@@ -6,6 +6,7 @@ import {
   reviewDocumentSchema,
   searchBuyersSchema,
   sendInviteSchema,
+  updateBuyerProfileSchema,
   upsertBuyerCriteriaSchema,
 } from "./index";
 
@@ -13,6 +14,26 @@ describe("Liber validators", () => {
   it("rejects reversed buyer budget ranges", () => {
     expect(() =>
       createBuyerProfileSchema.parse({
+        displayName: "Julie P.",
+        budgetMin: 960000,
+        budgetMax: 780000,
+      }),
+    ).toThrow("Budget minimum cannot exceed budget maximum.");
+  });
+
+  it("does not allow buyers to self-assign admin-controlled visibility states", () => {
+    expect(() =>
+      createBuyerProfileSchema.parse({
+        displayName: "Julie P.",
+        visibilityStatus: "HIDDEN",
+      }),
+    ).toThrow();
+  });
+
+  it("keeps omitted buyer update visibility unchanged", () => {
+    expect(updateBuyerProfileSchema.parse({ displayName: "Julie P." })).not.toHaveProperty("visibilityStatus");
+    expect(() =>
+      updateBuyerProfileSchema.parse({
         displayName: "Julie P.",
         budgetMin: 960000,
         budgetMax: 780000,

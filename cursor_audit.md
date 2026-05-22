@@ -191,3 +191,93 @@ If I were sequencing this, here's the order I'd take:
 #25 — set up the GitHub Actions pipeline so the next regression doesn't ship.
 Everything else can come behind that.
 If you want, I can implement any of these — I'd recommend tackling #1–#6 as a single PR since they're the smallest blast-radius "kill the demo + fix the deploy + stop showing 500s" set, and #7–#10 as a follow-up.
+
+New critical findings from the live database
+N1. Migration tracking is out of sync — your next deploy will likely fail
+Your repo has 5 migrations, but two different trackers disagree:
+
+public.\_prisma_migrations (Prisma's tracker) records 4 applied: 20260519000000_initial, …\_tighten_property_image_storage_policy, …\_add_missing_foreign_key_indexes, …\_add_profile_photos_bucket.
+Supabase's own migration tracker (supabase_migrations.schema_migrations) records 1: enforce_unique_buyer_badges (timestamp 20260520053549).
+That means 20260520000004_enforce_unique_buyer_badges was applied via the Supabase MCP/CLI (apply_migration), not via Prisma. Prisma doesn't know that migration is already applied. The next time prisma migrate deploy runs in CI/Vercel, Prisma will try to re-apply it, hit a "constraint already exists" error, and the deploy will fail. The schema itself is correct — the constraint is in place — but the bookkeeping is broken.
+
+Fix: insert a row into public.\_prisma_migrations matching 20260520000004_enforce_unique_buyer_badges (with the same checksum the file produces) so Prisma considers it applied. After that, only ever apply migrations through Prisma so the two trackers don't diverge again.
+
+N2. \_prisma_migrations and spatial_ref_sys are writable by anyone with the anon key
+Supabase's advisor flagged these as ERROR-level. I confirmed via SQL: anon and authenticated roles have full SELECT/INSERT/UPDATE/DELETE/TRUNCATE on both tables, RLS is off, and PostgREST is on by default. Your NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is the anon key — it's in the browser bundle, public to the world.
+
+So with that key alone an attacker can:
+
+DELETE FROM \_prisma_migrations to pretend nothing's been migrated, then trigger a re-deploy that destroys schema state.
+UPDATE \_prisma_migrations SET checksum = '…' to make Prisma think a migration succeeded that didn't.
+Read your applied migration names + timestamps (information disclosure: tells them exactly which schema patches you've shipped).
+TRUNCATE spatial_ref_sys and break every PostGIS query in the app.
+This is the most serious unaddressed finding and was hidden behind the "documented Supabase advisor item" line in Implementation.md. The doc says "decide the safest production path with the DB owner". The right path is:
+
+Either ENABLE ROW LEVEL SECURITY on both tables with NO policies (default deny) and REVOKE ALL ON public.\_prisma_migrations FROM anon, authenticated; and the same for spatial_ref_sys,
+Or move PostGIS out of public entirely (the advisor's recommended fix), which also fixes finding N5 below.
+N3. The full marketplace flow has never been exercised end-to-end in production
+auth.users: 1 row. public.User: 1 row. BuyerProfile: 0. BuyerCriteria: 0. BuyerBadge: 0. SellerProperty: 0. Invite: 0. Notification: 0. AdminAuditLog: 0. storage.objects: 0.
+
+So while signup → email confirm → login worked once for rjeg2065@gmail.com (you, presumably), the rest of the build has never actually written a row to the live DB. Buyer profile creation, criteria save, avatar upload, badge document upload, seller property creation, ownership document upload, invite send, and admin actions are all unverified against real Supabase. Several of the issues from my prior review (legacy storagePath upload paths, sendInvite raw-error UX, image upload size limits) might actually surface as crashes the moment a real user tries them.
+
+Fix: Add a checklist to your QA pass that exercises every action against the staging Supabase project before launch. The data is small enough that you can verify each one by inspecting the rows afterwards.
+
+New high-priority findings
+N4. Supabase Auth: leaked-password protection is off
+Advisor: auth_leaked_password_protection. Supabase can check submitted passwords against HaveIBeenPwned for free. Currently disabled. Fix: one toggle in the Supabase dashboard → Auth → Providers → Email → "Check passwords against HaveIBeenPwned". No code change.
+
+N5. PostGIS in public exposes st_estimatedextent to anon
+Advisor: anon_security_definer_function_executable. PostGIS installs three overloads of st_estimatedextent as SECURITY DEFINER C functions. Because PostGIS lives in public, those functions are reachable through PostgREST RPC by both anon and authenticated. Not a code-execution vulnerability today, but it's an unnecessary attack surface and is the symptom that proves PostGIS shouldn't be in public. Fix: the long-term fix is to move PostGIS to a dedicated extension schema (the extensions schema or a new one). Short-term mitigation is REVOKE EXECUTE ON FUNCTION public.st_estimatedextent(...) FROM anon, authenticated.
+
+N6. Storage policy gap: profile-photos has zero policies
+The bucket is public-read (which is fine for object URLs), but it has no INSERT/UPDATE/DELETE policies at all. Today this is OK because the app uploads via the service-role client, which bypasses RLS. But:
+
+If you ever switch to client-side avatar uploads, every authenticated user will be blocked.
+More importantly: verification-documents has no DELETE policy either, so if a user wants to remove a sensitive document, the only way to delete it is via service role.
+Fix: add owner-write policies on profile-photos ((storage.foldername(name))[1] = auth.uid()::text) and an owner-delete policy on verification-documents.
+
+N7. Auth DB connections set to absolute (10), not percentage
+Performance advisor flagged this. When you upsize the Supabase instance for production traffic, the Auth service won't scale up its DB connection allocation automatically. Logins/signups will bottleneck before anything else. Fix: Supabase dashboard → Settings → Database → Auth connection strategy → switch to percentage-based. Five-second fix.
+
+New medium-priority findings
+N8. pg_cron and pg_net are not installed
+You have the option in your dependencies, but neither is enabled. So the Supabase-internal scheduling path mentioned in Implementation.md §5 and backend implementation plan.md §10 is not actually available. Your only path for the badge/invite expiry cron is external (Vercel cron POSTing to /api/maintenance/expire). My prior #7 stands; this just confirms you can't fall back to pg_cron without first enabling the extension.
+
+N9. User.roles is nullable in the database
+The User.roles column is \_UserRole NULL DEFAULT '{}'. The Prisma client always writes a value, and the trigger always inserts an empty array, so today it's never NULL. But because the column allows NULL, a hand-written SQL update or a future Prisma migration regression could set it to NULL — and getSessionUser() would then silently return null (which the layouts read as "logged out"). Authorization-critical column should be NOT NULL with DEFAULT '{}'::"UserRole"[].
+
+N10. User_email_idx is redundant with User_email_key
+The unique constraint on email already creates an index. The duplicate User_email_idx exists from the FK-index migration and just wastes memory + write performance. Drop it.
+
+N11. All timestamps are timestamp without time zone
+This is the Prisma default and a known footgun. Stored as a wallclock value with no offset. As long as everything writes UTC, fine — but if any future code uses NOW() without AT TIME ZONE 'UTC' or a client writes a local-time string, you'll silently drift. Consider migrating to timestamptz before launch.
+
+N12. handle_update_user fires on every admin.updateUserById call
+Your chooseRole and signupWithPassword write app_metadata.roles to Supabase (mirroring my prior #36). Every one of those writes triggers handle_update_user, which runs an UPDATE on public.User setting email/name/avatarUrl back to themselves. It's a wasted round-trip per role change. Combined with #36 (the JWT mirror is unused for authorization), the cleanest fix is to stop writing app_metadata.roles at all.
+
+N13. 3 stale rows in auth.flow_state
+Three abandoned PKCE/email flows from your debugging sessions. Supabase's GoTrue does eventually clean these, but it's worth knowing they accumulate. Not a security issue.
+
+What the live inspection confirmed is actually correct
+Worth noting because it shows the parts of the spec that landed properly:
+
+All 5 migrations from the repo are reflected in the actual schema (tables, indexes, triggers, policies).
+All 3 storage buckets exist with correct config: profile-photos (public, 5 MB, image/png|jpeg|webp), property-images (public, 10 MB, image/png|jpeg|webp), verification-documents (private, 20 MB, pdf+images). Bucket-level file size and MIME enforcement is in place — that partially mitigates my prior #21 (the app still won't show a friendly error, but Supabase will at least reject oversize uploads).
+All 7 storage policies on storage.objects reference auth.uid() and User.roles correctly. The path-segment ownership checks for property-images and verification-documents are written correctly.
+All 3 SECURITY DEFINER app functions live in app_private with locked search_path = ''. The handle_new_user trigger never reads roles from raw_user_meta_data (verified by reading the function body). The handle_update_user trigger never touches roles. Admin role cannot be self-assigned via signup metadata.
+The enforce_invite_rules trigger source matches the spec: 5/25 per 24h, ownership check, suspended seller block, flagged-property block, active-buyer requirement.
+All 11 app tables have RLS enabled. Default-deny is in effect through PostgREST despite the broad GRANT to anon/authenticated (RLS without policies = deny).
+The single auth user successfully traveled the full signup → confirm → role-mirror path: auth.users.raw_app_meta_data.roles = ['BUYER'] matches public."User".roles = {BUYER}. The auth-sync trigger and the app's persistUserRoles are working in concert.
+All required Prisma columns from Implementation.md §7 are present in the live schema.
+PostGIS partial GiST indexes for BuyerProfile and SellerProperty exist and exclude null lat/lng.
+Updated priority order
+If you're folding these into the plan I gave last turn:
+
+N1 first — fix migration drift before your next deploy. This is mechanical and 5 minutes.
+N2 — close the anon-writable \_prisma_migrations / spatial_ref_sys hole. Either enable RLS+revoke privileges, or move PostGIS out of public.
+#5 from prior list (prisma generate in build) + N1 together — your deploy pipeline isn't actually safe yet.
+N4 + N7 — two dashboard toggles, big risk-reduction-per-second.
+N3 — manually exercise the full v1 loop against staging before any real-user launch.
+N5, N6, N9 — schema/policy hardening before launch.
+The previously listed 51 issues continue from there.
+I'd still be happy to implement any of these — N1 and N2 are particularly worth doing soon since the deploy time-bomb and the anon-write hole both exist in production right now.

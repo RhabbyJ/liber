@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import type { AppRole } from "../server/authz";
 
 type NavItem = {
@@ -57,31 +58,61 @@ export function PrimaryNav({
   roles: AppRole[];
 }) {
   const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false);
   const navItems = navItemsForRoles(isAuthenticated, roles);
 
   return (
-    <nav className="nav" aria-label="Primary">
-      {navItems.map((item) => {
-        const active = item.isActive(pathname);
+    <div className="nav-shell">
+      <button
+        aria-expanded={isOpen}
+        aria-label="Open navigation menu"
+        className="mobile-menu-button"
+        onClick={() => setIsOpen((value) => !value)}
+        type="button"
+      >
+        <span aria-hidden="true" />
+      </button>
+      <nav className={`nav ${isOpen ? "open" : ""}`} aria-label="Primary">
+        {navItems.map((item) => {
+          const active = item.isActive(pathname);
 
-        return (
-          <Link
-            aria-current={active ? "page" : undefined}
-            className={active ? "active" : undefined}
-            href={item.href}
-            key={item.href}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
-    </nav>
+          return (
+            <Link
+              aria-current={active ? "page" : undefined}
+              className={active ? "active" : undefined}
+              href={item.href}
+              key={item.href}
+              onClick={() => setIsOpen(false)}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+        <div className="mobile-nav-actions">
+          {isAuthenticated ? (
+            <>
+              <Link className="button" href={accountHrefForRoles(roles)} onClick={() => setIsOpen(false)}>
+                My Account
+              </Link>
+              <form action="/logout" method="post">
+                <button className="button secondary" type="submit">Logout</button>
+              </form>
+            </>
+          ) : (
+            <>
+              <Link className="button" href="/login" onClick={() => setIsOpen(false)}>Log in</Link>
+              <Link className="button secondary" href="/signup" onClick={() => setIsOpen(false)}>Sign up</Link>
+            </>
+          )}
+        </div>
+      </nav>
+    </div>
   );
 }
 
 function navItemsForRoles(isAuthenticated: boolean, roles: AppRole[]) {
-  const hasBuyer = roles.includes("BUYER") || roles.includes("ADMIN");
-  const hasSeller = roles.includes("SELLER") || roles.includes("ADMIN");
+  const hasBuyer = roles.includes("BUYER");
+  const hasSeller = roles.includes("SELLER");
 
   return baseNavItems.map((item) => {
     if (!isAuthenticated) return item;
@@ -102,4 +133,11 @@ function navItemsForRoles(isAuthenticated: boolean, roles: AppRole[]) {
 
     return item;
   });
+}
+
+function accountHrefForRoles(roles: AppRole[]) {
+  if (roles.includes("ADMIN")) return "/admin";
+  if (roles.includes("BUYER")) return "/buyer/profile";
+  if (roles.includes("SELLER")) return "/seller/search";
+  return "/onboarding/role";
 }

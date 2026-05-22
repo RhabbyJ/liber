@@ -4,7 +4,7 @@ import { listAdminBuyerProfiles } from "../../../server/contracts";
 import { submitBadgeGrant, submitBadgeRevoke } from "../../../server/form-actions";
 
 const badgeOptions = [
-  ["PRE_APPROVED", "Pre-approved"],
+  ["PRE_APPROVED", "Admin-verified pre-approval"],
   ["VERIFIED_FUNDS", "Verified funds"],
   ["EARNEST_MONEY_DEPOSITED", "Earnest money review"],
   ["CASH_BUYER", "Cash buyer"],

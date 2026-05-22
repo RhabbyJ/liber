@@ -1,6 +1,8 @@
 import { PageTitle } from "../../../components/page-title";
 import { safeInternalPath } from "../../../lib/redirect";
 import { chooseRole } from "../../../server/auth-actions";
+import { getSessionUser } from "../../../server/session";
+import { redirect } from "next/navigation";
 
 export default async function RoleOnboardingPage({
   searchParams,
@@ -9,7 +11,10 @@ export default async function RoleOnboardingPage({
 }) {
   const { next = "" } = await searchParams;
   const safeNext = safeInternalPath(next, "");
+  const user = await getSessionUser();
   const context = roleContext(safeNext);
+
+  if (!user) redirect(`/login?next=${encodeURIComponent("/onboarding/role")}`);
 
   return (
     <div className="page">

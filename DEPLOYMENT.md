@@ -9,7 +9,6 @@ Configure these as platform secrets, not client-side values:
 - `DATABASE_URL`
 - `DIRECT_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `AUTH_TRIGGER_SECRET`
 - `CRON_SECRET`
 - `RESEND_API_KEY`
 - `RESEND_FROM_EMAIL`

@@ -24,12 +24,12 @@ Do not build escrow first. The MVP must prove seller demand for a searchable buy
 Current backend status:
 
 - Supabase project `qfjcrhkjlczvzakxives` is connected and has the initial Prisma schema deployed.
-- Applied migrations: `20260519000000_initial`, `20260520000001_tighten_property_image_storage_policy`, `20260520000002_add_missing_foreign_key_indexes`, `20260520000003_add_profile_photos_bucket`, and `20260520000004_enforce_unique_buyer_badges`.
+- Applied migrations: `20260519000000_initial`, `20260520000001_tighten_property_image_storage_policy`, `20260520000002_add_missing_foreign_key_indexes`, `20260520000003_add_profile_photos_bucket`, `20260520000004_enforce_unique_buyer_badges`, and `20260521000005_audit_hardening`.
 - RLS is enabled on app tables, private `app_private` trigger functions are installed, storage buckets exist, and PostGIS radius search is available.
 - Core buyer/seller/admin actions now use Prisma for real Supabase users only; there is no local auth bypass or fixture-store fallback.
 - Buyer/seller role selection writes server-controlled roles to `User.roles`; role-less Supabase users are sent to onboarding, and admin cannot be self-assigned.
 - Buyer profile editing now uploads profile photos to the public `profile-photos` bucket and stores the public URL in `User.avatarUrl`.
-- Buyer profile editing exposes Draft/Active/Hidden visibility, desired location text/coordinates, budget, and down payment so buyers control seller-search availability and public profile trust details.
+- Buyer profile editing exposes Draft/Active visibility, desired location text/coordinates, budget, and down payment. Admin-controlled Hidden/Suspended profiles cannot be restored by buyer form submission.
 - Buyer criteria now derives Home/Land/Commercial category from the selected subtype so commercial search filters remain coherent.
 - Buyer criteria editing exposes the common searchable criteria fields used by the backend: price, beds/baths, square feet, lot size, cap rate, units, year built, zoning, condition, and features.
 - Buyer badge evidence upload now stores pre-approval, verified-funds, identity, or other documents in the private `verification-documents` bucket for admin review.
@@ -40,14 +40,18 @@ Current backend status:
 - Internal admin document review can render private verification document previews through short-lived signed URLs.
 - Admin document review updates document/property status, writes audit logs, and notifies the submitting user.
 - Admin user management displays persisted user status for suspension review.
-- Invite creation now writes an in-app notification and calls a server-only email adapter. Resend sends only when `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured; otherwise the adapter returns a mock result.
-- New invites receive a 30-day `expiresAt`, and `POST /api/maintenance/expire` can be called with `CRON_SECRET` to mark expired badges and stale sent/viewed invites as expired.
+- Invite creation now checks app-level ownership/rate-limit/dedup rules, writes in-app notifications, and calls a server-only email adapter. Resend sends only when `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured; otherwise the adapter returns a mock result.
+- New invites receive a 30-day `expiresAt`; Vercel cron is configured for `/api/maintenance/expire`, and the route accepts signed GET/POST calls with timing-safe `CRON_SECRET` validation to expire badges and stale sent/viewed invites.
+- Buyer invite responses are limited to sent/viewed invites so accepted, declined, expired, or withdrawn invites cannot be re-responded to.
 - Admin badge grant/revoke actions now write buyer notifications and audit logs.
 - Buyer badges are unique per buyer profile and badge type.
 - Badge display treats past `expiresAt` values as expired even before a scheduled cleanup job runs.
 - Seller search now applies structured DB-side filters for city/state, budget ceiling, property category/subtype, property-fit facts such as bedrooms, bathrooms, square feet, lot size, cap rate, and units, active badges, rating, review count, and optional PostGIS radius search when latitude/longitude/radius are supplied.
 - Seller search UI exposes Home/Land/Commercial category plus all supported buyer property subtypes.
 - Seller search map rendering uses Mapbox Static Images when `NEXT_PUBLIC_MAPBOX_TOKEN` is configured and falls back to the local styled map shell when it is not.
+- Owner uploads now use user-scoped Supabase storage clients with app-level byte limits and magic-byte content checks; profile-photo owner policies and verification-document owner delete policy are included in the hardening migration.
+- The hardening migration revokes browser-role access to `_prisma_migrations` and `spatial_ref_sys`, enables RLS on those public tables, revokes public `st_estimatedextent` execution, preserves audit logs when admin users are deleted, adds invite de-duplication, and adds database check/index hardening for core v1 queries.
+- Vercel builds run `npm run db:generate` before `npm run build`, and Prisma CLI uses `DIRECT_URL` when present.
 - `npm run smoke:routes` starts a temporary dev server on an available local port, verifies public auth pages, and confirms unauthenticated buyer, seller, and admin routes redirect to login.
 - `npm run smoke:no-auth-bypass` scans active source and docs for forbidden auth-bypass strings.
 - `npm run smoke:visual` starts a temporary dev server on an available local port, captures public desktop/mobile screenshots under `.artifacts/visual-smoke`, and verifies PNG dimensions.
@@ -57,7 +61,7 @@ Current backend status:
 Local caveat:
 
 - Supabase Storage SDK smoke testing from Node currently fails in this shell with `UNABLE_TO_VERIFY_LEAF_SIGNATURE`; PowerShell can reach the Supabase project URL. Do not disable TLS in app code. Fix local Node CA trust with `NODE_EXTRA_CA_CERTS` if this appears during local browser QA.
-- Supabase still reports RLS-disabled public extension/migration tables (`spatial_ref_sys`, `_prisma_migrations`). Do not auto-apply remediation; decide the safest production path with the DB owner.
+- Live Supabase migration bookkeeping may still need an operations fix if `20260520000004_enforce_unique_buyer_badges` was applied outside Prisma. Verify `_prisma_migrations` before the next production deploy.
 
 ## 2. Users and Responsibilities
 
@@ -180,7 +184,7 @@ Must support:
 - Personal details
 - Photo upload
 - Profile visibility
-- Get Pre-approved action placeholder
+- Request admin pre-approval review action placeholder
 - Property category tabs
 - Criteria forms by category/subtype
 - Location picker/map

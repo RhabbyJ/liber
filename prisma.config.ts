@@ -1,8 +1,10 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is required.");
+const databaseUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error("DIRECT_URL or DATABASE_URL is required.");
 }
 
 export default defineConfig({
@@ -11,6 +13,6 @@ export default defineConfig({
     path: "packages/db/prisma/migrations",
   },
   datasource: {
-    url: process.env.DATABASE_URL,
+    url: databaseUrl,
   },
 });

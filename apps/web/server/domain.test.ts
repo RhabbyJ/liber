@@ -72,6 +72,9 @@ describe("route and invite authorization", () => {
     expect(() => assertRouteAllowed("/admin", { id: "seller-fixture", roles: ["SELLER"] })).toThrow(
       "Missing required role",
     );
+    expect(() => assertRouteAllowed("/seller/search", { id: "admin-fixture", roles: ["ADMIN"] })).toThrow(
+      "Missing required role",
+    );
   });
 
   it("requires authentication for protected buyer, seller, and admin routes", () => {

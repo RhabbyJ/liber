@@ -2,22 +2,17 @@ import Link from "next/link";
 import { formatRange } from "../lib/format";
 import type { Buyer } from "../lib/mock-data";
 import { BadgePill } from "./badge-pill";
+import { RatingStars } from "./rating-stars";
 
 export function BuyerCard({
   buyer,
-  selectable = false,
   variant = "row",
 }: {
   buyer: Buyer;
-  selectable?: boolean;
   variant?: "home" | "row";
 }) {
-  const rating = (
-    <span className="rating" aria-label={`${buyer.rating} star rating`}>
-      {"★★★★★"}
-      <strong>{buyer.rating}</strong>
-    </span>
-  );
+  const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
+  const rating = <RatingStars rating={buyer.rating} />;
 
   if (variant === "home") {
     return (
@@ -37,7 +32,7 @@ export function BuyerCard({
 
   return (
     <article className="buyer-row">
-      {selectable ? <input aria-label={`Select ${buyer.name}`} type="checkbox" /> : <span />}
+      <span />
       <div className={`buyer-avatar ${buyer.id}`}>{buyer.name.slice(0, 1)}</div>
       <div>
         <h3 style={{ margin: "0 0 6px" }}>{buyer.name}</h3>
@@ -45,12 +40,12 @@ export function BuyerCard({
       </div>
       <div>
         <div className="pill-row">
-          {buyer.badges.slice(0, 1).map((badge) => (
+          {activeBadges.slice(0, 1).map((badge) => (
             <BadgePill badge={badge} key={badge.label} />
           ))}
         </div>
         <p className="muted" style={{ margin: "8px 0 0" }}>
-          {rating} ({buyer.reviewCount} reviews)
+          <RatingStars rating={buyer.rating} reviewCount={buyer.reviewCount} />
         </p>
       </div>
       <div className="actions inline">

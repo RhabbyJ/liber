@@ -3,8 +3,6 @@ import { PageTitle } from "../../../components/page-title";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
 import { submitBuyerCriteria } from "../../../server/form-actions";
 
-const categories = ["Home", "Land", "Multifamily", "Retail", "STNL", "Industrial", "Office", "Other"];
-
 export default async function BuyerCriteriaPage() {
   const { data: buyer } = await getCurrentBuyerProfile();
 
@@ -15,16 +13,8 @@ export default async function BuyerCriteriaPage() {
       </PageTitle>
 
       <section className="card stack">
-        <div className="tab-row">
-          {categories.map((category) => (
-            <button className={category === "Home" ? "tab active" : "tab"} key={category} type="button">
-              {category}
-            </button>
-          ))}
-        </div>
         <form action={submitBuyerCriteria} className="form-grid">
           <input name="buyerProfileId" type="hidden" value={buyer.id} />
-          <input name="propertyCategory" type="hidden" value="HOME" />
           <div className="field">
             <label htmlFor="subtype">Property subtype</label>
             <select id="subtype" name="propertySubtype" defaultValue="HOME">
@@ -40,7 +30,7 @@ export default async function BuyerCriteriaPage() {
           </div>
           <div className="field">
             <label htmlFor="condition">Condition</label>
-            <input id="condition" name="condition" defaultValue="Move-in ready" />
+            <input id="condition" name="condition" placeholder="Move-in ready" />
           </div>
           <div className="field">
             <label htmlFor="priceMin">Price min</label>
@@ -52,15 +42,15 @@ export default async function BuyerCriteriaPage() {
           </div>
           <div className="field">
             <label htmlFor="beds">Bedrooms min</label>
-            <input id="beds" name="bedroomsMin" defaultValue="4" />
+            <input id="beds" name="bedroomsMin" placeholder="4" />
           </div>
           <div className="field">
             <label htmlFor="baths">Bathrooms min</label>
-            <input id="baths" name="bathroomsMin" defaultValue="2" />
+            <input id="baths" name="bathroomsMin" placeholder="2" />
           </div>
           <div className="field">
             <label htmlFor="sqft">Square feet min</label>
-            <input id="sqft" name="squareFeetMin" defaultValue="1800" />
+            <input id="sqft" name="squareFeetMin" placeholder="1800" />
           </div>
           <div className="field">
             <label htmlFor="sqftMax">Square feet max</label>
@@ -68,7 +58,7 @@ export default async function BuyerCriteriaPage() {
           </div>
           <div className="field">
             <label htmlFor="lot">Lot size min</label>
-            <input id="lot" name="lotSizeMin" defaultValue="5000" />
+            <input id="lot" name="lotSizeMin" placeholder="5000" />
           </div>
           <div className="field">
             <label htmlFor="lotMax">Lot size max</label>

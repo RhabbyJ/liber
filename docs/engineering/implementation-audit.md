@@ -24,19 +24,19 @@ Concrete deliverables:
 | Phase 1 scaffold | Next app under `apps/web`, packages under `packages/db`, `packages/validators`, `packages/ui`, Tailwind/global CSS, Prisma schema, Supabase helpers, Zod validators. | Done |
 | Phase 2 auth and roles | `/login`, `/signup`, `/onboarding/role`, `apps/web/proxy.ts`, server role checks, role-less users routed to onboarding, admin not self-assigned. | Done |
 | Phase 3 buyer profile | `/buyer/profile`, `/buyer/criteria`, `/buyer/badges`, `/buyers/[buyerProfileId]`; avatar upload, visibility, location, budget/down payment, criteria, badge display. | Done |
-| Phase 4 seller search | `/seller/search`, buyer cards, checkbox selection, filters, sort, map/list shell, buyer profile links, PostGIS radius query path, property-fit filter tests. | Done |
+| Phase 4 seller search | `/seller/search`, buyer cards, active filters, sort, map/list shell, buyer profile links, PostGIS radius query path, property-fit filter tests. Bulk/select controls are intentionally omitted until a real workflow exists. | Done |
 | Phase 5 property and invite | `/seller/properties`, `/seller/properties/new`, `/seller/properties/[propertyId]/edit`, `/seller/invite/[buyerProfileId]`, `/seller/invites`; property image upload, ownership docs, invite notifications/email adapter. | Done |
 | Phase 6 internal admin verification | `/admin/users`, `/admin/buyer-profiles`, `/admin/badges`, `/admin/documents`, `/admin/invites`, `/admin/reports`, `/admin/audit-log`; document review, badge grant/revoke, suspension, hide profile, audit logs. | Done |
 | Phase 7 monetization design only | `docs/product/monetization-design.md`; excludes escrow and money custody. | Done |
 | Compliance boundaries | `Implementation.md`, `backend implementation plan.md`, and `AGENTS.md` prohibit escrow, money custody, automated transaction execution, Fair Housing-risk filters, credential handling, and customer-facing admin analytics dashboard. | Done |
-| Verification gates | `npm run db:validate`, `npm run readiness:env`, `npm run typecheck`, `npm test`, `npm run lint`, `npm run build`, `npm run smoke:routes`, `npm run smoke:no-auth-bypass`, and `npm run smoke:visual` pass. Route smoke starts a temporary dev server on an available local port and verifies protected buyer/seller/admin pages redirect unauthenticated users to login. Visual smoke captures public desktop/mobile PNGs into `.artifacts/visual-smoke`. | Done |
+| Verification gates | Current local evidence should be refreshed before launch. `npm run db:validate`, `npm run readiness:env`, `npm run typecheck`, and `npm test` pass after the audit-hardening fixes. `npm run lint` is currently a no-op because no workspace defines lint. Build and smoke checks should be rerun after any frontend/server-action changes. | Needs refresh |
 
 ## Production Launch Blockers Outside This Goal
 
 - Seller search has optional Mapbox Static Images rendering when `NEXT_PUBLIC_MAPBOX_TOKEN` is configured. Mapbox autocomplete/geocoding remains unwired because no product/token decision is present.
 - Resend has not been live-smoke-tested because no verified production sender/domain should be assumed.
-- `npm run readiness:production` intentionally fails until `CRON_SECRET`, Mapbox, and Resend production configuration are present.
-- Supabase advisor items for `spatial_ref_sys`, `_prisma_migrations`, and PostGIS schema placement need an explicit DB-owner decision before production remediation.
+- `npm run readiness:production` intentionally fails until `CRON_SECRET`, Mapbox, and Resend production configuration are present, and it now also fails if `LIBER_AUTO_CONFIRM_SIGNUPS=true`.
+- The audit-hardening migration addresses browser-role access to `spatial_ref_sys`, `_prisma_migrations`, and public `st_estimatedextent`; PostGIS schema relocation and live migration-bookkeeping drift still need explicit DB-owner review before production.
 - Screenshot-level visual QA exists through `npm run smoke:visual`. Playwright is still not installed as a first-class dependency; add it later only if interaction-level browser tests are needed.
 - CEO/product decisions remain open for launch market, exact invite limits, acceptable ownership documents, verification wording, production admin assignment, email provider, Mapbox/geocoding, and Supabase advisor remediation. These are tracked in `docs/product/production-decisions.md`.
 

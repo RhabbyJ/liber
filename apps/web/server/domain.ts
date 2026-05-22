@@ -120,7 +120,7 @@ export function assertRouteAllowed(pathname: string, user: SessionUser | null) {
   const requiredRole = requiredRoleForPath(pathname);
   if (!requiredRole) return;
   if (!user) throw new Error("Authentication required.");
-  if (!hasRole(user, requiredRole) && !hasRole(user, "ADMIN")) {
+  if (!hasRole(user, requiredRole)) {
     throw new Error(`Missing required role: ${requiredRole}`);
   }
 }

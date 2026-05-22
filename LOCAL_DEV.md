@@ -12,7 +12,6 @@ Set the Supabase and database values in `.env` and ensure the web app can read t
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `DATABASE_URL`
 - `DIRECT_URL`
-- `AUTH_TRIGGER_SECRET`
 
 Optional local-only helper:
 

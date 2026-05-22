@@ -18,6 +18,8 @@ export default async function InviteBuyerPage({
 
   if (!property) notFound();
 
+  const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
+
   return (
     <div className="page stack">
       <PageTitle eyebrow="Seller" title={`Invite ${buyer.name}`}>
@@ -96,7 +98,7 @@ export default async function InviteBuyerPage({
             </div>
           </div>
           <label className="checkbox-row">
-            <input type="checkbox" name="termsAccepted" value="true" defaultChecked />
+            <input type="checkbox" name="termsAccepted" value="true" />
             <span>I confirm this is a manual invite and does not create an offer, escrow, or funds custody.</span>
           </label>
           <div className="actions">
@@ -123,7 +125,7 @@ export default async function InviteBuyerPage({
               </span>
               <p>{property.description}</p>
               <div className="pill-row">
-                {buyer.badges.map((badge) => <BadgePill badge={badge} key={badge.label} />)}
+                {activeBadges.map((badge) => <BadgePill badge={badge} key={badge.label} />)}
               </div>
             </div>
           </div>

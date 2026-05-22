@@ -11,12 +11,14 @@ export default async function AdminAuditLogPage() {
       </PageTitle>
       <section className="card flat">
         <table className="table">
+          <caption>Admin action history</caption>
           <thead>
             <tr>
-              <th>Actor</th>
-              <th>Action</th>
-              <th>Target</th>
-              <th>Time</th>
+              <th scope="col">Actor</th>
+              <th scope="col">Action</th>
+              <th scope="col">Target</th>
+              <th scope="col">Metadata</th>
+              <th scope="col">Time</th>
             </tr>
           </thead>
           <tbody>
@@ -25,6 +27,7 @@ export default async function AdminAuditLogPage() {
                 <td>{log.actor}</td>
                 <td>{log.action}</td>
                 <td>{log.target}</td>
+                <td>{log.metadata ? JSON.stringify(log.metadata) : "None"}</td>
                 <td>{log.createdAt}</td>
               </tr>
             ))}

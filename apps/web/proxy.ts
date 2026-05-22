@@ -44,5 +44,5 @@ async function sessionUserFromRequest(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/buyer/:path*", "/seller/:path*", "/admin/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|webp|svg|ico)$).*)"],
 };

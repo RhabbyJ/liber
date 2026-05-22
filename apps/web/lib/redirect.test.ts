@@ -16,6 +16,9 @@ describe("safeInternalPath", () => {
     expect(safeInternalPath(encodedBackslash)).toBe("/");
     expect(safeInternalPath("/\\evil.com")).toBe("/");
     expect(safeInternalPath("/https://evil.com")).toBe("/");
+    expect(safeInternalPath("/../admin")).toBe("/");
+    expect(safeInternalPath("/buyer/../admin")).toBe("/");
+    expect(safeInternalPath("/login?next=/../admin")).toBe("/");
   });
 
   it("supports a custom fallback", () => {

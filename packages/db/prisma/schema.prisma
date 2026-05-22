@@ -354,8 +354,8 @@ model Review {
 
 model AdminAuditLog {
   id          String @id @default(cuid())
-  actorUserId String @db.Uuid
-  actor       User @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  actorUserId String? @db.Uuid
+  actor       User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
   action      String
   targetType  String
   targetId    String

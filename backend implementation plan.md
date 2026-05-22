@@ -2,7 +2,7 @@
 
 This document is the backend build contract for Liber. It turns `Implementation.md` into backend architecture decisions and includes the required CTO corrections before any backend migrations, Supabase policies, or server actions are implemented.
 
-Status: core v1 backend foundation is substantially implemented. The Supabase project has the initial Prisma migration, the storage-policy tightening migration, the missing-foreign-key-index migration, the profile-photo bucket migration, and the unique-buyer-badges migration applied. Core buyer/seller/admin server actions are Prisma-backed for real Supabase users only. Production launch still depends on the external/product decisions tracked in `docs/product/production-decisions.md`.
+Status: core v1 backend foundation is substantially implemented. The Supabase project has the initial Prisma migration, the storage-policy tightening migration, the missing-foreign-key-index migration, the profile-photo bucket migration, the unique-buyer-badges migration, and the audit-hardening migration in repo. Core buyer/seller/admin server actions are Prisma-backed for real Supabase users only. Production launch still depends on the external/product decisions tracked in `docs/product/production-decisions.md`.
 
 Current remote state:
 
@@ -13,15 +13,16 @@ Current remote state:
   - `20260520000002_add_missing_foreign_key_indexes`
   - `20260520000003_add_profile_photos_bucket`
   - `20260520000004_enforce_unique_buyer_badges`
+  - `20260521000005_audit_hardening`
 - App tables have RLS enabled.
 - Auth-sync and invite-limit triggers are installed in the private `app_private` schema.
 - `profile-photos`, `property-images`, and `verification-documents` buckets exist.
 - The broad public `storage.objects` SELECT policy for `property-images` was removed so public image URLs can work without enabling bucket listing.
 - PostGIS functional spatial indexes exist for buyer and seller coordinates.
 - Remote smoke checks passed for unverified seller invite rate limiting and PostGIS radius search.
-- Role selection writes buyer/seller roles to server-controlled `User.roles`, mirrors them into Supabase app metadata when the service-role key is available, and does not grant default buyer/seller access to role-less Supabase users.
+- Role selection writes buyer/seller roles to server-controlled `User.roles` and does not grant default buyer/seller access to role-less Supabase users. Runtime authorization reads `User.roles`; roles are not mirrored into Supabase app metadata.
 - Core actions for buyer profile, buyer criteria, seller property, seller search, invites, notifications, and internal admin operations read/write Prisma for UUID-backed Supabase users.
-- Buyer profile editing uploads real profile photo files to `profile-photos`, writes the public URL to `User.avatarUrl`, and lets the buyer set Draft/Active/Hidden visibility, desired location text/coordinates, budget, and down payment.
+- Buyer profile editing uploads real profile photo files to `profile-photos`, writes the public URL to `User.avatarUrl`, and lets the buyer set Draft/Active visibility, desired location text/coordinates, budget, and down payment. Admin-controlled Hidden/Suspended profiles cannot be restored by buyer form submission.
 - Buyer criteria derives `propertyCategory` from `propertySubtype` before persistence so `HOME`, `LAND`, and `COMMERCIAL` filters stay aligned.
 - Buyer criteria editing exposes the normalized searchable fields that the backend persists and seller search can use: price, beds/baths, square feet, lot size, cap rate, units, year built, zoning, condition, and features.
 - Buyer badge evidence upload stores pre-approval, verified-funds, identity, or other review documents in the private `verification-documents` bucket and creates pending `VerificationDocument` rows.
@@ -31,18 +32,21 @@ Current remote state:
 - Invite submission can refresh the selected property's invite-facing details and upload additional property images before sending the seller-to-buyer invite.
 - Admin document review lists private documents with 10-minute signed preview URLs generated server-side, updates document/property status, writes audit logs, and notifies the submitting user.
 - Admin user management displays persisted user status for suspension review.
-- Invite sending creates an in-app notification and calls the server-only email adapter. Resend is used only when `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured; otherwise the adapter reports a mock/non-queued result.
-- New invites receive a 30-day `expiresAt`, and `POST /api/maintenance/expire` can be called with `CRON_SECRET` to mark expired badges and stale sent/viewed invites as expired.
+- Invite sending checks app-level ownership/rate-limit/dedup rules, creates in-app notifications, and calls the server-only email adapter. Resend is used only when `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured; otherwise the adapter reports a mock/non-queued result.
+- New invites receive a 30-day `expiresAt`; Vercel cron is configured for `/api/maintenance/expire`, and the route accepts timing-safe signed GET/POST calls with `CRON_SECRET` to mark expired badges and stale sent/viewed invites as expired.
+- Buyer invite responses are limited to sent/viewed invites so accepted, declined, expired, or withdrawn invites cannot be changed.
 - Admin badge grant/revoke actions create buyer notifications and audited admin log entries. The admin badge UI can grant a first badge to a buyer profile, not only update badges that already exist.
 - Buyer badges are constrained to one row per buyer profile and badge type.
 - Badge display treats past `expiresAt` values as expired even before a scheduled cleanup job runs.
 - Seller search uses database-side filters for active buyer profiles, city/state, budget ceiling, buyer criteria category/subtype, property-fit facts such as bedrooms, bathrooms, square feet, lot size, cap rate, and units, active non-expired badges, minimum rating, minimum review count, and optional PostGIS radius search. Seller search can render a Mapbox Static Images map when `NEXT_PUBLIC_MAPBOX_TOKEN` is configured; autocomplete/geocoding UI remains a follow-up.
 - Seller search UI exposes Home/Land/Commercial category plus all supported buyer property subtypes.
+- Owner uploads use user-scoped Supabase storage clients with app-level byte limits and magic-byte content checks; profile-photo owner policies and verification-document owner delete policy are included in the hardening migration.
+- Vercel builds run `npm run db:generate` before `npm run build`, and Prisma CLI uses `DIRECT_URL` when present.
 
 Known Supabase advisor items:
 
-- `public.spatial_ref_sys` and `public._prisma_migrations` still show as RLS-disabled public tables. Supabase advisor says to surface this and not auto-apply remediation because enabling RLS without policies can block access.
-- Supabase's table linter suggested `ALTER TABLE public.spatial_ref_sys ENABLE ROW LEVEL SECURITY;` and `ALTER TABLE public._prisma_migrations ENABLE ROW LEVEL SECURITY;`, but this has not been applied automatically. Decide the safest remediation with the DB owner before production.
+- The hardening migration enables RLS and revokes browser-role access on `public.spatial_ref_sys` and `public._prisma_migrations`, and revokes browser-role execution on public `st_estimatedextent` overloads. Verify the migration in staging before applying to production.
+- Live Prisma migration bookkeeping may still need an operations fix if `20260520000004_enforce_unique_buyer_badges` was applied outside Prisma. Verify `_prisma_migrations` before the next production deploy.
 - PostGIS is installed in `public`; move to a non-exposed extension schema later only after verifying the safest Supabase/PostGIS migration path.
 - App tables intentionally have RLS enabled with no client policies yet because v1 data access is server-side through Prisma. Add explicit owner/admin policies before exposing these tables through Supabase Data API clients.
 - Fresh-database `unused_index` performance notices are expected until real traffic exercises the schema. Do not remove marketplace/search indexes just because a new database has not used them yet.
@@ -301,7 +305,7 @@ Read:
 
 Write:
 
-- In the current server-mediated v1 path, buyers upload through a server action after `BUYER` role validation. The server writes the object and updates `User.avatarUrl`.
+- Buyers upload through a server action after `BUYER` role validation. The server uses the user's Supabase session, storage RLS enforces the first path segment, and the action updates `User.avatarUrl`.
 
 Required path format:
 
@@ -351,6 +355,7 @@ Read:
 Write:
 
 - Owner can upload own documents.
+- Owner can delete own uploaded storage objects when a future document-removal action is added.
 
 Required path format:
 
@@ -555,7 +560,10 @@ Blocked cases:
 Create a `Notification` row when:
 
 - Invite is sent to buyer.
+- Invite is sent by seller.
+- Invite expires.
 - Badge is approved/rejected/revoked.
+- Badge expires.
 - Ownership document is approved/rejected.
 - Pre-approval is near expiration.
 

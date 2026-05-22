@@ -7,8 +7,7 @@ import { submitBuyerProfile } from "../../../server/form-actions";
 
 export default async function BuyerProfileBuilderPage() {
   const { data: buyer } = await getCurrentBuyerProfile();
-  const visibilityStatus =
-    buyer.visibility === "active" ? "ACTIVE" : buyer.visibility === "hidden" ? "HIDDEN" : "DRAFT";
+  const visibilityStatus = buyer.visibility === "active" ? "ACTIVE" : "DRAFT";
 
   return (
     <div className="page stack">
@@ -33,7 +32,6 @@ export default async function BuyerProfileBuilderPage() {
               <select id="visibilityStatus" name="visibilityStatus" defaultValue={visibilityStatus}>
                 <option value="DRAFT">Draft</option>
                 <option value="ACTIVE">Active</option>
-                <option value="HIDDEN">Hidden</option>
               </select>
             </div>
             <div className="field">
@@ -95,7 +93,7 @@ export default async function BuyerProfileBuilderPage() {
           </div>
           <div className="actions">
             <Link className="button secondary" href="/buyer/criteria">Edit criteria</Link>
-            <Link className="button secondary" href="/buyer/badges">Get Pre-approved</Link>
+            <Link className="button secondary" href="/buyer/badges">Request admin pre-approval review</Link>
             <button className="button" type="submit">Submit Profile</button>
           </div>
         </form>

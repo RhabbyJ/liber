@@ -18,7 +18,7 @@ Liber uses **Supabase Auth** (`auth.users`) for core login and session managemen
  (onboarding/role choice)
           v
 1. Updates roles in public."User"
-2. Updates app_metadata.roles in Supabase Auth
+2. Runtime authorization reads public."User".roles
 ```
 
 ### Trigger-Based Sync (`auth.users` -> `public."User"`)
@@ -30,7 +30,7 @@ To guarantee database consistency, we use native PostgreSQL triggers instead of 
 ### Onboarding Role Persistence
 When a user selects their role (Buyer, Seller, or Both), a Next.js Server Action calls `persistUserRoles()`:
 1. It updates the `roles` array (`UserRole[]`) in the Postgres database.
-2. It uses the Supabase Admin API (`auth.admin.updateUserById`) to update the user's `app_metadata.roles`. This embeds the roles directly inside the Supabase JWT, allowing Next.js middlewares and client components to perform instant Role-Based Access Control (RBAC) checks without database querying.
+2. It does not mirror roles into Supabase `app_metadata`. Authorization intentionally reloads server-controlled roles from `public."User"` so JWT role claims cannot drift from the database.
 
 ---
 
@@ -305,21 +305,15 @@ The following items are critical gaps in the system that must be resolved before
   * If the Next.js app accesses the database solely through Prisma (bypassing RLS), RLS is non-operational.
   * If client-side queries using Supabase Client are planned, policies must be written immediately to permit authenticated reading/writing of profiles and properties.
 
-### 2. Admin Role Erasure Vulnerability
-* **Problem**: In `persistUserRoles()` (within `auth-actions.ts`), the SQL query performs an `upsert` that directly updates `roles: args.roles`.
-* **Impact**: If a manually promoted `ADMIN` edits their profile or completes onboarding, their `ADMIN` status is completely wiped out and replaced with a basic buyer or seller role.
-* **Remediation**: Guard the updates to the `roles` column. If a user already possesses the `ADMIN` role, preserve it during onboarding/profile update actions.
+### 2. Admin Role Assignment
+* **Status**: Admin cannot be self-assigned through signup or onboarding. Runtime authorization reads server-controlled `User.roles`.
+* **Remaining requirement**: Production admin assignment must be a controlled operational process.
 
-### 3. Non-Compliant Audit Logs
-* **Problem**: The `AdminAuditLog` table uses `onDelete: Cascade` referencing the `User` table.
-* **Impact**: If a malicious or rogue administrator deletes their account, all records of their past actions in the database audit log are deleted alongside them.
-* **Remediation**: Modify the foreign key constraint to `onDelete: SetNull` or use a raw `String`/`Uuid` column for `actorUserId` so that audit logs remain immutable.
+### 3. Audit Log Retention
+* **Status**: The audit-hardening migration changes `AdminAuditLog.actorUserId` to nullable with `onDelete: SetNull`, preserving audit rows if an admin user is deleted.
 
-### 4. Weak Document and Location Constraints
-* **Problem**: A `VerificationDocument` can theoretically be created with both `buyerProfileId` and `propertyId` set to `null` (leaving it orphaned), or set to both values simultaneously. There are also no limits on coordinate ranges in the database.
-* **Remediation**: 
-  * Add a check constraint to the document table enforcing that a document is linked to exactly one of a profile or property.
-  * Add check constraints to `lat` and `lng` columns to ensure coordinate bounds remain mathematically valid (`-90` to `90` for latitude, `-180` to `180` for longitude).
+### 4. Document and Location Constraints
+* **Status**: The audit-hardening migration adds check constraints for document subject ownership, coordinate bounds, review rating bounds, and min/max range ordering.
 
 ### 5. Email Verification & Custom SMTP Configuration
 * **Problem**: The default Supabase SMTP server is restricted to 2 emails/hour, causing `429: Email rate limit exceeded` errors.

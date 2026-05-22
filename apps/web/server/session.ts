@@ -1,10 +1,11 @@
 import { prisma } from "@liber/db";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { cache } from "react";
 import { hasRole, type AppRole, type SessionUser } from "./authz";
 import { createSupabaseServerClient } from "./supabase";
 
-export async function getSessionUser(): Promise<SessionUser | null> {
+export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   await connection();
 
   const supabase = await createSupabaseServerClient();
@@ -22,13 +23,13 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
   if (!dbUser || dbUser.status === "SUSPENDED") return null;
   return { id: userId, roles: dbUser.roles };
-}
+});
 
 export async function requireSessionRole(role: AppRole, next = "") {
   const user = await getSessionUser();
   const nextParam = next ? `?next=${encodeURIComponent(next)}` : "";
 
   if (!user) redirect(`/login${nextParam}`);
-  if (!hasRole(user, role) && !hasRole(user, "ADMIN")) redirect(`/onboarding/role${nextParam}`);
+  if (!hasRole(user, role)) redirect(`/onboarding/role${nextParam}`);
   return user;
 }

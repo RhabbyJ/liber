@@ -41,7 +41,7 @@ export type BuyerCriteriaDetail = {
 export type Buyer = {
   id: string;
   avatarUrl?: string;
-  userId: string;
+  userId?: string;
   name: string;
   location: string;
   city: string;
@@ -94,7 +94,7 @@ export const buyers: Buyer[] = [
     lat: 34.2381,
     lng: -118.5301,
     badges: [
-      { id: "badge-julie-pre-approved", type: "PRE_APPROVED", label: "Pre-approved", status: "active", expiresInDays: 71 },
+      { id: "badge-julie-pre-approved", type: "PRE_APPROVED", label: "Admin-verified pre-approval", status: "active", expiresInDays: 71 },
       { id: "badge-julie-earnest", type: "EARNEST_MONEY_DEPOSITED", label: "Earnest money review", status: "pending" },
       { id: "badge-julie-completed", type: "COMPLETED_TRANSACTION", label: "Completed transaction", status: "active" },
     ],
@@ -156,7 +156,7 @@ export const buyers: Buyer[] = [
     lat: 34.0522,
     lng: -118.2437,
     badges: [
-      { id: "badge-asha-pre-approved", type: "PRE_APPROVED", label: "Pre-approved", status: "active", expiresInDays: 42 },
+      { id: "badge-asha-pre-approved", type: "PRE_APPROVED", label: "Admin-verified pre-approval", status: "active", expiresInDays: 42 },
       { id: "badge-asha-funds", type: "VERIFIED_FUNDS", label: "Verified funds", status: "active" },
     ],
   },
@@ -185,7 +185,7 @@ export const buyers: Buyer[] = [
     refreshedAt: "2026-05-15",
     lat: 34.1478,
     lng: -118.1445,
-    badges: [{ id: "badge-draft-pre-approved", type: "PRE_APPROVED", label: "Pre-approved", status: "expired", expiresInDays: -1 }],
+    badges: [{ id: "badge-draft-pre-approved", type: "PRE_APPROVED", label: "Admin-verified pre-approval", status: "expired", expiresInDays: -1 }],
   },
 ];
 

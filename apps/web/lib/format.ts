@@ -16,7 +16,7 @@ export function formatRange(min?: number | null, max?: number | null) {
 
 export function formatBadgeType(value: string) {
   const labels: Record<string, string> = {
-    PRE_APPROVED: "Pre-approved",
+    PRE_APPROVED: "Admin-verified pre-approval",
     EARNEST_MONEY_DEPOSITED: "Earnest money review",
     CASH_BUYER: "Cash buyer",
     NON_CONTINGENT: "Non-contingent",

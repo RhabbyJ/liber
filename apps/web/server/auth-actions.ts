@@ -2,7 +2,6 @@
 
 import { prisma } from "@liber/db";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { safeInternalPath } from "../lib/redirect";
 import type { AppRole } from "./authz";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
@@ -59,13 +58,6 @@ async function persistUserRoles(args: {
       roles: args.roles,
     },
   });
-
-  const admin = createSupabaseAdminClient();
-  if (admin) {
-    await admin.auth.admin.updateUserById(args.userId, {
-      app_metadata: { roles: args.roles },
-    });
-  }
 }
 
 export async function loginWithPassword(formData: FormData) {
@@ -127,7 +119,9 @@ export async function signupWithPassword(formData: FormData) {
 
   if (error) throw new Error(error.message);
 
-  if (data.user) {
+  const hasRealSignupIdentity = Boolean(data.session || data.user?.identities?.length);
+
+  if (data.user && hasRealSignupIdentity) {
     await persistUserRoles({
       email: data.user.email ?? email,
       name,
@@ -157,6 +151,10 @@ export async function signupWithPassword(formData: FormData) {
     if (!autoConfirmLocal && !data.session) {
       redirect(`/signup/verify?email=${encodeURIComponent(email)}&next=${encodeURIComponent(next ?? nextForRoles(roles))}`);
     }
+  }
+
+  if (!hasRealSignupIdentity) {
+    redirect(`/signup/verify?next=${encodeURIComponent(next ?? nextForRoles(roles))}`);
   }
 
   redirect(next ?? nextForRoles(roles));
@@ -191,9 +189,7 @@ function isEmailNotConfirmedError(message: string) {
 }
 
 async function authCallbackUrl(next: string) {
-  const headerStore = await headers();
   const origin =
-    headerStore.get("origin") ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.SITE_URL ||
     "http://localhost:3000";

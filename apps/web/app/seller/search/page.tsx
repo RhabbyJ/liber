@@ -109,13 +109,13 @@ export default async function SellerSearchPage({
           </select>
           <select aria-label="Badge" name="badges" defaultValue={badges[0] || ""}>
             <option value="">Any badge</option>
-            <option value="PRE_APPROVED">Pre-approved</option>
+            <option value="PRE_APPROVED">Admin-verified pre-approval</option>
             <option value="CASH_BUYER">Cash buyer</option>
             <option value="NON_CONTINGENT">Non-contingent</option>
             <option value="VERIFIED_FUNDS">Verified funds</option>
             <option value="COMPLETED_TRANSACTION">Completed transaction</option>
           </select>
-          <button className="button secondary" type="submit">All Filters</button>
+          <button className="button secondary" type="submit">Apply filters</button>
           <Link className="button" href="/seller/properties/new">Add My Property Details</Link>
         </form>
       </section>
@@ -124,14 +124,10 @@ export default async function SellerSearchPage({
         <BuyerMap buyers={results} />
         <div className="buyer-list">
           <div className="buyer-list-head">
-            <h2>{params.city || "Northridge"} Buyers for your property</h2>
-            <label className="checkbox-row">
-              <input type="checkbox" />
-              <span>Select all</span>
-            </label>
+            <h2>{params.city ? `${params.city} buyers for your property` : "Active buyers for your property"}</h2>
           </div>
           {results.map((buyer) => (
-            <BuyerCard buyer={buyer} key={buyer.id} selectable />
+            <BuyerCard buyer={buyer} key={buyer.id} />
           ))}
         </div>
       </section>

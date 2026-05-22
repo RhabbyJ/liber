@@ -1,10 +1,6 @@
 import Link from "next/link";
-import { BuyerCard } from "../components/buyer-card";
-import { buyers } from "../lib/mock-data";
 
 export default function HomePage() {
-  const featuredBuyers = buyers.filter((buyer) => buyer.visibility === "active").slice(0, 3);
-
   return (
     <div className="home-page">
       <section className="home-hero">
@@ -52,21 +48,6 @@ export default function HomePage() {
           <div className="actions">
             <Link className="button" href="/seller/search">Learn More</Link>
           </div>
-        </div>
-      </section>
-
-      <section className="content-band stack">
-        <div className="section-head">
-          <div>
-            <p className="section-kicker">Popular</p>
-            <h2>Our Popular Buyers</h2>
-          </div>
-          <Link className="button secondary" href="/seller/search">Open seller search</Link>
-        </div>
-        <div className="popular-grid">
-          {featuredBuyers.map((buyer) => (
-            <BuyerCard buyer={buyer} key={buyer.id} variant="home" />
-          ))}
         </div>
       </section>
 

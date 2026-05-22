@@ -42,6 +42,21 @@ textarea {
   min-height: 100vh;
 }
 
+.skip-link {
+  background: var(--ink);
+  color: #fff;
+  left: 16px;
+  padding: 10px 14px;
+  position: fixed;
+  top: 12px;
+  transform: translateY(-140%);
+  z-index: 100;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 .topbar {
   align-items: center;
   background: rgba(251, 253, 248, 0.96);
@@ -92,6 +107,13 @@ textarea {
   text-transform: uppercase;
 }
 
+.nav-shell {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
 .nav {
   align-items: center;
   display: flex;
@@ -118,6 +140,55 @@ textarea {
   display: flex;
   gap: 14px;
   justify-content: flex-end;
+}
+
+.top-actions form,
+.mobile-nav-actions form {
+  display: contents;
+}
+
+.mobile-menu-button,
+.mobile-nav-actions {
+  display: none;
+}
+
+.mobile-menu-button {
+  align-items: center;
+  background: var(--brand);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.mobile-menu-button span,
+.mobile-menu-button span::before,
+.mobile-menu-button span::after {
+  background: #fff;
+  content: "";
+  display: block;
+  height: 2px;
+  width: 16px;
+}
+
+.mobile-menu-button span {
+  position: relative;
+}
+
+.mobile-menu-button span::before,
+.mobile-menu-button span::after {
+  left: 0;
+  position: absolute;
+}
+
+.mobile-menu-button span::before {
+  top: -6px;
+}
+
+.mobile-menu-button span::after {
+  top: 6px;
 }
 
 .notification-dot {
@@ -1102,29 +1173,48 @@ textarea {
     grid-template-columns: 1fr auto;
   }
 
-  .nav,
   .top-actions {
     display: none;
   }
 
-  .topbar::after {
-    align-items: center;
-    background: var(--brand);
-    border-radius: 999px;
-    color: #fff;
-    content: "menu";
-    display: inline-flex;
-    font-size: 0;
-    height: 42px;
-    justify-content: center;
-    width: 42px;
+  .nav-shell {
+    justify-content: flex-end;
   }
 
-  .topbar::after {
-    background-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
-    background-position: center 14px, center 20px, center 26px;
-    background-repeat: no-repeat;
-    background-size: 16px 2px;
+  .mobile-menu-button {
+    display: inline-flex;
+  }
+
+  .nav {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    display: none;
+    gap: 0;
+    min-width: min(82vw, 320px);
+    padding: 8px;
+    position: absolute;
+    right: 0;
+    top: 52px;
+    z-index: 20;
+  }
+
+  .nav.open {
+    display: grid;
+  }
+
+  .nav a {
+    border-bottom: 0;
+    padding: 12px 14px;
+  }
+
+  .mobile-nav-actions {
+    border-top: 1px solid var(--line);
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 12px 6px 6px;
   }
 
   .home-hero {

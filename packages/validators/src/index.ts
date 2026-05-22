@@ -9,6 +9,8 @@ export const buyerVisibilityStatusSchema = z.enum([
   "SUSPENDED",
 ]);
 
+export const buyerSelfVisibilityStatusSchema = z.enum(["DRAFT", "ACTIVE"]);
+
 export const propertyCategorySchema = z.enum(["HOME", "LAND", "COMMERCIAL"]);
 
 export const propertySubtypeSchema = z.enum([
@@ -44,15 +46,7 @@ export const inviteStatusSchema = z.enum([
 const optionalMoney = z.coerce.number().min(0).optional();
 const optionalInteger = z.coerce.number().int().min(0).optional();
 
-function minDoesNotExceedMax<T extends Record<string, unknown>>(input: T, minKey: keyof T, maxKey: keyof T) {
-  return (
-    input[minKey] === undefined ||
-    input[maxKey] === undefined ||
-    Number(input[minKey]) <= Number(input[maxKey])
-  );
-}
-
-export const createBuyerProfileSchema = z.object({
+const buyerProfileShape = {
   displayName: z.string().trim().min(1).max(120),
   buyerType: z.string().trim().max(80).optional(),
   bio: z.string().trim().max(1200).optional(),
@@ -66,7 +60,43 @@ export const createBuyerProfileSchema = z.object({
   budgetMax: optionalMoney,
   downPaymentMin: optionalMoney,
   downPaymentMax: optionalMoney,
-  visibilityStatus: buyerVisibilityStatusSchema.default("DRAFT"),
+  visibilityStatus: buyerSelfVisibilityStatusSchema.optional(),
+};
+
+function minDoesNotExceedMax<T extends Record<string, unknown>>(input: T, minKey: keyof T, maxKey: keyof T) {
+  return (
+    input[minKey] === undefined ||
+    input[maxKey] === undefined ||
+    Number(input[minKey]) <= Number(input[maxKey])
+  );
+}
+
+export const createBuyerProfileSchema = z.object({
+  ...buyerProfileShape,
+  visibilityStatus: buyerSelfVisibilityStatusSchema.default("DRAFT"),
+}).refine(
+  (input) =>
+    input.budgetMin === undefined ||
+    input.budgetMax === undefined ||
+    input.budgetMin <= input.budgetMax,
+  {
+    message: "Budget minimum cannot exceed budget maximum.",
+    path: ["budgetMin"],
+  },
+).refine(
+  (input) =>
+    input.downPaymentMin === undefined ||
+    input.downPaymentMax === undefined ||
+    input.downPaymentMin <= input.downPaymentMax,
+  {
+    message: "Down payment minimum cannot exceed down payment maximum.",
+    path: ["downPaymentMin"],
+  },
+);
+
+export const updateBuyerProfileSchema = z.object({
+  ...buyerProfileShape,
+  displayName: buyerProfileShape.displayName.optional(),
 }).refine(
   (input) =>
     input.budgetMin === undefined ||
@@ -90,7 +120,7 @@ export const createBuyerProfileSchema = z.object({
 export const upsertBuyerCriteriaSchema = z.object({
   id: z.string().optional(),
   buyerProfileId: z.string().min(1),
-  propertyCategory: propertyCategorySchema,
+  propertyCategory: propertyCategorySchema.default("HOME"),
   propertySubtype: propertySubtypeSchema,
   priceMin: optionalMoney,
   priceMax: optionalMoney,
@@ -172,14 +202,6 @@ export const updateSellerPropertySchema = createSellerPropertySchema.partial().e
   propertyId: z.string().min(1),
 });
 
-export const uploadFileSchema = z.object({
-  ownerId: z.string().min(1).optional(),
-  propertyId: z.string().min(1).optional(),
-  buyerProfileId: z.string().min(1).optional(),
-  storagePath: z.string().trim().min(1).max(500),
-  altText: z.string().trim().max(160).optional(),
-});
-
 export const sendInviteSchema = z.object({
   buyerProfileId: z.string().min(1),
   propertyId: z.string().min(1),
@@ -242,7 +264,7 @@ export const revokeBadgeSchema = z.object({
 });
 
 export const profileVisibilitySchema = z.object({
-  visibilityStatus: buyerVisibilityStatusSchema,
+  visibilityStatus: buyerSelfVisibilityStatusSchema,
 });
 
 export const userModerationSchema = z.object({
@@ -261,6 +283,7 @@ export const respondToInviteSchema = z.object({
 });
 
 export type CreateBuyerProfileInput = z.infer<typeof createBuyerProfileSchema>;
+export type UpdateBuyerProfileInput = z.infer<typeof updateBuyerProfileSchema>;
 export type UpsertBuyerCriteriaInput = z.infer<typeof upsertBuyerCriteriaSchema>;
 export type CreateSellerPropertyInput = z.infer<typeof createSellerPropertySchema>;
 export type UpdateSellerPropertyInput = z.infer<typeof updateSellerPropertySchema>;
