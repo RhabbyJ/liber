@@ -63,6 +63,18 @@ describe("seller buyer search", () => {
     expect(results.map((buyer) => buyer.id)).not.toContain("asha-k");
   });
 
+  it("uses radius instead of exact city when both are supplied", () => {
+    const results = searchBuyerDirectory({
+      centerLat: 34.1486,
+      centerLng: -118.4484,
+      city: "Sherman Oaks",
+      radiusMiles: 8,
+    });
+
+    expect(results.map((buyer) => buyer.id)).toContain("marcus-r");
+    expect(results.map((buyer) => buyer.id)).toContain("julie-p");
+  });
+
   it("excludes the current seller's own buyer profile", () => {
     const results = searchBuyerDirectory({}, buyers, { excludeUserId: "user-marcus" });
 

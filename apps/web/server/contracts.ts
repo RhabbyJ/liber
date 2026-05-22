@@ -448,11 +448,12 @@ async function searchDbBuyerProfiles(filters: SearchBuyersInput, excludeUserId?:
     visibilityStatus: "ACTIVE",
   };
   const and: Prisma.BuyerProfileWhereInput[] = [];
+  const hasRadiusFilter = radiusIds !== null;
 
   if (excludeUserId) where.userId = { not: excludeUserId };
   if (radiusIds) and.push({ id: { in: radiusIds } });
-  if (filters.city) where.desiredCity = { equals: filters.city, mode: "insensitive" };
-  if (filters.state) where.desiredState = filters.state.toUpperCase();
+  if (!hasRadiusFilter && filters.city) where.desiredCity = { equals: filters.city, mode: "insensitive" };
+  if (!hasRadiusFilter && filters.state) where.desiredState = filters.state.toUpperCase();
   if (filters.budgetMax !== undefined) {
     and.push({
       OR: [

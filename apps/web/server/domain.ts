@@ -31,13 +31,18 @@ export function searchBuyerDirectory(input: unknown, source: Buyer[] = buyers, o
 }
 
 function matchesBuyerFilters(buyer: Buyer, filters: SearchBuyersInput) {
-  if (filters.city && buyer.city.toLowerCase() !== filters.city.toLowerCase()) return false;
-  if (filters.state && buyer.state !== filters.state.toUpperCase()) return false;
+  const centerLat = filters.centerLat;
+  const centerLng = filters.centerLng;
+  const radiusMiles = filters.radiusMiles;
+  const hasRadiusFilter =
+    centerLat !== undefined &&
+    centerLng !== undefined &&
+    radiusMiles !== undefined;
+  if (!hasRadiusFilter && filters.city && buyer.city.toLowerCase() !== filters.city.toLowerCase()) return false;
+  if (!hasRadiusFilter && filters.state && buyer.state !== filters.state.toUpperCase()) return false;
   if (
-    filters.centerLat !== undefined &&
-    filters.centerLng !== undefined &&
-    filters.radiusMiles !== undefined &&
-    distanceMiles(filters.centerLat, filters.centerLng, buyer.lat, buyer.lng) > filters.radiusMiles
+    hasRadiusFilter &&
+    distanceMiles(centerLat, centerLng, buyer.lat, buyer.lng) > radiusMiles
   ) {
     return false;
   }
