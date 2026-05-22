@@ -1,0 +1,28 @@
+{
+  "name": "liber",
+  "private": true,
+  "packageManager": "npm@10.9.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @liber/web",
+    "build": "npm run build -w @liber/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "smoke:routes": "node scripts/route-smoke.mjs",
+    "smoke:no-auth-bypass": "node scripts/forbidden-auth-bypass-smoke.mjs",
+    "smoke:visual": "node scripts/visual-smoke.mjs",
+    "readiness:env": "node scripts/readiness-check.mjs",
+    "readiness:production": "node scripts/readiness-check.mjs --production",
+    "db:generate": "prisma generate --schema packages/db/prisma/schema.prisma",
+    "db:validate": "prisma validate --schema packages/db/prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "prisma": "7.8.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.6"
+  }
+}

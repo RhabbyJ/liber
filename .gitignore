@@ -1,0 +1,19 @@
+node_modules/
+.next/
+dist/
+coverage/
+.env
+.env.local
+.env.*.local
+.certs/
+*.tsbuildinfo
+prisma/dev.db
+packages/db/src/generated/
+apps/web/.data/
+.artifacts/
+
+.vercel
+*.log
+*.zip
+Figma Images/
+verceldeploy.txt

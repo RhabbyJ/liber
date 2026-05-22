@@ -1,0 +1,368 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum BuyerVisibilityStatus {
+  DRAFT
+  ACTIVE
+  HIDDEN
+  SUSPENDED
+}
+
+enum PropertyCategory {
+  HOME
+  LAND
+  COMMERCIAL
+}
+
+enum PropertySubtype {
+  HOME
+  MULTIFAMILY
+  RETAIL
+  STNL
+  INDUSTRIAL
+  LAND
+  OFFICE
+  OTHER
+}
+
+enum BadgeType {
+  PRE_APPROVED
+  EARNEST_MONEY_DEPOSITED
+  CASH_BUYER
+  NON_CONTINGENT
+  VERIFIED_IDENTITY
+  VERIFIED_FUNDS
+  COMPLETED_TRANSACTION
+}
+
+enum BadgeStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  REJECTED
+  REVOKED
+}
+
+enum PropertyVerificationStatus {
+  NOT_SUBMITTED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DocumentType {
+  OWNERSHIP
+  PRE_APPROVAL
+  VERIFIED_FUNDS
+  IDENTITY
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum InviteStatus {
+  SENT
+  VIEWED
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  WITHDRAWN
+}
+
+enum ReviewStatus {
+  PENDING
+  VISIBLE
+  HIDDEN
+}
+
+model User {
+  id        String     @id @db.Uuid
+  email     String     @unique
+  phone     String?
+  name      String?
+  avatarUrl String?
+  roles     UserRole[] @default([])
+  status    UserStatus @default(ACTIVE)
+  suspendedAt DateTime?
+
+  buyerProfile BuyerProfile?
+  sellerProperties SellerProperty[] @relation("SellerProperties")
+  sellerInvites Invite[] @relation("SellerInvites")
+  notifications Notification[]
+  documents VerificationDocument[] @relation("UserDocuments")
+  badgesVerified BuyerBadge[] @relation("BadgeVerifier")
+  documentsReviewed VerificationDocument[] @relation("DocumentReviewer")
+  reviewsWritten Review[] @relation("ReviewsWritten")
+  reviewsReceived Review[] @relation("ReviewsReceived")
+  auditLogs AdminAuditLog[] @relation("AuditActor")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
+
+model BuyerProfile {
+  id      String @id @default(cuid())
+  userId  String @unique @db.Uuid
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  displayName         String
+  buyerType           String?
+  bio                 String?
+  buyingPurpose       String?
+  desiredLocationText String?
+  desiredCity         String?
+  desiredState        String?
+  desiredLat          Decimal? @db.Decimal(10, 7)
+  desiredLng          Decimal? @db.Decimal(10, 7)
+  budgetMin           Decimal? @db.Decimal(12, 2)
+  budgetMax           Decimal? @db.Decimal(12, 2)
+  downPaymentMin      Decimal? @db.Decimal(12, 2)
+  downPaymentMax      Decimal? @db.Decimal(12, 2)
+  visibilityStatus    BuyerVisibilityStatus @default(DRAFT)
+  profileCompleteness Int @default(0)
+  ratingAverage       Decimal? @db.Decimal(3, 2)
+  reviewCount         Int @default(0)
+  lastRefreshedAt     DateTime?
+
+  criteria  BuyerCriteria[]
+  badges    BuyerBadge[]
+  invites   Invite[]
+  documents VerificationDocument[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([visibilityStatus])
+  @@index([desiredCity, desiredState])
+  @@index([budgetMin, budgetMax])
+}
+
+model BuyerCriteria {
+  id             String @id @default(cuid())
+  buyerProfileId String
+  buyerProfile   BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
+
+  propertyCategory PropertyCategory
+  propertySubtype  PropertySubtype
+  priceMin         Decimal? @db.Decimal(12, 2)
+  priceMax         Decimal? @db.Decimal(12, 2)
+  squareFeetMin    Int?
+  squareFeetMax    Int?
+  lotSizeMin       Int?
+  lotSizeMax       Int?
+  bedroomsMin      Int?
+  bathroomsMin     Int?
+  capRateMin       Decimal? @db.Decimal(5, 2)
+  capRateMax       Decimal? @db.Decimal(5, 2)
+  unitsMin         Int?
+  unitsMax         Int?
+  yearBuiltMin     Int?
+  yearBuiltMax     Int?
+  condition        String?
+  zoning           String?
+  features         String[] @default([])
+  extraCriteria    Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([buyerProfileId])
+  @@index([propertyCategory, propertySubtype])
+  @@index([priceMin, priceMax])
+}
+
+model BuyerBadge {
+  id             String @id @default(cuid())
+  buyerProfileId String
+  buyerProfile   BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
+
+  badgeType        BadgeType
+  status           BadgeStatus @default(PENDING)
+  issuedAt         DateTime?
+  expiresAt        DateTime?
+  verifiedByUserId String? @db.Uuid
+  verifiedBy       User? @relation("BadgeVerifier", fields: [verifiedByUserId], references: [id], onDelete: SetNull)
+  source           String?
+  notes            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([buyerProfileId])
+  @@index([badgeType, status])
+  @@index([expiresAt])
+  @@index([verifiedByUserId])
+  @@unique([buyerProfileId, badgeType])
+}
+
+model SellerProperty {
+  id          String @id @default(cuid())
+  ownerUserId String @db.Uuid
+  owner       User @relation("SellerProperties", fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  state        String?
+  zip          String?
+  lat          Decimal? @db.Decimal(10, 7)
+  lng          Decimal? @db.Decimal(10, 7)
+  propertyType PropertySubtype
+  bedrooms     Int?
+  bathrooms    Int?
+  garageArea   Int?
+  squareFeet   Int?
+  lotSize      Int?
+  condition    String?
+  features     String[] @default([])
+  description  String?
+  price        Decimal? @db.Decimal(12, 2)
+  ownershipVerificationStatus PropertyVerificationStatus @default(NOT_SUBMITTED)
+  flaggedForReviewAt DateTime?
+
+  images    PropertyImage[]
+  invites   Invite[]
+  documents VerificationDocument[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerUserId])
+  @@index([city, state])
+  @@index([propertyType])
+}
+
+model PropertyImage {
+  id         String @id @default(cuid())
+  propertyId String
+  property   SellerProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  storagePath String
+  altText     String?
+  sortOrder   Int @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([propertyId])
+}
+
+model VerificationDocument {
+  id             String @id @default(cuid())
+  userId         String @db.Uuid
+  user           User @relation("UserDocuments", fields: [userId], references: [id], onDelete: Cascade)
+  buyerProfileId String?
+  buyerProfile   BuyerProfile? @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
+  propertyId     String?
+  property       SellerProperty? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  documentType     DocumentType
+  storagePath      String
+  status           DocumentStatus @default(PENDING)
+  reviewedByUserId String? @db.Uuid
+  reviewedBy       User? @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt       DateTime?
+  rejectionReason  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([buyerProfileId])
+  @@index([propertyId])
+  @@index([reviewedByUserId])
+  @@index([status])
+}
+
+model Invite {
+  id             String @id @default(cuid())
+  sellerId       String @db.Uuid
+  seller         User @relation("SellerInvites", fields: [sellerId], references: [id], onDelete: Cascade)
+  buyerProfileId String
+  buyerProfile   BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       SellerProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  title       String
+  message     String
+  status      InviteStatus @default(SENT)
+  sentAt      DateTime @default(now())
+  viewedAt    DateTime?
+  respondedAt DateTime?
+  expiresAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sellerId])
+  @@index([buyerProfileId])
+  @@index([propertyId])
+  @@index([status])
+}
+
+model Notification {
+  id       String @id @default(cuid())
+  userId   String @db.Uuid
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type     String
+  title    String
+  body     String
+  readAt   DateTime?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt])
+}
+
+model Review {
+  id         String @id @default(cuid())
+  reviewerId String @db.Uuid
+  reviewer   User @relation("ReviewsWritten", fields: [reviewerId], references: [id], onDelete: Cascade)
+  revieweeId String @db.Uuid
+  reviewee   User @relation("ReviewsReceived", fields: [revieweeId], references: [id], onDelete: Cascade)
+  rating     Int
+  comment    String?
+  status     ReviewStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reviewerId])
+  @@index([revieweeId, status])
+}
+
+model AdminAuditLog {
+  id          String @id @default(cuid())
+  actorUserId String @db.Uuid
+  actor       User @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  action      String
+  targetType  String
+  targetId    String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
