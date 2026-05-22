@@ -12,7 +12,7 @@ export default async function BuyerProfileBuilderPage() {
   return (
     <div className="page stack">
       <PageTitle eyebrow="Buyer" title="Profile builder">
-        Save a draft or submit the profile when it is ready to appear in seller search.
+        Submit the profile when it is ready to appear in seller search.
       </PageTitle>
 
       <section className="grid two">
@@ -80,7 +80,6 @@ export default async function BuyerProfileBuilderPage() {
           <div className="actions">
             <Link className="button secondary" href="/buyer/criteria">Edit criteria</Link>
             <Link className="button secondary" href="/buyer/badges">Request admin pre-approval review</Link>
-            <button className="button secondary" name="visibilityStatus" type="submit" value="DRAFT">Save Draft</button>
             <button className="button" name="visibilityStatus" type="submit" value="ACTIVE">Submit Profile</button>
           </div>
         </form>
