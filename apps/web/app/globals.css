@@ -1045,6 +1045,7 @@ textarea {
 
 .map-toolbar {
   align-items: start;
+  align-self: start;
   backdrop-filter: blur(12px);
   background: rgba(255, 255, 255, 0.92);
   border-radius: 8px;
@@ -1052,8 +1053,11 @@ textarea {
   gap: 12px;
   justify-content: space-between;
   padding: 14px 16px;
-  position: relative;
-  z-index: 1;
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 20px;
+  z-index: 2;
 }
 
 .map-toolbar > div:first-child {
@@ -1123,6 +1127,7 @@ textarea {
 .map-pins {
   min-height: 590px;
   position: relative;
+  padding-top: 86px;
 }
 
 .map-pin {
@@ -1472,6 +1477,9 @@ textarea {
 
   .map-toolbar {
     display: grid;
+    left: 14px;
+    right: 14px;
+    top: 14px;
   }
 
   .map-pins {
