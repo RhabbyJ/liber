@@ -69,7 +69,7 @@ export default async function InviteBuyerPage({
               <input id="zip" name="zip" />
             </div>
             <div className="field">
-              <label htmlFor="price">Optional price</label>
+              <label htmlFor="price">Asking price</label>
               <input id="price" name="price" defaultValue={property.price} />
             </div>
             <div className="field">

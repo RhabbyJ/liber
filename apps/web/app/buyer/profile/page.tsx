@@ -6,6 +6,36 @@ import { formatRange } from "../../../lib/format";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
 import { submitBuyerProfile } from "../../../server/form-actions";
 
+const budgetMinOptions = [
+  { label: "No minimum", value: "" },
+  { label: "$500k", value: "500000" },
+  { label: "$750k", value: "750000" },
+  { label: "$1M", value: "1000000" },
+  { label: "$1.5M", value: "1500000" },
+  { label: "$2M", value: "2000000" },
+];
+
+const budgetMaxOptions = [
+  { label: "$500k", value: "500000" },
+  { label: "$750k", value: "750000" },
+  { label: "$1M", value: "1000000" },
+  { label: "$1.5M", value: "1500000" },
+  { label: "$2M", value: "2000000" },
+  { label: "$3M+", value: "3000000" },
+];
+
+const downPaymentOptions = [
+  { label: "No minimum", value: "" },
+  { label: "$50k", value: "50000" },
+  { label: "$100k", value: "100000" },
+  { label: "$200k", value: "200000" },
+  { label: "$300k", value: "300000" },
+  { label: "$500k+", value: "500000" },
+];
+
+const buyerTypeOptions = ["Home Buyer", "Investor", "Cash Buyer", "Move-up Buyer", "Downsizing Buyer"];
+const buyingPurposeOptions = ["Owner occupy", "Rental", "Fix and flip", "Other"];
+
 export default async function BuyerProfileBuilderPage() {
   const { data: buyer } = await getCurrentBuyerProfile();
 
@@ -37,7 +67,11 @@ export default async function BuyerProfileBuilderPage() {
             </div>
             <div className="field">
               <label htmlFor="buyerType">Buyer type</label>
-              <input id="buyerType" name="buyerType" defaultValue={buyer.type} />
+              <select id="buyerType" name="buyerType" defaultValue={buyer.type || "Home Buyer"}>
+                {buyerTypeOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
             </div>
             <LocationLookupFields
               cityName="desiredCity"
@@ -54,23 +88,43 @@ export default async function BuyerProfileBuilderPage() {
             />
             <div className="field">
               <label htmlFor="budgetMin">Budget min</label>
-              <input id="budgetMin" name="budgetMin" defaultValue={buyer.budgetMin} />
+              <select id="budgetMin" name="budgetMin" defaultValue={String(buyer.budgetMin || "")}>
+                {budgetMinOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
             </div>
             <div className="field">
               <label htmlFor="budgetMax">Budget max</label>
-              <input id="budgetMax" name="budgetMax" defaultValue={buyer.budgetMax} />
+              <select id="budgetMax" name="budgetMax" defaultValue={String(buyer.budgetMax || "1000000")}>
+                {budgetMaxOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
             </div>
             <div className="field">
               <label htmlFor="downPaymentMin">Down payment min</label>
-              <input id="downPaymentMin" name="downPaymentMin" defaultValue={buyer.downPaymentMin} />
+              <select id="downPaymentMin" name="downPaymentMin" defaultValue={String(buyer.downPaymentMin || "")}>
+                {downPaymentOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
             </div>
             <div className="field">
               <label htmlFor="downPaymentMax">Down payment max</label>
-              <input id="downPaymentMax" name="downPaymentMax" defaultValue={buyer.downPaymentMax} />
+              <select id="downPaymentMax" name="downPaymentMax" defaultValue={String(buyer.downPaymentMax || "200000")}>
+                {downPaymentOptions.slice(1).map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
             </div>
             <div className="field full">
               <label htmlFor="purpose">Buying purpose</label>
-              <input id="purpose" name="buyingPurpose" defaultValue={buyer.purpose} />
+              <select id="purpose" name="buyingPurpose" defaultValue={buyer.purpose || "Owner occupy"}>
+                {buyingPurposeOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
             </div>
             <div className="field full">
               <label htmlFor="bio">Bio</label>
@@ -79,7 +133,7 @@ export default async function BuyerProfileBuilderPage() {
           </div>
           <div className="actions">
             <Link className="button secondary" href="/buyer/criteria">Edit criteria</Link>
-            <Link className="button secondary" href="/buyer/badges">Request admin pre-approval review</Link>
+            <Link className="button secondary" href="/buyer/badges">Buyer verification</Link>
             <button className="button" name="visibilityStatus" type="submit" value="ACTIVE">Submit Profile</button>
           </div>
         </form>

@@ -17,21 +17,16 @@ export default async function EditSellerPropertyPage({
 
   return (
     <div className="page stack">
-      <PageTitle eyebrow="Seller" title={`Edit ${property.title}`} />
+      <PageTitle eyebrow="Seller" title={`Edit ${property.title}`}>
+        This property stays private and is shown only to buyers you invite.
+      </PageTitle>
       <section className="card stack">
         <form action={submitSellerPropertyUpdate} className="form-grid" encType="multipart/form-data">
           <input name="propertyId" type="hidden" value={property.id} />
           <div className="field">
             <label htmlFor="propertyType">Property type</label>
             <select id="propertyType" name="propertyType" defaultValue={property.propertyType}>
-              <option value="HOME">Home</option>
-              <option value="MULTIFAMILY">Multifamily</option>
-              <option value="LAND">Land</option>
-              <option value="RETAIL">Retail</option>
-              <option value="STNL">STNL</option>
-              <option value="INDUSTRIAL">Industrial</option>
-              <option value="OFFICE">Office</option>
-              <option value="OTHER">Other commercial</option>
+              <option value="HOME">Residential home</option>
             </select>
           </div>
           <PropertyAddressLookup
@@ -46,7 +41,7 @@ export default async function EditSellerPropertyPage({
             }}
           />
           <div className="field">
-            <label htmlFor="price">Price</label>
+            <label htmlFor="price">Asking price</label>
             <input id="price" name="price" defaultValue={property.price} />
           </div>
           <div className="field">

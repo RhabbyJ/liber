@@ -29,12 +29,11 @@ Current backend status:
 - Core buyer/seller/admin actions now use Prisma for real Supabase users only; there is no local auth bypass or fixture-store fallback.
 - Buyer/seller role selection writes server-controlled roles to `User.roles`; role-less Supabase users are sent to onboarding, and admin cannot be self-assigned.
 - Buyer profile editing now uploads profile photos to the public `profile-photos` bucket and stores the public URL in `User.avatarUrl`.
-- Buyer profile editing exposes Draft/Active visibility, desired location text/coordinates, budget, and down payment. Admin-controlled Hidden/Suspended profiles cannot be restored by buyer form submission.
-- Buyer criteria now derives Home/Land/Commercial category from the selected subtype so commercial search filters remain coherent.
-- Buyer criteria editing exposes the common searchable criteria fields used by the backend: price, beds/baths, square feet, lot size, cap rate, units, year built, zoning, condition, and features.
-- Buyer badge evidence upload now stores pre-approval, verified-funds, identity, or other documents in the private `verification-documents` bucket for admin review.
+- Buyer profile editing submits profiles directly to Active visibility, uses dropdowns for buyer type, purpose, budget, and down payment, and keeps admin-controlled Hidden/Suspended profiles from being restored by buyer form submission.
+- Buyer criteria still derives category from subtype in the backend, but v1 visible buyer criteria is residential-first and exposes only simple home-search preferences: price, beds/baths, square feet, lot size, year built, condition, and features.
+- Buyer badge evidence upload now stores pre-approval, proof-of-funds, identity, or other documents in the private `verification-documents` bucket for admin review, and the buyer UI frames this as verification rather than self-issued badges.
 - Seller property creation and editing now upload selected property images to `property-images`, upload ownership documents to `verification-documents`, write `PropertyImage` / `VerificationDocument` rows, and mark ownership review as pending.
-- Seller property creation/editing forms submit multipart image/document files, expose the full supported property subtype set, and collect address, coordinates, beds/baths, garage area, square feet, lot size, condition, features, and description.
+- Seller property creation/editing forms submit multipart image/document files, show residential home as the v1 property type, hide raw latitude/longitude inputs, and collect address, beds/baths, garage area, square feet, lot size, condition, features, asking price, and description.
 - Invite send/list views now surface seller property ownership status so buyers can distinguish pending from verified properties.
 - Invite submission can refresh the selected property's invite-facing details and upload additional property images before sending the seller-to-buyer invite.
 - Internal admin document review can render private verification document previews through short-lived signed URLs.
@@ -46,8 +45,8 @@ Current backend status:
 - Admin badge grant/revoke actions now write buyer notifications and audit logs.
 - Buyer badges are unique per buyer profile and badge type.
 - Badge display treats past `expiresAt` values as expired even before a scheduled cleanup job runs.
-- Seller search now applies structured DB-side filters for city/state, budget ceiling, property category/subtype, property-fit facts such as bedrooms, bathrooms, square feet, lot size, cap rate, and units, active badges, rating, review count, and optional PostGIS radius search when latitude/longitude/radius are supplied.
-- Seller search UI exposes Home/Land/Commercial category plus all supported buyer property subtypes.
+- Seller search still supports structured DB-side filters, but the visible v1 UI is simplified to pilot area/ZIP, residential buyer type, budget ceiling, beds, baths, active trust badges, sort, and optional PostGIS radius search when latitude/longitude/radius are supplied.
+- Seller search and property flows state that seller properties are private invite records, not public listings, and are shown only to invited buyers.
 - Seller search map rendering uses Mapbox Static Images when `NEXT_PUBLIC_MAPBOX_TOKEN` is configured and falls back to the local styled map shell when it is not.
 - Owner uploads now use user-scoped Supabase storage clients with app-level byte limits and magic-byte content checks; profile-photo owner policies and verification-document owner delete policy are included in the hardening migration.
 - The hardening migration revokes browser-role access to `_prisma_migrations` and `spatial_ref_sys`, enables RLS on those public tables, revokes public `st_estimatedextent` execution, preserves audit logs when admin users are deleted, adds invite de-duplication, and adds database check/index hardening for core v1 queries.
@@ -75,8 +74,8 @@ Buyer capabilities:
 - Create and edit buyer profile
 - Upload profile photo
 - Define buying purpose, bio, needs, wants
-- Select property interests: Home, Land, Multifamily, Retail, STNL, Industrial, Office, Other Commercial
-- Enter criteria: location, budget, down payment, beds/baths, square feet, lot size, condition, cap rate, units, zoning, special features
+- Select residential home interest for v1
+- Enter criteria: location, budget, down payment, beds/baths, square feet, lot size, condition, year built, and special features
 - Display trust badges
 - Receive seller invites
 - View notifications
@@ -90,7 +89,7 @@ Seller capabilities:
 - Sign up/login
 - Search geography/city
 - View buyers in map/list layout
-- Filter by budget, property type, criteria, reviews, and badges
+- Filter by pilot area/ZIP, budget, residential criteria, and active trust badges
 - View buyer public profile
 - Add property details
 - Upload property images and ownership documents
@@ -247,7 +246,7 @@ Must support:
 - Message title/body
 - Property selection or creation
 - Address/city/zip/map
-- Optional price
+- Asking price
 - Bedrooms/bathrooms/area/garage
 - Property overview card
 - Terms checkbox
@@ -407,8 +406,8 @@ Key fields:
 
 - `id`
 - `buyerProfileId`
-- `propertyCategory`: home, land, commercial
-- `propertySubtype`: home, multifamily, retail, stnl, industrial, land, office, other
+- `propertyCategory`: backend supports home, land, commercial; visible v1 uses home
+- `propertySubtype`: backend supports home, multifamily, retail, stnl, industrial, land, office, other; visible v1 uses home
 - `priceMin`
 - `priceMax`
 - `squareFeetMin`
@@ -722,15 +721,10 @@ Start explainable. Do not overbuild ML/matching.
 v1 filters:
 
 - Location/city/radius
-- Property category/subtype
+- Residential buyer type
 - Budget overlap
 - Bedrooms/bathrooms
-- Square footage
-- Lot size
-- Cap rate
-- Units
 - Active badges
-- Rating/review count
 - Recently refreshed
 
 v1 sort:
@@ -739,7 +733,6 @@ v1 sort:
 - Recently active
 - Highest budget
 - Most verified
-- Highest rated
 
 Recommended score inputs:
 

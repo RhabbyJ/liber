@@ -114,14 +114,8 @@ export function PropertyAddressLookup({ defaults = {} }: { defaults?: PropertyDe
           ))}
         </datalist>
       </div>
-      <div className="field">
-        <label htmlFor="lat">Latitude</label>
-        <input id="lat" name="lat" onChange={(event) => setLat(event.target.value)} placeholder="34.148" value={lat} />
-      </div>
-      <div className="field">
-        <label htmlFor="lng">Longitude</label>
-        <input id="lng" name="lng" onChange={(event) => setLng(event.target.value)} placeholder="-118.432" value={lng} />
-      </div>
+      <input name="lat" type="hidden" value={lat} />
+      <input name="lng" type="hidden" value={lng} />
       <div className="field">
         <label htmlFor="beds">Bedrooms</label>
         <input id="beds" name="bedrooms" onChange={(event) => setBedrooms(event.target.value)} placeholder="4" value={bedrooms} />

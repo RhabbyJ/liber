@@ -7,25 +7,18 @@ export default function NewSellerPropertyPage() {
   return (
     <div className="page stack">
       <PageTitle eyebrow="Seller" title="Add property details">
-        Ownership documents are private and reviewed by admins before trust status changes.
+        This is a private property record for buyer invites, not a public listing. Ownership documents are private and reviewed by admins before trust status changes.
       </PageTitle>
       <section className="card stack">
         <form action={submitSellerProperty} className="form-grid" encType="multipart/form-data">
           <div className="field">
             <label htmlFor="propertyType">Property type</label>
             <select id="propertyType" name="propertyType" defaultValue="HOME">
-              <option value="HOME">Home</option>
-              <option value="MULTIFAMILY">Multifamily</option>
-              <option value="LAND">Land</option>
-              <option value="RETAIL">Retail</option>
-              <option value="STNL">STNL</option>
-              <option value="INDUSTRIAL">Industrial</option>
-              <option value="OFFICE">Office</option>
-              <option value="OTHER">Other commercial</option>
+              <option value="HOME">Residential home</option>
             </select>
           </div>
           <div className="field">
-            <label htmlFor="price">Optional price</label>
+            <label htmlFor="price">Asking price</label>
             <input id="price" name="price" placeholder="925000" />
           </div>
           <PropertyAddressLookup />

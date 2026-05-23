@@ -8,22 +8,45 @@ export default async function BuyerBadgesPage() {
 
   return (
     <div className="page stack">
-      <PageTitle eyebrow="Buyer" title="Badges">
-        Trust badges are visible only after admin review and expire when their status requires it.
+      <PageTitle eyebrow="Buyer" title="Buyer verification">
+        Strengthen your profile with admin-reviewed trust signals. Sellers never see your financial documents.
       </PageTitle>
+      <section className="grid three">
+        <article className="card stack">
+          <p className="eyebrow">Pre-approval</p>
+          <h2>Get pre-approved</h2>
+          <p className="muted">
+            Liber can display a pre-approved badge after admin validation. Pre-approval is not a loan approval, and final loan approval is subject to lender underwriting, documentation, and property review.
+          </p>
+        </article>
+        <article className="card stack">
+          <p className="eyebrow">Existing letter</p>
+          <h2>Upload pre-approval</h2>
+          <p className="muted">
+            Upload a current pre-approval letter for private admin review. Approved pre-approval badges expire after 90 days.
+          </p>
+        </article>
+        <article className="card stack">
+          <p className="eyebrow">Cash buyer</p>
+          <h2>Verify funds</h2>
+          <p className="muted">
+            Upload proof-of-funds evidence if you want Liber to review cash-buyer or verified-funds status.
+          </p>
+        </article>
+      </section>
       <section className="card stack">
         <div className="section-head compact">
           <div>
             <p className="eyebrow">Verification evidence</p>
-            <h2>Submit a document for admin review</h2>
+            <h2>Upload private evidence</h2>
           </div>
         </div>
         <form action={submitBuyerVerificationDocument} className="form-grid" encType="multipart/form-data">
           <div className="field">
             <label htmlFor="documentType">Document type</label>
             <select id="documentType" name="documentType">
-              <option value="PRE_APPROVAL">Pre-approval</option>
-              <option value="VERIFIED_FUNDS">Verified funds</option>
+              <option value="PRE_APPROVAL">Existing pre-approval letter</option>
+              <option value="VERIFIED_FUNDS">Cash buyer / proof of funds</option>
               <option value="IDENTITY">Identity</option>
               <option value="OTHER">Other</option>
             </select>

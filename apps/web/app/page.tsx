@@ -15,6 +15,9 @@ export default function HomePage() {
                 <Link className="button secondary" href="/signup?role=buyer&next=/buyer/profile">Buyer</Link>
               </div>
             </div>
+            <div className="actions">
+              <Link className="button secondary" href="/seller/search">Browse Buyers</Link>
+            </div>
           </div>
           <div className="hero-visual" aria-hidden="true">
             <img src="/home-page.jpg" alt="" />
@@ -24,7 +27,7 @@ export default function HomePage() {
           <label htmlFor="home-city">Where do you want to find buyers</label>
           <div className="search-bar">
             <input id="home-city" aria-label="Search location" name="city" placeholder="Northridge, CA" />
-            <button className="button secondary" type="submit" aria-label="Search Buyers">Search</button>
+            <button className="button secondary" type="submit" aria-label="Browse Buyers">Browse Buyers</button>
           </div>
         </form>
       </section>
