@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { formatRange } from "../lib/format";
 import { activePilotAreas, approximateBuyerPoint } from "../lib/launch-market";
 import type { Buyer } from "../lib/mock-data";
 
@@ -60,16 +61,23 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
 
         mapboxgl.accessToken = token;
         mapRef.current = new mapboxgl.Map({
+          antialias: true,
           attributionControl: true,
+          bearing: -8,
           center: [initialCenter.lng, initialCenter.lat],
           cooperativeGestures: true,
           container: containerRef.current,
           maxBounds: [[-118.75, 34.08], [-118.3, 34.37]],
-          style: "mapbox://styles/mapbox/light-v11",
-          zoom: buyerPoints.length > 1 ? 10 : 11,
+          pitch: 38,
+          style: "mapbox://styles/mapbox/streets-v12",
+          zoom: buyerPoints.length > 1 ? 10.4 : 11.4,
         });
 
-        mapRef.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+        mapRef.current.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "top-right");
+        mapRef.current.addControl(new mapboxgl.ScaleControl({ maxWidth: 120, unit: "imperial" }), "bottom-left");
+        if (mapboxgl.FullscreenControl) {
+          mapRef.current.addControl(new mapboxgl.FullscreenControl(), "top-right");
+        }
         mapRef.current.on("load", () => {
           setIsReady(true);
           setStatus("");
@@ -102,12 +110,13 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
     markersRef.current.clear();
     markerNodesRef.current.clear();
 
-    for (const point of buyerPoints) {
+    for (const [index, point] of buyerPoints.entries()) {
       const markerNode = document.createElement("button");
       markerNode.type = "button";
       markerNode.className = "buyer-map-marker";
       markerNode.setAttribute("aria-label", `Open ${point.buyer.name} map marker`);
       markerNode.dataset.buyerId = point.buyer.id;
+      markerNode.innerHTML = `<span>${index + 1}</span>`;
       markerNode.addEventListener("mouseenter", () => highlightBuyer(point.buyer.id, true));
       markerNode.addEventListener("mouseleave", () => highlightBuyer(point.buyer.id, false));
 
@@ -124,9 +133,9 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
     if (buyerPoints.length > 1) {
       const bounds = new window.mapboxgl.LngLatBounds();
       buyerPoints.forEach((point) => bounds.extend([point.lng, point.lat]));
-      mapRef.current.fitBounds(bounds, { maxZoom: 12, padding: 72 });
+      mapRef.current.fitBounds(bounds, { bearing: -8, maxZoom: 12.4, padding: 96, pitch: 38 });
     } else {
-      mapRef.current.flyTo({ center: [initialCenter.lng, initialCenter.lat], zoom: buyerPoints.length === 1 ? 11 : 10 });
+      mapRef.current.flyTo({ bearing: -8, center: [initialCenter.lng, initialCenter.lat], pitch: 38, zoom: buyerPoints.length === 1 ? 11.5 : 10.4 });
     }
 
     setShowSearchArea(false);
@@ -179,10 +188,20 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
   return (
     <aside className="map-shell interactive">
       <div className="map-toolbar">
-        <strong>San Fernando Valley pilot map</strong>
-        <span className="muted">Interactive map. Approximate buyer pins only.</span>
+        <div>
+          <strong>Buyer demand map</strong>
+          <span className="muted">{buyers.length} active buyers in the San Fernando Valley pilot</span>
+        </div>
+        <div className="map-toolbar-pills">
+          <span>{radiusMiles} mi radius</span>
+          <span>Approximate pins</span>
+        </div>
       </div>
       <div className="map-canvas" ref={containerRef} />
+      <div className="map-legend">
+        <span><i className="legend-dot primary" /> Buyer profile</span>
+        <span><i className="legend-dot active" /> Hover match</span>
+      </div>
       {status ? <div className="map-status">{status}</div> : null}
       {buyers.length === 0 ? <div className="map-empty">No active buyers match this area yet.</div> : null}
       {showSearchArea ? (
@@ -246,8 +265,12 @@ function popupHtml(buyer: Buyer) {
       <strong>${escapeHtml(buyer.name)}</strong>
       <span>${escapeHtml(buyer.type)}</span>
       <span>${escapeHtml(buyer.location)}</span>
+      <span>${escapeHtml(formatRange(buyer.budgetMin, buyer.budgetMax))}</span>
       ${activeBadges.length > 0 ? `<span>${escapeHtml(activeBadges.join(", "))}</span>` : ""}
-      <a href="/buyers/${encodeURIComponent(buyer.id)}">View profile</a>
+      <div>
+        <a href="/buyers/${encodeURIComponent(buyer.id)}">View profile</a>
+        <a href="/seller/invite/${encodeURIComponent(buyer.id)}">Send invite</a>
+      </div>
     </div>
   `;
 }

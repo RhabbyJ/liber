@@ -31,8 +31,14 @@ export function BuyerMap({
   return (
     <aside className="map-shell">
       <div className="map-toolbar">
-        <strong>San Fernando Valley pilot map</strong>
-        <span className="muted">Mapbox token missing. Approximate buyer pins only.</span>
+        <div>
+          <strong>Buyer demand map</strong>
+          <span className="muted">{buyers.length} active buyers in the San Fernando Valley pilot</span>
+        </div>
+        <div className="map-toolbar-pills">
+          <span>Fallback map</span>
+          <span>Approximate pins</span>
+        </div>
       </div>
       <div className="map-pins">
         {buyers.map((buyer) => {
@@ -44,7 +50,9 @@ export function BuyerMap({
               href={`/buyers/${buyer.id}`}
               key={buyer.id}
               style={{ left: `${position.left}%`, top: `${position.top}%` }}
-            />
+            >
+              <span>{buyer.name.slice(0, 1)}</span>
+            </Link>
           );
         })}
       </div>

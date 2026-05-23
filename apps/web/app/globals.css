@@ -789,9 +789,9 @@ textarea {
 
 .search-grid {
   align-items: start;
-  grid-template-columns: minmax(360px, 0.93fr) minmax(420px, 1.07fr);
+  grid-template-columns: minmax(560px, 1.45fr) minmax(360px, 0.75fr);
   margin: 0 auto;
-  max-width: 1300px;
+  max-width: 1500px;
 }
 
 .buyer-list-head {
@@ -905,15 +905,17 @@ textarea {
 
 .map-shell {
   background:
-    linear-gradient(rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
-    repeating-linear-gradient(0deg, rgba(112, 195, 74, 0.08), rgba(112, 195, 74, 0.08) 1px, transparent 1px, transparent 48px),
-    repeating-linear-gradient(90deg, rgba(112, 195, 74, 0.08), rgba(112, 195, 74, 0.08) 1px, transparent 1px, transparent 48px),
-    #edf3e9;
+    radial-gradient(circle at 18% 18%, rgba(244, 184, 52, 0.22), transparent 24%),
+    radial-gradient(circle at 78% 24%, rgba(112, 195, 74, 0.2), transparent 28%),
+    linear-gradient(145deg, rgba(35, 85, 44, 0.18), rgba(255, 255, 255, 0.08)),
+    repeating-linear-gradient(0deg, rgba(47, 118, 36, 0.1), rgba(47, 118, 36, 0.1) 1px, transparent 1px, transparent 56px),
+    repeating-linear-gradient(90deg, rgba(47, 118, 36, 0.1), rgba(47, 118, 36, 0.1) 1px, transparent 1px, transparent 56px),
+    #e6f0e1;
   border: 1px solid var(--line);
   border-radius: 8px;
-  box-shadow: var(--soft-shadow);
+  box-shadow: 0 22px 55px rgba(42, 45, 51, 0.15);
   display: grid;
-  min-height: 540px;
+  min-height: 720px;
   overflow: hidden;
   padding: 18px;
   position: sticky;
@@ -926,17 +928,32 @@ textarea {
 }
 
 .map-shell.interactive {
-  min-height: 540px;
+  min-height: 720px;
   padding: 0;
 }
 
 .map-shell.interactive .map-toolbar {
-  margin: 18px;
+  margin: 20px;
 }
 
 .map-canvas {
   inset: 0;
   position: absolute;
+}
+
+.map-shell.interactive .mapboxgl-canvas {
+  outline: 0;
+}
+
+.map-shell.interactive .mapboxgl-ctrl-top-right {
+  right: 18px;
+  top: 104px;
+}
+
+.map-shell.interactive .mapboxgl-ctrl-group {
+  border-radius: 8px;
+  box-shadow: var(--soft-shadow);
+  overflow: hidden;
 }
 
 .map-status,
@@ -961,33 +978,45 @@ textarea {
 .map-search-area {
   left: 50%;
   position: absolute;
-  top: 78px;
+  top: 112px;
   transform: translateX(-50%);
   z-index: 2;
 }
 
 .buyer-map-marker {
-  background: var(--brand);
-  border: 4px solid #fff;
+  align-items: center;
+  background: #2f7624;
+  border: 3px solid #fff;
   border-radius: 999px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 12px 26px rgba(42, 45, 51, 0.26), 0 0 0 8px rgba(112, 195, 74, 0.2);
+  color: #fff;
   cursor: pointer;
-  height: 26px;
+  display: grid;
+  font-size: 12px;
+  font-weight: 900;
+  height: 34px;
+  line-height: 1;
   padding: 0;
-  transition: transform 0.16s ease, background 0.16s ease;
-  width: 26px;
+  transition: box-shadow 0.16s ease, transform 0.16s ease, background 0.16s ease;
+  width: 34px;
+}
+
+.buyer-map-marker span {
+  transform: translateY(1px);
 }
 
 .buyer-map-marker.active,
 .buyer-map-marker:hover {
   background: var(--gold);
-  transform: scale(1.25);
+  box-shadow: 0 18px 34px rgba(42, 45, 51, 0.28), 0 0 0 12px rgba(244, 184, 52, 0.24);
+  transform: scale(1.22);
 }
 
 .buyer-map-popup {
   display: grid;
-  gap: 4px;
-  min-width: 180px;
+  gap: 6px;
+  min-width: 220px;
+  padding: 3px;
 }
 
 .buyer-map-popup span {
@@ -995,10 +1024,15 @@ textarea {
   font-size: 13px;
 }
 
+.buyer-map-popup div {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
 .buyer-map-popup a {
   color: var(--brand-dark);
   font-weight: 800;
-  margin-top: 4px;
 }
 
 .map-shell.small {
@@ -1011,50 +1045,109 @@ textarea {
 
 .map-toolbar {
   align-items: start;
-  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.92);
   border-radius: 8px;
   display: flex;
   gap: 12px;
   justify-content: space-between;
-  padding: 12px 14px;
+  padding: 14px 16px;
   position: relative;
   z-index: 1;
 }
 
+.map-toolbar > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.map-toolbar strong {
+  font-size: 18px;
+}
+
+.map-toolbar-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.map-toolbar-pills span,
+.map-legend span {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--brand-dark);
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 30px;
+  padding: 7px 10px;
+}
+
+.map-legend {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 8px;
+  bottom: 22px;
+  box-shadow: var(--soft-shadow);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  left: 22px;
+  padding: 10px;
+  position: absolute;
+  z-index: 2;
+}
+
+.map-legend span {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+}
+
+.legend-dot {
+  border-radius: 999px;
+  display: inline-block;
+  height: 10px;
+  width: 10px;
+}
+
+.legend-dot.primary {
+  background: var(--brand-dark);
+}
+
+.legend-dot.active {
+  background: var(--gold);
+}
+
 .map-pins {
-  min-height: 420px;
+  min-height: 590px;
   position: relative;
 }
 
 .map-pin {
-  background: var(--brand);
-  border: 5px solid #fff;
-  border-radius: 999px 999px 999px 0;
-  box-shadow: var(--shadow);
-  display: block;
-  height: 36px;
-  transform: rotate(-45deg);
-  width: 36px;
-}
-
-.map-pin::after {
-  background: #fff;
+  align-items: center;
+  background: var(--brand-dark);
+  border: 4px solid #fff;
   border-radius: 999px;
-  content: "";
-  height: 10px;
-  left: 8px;
-  position: absolute;
-  top: 8px;
-  width: 10px;
+  box-shadow: 0 14px 30px rgba(42, 45, 51, 0.22), 0 0 0 8px rgba(112, 195, 74, 0.2);
+  color: #fff;
+  display: grid;
+  font-size: 14px;
+  font-weight: 900;
+  height: 42px;
+  place-items: center;
+  width: 42px;
 }
 
 .map-pins .map-pin {
   position: absolute;
-  transform: translate(-50%, -50%) rotate(-45deg);
+  transform: translate(-50%, -50%);
 }
 
 .map-pins .map-pin:nth-child(3n) {
-  background: #ea4335;
+  background: var(--gold);
+  color: var(--ink);
 }
 
 .profile-photo {
@@ -1364,13 +1457,25 @@ textarea {
   }
 
   .map-shell {
-    min-height: 360px;
+    min-height: 520px;
     position: relative;
     top: auto;
   }
 
+  .map-shell.interactive {
+    min-height: 540px;
+  }
+
+  .map-shell.interactive .mapboxgl-ctrl-top-right {
+    top: 116px;
+  }
+
+  .map-toolbar {
+    display: grid;
+  }
+
   .map-pins {
-    min-height: 260px;
+    min-height: 410px;
   }
 
   .profile-header {
@@ -1406,6 +1511,16 @@ textarea {
   .button {
     min-height: 42px;
     padding: 10px 18px;
+  }
+
+  .map-shell,
+  .map-shell.interactive {
+    min-height: 460px;
+  }
+
+  .map-toolbar-pills,
+  .map-legend {
+    display: none;
   }
 
   .image-stack {
