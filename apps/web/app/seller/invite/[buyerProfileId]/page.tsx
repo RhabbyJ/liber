@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { BadgePill } from "../../../../components/badge-pill";
 import { PageTitle } from "../../../../components/page-title";
 import { formatMoney } from "../../../../lib/format";
@@ -16,9 +15,30 @@ export default async function InviteBuyerPage({
   const { data: properties } = await listSellerProperties();
   const property = properties[0];
 
-  if (!property) notFound();
-
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
+
+  if (!property) {
+    return (
+      <div className="page stack">
+        <PageTitle eyebrow="Seller" title={`Invite ${buyer.name}`}>
+          Add a private property record before sending an invite. Your property is only shown to buyers you choose.
+        </PageTitle>
+        <section className="card stack">
+          <p className="eyebrow">Private property required</p>
+          <h2>Add property details first</h2>
+          <p className="muted">
+            Liber needs a private property record so the buyer knows what you are inviting them to review.
+          </p>
+          <div className="actions">
+            <Link className="button" href={`/seller/properties/new?next=${encodeURIComponent(`/seller/invite/${buyer.id}`)}`}>
+              Add Private Property
+            </Link>
+            <Link className="button secondary" href="/seller/search">Back to buyers</Link>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="page stack">

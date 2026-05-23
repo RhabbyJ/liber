@@ -3,7 +3,14 @@ import { PageTitle } from "../../../../components/page-title";
 import { PropertyAddressLookup } from "../../../../components/property-address-lookup";
 import { submitSellerProperty } from "../../../../server/form-actions";
 
-export default function NewSellerPropertyPage() {
+export default async function NewSellerPropertyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
+  const safeNext = typeof next === "string" && next.startsWith("/seller/") ? next : null;
+
   return (
     <div className="page stack">
       <PageTitle eyebrow="Seller" title="Add property details">
@@ -11,6 +18,7 @@ export default function NewSellerPropertyPage() {
       </PageTitle>
       <section className="card stack">
         <form action={submitSellerProperty} className="form-grid" encType="multipart/form-data">
+          {safeNext ? <input name="next" type="hidden" value={safeNext} /> : null}
           <div className="field">
             <label htmlFor="propertyType">Property type</label>
             <select id="propertyType" name="propertyType" defaultValue="HOME">

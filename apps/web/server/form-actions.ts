@@ -31,6 +31,11 @@ function isSubmittedFile(value: FormDataEntryValue): value is File {
   );
 }
 
+function safeSellerNext(formData: FormData) {
+  const next = formData.get("next");
+  return typeof next === "string" && next.startsWith("/seller/") ? next : null;
+}
+
 export async function submitBuyerProfile(formData: FormData) {
   formData.set("visibilityStatus", "ACTIVE");
   const { data: buyer } = await updateBuyerProfile(formData);
@@ -71,6 +76,7 @@ export async function submitSellerProperty(formData: FormData) {
   const { data: property } = await createSellerProperty(formData);
   const images = formData.getAll("images").filter(isSubmittedFile);
   const ownershipDocument = formData.get("ownership");
+  const next = safeSellerNext(formData);
 
   await Promise.all(images.map((image) => uploadPropertyImageFile(property.id, image)));
 
@@ -80,6 +86,7 @@ export async function submitSellerProperty(formData: FormData) {
 
   revalidatePath("/seller/properties");
   revalidatePath("/admin/documents");
+  if (next) redirect(next);
 }
 
 export async function submitSellerPropertyUpdate(formData: FormData) {
