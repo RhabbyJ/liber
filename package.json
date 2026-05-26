@@ -13,6 +13,7 @@
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "smoke:routes": "node scripts/route-smoke.mjs",
+    "smoke:security": "node scripts/security-smoke.mjs",
     "smoke:no-auth-bypass": "node scripts/forbidden-auth-bypass-smoke.mjs",
     "smoke:visual": "node scripts/visual-smoke.mjs",
     "readiness:env": "node scripts/readiness-check.mjs",

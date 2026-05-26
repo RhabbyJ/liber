@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { findPilotArea, sfvBoundingBox } from "../../../../lib/launch-market";
+import { checkRateLimit, clientIpFromRequest } from "../../../../server/rate-limit";
+import { getSessionUser } from "../../../../server/session";
 
 type GeocodeResult = {
   city: string;
@@ -11,15 +14,37 @@ type GeocodeResult = {
   zip: string;
 };
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const query = searchParams.get("query")?.trim() ?? "";
-  const intent = searchParams.get("intent") === "store" ? "store" : "search";
-  const kind = searchParams.get("kind") === "address" ? "address" : "place";
+const geocodeQuerySchema = z.object({
+  intent: z.enum(["search", "store"]).default("search"),
+  kind: z.enum(["address", "place"]).default("place"),
+  query: z.string().trim().min(3).max(160),
+});
 
-  if (query.length < 3) {
+export async function GET(request: Request) {
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: "Authentication required.", results: [] }, { status: 401 });
+
+  const ipLimit = checkRateLimit(`geocode:ip:${clientIpFromRequest(request)}`, 60, 60_000);
+  const userLimit = checkRateLimit(`geocode:user:${user.id}`, 40, 60_000);
+  if (!ipLimit.allowed || !userLimit.allowed) {
+    const retryAfter = Math.max(ipLimit.retryAfterSeconds, userLimit.retryAfterSeconds);
+    return NextResponse.json(
+      { error: "Rate limit reached. Try again later.", results: [] },
+      { headers: { "Retry-After": String(retryAfter) }, status: 429 },
+    );
+  }
+
+  const { searchParams } = new URL(request.url);
+  const parsed = geocodeQuerySchema.safeParse({
+    intent: searchParams.get("intent") || undefined,
+    kind: searchParams.get("kind") || undefined,
+    query: searchParams.get("query"),
+  });
+
+  if (!parsed.success) {
     return NextResponse.json({ error: "Enter at least 3 characters.", results: [] }, { status: 400 });
   }
+  const { intent, kind, query } = parsed.data;
 
   const localArea = findPilotArea(query);
   if (localArea) {

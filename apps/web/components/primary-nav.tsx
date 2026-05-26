@@ -33,6 +33,7 @@ const baseNavItems: NavItem[] = [
     isActive: (pathname: string) =>
       pathname === "/seller/search" ||
       pathname === "/seller/invites" ||
+      pathname === "/seller/notifications" ||
       pathname.startsWith("/seller/invite/"),
   },
   {

@@ -3,6 +3,7 @@
 import { prisma } from "@liber/db";
 import { redirect } from "next/navigation";
 import { safeInternalPath } from "../lib/redirect";
+import { ensureSellerAccessRequested } from "./access";
 import type { AppRole } from "./authz";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
 
@@ -128,6 +129,9 @@ export async function signupWithPassword(formData: FormData) {
       roles,
       userId: data.user.id,
     });
+    if (roles.includes("SELLER")) {
+      await ensureSellerAccessRequested(data.user.id);
+    }
 
     const autoConfirmLocal = shouldAutoConfirmLocalSignup();
 
@@ -223,6 +227,9 @@ export async function chooseRole(formData: FormData) {
         roles,
         userId: data.user.id,
       });
+      if (roles.includes("SELLER")) {
+        await ensureSellerAccessRequested(data.user.id);
+      }
       await supabase.auth.refreshSession();
       redirect(safeNextValue(formData) ?? nextForRoles(roles));
     }

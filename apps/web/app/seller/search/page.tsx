@@ -3,7 +3,7 @@ import { BuyerCard } from "../../../components/buyer-card";
 import { BuyerMap } from "../../../components/buyer-map";
 import { LocationLookupFields } from "../../../components/location-lookup-fields";
 import { PageTitle } from "../../../components/page-title";
-import { searchBuyers } from "../../../server/contracts";
+import { getCurrentSellerAccess, searchBuyers } from "../../../server/contracts";
 
 const budgetMaxOptions = [
   { label: "Any budget", value: "" },
@@ -51,6 +51,26 @@ export default async function SellerSearchPage({
   }>;
 }) {
   const params = await searchParams;
+  const { data: sellerAccess } = await getCurrentSellerAccess();
+
+  if (sellerAccess.status !== "APPROVED") {
+    return (
+      <div className="page stack">
+        <PageTitle eyebrow="Seller" title="Buyer directory access pending">
+          A Liber admin must approve seller directory access before buyer search, buyer profile viewing, or invites are available.
+        </PageTitle>
+        <section className="card stack">
+          <p className="eyebrow">Status</p>
+          <h2>{sellerAccess.status ?? "PENDING"}</h2>
+          <p className="muted">
+            You can continue preparing private property records while access is reviewed.
+          </p>
+          <Link className="button" href="/seller/properties">Manage Properties</Link>
+        </section>
+      </div>
+    );
+  }
+
   const badges = Array.isArray(params.badges) ? params.badges : params.badges ? [params.badges] : [];
   const centerLat = numberParam(params.centerLat);
   const centerLng = numberParam(params.centerLng);

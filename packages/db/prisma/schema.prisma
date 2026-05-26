@@ -18,6 +18,13 @@ enum UserStatus {
   SUSPENDED
 }
 
+enum SellerAccessStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
 enum BuyerVisibilityStatus {
   DRAFT
   ACTIVE
@@ -96,6 +103,13 @@ enum ReviewStatus {
   HIDDEN
 }
 
+enum EmailOutboxStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+}
+
 model User {
   id        String     @id @db.Uuid
   email     String     @unique
@@ -109,9 +123,13 @@ model User {
   buyerProfile BuyerProfile?
   sellerProperties SellerProperty[] @relation("SellerProperties")
   sellerInvites Invite[] @relation("SellerInvites")
+  sellerAccess SellerAccess? @relation("SellerAccessUser")
+  sellerAccessReviews SellerAccess[] @relation("SellerAccessReviewer")
   notifications Notification[]
   documents VerificationDocument[] @relation("UserDocuments")
+  documentsUploaded VerificationDocument[] @relation("DocumentUploader")
   badgesVerified BuyerBadge[] @relation("BadgeVerifier")
+  badgesGranted BuyerBadge[] @relation("BadgeGranter")
   documentsReviewed VerificationDocument[] @relation("DocumentReviewer")
   reviewsWritten Review[] @relation("ReviewsWritten")
   reviewsReceived Review[] @relation("ReviewsReceived")
@@ -121,6 +139,22 @@ model User {
   updatedAt DateTime @updatedAt
 
   @@index([email])
+}
+
+model SellerAccess {
+  id String @id @default(cuid())
+  userId String @unique @db.Uuid
+  user User @relation("SellerAccessUser", fields: [userId], references: [id], onDelete: Cascade)
+  status SellerAccessStatus @default(PENDING)
+  reviewedByUserId String? @db.Uuid
+  reviewedBy User? @relation("SellerAccessReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([reviewedByUserId])
 }
 
 model BuyerProfile {
@@ -205,6 +239,11 @@ model BuyerBadge {
   expiresAt        DateTime?
   verifiedByUserId String? @db.Uuid
   verifiedBy       User? @relation("BadgeVerifier", fields: [verifiedByUserId], references: [id], onDelete: SetNull)
+  grantedByUserId  String? @db.Uuid
+  grantedBy        User? @relation("BadgeGranter", fields: [grantedByUserId], references: [id], onDelete: SetNull)
+  grantedAt        DateTime?
+  evidenceDocumentId String?
+  evidenceDocument VerificationDocument? @relation("BadgeEvidence", fields: [evidenceDocumentId], references: [id], onDelete: SetNull)
   source           String?
   notes            String?
 
@@ -215,6 +254,8 @@ model BuyerBadge {
   @@index([badgeType, status])
   @@index([expiresAt])
   @@index([verifiedByUserId])
+  @@index([grantedByUserId])
+  @@index([evidenceDocumentId])
   @@unique([buyerProfileId, badgeType])
 }
 
@@ -271,27 +312,42 @@ model VerificationDocument {
   id             String @id @default(cuid())
   userId         String @db.Uuid
   user           User @relation("UserDocuments", fields: [userId], references: [id], onDelete: Cascade)
+  uploadedByUserId String? @db.Uuid
+  uploadedBy     User? @relation("DocumentUploader", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
   buyerProfileId String?
   buyerProfile   BuyerProfile? @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
   propertyId     String?
   property       SellerProperty? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   documentType     DocumentType
+  fileSha256       String?
+  fileSizeBytes    Int?
+  mimeType         String?
+  storageBucket    String @default("verification-documents")
   storagePath      String
+  originalFilename String?
+  uploadedAt       DateTime @default(now())
   status           DocumentStatus @default(PENDING)
+  reviewStatus     DocumentStatus @default(PENDING)
   reviewedByUserId String? @db.Uuid
   reviewedBy       User? @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
   reviewedAt       DateTime?
+  reviewNotes      String?
   rejectionReason  String?
+
+  badgeEvidence BuyerBadge[] @relation("BadgeEvidence")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([uploadedByUserId])
   @@index([buyerProfileId])
   @@index([propertyId])
   @@index([reviewedByUserId])
   @@index([status])
+  @@index([reviewStatus])
+  @@unique([storageBucket, storagePath])
 }
 
 model Invite {
@@ -364,5 +420,25 @@ model AdminAuditLog {
 
   @@index([actorUserId])
   @@index([targetType, targetId])
+  @@index([createdAt])
+}
+
+model EmailOutbox {
+  id String @id @default(cuid())
+  type String
+  to String
+  subject String?
+  templateName String?
+  payload Json
+  status EmailOutboxStatus @default(PENDING)
+  attempts Int @default(0)
+  lastError String?
+  nextAttemptAt DateTime?
+  sentAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, nextAttemptAt])
   @@index([createdAt])
 }

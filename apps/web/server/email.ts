@@ -10,7 +10,7 @@ export type InviteEmailInput = {
 
 export type EmailResult = {
   id?: string;
-  provider: "mock" | "resend";
+  provider: "mock" | "outbox" | "resend";
   queued: boolean;
   reason?: string;
 };

@@ -35,6 +35,17 @@ export default async function AdminBadgesPage() {
                   ))}
                 </select>
               </div>
+              <div className="field">
+                <label htmlFor={`evidence-${buyer.id}`}>Approved evidence</label>
+                <select id={`evidence-${buyer.id}`} name="evidenceDocumentId" defaultValue="">
+                  <option value="">No evidence selected</option>
+                  {buyer.approvedDocuments.map((document) => (
+                    <option key={document.id} value={document.id}>
+                      {document.documentType} {document.fileSha256 ? document.fileSha256.slice(0, 8) : document.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <button className="button" type="submit">Grant Badge</button>
             </form>
             <div className="pill-row">

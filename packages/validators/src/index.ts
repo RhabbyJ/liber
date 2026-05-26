@@ -2,6 +2,13 @@ import { z } from "zod";
 
 export const userRoleSchema = z.enum(["BUYER", "SELLER", "ADMIN"]);
 
+export const sellerAccessStatusSchema = z.enum([
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
+  "SUSPENDED",
+]);
+
 export const buyerVisibilityStatusSchema = z.enum([
   "DRAFT",
   "ACTIVE",
@@ -254,6 +261,7 @@ export const reviewDocumentSchema = z.object({
 export const grantBadgeSchema = z.object({
   buyerProfileId: z.string().min(1),
   badgeType: badgeTypeSchema,
+  evidenceDocumentId: z.string().min(1).optional(),
   expiresAt: z.coerce.date().optional(),
   notes: z.string().trim().max(500).optional(),
 });
@@ -270,6 +278,12 @@ export const profileVisibilitySchema = z.object({
 export const userModerationSchema = z.object({
   userId: z.string().min(1),
   reason: z.string().trim().max(500).optional(),
+});
+
+export const sellerAccessReviewSchema = z.object({
+  userId: z.string().min(1),
+  status: sellerAccessStatusSchema,
+  notes: z.string().trim().max(500).optional(),
 });
 
 export const buyerProfileModerationSchema = z.object({
@@ -289,3 +303,4 @@ export type CreateSellerPropertyInput = z.infer<typeof createSellerPropertySchem
 export type UpdateSellerPropertyInput = z.infer<typeof updateSellerPropertySchema>;
 export type SendInviteInput = z.infer<typeof sendInviteSchema>;
 export type SearchBuyersInput = z.infer<typeof searchBuyersSchema>;
+export type SellerAccessReviewInput = z.infer<typeof sellerAccessReviewSchema>;

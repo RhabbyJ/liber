@@ -5,6 +5,7 @@ import {
   grantBadgeSchema,
   reviewDocumentSchema,
   searchBuyersSchema,
+  sellerAccessReviewSchema,
   sendInviteSchema,
   updateBuyerProfileSchema,
   upsertBuyerCriteriaSchema,
@@ -104,5 +105,12 @@ describe("Liber validators", () => {
     expect(grantBadgeSchema.parse({ buyerProfileId: "buyer-1", badgeType: "VERIFIED_FUNDS" }).badgeType).toBe(
       "VERIFIED_FUNDS",
     );
+    expect(grantBadgeSchema.parse({
+      badgeType: "VERIFIED_FUNDS",
+      buyerProfileId: "buyer-1",
+      evidenceDocumentId: "doc-1",
+    }).evidenceDocumentId).toBe("doc-1");
+    expect(sellerAccessReviewSchema.parse({ userId: "seller-1", status: "APPROVED" }).status).toBe("APPROVED");
+    expect(() => sellerAccessReviewSchema.parse({ userId: "seller-1", status: "ACTIVE" })).toThrow();
   });
 });

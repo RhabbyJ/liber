@@ -1,8 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { safeInternalPath } from "../../../../lib/redirect";
+import { checkRateLimit, clientIpFromRequest } from "../../../../server/rate-limit";
 import { createSupabaseServerClient } from "../../../../server/supabase";
 
 export async function POST(request: NextRequest) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: "Invalid origin." }, { status: 403 });
+  }
+
+  const limit = checkRateLimit(`login:ip:${clientIpFromRequest(request)}`, 10, 60_000);
+  if (!limit.allowed) {
+    const response = redirectTo(request, "/login?status=rate-limited");
+    response.headers.set("Retry-After", String(limit.retryAfterSeconds));
+    return response;
+  }
+
   const formData = await request.formData();
   const next = safeInternalPath(formData.get("next"));
   const email = textValue(formData, "email");
@@ -37,4 +49,10 @@ function redirectTo(request: NextRequest, path: string) {
 function textValue(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
+}
+
+function isSameOrigin(request: NextRequest) {
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+  return origin === new URL(request.url).origin;
 }

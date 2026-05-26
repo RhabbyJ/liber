@@ -6,20 +6,41 @@ import { formatRange } from "../../../lib/format";
 import { getPublicBuyerProfile } from "../../../server/contracts";
 import { getSessionUser } from "../../../server/session";
 
+export const metadata = {
+  robots: "noindex, noarchive",
+};
+
 export default async function PublicBuyerProfilePage({
   params,
 }: {
   params: Promise<{ buyerProfileId: string }>;
 }) {
   const { buyerProfileId } = await params;
-  const { data: buyer } = await getPublicBuyerProfile(buyerProfileId).catch(() => ({ data: null }));
+  const result = await getPublicBuyerProfile(buyerProfileId);
   const user = await getSessionUser();
 
-  if (!buyer) notFound();
+  if (!result.ok) {
+    if (result.error === "NOT_FOUND") notFound();
+    return (
+      <div className="page stack">
+        <section className="card stack">
+          <p className="eyebrow">Buyer profile</p>
+          <h1>Access unavailable</h1>
+          <p className="muted">
+            Buyer profiles are only available to approved sellers, admins, or the buyer who owns the profile.
+          </p>
+          <Link className="button self-start" href="/seller/search">View seller access status</Link>
+        </section>
+      </div>
+    );
+  }
 
+  const buyer = result.data;
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
   const invitePath = `/seller/invite/${buyer.id}`;
-  const inviteHref = user ? invitePath : `/login?next=${encodeURIComponent(invitePath)}`;
+  const inviteHref = buyer.viewerCanInvite
+    ? user ? invitePath : `/login?next=${encodeURIComponent(invitePath)}`
+    : null;
 
   return (
     <div className="page">
@@ -63,7 +84,7 @@ export default async function PublicBuyerProfilePage({
               <strong>{formatRange(buyer.downPaymentMin, buyer.downPaymentMax)} down</strong>
               <strong>{formatRange(buyer.budgetMin, buyer.budgetMax)}</strong>
             </div>
-            <Link className="button self-start" href={inviteHref}>Send Invite</Link>
+            {inviteHref ? <Link className="button self-start" href={inviteHref}>Send Invite</Link> : null}
           </div>
 
           <div>

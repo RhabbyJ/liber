@@ -2,7 +2,7 @@
 
 This document is the backend build contract for Liber. It turns `Implementation.md` into backend architecture decisions and includes the required CTO corrections before any backend migrations, Supabase policies, or server actions are implemented.
 
-Status: core v1 backend foundation is substantially implemented. The Supabase project has the initial Prisma migration, the storage-policy tightening migration, the missing-foreign-key-index migration, the profile-photo bucket migration, the unique-buyer-badges migration, and the audit-hardening migration in repo. Core buyer/seller/admin server actions are Prisma-backed for real Supabase users only. Production launch still depends on the external/product decisions tracked in `docs/product/production-decisions.md`.
+Status: core v1 backend foundation is substantially implemented. The Supabase project has the initial Prisma migration, the storage-policy tightening migration, the missing-foreign-key-index migration, the profile-photo bucket migration, the unique-buyer-badges migration, the audit-hardening migration, and the Sprint 1 security-hardening migration in repo. Core buyer/seller/admin server actions are Prisma-backed for real Supabase users only. Production launch still depends on the external/product decisions tracked in `docs/product/production-decisions.md`.
 
 Current remote state:
 
@@ -14,13 +14,14 @@ Current remote state:
   - `20260520000003_add_profile_photos_bucket`
   - `20260520000004_enforce_unique_buyer_badges`
   - `20260521000005_audit_hardening`
+  - `20260526000006_sprint1_security_hardening`
 - App tables have RLS enabled.
 - Auth-sync and invite-limit triggers are installed in the private `app_private` schema.
 - `profile-photos`, `property-images`, and `verification-documents` buckets exist.
 - The broad public `storage.objects` SELECT policy for `property-images` was removed so public image URLs can work without enabling bucket listing.
 - PostGIS functional spatial indexes exist for buyer and seller coordinates.
 - Remote smoke checks passed for unverified seller invite rate limiting and PostGIS radius search.
-- Role selection writes buyer/seller roles to server-controlled `User.roles` and does not grant default buyer/seller access to role-less Supabase users. Runtime authorization reads `User.roles`; roles are not mirrored into Supabase app metadata.
+- Role selection writes buyer/seller roles to server-controlled `User.roles` and creates pending `SellerAccess` for selected sellers. Runtime authorization reads `User.roles`; roles are not mirrored into Supabase app metadata, and seller role alone does not grant buyer-directory/profile/invite access.
 - Core actions for buyer profile, buyer criteria, seller property, seller search, invites, notifications, and internal admin operations read/write Prisma for UUID-backed Supabase users.
 - Buyer profile editing uploads real profile photo files to `profile-photos`, writes the public URL to `User.avatarUrl`, and lets the buyer set Draft/Active visibility, desired location text/coordinates, budget, and down payment. Admin-controlled Hidden/Suspended profiles cannot be restored by buyer form submission.
 - Buyer criteria derives `propertyCategory` from `propertySubtype` before persistence so `HOME`, `LAND`, and `COMMERCIAL` filters stay aligned.
@@ -32,15 +33,15 @@ Current remote state:
 - Invite submission can refresh the selected property's invite-facing details and upload additional property images before sending the seller-to-buyer invite.
 - Admin document review lists private documents with 10-minute signed preview URLs generated server-side, updates document/property status, writes audit logs, and notifies the submitting user.
 - Admin user management displays persisted user status for suspension review.
-- Invite sending checks app-level ownership/rate-limit/dedup rules, creates in-app notifications, and calls the server-only email adapter. Resend is used only when `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured; otherwise the adapter reports a mock/non-queued result.
-- New invites receive a 30-day `expiresAt`; Vercel cron is configured for `/api/maintenance/expire`, and the route accepts timing-safe signed GET/POST calls with `CRON_SECRET` to mark expired badges and stale sent/viewed invites as expired.
+- Invite sending checks approved seller access, app-level ownership/rate-limit/dedup rules, creates in-app notifications, writes audit events, and enqueues an `EmailOutbox` row in the same transaction. Resend is used only by the outbox processor when `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured; otherwise the adapter reports a mock/non-queued result.
+- New invites receive a 30-day `expiresAt`; Vercel cron is configured for `/api/maintenance/expire`, and the route accepts timing-safe signed GET/POST calls with `CRON_SECRET` to mark expired badges and stale sent/viewed invites as expired and process pending email outbox rows.
 - Buyer invite responses are limited to sent/viewed invites so accepted, declined, expired, or withdrawn invites cannot be changed.
-- Admin badge grant/revoke actions create buyer notifications and audited admin log entries. The admin badge UI can grant a first badge to a buyer profile, not only update badges that already exist.
+- Admin badge grant/revoke actions create buyer notifications and audited admin log entries. Sensitive badges require approved verification-document evidence, and the admin badge UI can grant a first badge to a buyer profile, not only update badges that already exist.
 - Buyer badges are constrained to one row per buyer profile and badge type.
 - Badge display treats past `expiresAt` values as expired even before a scheduled cleanup job runs.
 - Seller search uses database-side filters for active buyer profiles, city/state, budget ceiling, buyer criteria category/subtype, property-fit facts such as bedrooms, bathrooms, square feet, lot size, cap rate, and units, active non-expired badges, minimum rating, minimum review count, and optional PostGIS radius search. Seller search can render a Mapbox Static Images map when `NEXT_PUBLIC_MAPBOX_TOKEN` is configured; autocomplete/geocoding UI remains a follow-up.
 - Seller search UI exposes Home/Land/Commercial category plus all supported buyer property subtypes.
-- Owner uploads use user-scoped Supabase storage clients with app-level byte limits and magic-byte content checks; profile-photo owner policies and verification-document owner delete policy are included in the hardening migration.
+- Owner uploads use user-scoped Supabase storage clients with app-level byte limits, magic-byte content checks, normalized storage object names, and verification-document hash/size/MIME metadata. Verification-document owner update/delete storage policies are removed so evidence remains immutable after upload.
 - Vercel builds run `npm run db:generate` before `npm run build`, and Prisma CLI uses `DIRECT_URL` when present.
 
 Known Supabase advisor items:
@@ -104,6 +105,7 @@ Rules:
 
 - Buyers may upload supporting documents to private storage.
 - Admins review documents and manually grant/revoke badges.
+- Sensitive badges (`PRE_APPROVED`, `VERIFIED_FUNDS`, `VERIFIED_IDENTITY`, `EARNEST_MONEY_DEPOSITED`, `CASH_BUYER`) require an approved verification document linked to the badge.
 - Pre-approval expires after 90 days from issuance.
 - Expired badges must not affect search ranking or filtering.
 - Badge changes must write `AdminAuditLog` records.
@@ -131,6 +133,8 @@ The v1 transaction boundary stops at buyer invite response:
 ### Property ownership and invites
 
 Sellers may create properties before ownership approval to reduce marketplace friction.
+
+Seller access to buyer search, buyer profile views, property enrichment, and invites requires `SellerAccess.status = APPROVED`. Self-selected seller role creates only pending access until an admin reviews it.
 
 Invite display must show one of:
 
@@ -355,7 +359,7 @@ Read:
 Write:
 
 - Owner can upload own documents.
-- Owner can delete own uploaded storage objects when a future document-removal action is added.
+- Owner cannot update or delete uploaded verification-document storage objects. New evidence requires a new object and document row.
 
 Required path format:
 
@@ -512,7 +516,7 @@ Rules:
 
 Rules:
 
-- Requires `SELLER`.
+- Requires `SELLER`; buyer-directory, buyer-profile, property-enrichment, and invite operations additionally require approved `SellerAccess`.
 - Seller can only mutate owned properties.
 - Seller can only send invites from owned properties.
 - Buyer profile must be active.
@@ -549,6 +553,7 @@ Blocked cases:
 
 - Seller does not own property.
 - Buyer profile is not active.
+- Seller access is not approved.
 - Seller has exceeded tier limit.
 - Seller/user is suspended.
 - Property is flagged for abuse.

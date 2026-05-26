@@ -24,10 +24,10 @@ Do not build escrow first. The MVP must prove seller demand for a searchable buy
 Current backend status:
 
 - Supabase project `qfjcrhkjlczvzakxives` is connected and has the initial Prisma schema deployed.
-- Applied migrations: `20260519000000_initial`, `20260520000001_tighten_property_image_storage_policy`, `20260520000002_add_missing_foreign_key_indexes`, `20260520000003_add_profile_photos_bucket`, `20260520000004_enforce_unique_buyer_badges`, and `20260521000005_audit_hardening`.
+- Applied migrations: `20260519000000_initial`, `20260520000001_tighten_property_image_storage_policy`, `20260520000002_add_missing_foreign_key_indexes`, `20260520000003_add_profile_photos_bucket`, `20260520000004_enforce_unique_buyer_badges`, `20260521000005_audit_hardening`, and `20260526000006_sprint1_security_hardening`.
 - RLS is enabled on app tables, private `app_private` trigger functions are installed, storage buckets exist, and PostGIS radius search is available.
 - Core buyer/seller/admin actions now use Prisma for real Supabase users only; there is no local auth bypass or fixture-store fallback.
-- Buyer/seller role selection writes server-controlled roles to `User.roles`; role-less Supabase users are sent to onboarding, and admin cannot be self-assigned.
+- Buyer/seller role selection writes server-controlled roles to `User.roles`; seller role selection creates `SellerAccess.status = PENDING`, role alone does not grant buyer-directory/profile/invite access, role-less Supabase users are sent to onboarding, and admin cannot be self-assigned.
 - Buyer profile editing now uploads profile photos to the public `profile-photos` bucket and stores the public URL in `User.avatarUrl`.
 - Buyer profile editing submits profiles directly to Active visibility, uses dropdowns for buyer type, purpose, budget, and down payment, and keeps admin-controlled Hidden/Suspended profiles from being restored by buyer form submission.
 - Buyer criteria still derives category from subtype in the backend, but v1 visible buyer criteria is residential-first and exposes only simple home-search preferences: price, beds/baths, square feet, lot size, year built, condition, and features.
@@ -39,19 +39,20 @@ Current backend status:
 - Internal admin document review can render private verification document previews through short-lived signed URLs.
 - Admin document review updates document/property status, writes audit logs, and notifies the submitting user.
 - Admin user management displays persisted user status for suspension review.
-- Invite creation now checks app-level ownership/rate-limit/dedup rules, writes in-app notifications, and calls a server-only email adapter. Resend sends only when `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured; otherwise the adapter returns a mock result.
-- New invites receive a 30-day `expiresAt`; Vercel cron is configured for `/api/maintenance/expire`, and the route accepts signed GET/POST calls with timing-safe `CRON_SECRET` validation to expire badges and stale sent/viewed invites.
+- Invite creation now checks approved seller access, app-level ownership/rate-limit/dedup rules, writes in-app notifications, writes audit events, and enqueues an `EmailOutbox` row in the same transaction. Resend delivery is processed by maintenance only when `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured; otherwise the adapter returns a mock result.
+- New invites receive a 30-day `expiresAt`; Vercel cron is configured for `/api/maintenance/expire`, and the route accepts signed GET/POST calls with timing-safe `CRON_SECRET` validation to expire badges and stale sent/viewed invites and process pending email outbox rows.
 - Buyer invite responses are limited to sent/viewed invites so accepted, declined, expired, or withdrawn invites cannot be re-responded to.
-- Admin badge grant/revoke actions now write buyer notifications and audit logs.
+- Admin badge grant/revoke actions now write buyer notifications and audit logs, and sensitive badges require approved verification-document evidence.
 - Buyer badges are unique per buyer profile and badge type.
 - Badge display treats past `expiresAt` values as expired even before a scheduled cleanup job runs.
 - Seller search still supports structured DB-side filters, but the visible v1 UI is simplified to pilot area/ZIP, residential buyer type, budget ceiling, beds, baths, active trust badges, sort, and optional PostGIS radius search when latitude/longitude/radius are supplied.
 - Seller search and property flows state that seller properties are private invite records, not public listings, and are shown only to invited buyers.
 - Seller search map rendering uses Mapbox Static Images when `NEXT_PUBLIC_MAPBOX_TOKEN` is configured and falls back to the local styled map shell when it is not.
-- Owner uploads now use user-scoped Supabase storage clients with app-level byte limits and magic-byte content checks; profile-photo owner policies and verification-document owner delete policy are included in the hardening migration.
+- Owner uploads now use user-scoped Supabase storage clients with app-level byte limits, magic-byte content checks, normalized storage object names, and verification-document hash/size/MIME metadata. Verification-document owner update/delete storage policies are removed so uploaded evidence is immutable.
 - The hardening migration revokes browser-role access to `_prisma_migrations` and `spatial_ref_sys`, enables RLS on those public tables, revokes public `st_estimatedextent` execution, preserves audit logs when admin users are deleted, adds invite de-duplication, and adds database check/index hardening for core v1 queries.
 - Vercel builds run `npm run db:generate` before `npm run build`, and Prisma CLI uses `DIRECT_URL` when present.
 - `npm run smoke:routes` starts a temporary dev server on an available local port, verifies public auth pages, and confirms unauthenticated buyer, seller, and admin routes redirect to login.
+- `npm run smoke:security` starts a temporary dev server and verifies core security headers, buyer-profile noindex/noarchive headers, anonymous API rejection, and bad-origin login rejection.
 - `npm run smoke:no-auth-bypass` scans active source and docs for forbidden auth-bypass strings.
 - `npm run smoke:visual` starts a temporary dev server on an available local port, captures public desktop/mobile screenshots under `.artifacts/visual-smoke`, and verifies PNG dimensions.
 - `npm run readiness:env` validates local backend configuration without printing secrets; `npm run readiness:production` fails until production-only settings and decisions are complete.
@@ -87,13 +88,14 @@ Searches for buyers and sends property invites.
 Seller capabilities:
 
 - Sign up/login
-- Search geography/city
-- View buyers in map/list layout
-- Filter by pilot area/ZIP, budget, residential criteria, and active trust badges
-- View buyer public profile
+- Request admin-approved seller directory access
+- Search geography/city after seller access is approved
+- View buyers in map/list layout after seller access is approved
+- Filter by pilot area/ZIP, budget, residential criteria, and active trust badges after seller access is approved
+- View buyer profile after seller access is approved
 - Add property details
 - Upload property images and ownership documents
-- Send invite/message to buyer
+- Send invite/message to buyer after seller access is approved
 - Track sent invites
 
 ### Internal Admin
@@ -154,9 +156,9 @@ Routes:
 - Seller CTA -> `/seller/search`
 - Buyer CTA -> `/buyer/profile`
 
-### Buyer Public Profile
+### Buyer Profile View
 
-Used by seller to decide whether to invite.
+Used by approved sellers, admins, and the owning buyer to review buyer demand. It is not a public anonymous page.
 
 Must show:
 
@@ -256,6 +258,7 @@ Routes:
 
 - `/seller/invite/[buyerProfileId]`
 - `/seller/invites`
+- `/seller/notifications`
 
 ## 5. Recommended Tech Stack
 
@@ -442,6 +445,9 @@ Key fields:
 - `issuedAt`
 - `expiresAt`
 - `verifiedByUserId`
+- `grantedByUserId`
+- `grantedAt`
+- `evidenceDocumentId`
 - `source`
 
 Initial badge types:
@@ -459,7 +465,26 @@ Rules:
 - Pre-approval expires after 90 days.
 - Only active badges affect search/filtering.
 - Badge changes require admin audit log entries.
+- Pre-approval, funds, cash-buyer, identity, and earnest-money badges require approved verification-document evidence.
 - In v1, badges are manually/admin controlled.
+
+### SellerAccess
+
+Durable approval state for buyer-directory access.
+
+Key fields:
+
+- `id`
+- `userId`
+- `status`: pending, approved, rejected, suspended
+- `reviewedByUserId`
+- `reviewedAt`
+
+Rules:
+
+- Seller role alone does not authorize buyer search, buyer profile view, property enrichment, or invite sending.
+- Admins approve, reject, or suspend seller access.
+- Seller access decisions are audited.
 
 ### SellerProperty
 
@@ -510,10 +535,19 @@ Key fields:
 - `buyerProfileId`
 - `propertyId`
 - `documentType`
+- `fileSha256`
+- `fileSizeBytes`
+- `mimeType`
+- `storageBucket`
 - `storagePath`
+- `originalFilename`
+- `uploadedByUserId`
+- `uploadedAt`
 - `status`
+- `reviewStatus`
 - `reviewedByUserId`
 - `reviewedAt`
+- `reviewNotes`
 - `rejectionReason`
 
 Rules:
@@ -521,6 +555,7 @@ Rules:
 - Store in private bucket.
 - Never expose direct public URLs.
 - Access through owner/admin/server-generated signed URL only.
+- Owners may upload new evidence but may not update or delete existing verification-document storage objects.
 
 ### Invite
 
@@ -560,6 +595,30 @@ Key fields:
 - `readAt`
 - `metadata`
 
+### EmailOutbox
+
+Transactional email queue used by invite notifications.
+
+Key fields:
+
+- `id`
+- `type`
+- `to`
+- `subject`
+- `templateName`
+- `payload`
+- `status`
+- `attempts`
+- `lastError`
+- `nextAttemptAt`
+- `sentAt`
+
+Rules:
+
+- Invite creation enqueues email inside the invite transaction.
+- Email delivery retries are processed by maintenance.
+- In-app notification remains the source of truth.
+
 ### AdminAuditLog
 
 Key fields:
@@ -581,10 +640,10 @@ Log badge decisions, document reviews, role changes, suspensions, and invite mod
 Can view:
 
 - Home page
-- Active public buyer profiles with privacy-safe fields
 
 Cannot view:
 
+- Buyer directory or full buyer profiles
 - Verification docs
 - Private contact info
 - Invite details
@@ -609,11 +668,11 @@ Cannot:
 
 Can:
 
-- Search active buyer profiles
-- View public buyer profiles
+- Search active buyer profiles after `SellerAccess` approval
+- View buyer profiles after `SellerAccess` approval
 - Manage own properties
 - Upload own property images/docs
-- Send invites
+- Send invites after `SellerAccess` approval
 - View own sent invites
 
 Cannot:
@@ -621,6 +680,7 @@ Cannot:
 - View buyer private verification docs
 - Send unlimited invites
 - Grant badges
+- Browse the buyer directory with seller role alone
 
 ### Internal Admin
 
@@ -706,6 +766,7 @@ Seller:
 Admin:
 
 - `listUsers`
+- `reviewSellerAccess`
 - `listPendingDocuments`
 - `reviewDocument`
 - `grantBadge`

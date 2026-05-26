@@ -8,6 +8,7 @@ import {
   hideBuyerProfile,
   respondToInvite,
   reviewDocument,
+  reviewSellerAccess,
   revokeBadge,
   sendInvite,
   suspendUser,
@@ -19,6 +20,7 @@ import {
   uploadPropertyImageFile,
   upsertBuyerCriteria,
 } from "./contracts";
+import { requireApprovedSellerAccess } from "./access";
 
 function isSubmittedFile(value: FormDataEntryValue): value is File {
   return (
@@ -111,6 +113,7 @@ export async function submitSellerPropertyUpdate(formData: FormData) {
 }
 
 export async function submitInvite(formData: FormData) {
+  await requireApprovedSellerAccess();
   const propertyId = formData.get("propertyId");
   const images = formData.getAll("images").filter(isSubmittedFile);
 
@@ -147,6 +150,12 @@ export async function submitBadgeRevoke(formData: FormData) {
 export async function submitUserSuspension(formData: FormData) {
   await suspendUser(formData);
   revalidatePath("/admin/users");
+}
+
+export async function submitSellerAccessReview(formData: FormData) {
+  await reviewSellerAccess(formData);
+  revalidatePath("/admin/users");
+  revalidatePath("/seller/search");
 }
 
 export async function submitProfileHide(formData: FormData) {
