@@ -60,6 +60,7 @@ export async function submitBuyerCriteria(formData: FormData) {
 export async function respondToBuyerInvite(formData: FormData) {
   await respondToInvite(formData);
   revalidatePath("/buyer/invites");
+  revalidatePath("/buyer/profile");
 }
 
 export async function submitBuyerVerificationDocument(formData: FormData) {
