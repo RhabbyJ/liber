@@ -6,7 +6,9 @@ import { Icon } from "../../../components/icon";
 import { LocationLookupFields } from "../../../components/location-lookup-fields";
 import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
+import { canViewBuyerDirectory } from "../../../server/access";
 import { getCurrentSellerAccess, searchBuyers } from "../../../server/contracts";
+import { getSessionUser } from "../../../server/session";
 
 const budgetMaxOptions = [
   { label: "Any budget", value: "" },
@@ -54,9 +56,11 @@ export default async function SellerSearchPage({
   }>;
 }) {
   const params = await searchParams;
+  const user = await getSessionUser();
   const { data: sellerAccess } = await getCurrentSellerAccess();
+  const canSearch = user ? await canViewBuyerDirectory(user) : false;
 
-  if (sellerAccess.status !== "APPROVED") {
+  if (!canSearch) {
     return (
       <div className="page stack loose">
         <PageTitle
@@ -193,33 +197,31 @@ export default async function SellerSearchPage({
         </form>
       </section>
 
-      <section className="search-grid">
-        <div className="stack">
-          <div className="buyer-list">
-            <div className="buyer-list-head">
-              <div className="stack tight">
-                <h2>{params.city ? `Buyers in ${params.city}` : "Active buyers"}</h2>
-                <span className="muted small">{results.length} {results.length === 1 ? "match" : "matches"} · Sorted by {sort.replace(/_/g, " ")}</span>
-              </div>
-              <span className="status-dot active">
-                <Icon name="lock" size={12} />
-                Your property stays private
-              </span>
-            </div>
-            {results.length === 0 ? (
-              <div style={{ padding: 24 }}>
-                <EmptyState
-                  icon="search"
-                  title="No buyers match these filters"
-                  description="Try widening your radius, raising the budget ceiling, or removing badge filters."
-                />
-              </div>
-            ) : (
-              results.map((buyer) => <BuyerCard buyer={buyer} key={buyer.id} />)
-            )}
-          </div>
-        </div>
+      <section className="grid search-grid">
         <BuyerMap buyers={results} centerLat={centerLat} centerLng={centerLng} radiusMiles={radiusMiles} />
+        <div className="buyer-list">
+          <div className="buyer-list-head">
+            <div className="stack tight">
+              <h2>{params.city ? `${params.city} buyers for your property` : "Active buyers for your property"}</h2>
+              <span className="muted small">{results.length} {results.length === 1 ? "match" : "matches"} · Sorted by {sort.replace(/_/g, " ")}</span>
+            </div>
+            <span className="status-dot active">
+              <Icon name="lock" size={12} />
+              Your property stays private
+            </span>
+          </div>
+          {results.length === 0 ? (
+            <div style={{ padding: 24 }}>
+              <EmptyState
+                icon="search"
+                title="No buyers match these filters"
+                description="Try widening your radius, raising the budget ceiling, or removing badge filters."
+              />
+            </div>
+          ) : (
+            results.map((buyer) => <BuyerCard buyer={buyer} key={buyer.id} />)
+          )}
+        </div>
       </section>
     </div>
   );

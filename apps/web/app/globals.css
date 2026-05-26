@@ -1987,11 +1987,9 @@ main {
 
 .search-grid {
   align-items: start;
-  display: grid;
-  gap: 24px;
-  grid-template-columns: minmax(0, 1fr) 420px;
+  grid-template-columns: minmax(560px, 1.45fr) minmax(360px, 0.75fr);
   margin: 0 auto;
-  max-width: var(--container-wide);
+  max-width: 1500px;
 }
 
 .filter-panel {
@@ -2060,14 +2058,14 @@ main {
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-2);
   isolation: isolate;
-  min-height: 620px;
+  min-height: 720px;
   overflow: hidden;
   padding: 18px;
   position: sticky;
   top: 96px;
 }
 
-.map-shell::before {
+.map-shell.fallback::before {
   background-image:
     repeating-linear-gradient(0deg, rgba(31, 27, 22, 0.05) 0 1px, transparent 1px 56px),
     repeating-linear-gradient(90deg, rgba(31, 27, 22, 0.05) 0 1px, transparent 1px 56px);
@@ -2079,6 +2077,8 @@ main {
 }
 
 .map-shell.interactive {
+  background: var(--surface);
+  min-height: 720px;
   padding: 0;
 }
 
