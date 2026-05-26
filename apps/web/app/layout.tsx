@@ -42,10 +42,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   >
                     <Icon name="bell" size={18} />
                   </Link>
-                  <Link className="button secondary" href={accountHrefForRoles(roles)}>
-                    <Icon name="user" size={15} />
-                    Account
-                  </Link>
                   <form action="/logout" method="post">
                     <button className="button ghost" type="submit" aria-label="Log out">
                       <Icon name="logout" size={15} />
@@ -114,15 +110,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   );
 }
 
-function accountHrefForRoles(roles: string[]) {
-  if (roles.includes("ADMIN")) return "/admin";
-  if (roles.includes("BUYER")) return "/buyer/profile";
-  if (roles.includes("SELLER")) return "/seller/search";
-  return "/onboarding/role";
-}
-
 function notificationHrefForRoles(roles: string[]) {
   if (roles.includes("BUYER")) return "/buyer/notifications";
   if (roles.includes("SELLER")) return "/seller/notifications";
-  return accountHrefForRoles(roles);
+  if (roles.includes("ADMIN")) return "/admin";
+  return "/onboarding/role";
 }

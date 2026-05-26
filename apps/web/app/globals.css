@@ -24,13 +24,13 @@
   --line-soft: #f1ecdf;
   --line-strong: #d6cfbd;
 
-  /* Sage / forest accent (calm green) */
-  --sage: #3f7d4a;
-  --sage-strong: #2d5b35;
-  --sage-deep: #1d3f25;
-  --sage-tint: #e9f1e4;
-  --sage-tint-strong: #d3e4cb;
-  --sage-line: #b9d2b0;
+  /* Sage accent (light, fresh green) */
+  --sage: #6fbf85;
+  --sage-strong: #3f9c5b;
+  --sage-deep: #2a7340;
+  --sage-tint: #eef7ea;
+  --sage-tint-strong: #d6ecd0;
+  --sage-line: #b9dfb2;
 
   /* Amber / honey accent (warm gold) */
   --amber: #b78527;
@@ -78,7 +78,7 @@
   --gutter: clamp(20px, 4vw, 56px);
 
   /* Focus */
-  --focus-ring: 0 0 0 3px rgba(63, 125, 74, 0.28);
+  --focus-ring: 0 0 0 3px rgba(63, 156, 91, 0.28);
 }
 
 * {
@@ -100,7 +100,7 @@ body {
 body {
   background:
     radial-gradient(1000px 600px at 95% -10%, rgba(183, 133, 39, 0.06), transparent 60%),
-    radial-gradient(900px 500px at -5% 105%, rgba(63, 125, 74, 0.06), transparent 60%),
+    radial-gradient(900px 500px at -5% 105%, rgba(63, 156, 91, 0.06), transparent 60%),
     var(--canvas);
   min-height: 100vh;
 }
@@ -1868,7 +1868,7 @@ main {
 .map-shell {
   background:
     radial-gradient(circle at 22% 20%, rgba(183, 133, 39, 0.14), transparent 26%),
-    radial-gradient(circle at 78% 28%, rgba(63, 125, 74, 0.16), transparent 28%),
+    radial-gradient(circle at 78% 28%, rgba(63, 156, 91, 0.16), transparent 28%),
     linear-gradient(160deg, #e8e1cf, #f5efde);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
@@ -2050,7 +2050,7 @@ main {
   background: var(--sage-deep);
   border: 3px solid #fff;
   border-radius: var(--r-pill);
-  box-shadow: 0 10px 26px rgba(31, 27, 22, 0.22), 0 0 0 8px rgba(63, 125, 74, 0.18);
+  box-shadow: 0 10px 26px rgba(31, 27, 22, 0.22), 0 0 0 8px rgba(63, 156, 91, 0.18);
   color: #fff;
   display: grid;
   font-size: 13px;
@@ -2072,7 +2072,7 @@ main {
 .map-shell.small {
   align-content: center;
   background:
-    radial-gradient(circle at 30% 30%, rgba(63, 125, 74, 0.16), transparent 50%),
+    radial-gradient(circle at 30% 30%, rgba(63, 156, 91, 0.16), transparent 50%),
     linear-gradient(160deg, #f3eedf, #e9e1ce);
   justify-items: center;
   min-height: 180px;
@@ -2096,7 +2096,7 @@ main {
   background: var(--sage-deep);
   border: 3px solid #fff;
   border-radius: var(--r-pill);
-  box-shadow: 0 10px 22px rgba(31, 27, 22, 0.24), 0 0 0 7px rgba(63, 125, 74, 0.16);
+  box-shadow: 0 10px 22px rgba(31, 27, 22, 0.24), 0 0 0 7px rgba(63, 156, 91, 0.16);
   color: #fff;
   cursor: pointer;
   display: grid;

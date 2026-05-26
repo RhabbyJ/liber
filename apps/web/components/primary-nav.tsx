@@ -23,13 +23,8 @@ const buyerItems: NavItem[] = [
   {
     href: "/buyer/profile",
     label: "Profile",
-    isActive: (p) => p === "/buyer/profile" || p === "/buyer/criteria",
-    mode: "buyer",
-  },
-  {
-    href: "/buyer/badges",
-    label: "Verification",
-    isActive: (p) => p === "/buyer/badges",
+    isActive: (p) =>
+      p === "/buyer/profile" || p === "/buyer/criteria" || p === "/buyer/badges",
     mode: "buyer",
   },
   {
@@ -43,7 +38,7 @@ const buyerItems: NavItem[] = [
 const sellerItems: NavItem[] = [
   {
     href: "/seller/search",
-    label: "Search buyers",
+    label: "Buyers",
     isActive: (p) => p === "/seller/search" || p.startsWith("/buyers/") || p.startsWith("/seller/invite/"),
     mode: "seller",
   },
@@ -55,7 +50,7 @@ const sellerItems: NavItem[] = [
   },
   {
     href: "/seller/invites",
-    label: "Sent invites",
+    label: "Invites",
     isActive: (p) => p === "/seller/invites" || p === "/seller/notifications",
     mode: "seller",
   },
@@ -96,9 +91,9 @@ export function PrimaryNav({
   const hasSeller = roles.includes("SELLER");
   const hasAdmin = roles.includes("ADMIN");
 
-  const items: NavItem[] = [homeItem];
+  const items: NavItem[] = [];
   if (!isAuthenticated) {
-    items.push(...publicItems);
+    items.push(homeItem, ...publicItems);
   } else {
     if (hasBuyer) items.push(...buyerItems);
     if (hasSeller) items.push(...sellerItems);
@@ -146,18 +141,12 @@ export function PrimaryNav({
         })}
         <div className="mobile-nav-actions">
           {isAuthenticated ? (
-            <>
-              <Link className="button secondary" href={accountHrefForRoles(roles)} onClick={close}>
-                <Icon name="user" size={15} />
-                Account
-              </Link>
-              <form action="/logout" method="post">
-                <button className="button ghost" type="submit">
-                  <Icon name="logout" size={15} />
-                  Sign out
-                </button>
-              </form>
-            </>
+            <form action="/logout" method="post">
+              <button className="button ghost" type="submit">
+                <Icon name="logout" size={15} />
+                Sign out
+              </button>
+            </form>
           ) : (
             <>
               <Link className="button ghost" href="/login" onClick={close}>Log in</Link>
@@ -172,9 +161,3 @@ export function PrimaryNav({
   );
 }
 
-function accountHrefForRoles(roles: AppRole[]) {
-  if (roles.includes("ADMIN")) return "/admin";
-  if (roles.includes("BUYER")) return "/buyer/profile";
-  if (roles.includes("SELLER")) return "/seller/search";
-  return "/onboarding/role";
-}

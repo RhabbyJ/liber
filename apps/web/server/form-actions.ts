@@ -71,6 +71,7 @@ export async function submitBuyerVerificationDocument(formData: FormData) {
 
   await uploadBuyerVerificationDocumentFile(formData.get("documentType"), document);
   revalidatePath("/buyer/badges");
+  revalidatePath("/buyer/profile");
   revalidatePath("/admin/documents");
 }
 

@@ -7,7 +7,7 @@ import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
 import { formatRange } from "../../../lib/format";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
-import { submitBuyerProfile } from "../../../server/form-actions";
+import { submitBuyerProfile, submitBuyerVerificationDocument } from "../../../server/form-actions";
 
 const budgetMinOptions = [
   { label: "No minimum", value: "" },
@@ -171,16 +171,10 @@ export default async function BuyerProfileBuilderPage() {
           </div>
 
           <div className="actions between">
-            <div className="actions inline">
-              <Link className="button secondary" href="/buyer/criteria">
-                <Icon name="list" size={14} />
-                Edit criteria
-              </Link>
-              <Link className="button ghost" href="/buyer/badges">
-                <Icon name="shield" size={14} />
-                Verification
-              </Link>
-            </div>
+            <Link className="button secondary" href="/buyer/criteria">
+              <Icon name="list" size={14} />
+              Edit criteria
+            </Link>
             <button className="button primary" name="visibilityStatus" type="submit" value="ACTIVE">
               <Icon name="sparkle" size={14} />
               Submit profile
@@ -225,9 +219,7 @@ export default async function BuyerProfileBuilderPage() {
                 ))}
               </div>
             ) : (
-              <p className="muted small">
-                No active trust badges yet. <Link href="/buyer/badges">Get verified</Link> to stand out in seller search.
-              </p>
+              <p className="muted small">No trust badges yet. Add one below to stand out.</p>
             )}
             {isActive && buyer.id !== "new-profile" ? (
               <Link className="button secondary" href={`/buyers/${buyer.id}`}>
@@ -239,6 +231,69 @@ export default async function BuyerProfileBuilderPage() {
             )}
           </article>
         </aside>
+      </section>
+
+      <section className="grid two">
+        <article className="card stack">
+          <div className="section-head compact">
+            <div>
+              <p className="eyebrow">Verification</p>
+              <h2 style={{ fontSize: 20 }}>Get a trust badge</h2>
+            </div>
+            <span className="status-dot info">
+              <Icon name="lock" size={12} />
+              Private
+            </span>
+          </div>
+          <p className="muted small">Upload a pre-approval or proof of funds. Liber reviews — sellers only see the badge.</p>
+          <form action={submitBuyerVerificationDocument} className="form-grid" encType="multipart/form-data">
+            <div className="field">
+              <label htmlFor="documentType">Type</label>
+              <select id="documentType" name="documentType">
+                <option value="PRE_APPROVAL">Pre-approval letter</option>
+                <option value="VERIFIED_FUNDS">Proof of funds</option>
+                <option value="IDENTITY">Identity</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="document">File</label>
+              <input id="document" name="document" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
+              <span className="field-hint">PDF, PNG, JPEG, WebP · 25 MB max</span>
+            </div>
+            <div className="field full">
+              <button className="button primary" type="submit">
+                <Icon name="upload" size={14} />
+                Submit
+              </button>
+            </div>
+          </form>
+          {buyer.badges.length > 0 ? (
+            <div className="pill-row">
+              {buyer.badges.map((badge) => (
+                <BadgePill badge={badge} key={badge.label} />
+              ))}
+            </div>
+          ) : null}
+        </article>
+
+        <article className="card stack">
+          <div className="section-head compact">
+            <div>
+              <p className="eyebrow">Account</p>
+              <h2 style={{ fontSize: 20 }}>Signed in as {buyer.name || "buyer"}</h2>
+            </div>
+          </div>
+          <p className="muted small">Profile, search criteria, and verification all live here. Nothing else to manage.</p>
+          <div className="actions inline">
+            <form action="/logout" method="post">
+              <button className="button ghost" type="submit">
+                <Icon name="logout" size={14} />
+                Sign out
+              </button>
+            </form>
+          </div>
+        </article>
       </section>
     </div>
   );
