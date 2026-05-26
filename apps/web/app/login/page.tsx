@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Icon } from "../../components/icon";
+import { ModeChip } from "../../components/mode-chip";
 import { PageTitle } from "../../components/page-title";
 import { safeInternalPath } from "../../lib/redirect";
 
@@ -13,8 +15,13 @@ export default async function LoginPage({
   const notice = authNotice(status, email);
 
   return (
-    <div className="page narrow">
-      <PageTitle eyebrow="Account" title={context.loginTitle}>
+    <div className="page narrow stack loose">
+      <PageTitle
+        eyebrow="Welcome back"
+        title={context.loginTitle}
+        tone={context.tone}
+        badge={context.tone ? <ModeChip mode={context.tone} /> : undefined}
+      >
         {context.description}
       </PageTitle>
       <section className="card stack">
@@ -26,17 +33,21 @@ export default async function LoginPage({
         ) : null}
         <form action="/api/auth/login" className="form-grid" method="post">
           <input name="next" type="hidden" value={safeNext} />
-          <div className="field">
+          <div className="field full">
             <label htmlFor="email">Email</label>
             <input id="email" name="email" type="email" placeholder="you@example.com" defaultValue={email} required />
           </div>
-          <div className="field">
+          <div className="field full">
             <label htmlFor="password">Password</label>
             <input id="password" name="password" type="password" required />
           </div>
-          <button className="button" type="submit">Log in</button>
+          <button className="button primary block" type="submit">
+            <Icon name="key" size={15} />
+            Continue
+          </button>
         </form>
-        <p className="muted">
+        <div className="divider" />
+        <p className="muted small">
           New to Liber? <Link href={context.signupHref}>Create {context.signupLabel}</Link>.
         </p>
       </section>
@@ -98,22 +109,32 @@ function authNotice(status: string, email: string) {
   return null;
 }
 
-function authContextFromNext(next: string) {
+type LoginContext = {
+  description: string;
+  loginTitle: string;
+  signupHref: string;
+  signupLabel: string;
+  tone?: "buyer" | "seller" | "admin";
+};
+
+function authContextFromNext(next: string): LoginContext {
   if (next.startsWith("/seller")) {
     return {
       description: "Continue to seller search, property management, and invite tools.",
       loginTitle: "Log in as a seller",
       signupHref: `/signup?role=seller&next=${encodeURIComponent(next)}`,
       signupLabel: "a seller account",
+      tone: "seller",
     };
   }
 
   if (next.startsWith("/buyer") || next.startsWith("/buyers")) {
     return {
-      description: "Continue to buyer profile, criteria, verification, and invite tools.",
+      description: "Continue to your buyer profile, criteria, verification, and invites.",
       loginTitle: "Log in as a buyer",
       signupHref: `/signup?role=buyer&next=${encodeURIComponent(next)}`,
       signupLabel: "a buyer account",
+      tone: "buyer",
     };
   }
 
@@ -123,6 +144,7 @@ function authContextFromNext(next: string) {
       loginTitle: "Log in for admin",
       signupHref: "/signup",
       signupLabel: "a buyer or seller account",
+      tone: "admin",
     };
   }
 

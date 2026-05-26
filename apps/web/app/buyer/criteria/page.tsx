@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Icon } from "../../../components/icon";
+import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
 import { submitBuyerCriteria } from "../../../server/form-actions";
@@ -63,102 +65,169 @@ export default async function BuyerCriteriaPage() {
   const { data: buyer } = await getCurrentBuyerProfile();
 
   return (
-    <div className="page stack">
-      <PageTitle eyebrow="Buyer" title="Home search criteria">
-        Choose simple residential preferences sellers can match against their property.
+    <div className="page stack loose">
+      <PageTitle
+        eyebrow="Home search criteria"
+        title="Save the home you'd say yes to"
+        tone="buyer"
+        badge={<ModeChip mode="buyer" />}
+      >
+        Simple residential preferences sellers can match against their property. Liber only shows residential homes in v1.
       </PageTitle>
 
-      <section className="card stack">
-        <form action={submitBuyerCriteria} className="form-grid">
+      <section className="grid sidebar">
+        <form action={submitBuyerCriteria} className="card stack loose">
           <input name="buyerProfileId" type="hidden" value={buyer.id} />
-          <div className="field">
-            <label htmlFor="subtype">Property type</label>
-            <select id="subtype" name="propertySubtype" defaultValue="HOME">
-              <option value="HOME">Residential home</option>
-            </select>
+
+          <div className="section-stack">
+            <p className="eyebrow">Property type &amp; condition</p>
+            <h2>What kind of home</h2>
           </div>
-          <div className="field">
-            <label htmlFor="condition">Condition</label>
-            <select id="condition" name="condition" defaultValue="">
-              {conditionOptions.map((option) => (
-                <option key={option} value={option === "Any condition" ? "" : option}>{option}</option>
-              ))}
-            </select>
+          <div className="form-grid">
+            <div className="field">
+              <label htmlFor="subtype">Property type</label>
+              <select id="subtype" name="propertySubtype" defaultValue="HOME">
+                <option value="HOME">Residential home</option>
+              </select>
+              <span className="field-hint">Commercial criteria will return in a later release.</span>
+            </div>
+            <div className="field">
+              <label htmlFor="condition">Condition</label>
+              <select id="condition" name="condition" defaultValue="">
+                {conditionOptions.map((option) => (
+                  <option key={option} value={option === "Any condition" ? "" : option}>{option}</option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="field">
-            <label htmlFor="priceMin">Price min</label>
-            <select id="priceMin" name="priceMin" defaultValue={String(buyer.budgetMin || "")}>
-              {priceMinOptions.map((option) => (
-                <option key={option.label} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+
+          <div className="divider" />
+
+          <div className="section-stack">
+            <p className="eyebrow">Budget</p>
+            <h2>Price range</h2>
           </div>
-          <div className="field">
-            <label htmlFor="priceMax">Price max</label>
-            <select id="priceMax" name="priceMax" defaultValue={String(buyer.budgetMax || "1000000")}>
-              {priceMaxOptions.map((option) => (
-                <option key={option.label} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+          <div className="form-grid">
+            <div className="field">
+              <label htmlFor="priceMin">Price min</label>
+              <select id="priceMin" name="priceMin" defaultValue={String(buyer.budgetMin || "")}>
+                {priceMinOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="priceMax">Price max</label>
+              <select id="priceMax" name="priceMax" defaultValue={String(buyer.budgetMax || "1000000")}>
+                {priceMaxOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="field">
-            <label htmlFor="beds">Bedrooms min</label>
-            <select id="beds" name="bedroomsMin" defaultValue="">
-              {bedroomsOptions.map((option) => (
-                <option key={option.label} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+
+          <div className="divider" />
+
+          <div className="section-stack">
+            <p className="eyebrow">Bedrooms, baths, footprint</p>
+            <h2>Home shape</h2>
           </div>
-          <div className="field">
-            <label htmlFor="baths">Bathrooms min</label>
-            <select id="baths" name="bathroomsMin" defaultValue="">
-              {bathroomsOptions.map((option) => (
-                <option key={option.label} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+          <div className="form-grid">
+            <div className="field">
+              <label htmlFor="beds">Bedrooms min</label>
+              <select id="beds" name="bedroomsMin" defaultValue="">
+                {bedroomsOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="baths">Bathrooms min</label>
+              <select id="baths" name="bathroomsMin" defaultValue="">
+                {bathroomsOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="sqft">Square feet min</label>
+              <select id="sqft" name="squareFeetMin" defaultValue="">
+                {squareFeetOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="lot">Lot size min</label>
+              <select id="lot" name="lotSizeMin" defaultValue="">
+                {lotSizeOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="yearBuiltMin">Year built</label>
+              <select id="yearBuiltMin" name="yearBuiltMin" defaultValue="">
+                <option value="">Any year</option>
+                <option value="1950">1950 or newer</option>
+                <option value="1970">1970 or newer</option>
+                <option value="1990">1990 or newer</option>
+                <option value="2010">2010 or newer</option>
+              </select>
+            </div>
           </div>
-          <div className="field">
-            <label htmlFor="sqft">Square feet min</label>
-            <select id="sqft" name="squareFeetMin" defaultValue="">
-              {squareFeetOptions.map((option) => (
-                <option key={option.label} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+
+          <div className="divider" />
+
+          <div className="section-stack">
+            <p className="eyebrow">Features &amp; story</p>
+            <h2>Needs and preferences</h2>
           </div>
-          <div className="field">
-            <label htmlFor="lot">Lot size min</label>
-            <select id="lot" name="lotSizeMin" defaultValue="">
-              {lotSizeOptions.map((option) => (
-                <option key={option.label} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+          <div className="form-grid">
+            <div className="field full">
+              <label htmlFor="features">Describe what you want</label>
+              <textarea
+                id="features"
+                name="features"
+                defaultValue={buyer.needs.join(", ")}
+                placeholder="Single story, no pool, attached garage, low-maintenance yard"
+              />
+              <span className="field-hint">Plain language. Liber can match this against seller descriptions later.</span>
+            </div>
           </div>
-          <div className="field">
-            <label htmlFor="yearBuiltMin">Year built</label>
-            <select id="yearBuiltMin" name="yearBuiltMin" defaultValue="">
-              <option value="">Any year</option>
-              <option value="1950">1950 or newer</option>
-              <option value="1970">1970 or newer</option>
-              <option value="1990">1990 or newer</option>
-              <option value="2010">2010 or newer</option>
-            </select>
+
+          <div className="actions between">
+            <Link className="button ghost" href="/buyer/profile">
+              <Icon name="user" size={14} />
+              Back to profile
+            </Link>
+            <button className="button primary" type="submit">
+              <Icon name="check" size={14} />
+              Save search criteria
+            </button>
           </div>
-          <div className="field full">
-            <label htmlFor="features">Needs and preferences</label>
-            <textarea id="features" name="features" defaultValue={buyer.needs.join(", ")} />
-          </div>
-          <div className="field full">
-            <label htmlFor="location">Location picker</label>
+        </form>
+
+        <aside className="public-profile-aside">
+          <article className="card stack">
             <div className="map-shell small">
               <span className="map-pin" />
               <strong>{buyer.location}</strong>
+              <span className="muted small">Stored privately for radius search</span>
             </div>
-          </div>
-          <div className="actions">
-            <Link className="button secondary" href="/buyer/profile">Back to profile</Link>
-            <button className="button" type="submit">Save search criteria</button>
-          </div>
-        </form>
+            <div className="section-stack">
+              <p className="eyebrow">Current location</p>
+              <h3 style={{ fontSize: 18 }}>{buyer.city || "Set a pilot area"}</h3>
+            </div>
+            <p className="muted small">
+              Change the area from your profile page. Liber's v1 launch market is the San Fernando Valley pilot.
+            </p>
+            <Link className="link-button" href="/buyer/profile">
+              <Icon name="map-pin" size={14} />
+              Update location
+            </Link>
+          </article>
+        </aside>
       </section>
     </div>
   );

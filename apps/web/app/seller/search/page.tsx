@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { BuyerCard } from "../../../components/buyer-card";
 import { BuyerMap } from "../../../components/buyer-map";
+import { EmptyState } from "../../../components/empty-state";
+import { Icon } from "../../../components/icon";
 import { LocationLookupFields } from "../../../components/location-lookup-fields";
+import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
 import { getCurrentSellerAccess, searchBuyers } from "../../../server/contracts";
 
@@ -55,17 +58,36 @@ export default async function SellerSearchPage({
 
   if (sellerAccess.status !== "APPROVED") {
     return (
-      <div className="page stack">
-        <PageTitle eyebrow="Seller" title="Buyer directory access pending">
-          A Liber admin must approve seller directory access before buyer search, buyer profile viewing, or invites are available.
+      <div className="page stack loose">
+        <PageTitle
+          eyebrow="Seller workspace"
+          title="Buyer directory access pending"
+          tone="seller"
+          badge={<ModeChip mode="seller" />}
+        >
+          A Liber admin must approve seller directory access before buyer search, profile viewing, or invites are available.
         </PageTitle>
-        <section className="card stack">
-          <p className="eyebrow">Status</p>
-          <h2>{sellerAccess.status ?? "PENDING"}</h2>
+        <section className="card cream stack">
+          <div className="section-head compact">
+            <div>
+              <p className="eyebrow amber">Status</p>
+              <h2 style={{ fontSize: 22 }}>{sellerAccess.status ?? "PENDING"}</h2>
+            </div>
+            <span className="status-dot amber">
+              <Icon name="info" size={12} />
+              Awaiting review
+            </span>
+          </div>
           <p className="muted">
-            You can continue preparing private property records while access is reviewed.
+            You can continue preparing private property records while access is reviewed. Properties stay private until you
+            invite a buyer.
           </p>
-          <Link className="button" href="/seller/properties">Manage Properties</Link>
+          <div className="actions">
+            <Link className="button primary" href="/seller/properties">
+              <Icon name="home" size={14} />
+              Manage properties
+            </Link>
+          </div>
         </section>
       </div>
     );
@@ -92,9 +114,21 @@ export default async function SellerSearchPage({
   });
 
   return (
-    <div className="page stack">
-      <PageTitle eyebrow="Seller" title="Search buyers">
-        {results.length} active buyer profiles match the current filters. Properties stay private until you invite a buyer.
+    <div className="page wide stack loose">
+      <PageTitle
+        eyebrow="Seller workspace"
+        title="Search the buyer directory"
+        tone="seller"
+        badge={<ModeChip mode="seller" />}
+        actions={
+          <Link className="button primary" href="/seller/properties/new">
+            <Icon name="plus" size={14} />
+            Add private property
+          </Link>
+        }
+      >
+        {results.length} active buyer {results.length === 1 ? "profile matches" : "profiles match"} the current filters.
+        Properties stay private until you invite a buyer.
       </PageTitle>
 
       <section className="filter-panel">
@@ -147,21 +181,45 @@ export default async function SellerSearchPage({
             <option value="VERIFIED_FUNDS">Verified funds</option>
             <option value="COMPLETED_TRANSACTION">Completed transaction</option>
           </select>
-          <button className="button secondary" type="submit">Apply filters</button>
-          <Link className="button" href="/seller/properties/new">Add Private Property</Link>
+          <div className="filter-actions">
+            <span className="field-hint muted">
+              <Icon name="info" size={12} /> Pilot launch market: San Fernando Valley.
+            </span>
+            <button className="button" type="submit">
+              <Icon name="search" size={14} />
+              Apply filters
+            </button>
+          </div>
         </form>
       </section>
 
-      <section className="grid search-grid">
-        <BuyerMap buyers={results} centerLat={centerLat} centerLng={centerLng} radiusMiles={radiusMiles} />
-        <div className="buyer-list">
-          <div className="buyer-list-head">
-            <h2>{params.city ? `${params.city} buyers for your property` : "Active buyers for your property"}</h2>
+      <section className="search-grid">
+        <div className="stack">
+          <div className="buyer-list">
+            <div className="buyer-list-head">
+              <div className="stack tight">
+                <h2>{params.city ? `Buyers in ${params.city}` : "Active buyers"}</h2>
+                <span className="muted small">{results.length} {results.length === 1 ? "match" : "matches"} · Sorted by {sort.replace(/_/g, " ")}</span>
+              </div>
+              <span className="status-dot active">
+                <Icon name="lock" size={12} />
+                Your property stays private
+              </span>
+            </div>
+            {results.length === 0 ? (
+              <div style={{ padding: 24 }}>
+                <EmptyState
+                  icon="search"
+                  title="No buyers match these filters"
+                  description="Try widening your radius, raising the budget ceiling, or removing badge filters."
+                />
+              </div>
+            ) : (
+              results.map((buyer) => <BuyerCard buyer={buyer} key={buyer.id} />)
+            )}
           </div>
-          {results.map((buyer) => (
-            <BuyerCard buyer={buyer} key={buyer.id} />
-          ))}
         </div>
+        <BuyerMap buyers={results} centerLat={centerLat} centerLng={centerLng} radiusMiles={radiusMiles} />
       </section>
     </div>
   );

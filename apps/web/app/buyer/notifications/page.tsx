@@ -1,3 +1,7 @@
+import Link from "next/link";
+import { EmptyState } from "../../../components/empty-state";
+import { Icon } from "../../../components/icon";
+import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
 import { listNotifications } from "../../../server/contracts";
 
@@ -5,23 +9,38 @@ export default async function BuyerNotificationsPage() {
   const { data: notifications } = await listNotifications();
 
   return (
-    <div className="page stack">
-      <PageTitle eyebrow="Buyer" title="Notifications" />
-      <section className="grid two">
-        {notifications.map((notification) => (
-          <article className="card stack" key={notification.id}>
-            <div className="section-head compact">
-              <p className="eyebrow">{notification.type.replace("_", " ")}</p>
-              <span className={notification.readAt ? "status-dot" : "status-dot active"}>
-                {notification.readAt ? "Read" : "Unread"}
-              </span>
-            </div>
-            <h2>{notification.title}</h2>
-            <p className="muted">{notification.body}</p>
-            <small>{notification.createdAt}</small>
-          </article>
-        ))}
-      </section>
+    <div className="page stack loose">
+      <PageTitle
+        eyebrow="Activity"
+        title="Notifications"
+        tone="buyer"
+        badge={<ModeChip mode="buyer" />}
+        actions={
+          <Link className="button ghost" href="/buyer/invites">
+            <Icon name="mail" size={14} />
+            Invite inbox
+          </Link>
+        }
+      />
+      {notifications.length === 0 ? (
+        <EmptyState icon="sparkle" title="All quiet" description="No new activity yet. Check back after sellers reach out." />
+      ) : (
+        <section className="grid two">
+          {notifications.map((notification) => (
+            <article className="card stack" key={notification.id}>
+              <div className="section-head compact">
+                <p className="eyebrow">{notification.type.replace(/_/g, " ")}</p>
+                <span className={notification.readAt ? "status-dot" : "status-dot warning"}>
+                  {notification.readAt ? "Read" : "Unread"}
+                </span>
+              </div>
+              <h2 style={{ fontSize: 18 }}>{notification.title}</h2>
+              <p className="muted">{notification.body}</p>
+              <small>{notification.createdAt}</small>
+            </article>
+          ))}
+        </section>
+      )}
     </div>
   );
 }

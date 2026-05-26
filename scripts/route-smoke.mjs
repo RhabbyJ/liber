@@ -128,7 +128,7 @@ let exitCode = 0;
 try {
   await waitForServer();
 
-  await expectPage("/", ["Liber", "Browse Buyers"]);
+  await expectPage("/", ["Liber", "Find buyers for my property"]);
   await expectPage("/login", ["Log in", "Email"]);
   await expectPage("/login?status=auth-error", ["Confirmation failed"]);
   await expectPage("/login?status=missing-credentials", ["Email and password required"]);

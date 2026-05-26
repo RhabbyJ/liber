@@ -1,27 +1,55 @@
 import Link from "next/link";
+import { Icon } from "../../components/icon";
+import { ModeChip } from "../../components/mode-chip";
 import { PageTitle } from "../../components/page-title";
 
-const adminSections = [
-  ["Users", "/admin/users", "Roles, suspensions, and profile ownership."],
-  ["Buyer profiles", "/admin/buyer-profiles", "Visibility, suspicious profiles, and moderation."],
-  ["Badges", "/admin/badges", "Manual grant, revoke, and expiration review."],
-  ["Documents", "/admin/documents", "Private ownership and verification files."],
-  ["Invites", "/admin/invites", "Abuse review and status tracking."],
-  ["Reports", "/admin/reports", "Moderation queue for suspicious activity."],
-  ["Audit log", "/admin/audit-log", "Sensitive admin action history."],
+type Section = {
+  description: string;
+  href: string;
+  icon: "user" | "people" | "shield" | "doc" | "mail" | "info" | "list";
+  title: string;
+};
+
+const adminSections: Section[] = [
+  { title: "Users", href: "/admin/users", icon: "user", description: "Roles, suspensions, and profile ownership." },
+  { title: "Buyer profiles", href: "/admin/buyer-profiles", icon: "people", description: "Visibility, suspicious profiles, moderation." },
+  { title: "Badges", href: "/admin/badges", icon: "shield", description: "Manual grant, revoke, and expiration review." },
+  { title: "Documents", href: "/admin/documents", icon: "doc", description: "Private ownership and verification files." },
+  { title: "Invites", href: "/admin/invites", icon: "mail", description: "Abuse review and status tracking." },
+  { title: "Reports", href: "/admin/reports", icon: "info", description: "Moderation queue for suspicious activity." },
+  { title: "Audit log", href: "/admin/audit-log", icon: "list", description: "Sensitive admin action history." },
 ];
 
 export default function AdminDashboardPage() {
   return (
-    <div className="page stack">
-      <PageTitle eyebrow="Admin" title="Verification dashboard">
+    <div className="page stack loose">
+      <PageTitle
+        eyebrow="Internal admin"
+        title="Verification dashboard"
+        tone="admin"
+        badge={<ModeChip mode="admin" />}
+      >
         Trust, moderation, and sensitive document decisions require audited admin action.
       </PageTitle>
       <section className="grid three">
-        {adminSections.map(([title, href, description]) => (
-          <Link className="card nav-card" href={href} key={href}>
-            <p className="eyebrow">{title}</p>
-            <p className="muted">{description}</p>
+        {adminSections.map((section) => (
+          <Link className="card stack" href={section.href} key={section.href}>
+            <span
+              className="mode-card-icon"
+              style={{ background: "var(--surface-muted)", color: "var(--ink-strong)" }}
+            >
+              <Icon name={section.icon} size={20} />
+            </span>
+            <div>
+              <p className="eyebrow">{section.title}</p>
+              <h3 style={{ fontSize: 18, marginTop: 6 }}>{section.description}</h3>
+            </div>
+            <div className="actions inline">
+              <span className="link-button">
+                Open
+                <Icon name="arrow-right" size={13} />
+              </span>
+            </div>
           </Link>
         ))}
       </section>

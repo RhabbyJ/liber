@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Icon } from "../../../components/icon";
 import { safeInternalPath } from "../../../lib/redirect";
 import { resendSignupConfirmation } from "../../../server/auth-actions";
 
@@ -15,15 +16,15 @@ export default async function VerifySignupPage({
     <div className="page narrow verify-page">
       <section className="card stack verify-card">
         <div className="verify-icon" aria-hidden="true">
-          <span>@</span>
+          <Icon name="mail" size={26} />
         </div>
-        <div className="stack">
+        <div className="stack tight">
           <p className="eyebrow">Account verification</p>
           <h1>Confirm your email</h1>
           <p className="muted">
             {email
-              ? `We sent a verification link to ${email}. Click the link to activate your account and continue.`
-              : "We sent a verification link to your email. Click the link to activate your account and continue."}
+              ? `We sent a verification link to ${email}. Click it to activate your account and continue.`
+              : "We sent a verification link to your email. Click it to activate your account and continue."}
           </p>
         </div>
 
@@ -36,26 +37,26 @@ export default async function VerifySignupPage({
 
         <div className="actions">
           {mailLink ? (
-            <a className="button" href={mailLink.href} rel="noreferrer" target="_blank">
+            <a className="button primary" href={mailLink.href} rel="noreferrer" target="_blank">
+              <Icon name="arrow-right" size={15} />
               Open {mailLink.label}
             </a>
           ) : null}
-          <Link className="button secondary" href="/login">
-            Back to login
-          </Link>
+          <Link className="button secondary" href="/login">Back to login</Link>
         </div>
 
         <form action={resendSignupConfirmation} className="verify-resend">
           <input name="email" type="hidden" value={email} />
           <input name="next" type="hidden" value={safeNext} />
           <button className="link-button" disabled={!email} type="submit">
+            <Icon name="mail" size={14} />
             Resend verification email
           </button>
         </form>
 
         <p className="muted small">
-          If the email is not in your inbox, check spam or promotions. The confirmation link must be opened in the same
-          Liber environment you signed up from.
+          If the email is not in your inbox, check spam or promotions. The confirmation link must be opened in the same Liber
+          environment you signed up from.
         </p>
       </section>
     </div>

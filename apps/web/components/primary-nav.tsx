@@ -4,52 +4,84 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import type { AppRole } from "../server/authz";
+import { Icon } from "./icon";
 
 type NavItem = {
   href: string;
   isActive: (pathname: string) => boolean;
   label: string;
+  mode?: "buyer" | "seller" | "admin";
 };
 
-const baseNavItems: NavItem[] = [
-  {
-    href: "/",
-    label: "Home",
-    isActive: (pathname: string) => pathname === "/",
-  },
+const homeItem: NavItem = {
+  href: "/",
+  isActive: (pathname) => pathname === "/",
+  label: "Home",
+};
+
+const buyerItems: NavItem[] = [
   {
     href: "/buyer/profile",
-    label: "Buyers",
-    isActive: (pathname: string) =>
-      pathname === "/buyer/profile" ||
-      pathname === "/buyer/criteria" ||
-      pathname === "/buyer/invites" ||
-      pathname === "/buyer/notifications" ||
-      pathname.startsWith("/buyers/"),
-  },
-  {
-    href: "/seller/search",
-    label: "Sellers",
-    isActive: (pathname: string) =>
-      pathname === "/seller/search" ||
-      pathname === "/seller/invites" ||
-      pathname === "/seller/notifications" ||
-      pathname.startsWith("/seller/invite/"),
+    label: "Profile",
+    isActive: (p) => p === "/buyer/profile" || p === "/buyer/criteria",
+    mode: "buyer",
   },
   {
     href: "/buyer/badges",
-    label: "Verify",
-    isActive: (pathname: string) =>
-      pathname === "/buyer/badges" ||
-      pathname === "/admin/documents" ||
-      pathname === "/admin/badges",
+    label: "Verification",
+    isActive: (p) => p === "/buyer/badges",
+    mode: "buyer",
+  },
+  {
+    href: "/buyer/invites",
+    label: "Invites",
+    isActive: (p) => p === "/buyer/invites" || p === "/buyer/notifications",
+    mode: "buyer",
+  },
+];
+
+const sellerItems: NavItem[] = [
+  {
+    href: "/seller/search",
+    label: "Search buyers",
+    isActive: (p) => p === "/seller/search" || p.startsWith("/buyers/") || p.startsWith("/seller/invite/"),
+    mode: "seller",
   },
   {
     href: "/seller/properties",
     label: "Properties",
-    isActive: (pathname: string) => pathname.startsWith("/seller/properties"),
+    isActive: (p) => p.startsWith("/seller/properties"),
+    mode: "seller",
+  },
+  {
+    href: "/seller/invites",
+    label: "Sent invites",
+    isActive: (p) => p === "/seller/invites" || p === "/seller/notifications",
+    mode: "seller",
   },
 ];
+
+const publicItems: NavItem[] = [
+  {
+    href: "/signup?role=buyer&next=/buyer/profile",
+    label: "For Buyers",
+    isActive: () => false,
+    mode: "buyer",
+  },
+  {
+    href: "/signup?role=seller&next=/seller/search",
+    label: "For Sellers",
+    isActive: () => false,
+    mode: "seller",
+  },
+];
+
+const adminItem: NavItem = {
+  href: "/admin",
+  label: "Admin",
+  isActive: (p) => p.startsWith("/admin"),
+  mode: "admin",
+};
 
 export function PrimaryNav({
   isAuthenticated,
@@ -60,30 +92,53 @@ export function PrimaryNav({
 }) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const navItems = navItemsForRoles(isAuthenticated, roles);
+  const hasBuyer = roles.includes("BUYER");
+  const hasSeller = roles.includes("SELLER");
+  const hasAdmin = roles.includes("ADMIN");
+
+  const items: NavItem[] = [homeItem];
+  if (!isAuthenticated) {
+    items.push(...publicItems);
+  } else {
+    if (hasBuyer) items.push(...buyerItems);
+    if (hasSeller) items.push(...sellerItems);
+    if (hasAdmin) items.push(adminItem);
+    if (!hasBuyer && !hasSeller && !hasAdmin) {
+      items.push({
+        href: "/onboarding/role",
+        label: "Choose role",
+        isActive: (p) => p === "/onboarding/role",
+      });
+    }
+  }
+
+  function close() {
+    setIsOpen(false);
+  }
 
   return (
     <div className="nav-shell">
       <button
         aria-expanded={isOpen}
-        aria-label="Open navigation menu"
+        aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
         className="mobile-menu-button"
         onClick={() => setIsOpen((value) => !value)}
         type="button"
       >
-        <span aria-hidden="true" />
+        <Icon name={isOpen ? "arrow-right" : "menu"} size={16} />
       </button>
-      <nav className={`nav ${isOpen ? "open" : ""}`} aria-label="Primary">
-        {navItems.map((item) => {
+      <nav aria-label="Primary" className={`nav ${isOpen ? "open" : ""}`}>
+        {items.map((item) => {
           const active = item.isActive(pathname);
+          const modeClass = item.mode ? ` ${item.mode}` : "";
 
           return (
             <Link
               aria-current={active ? "page" : undefined}
-              className={active ? "active" : undefined}
+              className={active ? `active${modeClass}` : undefined}
               href={item.href}
-              key={item.href}
-              onClick={() => setIsOpen(false)}
+              key={`${item.href}-${item.label}`}
+              onClick={close}
             >
               {item.label}
             </Link>
@@ -92,48 +147,29 @@ export function PrimaryNav({
         <div className="mobile-nav-actions">
           {isAuthenticated ? (
             <>
-              <Link className="button" href={accountHrefForRoles(roles)} onClick={() => setIsOpen(false)}>
-                My Account
+              <Link className="button secondary" href={accountHrefForRoles(roles)} onClick={close}>
+                <Icon name="user" size={15} />
+                Account
               </Link>
               <form action="/logout" method="post">
-                <button className="button secondary" type="submit">Logout</button>
+                <button className="button ghost" type="submit">
+                  <Icon name="logout" size={15} />
+                  Sign out
+                </button>
               </form>
             </>
           ) : (
             <>
-              <Link className="button" href="/login" onClick={() => setIsOpen(false)}>Log in</Link>
-              <Link className="button secondary" href="/signup" onClick={() => setIsOpen(false)}>Sign up</Link>
+              <Link className="button ghost" href="/login" onClick={close}>Log in</Link>
+              <Link className="button primary" href="/signup" onClick={close}>
+                Get started
+              </Link>
             </>
           )}
         </div>
       </nav>
     </div>
   );
-}
-
-function navItemsForRoles(isAuthenticated: boolean, roles: AppRole[]) {
-  const hasBuyer = roles.includes("BUYER");
-  const hasSeller = roles.includes("SELLER");
-
-  return baseNavItems.map((item) => {
-    if (!isAuthenticated) return item;
-
-    if ((item.href.startsWith("/seller/search") || item.href.startsWith("/seller/properties")) && !hasSeller) {
-      return {
-        ...item,
-        href: `/onboarding/role?next=${encodeURIComponent(item.href)}`,
-      };
-    }
-
-    if ((item.href.startsWith("/buyer/profile") || item.href.startsWith("/buyer/badges")) && !hasBuyer) {
-      return {
-        ...item,
-        href: `/onboarding/role?next=${encodeURIComponent(item.href)}`,
-      };
-    }
-
-    return item;
-  });
 }
 
 function accountHrefForRoles(roles: AppRole[]) {

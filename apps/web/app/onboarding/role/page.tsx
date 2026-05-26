@@ -1,8 +1,9 @@
+import { redirect } from "next/navigation";
+import { Icon } from "../../../components/icon";
 import { PageTitle } from "../../../components/page-title";
 import { safeInternalPath } from "../../../lib/redirect";
 import { chooseRole } from "../../../server/auth-actions";
 import { getSessionUser } from "../../../server/session";
-import { redirect } from "next/navigation";
 
 export default async function RoleOnboardingPage({
   searchParams,
@@ -17,41 +18,71 @@ export default async function RoleOnboardingPage({
   if (!user) redirect(`/login?next=${encodeURIComponent("/onboarding/role")}`);
 
   return (
-    <div className="page">
+    <div className="page stack loose">
       <PageTitle eyebrow="Onboarding" title={context.title}>
         {context.description}
       </PageTitle>
-      <section className="grid three">
-        <article className="card stack">
-          <p className="eyebrow">Buyer</p>
-          <h2>Create demand</h2>
-          <p className="muted">Publish a searchable profile, criteria, badges, and invite inbox.</p>
+      <section className="mode-picker">
+        <article className="mode-card">
+          <span className="mode-card-icon">
+            <Icon name="user" size={22} />
+          </span>
+          <div>
+            <p className="eyebrow">Buyer</p>
+            <h2 style={{ marginTop: 6 }}>Create demand</h2>
+          </div>
+          <p className="muted">
+            Publish a searchable profile, criteria, and trust badges. Receive invites from sellers whose property fits your needs.
+          </p>
           <form action={chooseRole}>
             <input name="next" type="hidden" value={safeNext} />
             <input name="role" type="hidden" value="buyer" />
-            <button className="button" type="submit">Continue as buyer</button>
+            <button className="button primary block" type="submit">
+              Continue as buyer
+              <Icon name="arrow-right" size={14} />
+            </button>
           </form>
         </article>
-        <article className="card stack">
-          <p className="eyebrow">Seller</p>
-          <h2>Search demand</h2>
-          <p className="muted">Find buyer profiles, add property context, and send manual invites.</p>
+        <article className="mode-card seller">
+          <span className="mode-card-icon">
+            <Icon name="search" size={22} />
+          </span>
+          <div>
+            <p className="eyebrow seller">Seller</p>
+            <h2 style={{ marginTop: 6 }}>Search demand</h2>
+          </div>
+          <p className="muted">
+            Find buyer profiles, add private property context, and send manual invites. Liber requires admin approval before seller access.
+          </p>
           <form action={chooseRole}>
             <input name="next" type="hidden" value={safeNext} />
             <input name="role" type="hidden" value="seller" />
-            <button className="button" type="submit">Continue as seller</button>
+            <button className="button block" type="submit">
+              Continue as seller
+              <Icon name="arrow-right" size={14} />
+            </button>
           </form>
         </article>
-        <article className="card stack">
-          <p className="eyebrow">Both</p>
-          <h2>Use both sides</h2>
-          <p className="muted">Manage a buyer profile and seller property flow from one account.</p>
+      </section>
+
+      <section className="card flat" style={{ background: "var(--surface-muted)", borderStyle: "dashed" }}>
+        <div className="section-head compact">
+          <div>
+            <p className="eyebrow">Both sides</p>
+            <h3>Use Liber as a buyer and a seller</h3>
+          </div>
           <form action={chooseRole}>
             <input name="next" type="hidden" value={safeNext} />
             <input name="role" type="hidden" value="both" />
-            <button className="button" type="submit">Continue with both</button>
+            <button className="button secondary" type="submit">
+              Enable both roles
+              <Icon name="arrow-right" size={14} />
+            </button>
           </form>
-        </article>
+        </div>
+        <p className="muted">
+          One account, two flows. Switch contexts anytime from the top navigation.
+        </p>
       </section>
     </div>
   );
@@ -60,20 +91,20 @@ export default async function RoleOnboardingPage({
 function roleContext(next: string) {
   if (next.startsWith("/seller")) {
     return {
-      description: "Add seller access to search buyers, manage properties, and send invites.",
+      description: "Add seller access to search the buyer directory, manage private properties, and send manual invites.",
       title: "Add seller access",
     };
   }
 
   if (next.startsWith("/buyer")) {
     return {
-      description: "Add buyer access to manage your profile, criteria, verification, and invites.",
+      description: "Add buyer access to publish your profile, criteria, verification, and invite inbox.",
       title: "Add buyer access",
     };
   }
 
   return {
     description: "Roles are stored server-side. Admin access is never self-assigned.",
-    title: "Choose your role",
+    title: "Choose how you'll use Liber",
   };
 }
