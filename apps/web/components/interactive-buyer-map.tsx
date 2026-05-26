@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { formatRange } from "../lib/format";
 import { activePilotAreas, approximateBuyerPoint } from "../lib/launch-market";
 import type { Buyer } from "../lib/mock-data";
+import { StaticBuyerMap } from "./static-buyer-map";
 
 declare global {
   interface Window {
@@ -38,6 +39,7 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
   const searchParams = useSearchParams();
   const [isReady, setIsReady] = useState(false);
   const [status, setStatus] = useState("Loading interactive map");
+  const [didFail, setDidFail] = useState(false);
   const [showSearchArea, setShowSearchArea] = useState(false);
 
   const buyerPoints = useMemo(
@@ -51,6 +53,16 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
 
   useEffect(() => {
     let canceled = false;
+
+    function fallBackToStaticMap() {
+      if (canceled) return;
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current.clear();
+      markerNodesRef.current.clear();
+      mapRef.current?.remove();
+      mapRef.current = null;
+      setDidFail(true);
+    }
 
     async function setupMap() {
       if (!containerRef.current) return;
@@ -84,10 +96,10 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
         });
         mapRef.current.on("moveend", () => setShowSearchArea(true));
         mapRef.current.on("error", () => {
-          setStatus("Map could not load. The buyer list is still available.");
+          fallBackToStaticMap();
         });
       } catch {
-        setStatus("Mapbox could not load. The buyer list is still available.");
+        fallBackToStaticMap();
       }
     }
 
@@ -185,6 +197,10 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
     router.push(`/seller/search?${nextParams.toString()}`);
   }
 
+  if (didFail) {
+    return <StaticBuyerMap buyers={buyers} label="Mapbox unavailable" />;
+  }
+
   return (
     <aside className="map-shell interactive">
       <div className="map-toolbar">
@@ -224,18 +240,27 @@ async function loadMapboxGl() {
   }
 
   await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    let timeoutId: number;
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      callback();
+    };
+    timeoutId = window.setTimeout(() => finish(() => reject(new Error("Mapbox timed out."))), 8000);
     const existingScript = document.querySelector<HTMLScriptElement>(`script[src="${mapboxScriptUrl}"]`);
     if (existingScript) {
-      existingScript.addEventListener("load", () => resolve(), { once: true });
-      existingScript.addEventListener("error", () => reject(new Error("Mapbox failed to load.")), { once: true });
+      existingScript.addEventListener("load", () => finish(resolve), { once: true });
+      existingScript.addEventListener("error", () => finish(() => reject(new Error("Mapbox failed to load."))), { once: true });
       return;
     }
 
     const script = document.createElement("script");
     script.src = mapboxScriptUrl;
     script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Mapbox failed to load."));
+    script.onload = () => finish(resolve);
+    script.onerror = () => finish(() => reject(new Error("Mapbox failed to load.")));
     document.head.appendChild(script);
   });
 
