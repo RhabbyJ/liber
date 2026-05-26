@@ -61,7 +61,7 @@ Current backend status:
 Local caveat:
 
 - Supabase Storage SDK smoke testing from Node currently fails in this shell with `UNABLE_TO_VERIFY_LEAF_SIGNATURE`; PowerShell can reach the Supabase project URL. Do not disable TLS in app code. Fix local Node CA trust with `NODE_EXTRA_CA_CERTS` if this appears during local browser QA.
-- Live Supabase migration bookkeeping may still need an operations fix if `20260520000004_enforce_unique_buyer_badges` was applied outside Prisma. Verify `_prisma_migrations` before the next production deploy.
+- Live Supabase migration bookkeeping was reconciled on 2026-05-26: `_prisma_migrations` now records every committed Prisma migration through `20260526000006_sprint1_security_hardening`.
 
 ## 2. Users and Responsibilities
 
