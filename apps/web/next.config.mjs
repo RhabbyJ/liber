@@ -19,7 +19,7 @@ const nextConfig = {
           "default-src 'self'",
           "base-uri 'self'",
           "child-src blob:",
-          "connect-src 'self' https://*.supabase.co https://api.mapbox.com https://events.mapbox.com",
+          "connect-src 'self' https://*.supabase.co https://*.tiles.mapbox.com https://api.mapbox.com https://events.mapbox.com",
           "font-src 'self' data:",
           "form-action 'self'",
           "frame-ancestors 'none'",
