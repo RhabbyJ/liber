@@ -2044,6 +2044,11 @@ main {
   top: 96px;
 }
 
+.verification-card {
+  border-color: var(--sage-line);
+  box-shadow: var(--shadow-2);
+}
+
 /* Buyer profile wizard */
 .wizard-card {
   padding: 0;

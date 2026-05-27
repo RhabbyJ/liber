@@ -88,6 +88,49 @@ export default async function BuyerProfileBuilderPage() {
               <p className="muted small">Finish the steps before sharing the seller-facing page.</p>
             )}
           </article>
+
+          <article className="card stack verification-card">
+            <div className="section-head compact">
+              <div>
+                <p className="eyebrow">Verification</p>
+                <h2 style={{ fontSize: 20 }}>Get a trust badge</h2>
+              </div>
+              <span className="status-dot info">
+                <Icon name="lock" size={12} />
+                Private
+              </span>
+            </div>
+            <p className="muted small">Upload a pre-approval or proof of funds. Liber reviews it; sellers only see the badge.</p>
+            <form action={submitBuyerVerificationDocument} className="form-grid" encType="multipart/form-data">
+              <div className="field">
+                <label htmlFor="documentType">Type</label>
+                <select id="documentType" name="documentType">
+                  <option value="PRE_APPROVAL">Pre-approval letter</option>
+                  <option value="VERIFIED_FUNDS">Proof of funds</option>
+                  <option value="IDENTITY">Identity</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="document">File</label>
+                <input id="document" name="document" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
+                <span className="field-hint">PDF, PNG, JPEG, WebP - 25 MB max</span>
+              </div>
+              <div className="field full">
+                <button className="button primary" type="submit">
+                  <Icon name="upload" size={14} />
+                  Submit
+                </button>
+              </div>
+            </form>
+            {buyer.badges.length > 0 ? (
+              <div className="pill-row">
+                {buyer.badges.map((badge) => (
+                  <BadgePill badge={badge} key={badge.label} />
+                ))}
+              </div>
+            ) : null}
+          </article>
         </aside>
       </section>
 
@@ -158,50 +201,7 @@ export default async function BuyerProfileBuilderPage() {
         )}
       </section>
 
-      <section className="grid two">
-        <article className="card stack">
-          <div className="section-head compact">
-            <div>
-              <p className="eyebrow">Verification</p>
-              <h2 style={{ fontSize: 20 }}>Get a trust badge</h2>
-            </div>
-            <span className="status-dot info">
-              <Icon name="lock" size={12} />
-              Private
-            </span>
-          </div>
-          <p className="muted small">Upload a pre-approval or proof of funds. Liber reviews — sellers only see the badge.</p>
-          <form action={submitBuyerVerificationDocument} className="form-grid" encType="multipart/form-data">
-            <div className="field">
-              <label htmlFor="documentType">Type</label>
-              <select id="documentType" name="documentType">
-                <option value="PRE_APPROVAL">Pre-approval letter</option>
-                <option value="VERIFIED_FUNDS">Proof of funds</option>
-                <option value="IDENTITY">Identity</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="document">File</label>
-              <input id="document" name="document" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
-              <span className="field-hint">PDF, PNG, JPEG, WebP · 25 MB max</span>
-            </div>
-            <div className="field full">
-              <button className="button primary" type="submit">
-                <Icon name="upload" size={14} />
-                Submit
-              </button>
-            </div>
-          </form>
-          {buyer.badges.length > 0 ? (
-            <div className="pill-row">
-              {buyer.badges.map((badge) => (
-                <BadgePill badge={badge} key={badge.label} />
-              ))}
-            </div>
-          ) : null}
-        </article>
-
+      <section className="stack">
         <article className="card stack">
           <div className="section-head compact">
             <div>
