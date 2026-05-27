@@ -128,13 +128,13 @@ let exitCode = 0;
 try {
   await waitForServer();
 
-  await expectPage("/", ["Liber", "Find buyers for my property"]);
+  await expectPage("/", ["Liber", "Get started"]);
   await expectPage("/login", ["Log in", "Email"]);
   await expectPage("/login?status=auth-error", ["Confirmation failed"]);
   await expectPage("/login?status=missing-credentials", ["Email and password required"]);
   await expectPage("/login?status=invalid-login&email=test%40gmail.com", ["Login failed", "test@gmail.com"]);
   await expectPostRedirect("/api/auth/login", { email: "", password: "", next: "/" }, "/login", "missing-credentials");
-  await expectPage("/signup", ["Sign up", "Email"]);
+  await expectPage("/signup", ["What brings you to Liber"]);
   await expectPage("/signup/verify?email=test%40gmail.com&next=/buyer/profile", [
     "Confirm your email",
     "test@gmail.com",

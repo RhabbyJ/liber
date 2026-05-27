@@ -920,6 +920,7 @@ export async function getPublicBuyerProfile(buyerProfileId: string) {
       data: {
         ...buyerFromDb(buyer),
         viewerCanInvite: await canViewBuyerDirectory(user),
+        viewerIsOwner: user.id === buyer.userId,
       },
     };
   }

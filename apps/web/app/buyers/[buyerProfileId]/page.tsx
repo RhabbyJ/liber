@@ -48,13 +48,31 @@ export default async function PublicBuyerProfilePage({
   const inviteHref = buyer.viewerCanInvite
     ? user ? invitePath : `/login?next=${encodeURIComponent(invitePath)}`
     : null;
+  const isOwner = buyer.viewerIsOwner;
 
   return (
     <div className="page wide stack loose">
       <div className="page-title-top">
-        <ModeChip mode="seller" />
-        <span className="eyebrow seller">Buyer profile · seller view</span>
+        <ModeChip mode={isOwner ? "buyer" : "seller"} />
+        <span className={`eyebrow${isOwner ? "" : " seller"}`}>
+          {isOwner ? "Profile preview · this is what sellers see" : "Buyer profile · seller view"}
+        </span>
       </div>
+
+      {isOwner ? (
+        <section className="card sage" style={{ padding: 18 }}>
+          <div className="section-head compact">
+            <div className="stack tight">
+              <p className="eyebrow">Preview only</p>
+              <h2 style={{ fontSize: 18 }}>This is how sellers see your profile.</h2>
+            </div>
+            <Link className="button" href="/buyer/profile">
+              <Icon name="pencil" size={14} />
+              Edit profile
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <section className="public-profile">
         <aside className="public-profile-aside">
@@ -74,7 +92,12 @@ export default async function PublicBuyerProfilePage({
                 ))}
               </div>
             ) : null}
-            {inviteHref ? (
+            {isOwner ? (
+              <Link className="button secondary block" href="/buyer/profile">
+                <Icon name="arrow-right" size={14} />
+                Back to your profile
+              </Link>
+            ) : inviteHref ? (
               <Link className="button primary block lg" href={inviteHref}>
                 <Icon name="mail" size={16} />
                 Send invite
@@ -85,7 +108,9 @@ export default async function PublicBuyerProfilePage({
                 Approved seller access required
               </span>
             )}
-            <p className="muted small">Outreach is manual. Liber never sends offers on your behalf.</p>
+            {!isOwner ? (
+              <p className="muted small">Outreach is manual. Liber never sends offers on your behalf.</p>
+            ) : null}
           </div>
 
           <div className="card flat stack">
@@ -172,7 +197,7 @@ export default async function PublicBuyerProfilePage({
             </div>
           </div>
 
-          {inviteHref ? (
+          {!isOwner && inviteHref ? (
             <div className="card sage">
               <div className="card-row">
                 <div className="stack tight">

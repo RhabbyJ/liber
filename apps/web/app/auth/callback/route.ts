@@ -39,8 +39,8 @@ export async function GET(request: NextRequest) {
   }
 
   if (next) return authRedirect(request, next);
-  if (user.roles.includes("SELLER")) return authRedirect(request, "/seller/search");
   if (user.roles.includes("BUYER")) return authRedirect(request, "/buyer/profile");
+  if (user.roles.includes("SELLER")) return authRedirect(request, "/seller/properties");
   return authRedirect(request, "/onboarding/role");
 }
 

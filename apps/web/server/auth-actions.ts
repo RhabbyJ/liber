@@ -32,8 +32,9 @@ function selectedRoles(formData: FormData): AppRole[] {
 }
 
 function nextForRoles(roles: AppRole[]) {
-  if (roles.includes("SELLER")) return "/seller/search";
-  return "/buyer/profile";
+  if (roles.includes("BUYER")) return "/buyer/profile";
+  if (roles.includes("SELLER")) return "/seller/properties";
+  return "/onboarding/role";
 }
 
 async function persistUserRoles(args: {
