@@ -49,7 +49,7 @@ export async function submitBuyerProfile(formData: FormData) {
 
   revalidatePath("/buyer/profile");
   revalidatePath(`/buyers/${buyer.id}`);
-  redirect(`/buyers/${buyer.id}`);
+  redirect("/buyer/profile");
 }
 
 export async function submitBuyerCriteria(formData: FormData) {

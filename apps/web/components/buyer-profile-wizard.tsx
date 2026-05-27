@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Icon } from "./icon";
 import { LocationLookupFields } from "./location-lookup-fields";
 
@@ -54,7 +54,19 @@ const STEPS = [
   { key: 1, label: "Who you are", helper: "Name and intent" },
   { key: 2, label: "Your budget", helper: "Price + down payment" },
   { key: 3, label: "Your story", helper: "A few sentences" },
+  { key: 4, label: "Review", helper: "Confirm" },
 ] as const;
+
+type Step = (typeof STEPS)[number]["key"];
+
+type ReviewSummary = {
+  budget: string;
+  downPayment: string;
+  location: string;
+  name: string;
+  purpose: string;
+  type: string;
+};
 
 export function BuyerProfileWizard({
   action,
@@ -63,12 +75,31 @@ export function BuyerProfileWizard({
   action: (formData: FormData) => Promise<void>;
   buyer: BuyerForWizard;
 }) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [step, setStep] = useState<Step>(1);
+  const [reviewSummary, setReviewSummary] = useState<ReviewSummary>(() => summaryFromBuyer(buyer));
   const total = STEPS.length;
   const progress = (step / total) * 100;
 
+  function refreshReviewSummary() {
+    const form = formRef.current;
+    if (!form) return;
+    setReviewSummary(summaryFromForm(new FormData(form)));
+  }
+
+  function goForward() {
+    if (step === total - 1) refreshReviewSummary();
+    setStep((s) => (s < total ? ((s + 1) as Step) : s));
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    if (step === total) return;
+    event.preventDefault();
+    goForward();
+  }
+
   return (
-    <form action={action} className="wizard stack loose" encType="multipart/form-data">
+    <form action={action} className="wizard stack loose" encType="multipart/form-data" onSubmit={handleSubmit} ref={formRef}>
       <header className="wizard-header stack">
         <div className="wizard-progress" aria-hidden="true">
           <div className="wizard-progress-fill" style={{ width: `${progress}%` }} />
@@ -82,7 +113,10 @@ export function BuyerProfileWizard({
                 <button
                   aria-current={isActive ? "step" : undefined}
                   className="wizard-step-button"
-                  onClick={() => setStep(s.key)}
+                  onClick={() => {
+                    if (s.key === total) refreshReviewSummary();
+                    setStep(s.key);
+                  }}
                   type="button"
                 >
                   <span className="wizard-step-num">
@@ -212,21 +246,55 @@ export function BuyerProfileWizard({
             Want to fine-tune bedrooms, baths, lot size, and features? <Link href="/buyer/criteria">Edit search criteria →</Link>
           </p>
         </section>
+
+        <section className="wizard-pane" hidden={step !== 4} aria-hidden={step !== 4}>
+          <div className="section-stack">
+            <p className="eyebrow">Step 4 of {total}</p>
+            <h2>Does this all look correct?</h2>
+            <p className="muted small">Confirm the profile basics before making it visible to sellers.</p>
+          </div>
+          <div className="summary-grid">
+            <div>
+              <span className="summary-label">Name</span>
+              <span className="summary-value">{reviewSummary.name}</span>
+            </div>
+            <div>
+              <span className="summary-label">Location</span>
+              <span className="summary-value">{reviewSummary.location}</span>
+            </div>
+            <div>
+              <span className="summary-label">Buyer type</span>
+              <span className="summary-value">{reviewSummary.type}</span>
+            </div>
+            <div>
+              <span className="summary-label">Buying for</span>
+              <span className="summary-value">{reviewSummary.purpose}</span>
+            </div>
+            <div>
+              <span className="summary-label">Budget</span>
+              <span className="summary-value">{reviewSummary.budget}</span>
+            </div>
+            <div>
+              <span className="summary-label">Down payment</span>
+              <span className="summary-value">{reviewSummary.downPayment}</span>
+            </div>
+          </div>
+        </section>
       </div>
 
       <footer className="wizard-footer actions between">
         <button
           className="button ghost"
           disabled={step === 1}
-          onClick={() => setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s))}
+          onClick={() => setStep((s) => (s > 1 ? ((s === total ? 1 : s - 1) as Step) : s))}
           type="button"
         >
-          Back
+          {step === total ? "No, edit" : "Back"}
         </button>
         {step < total ? (
           <button
             className="button primary"
-            onClick={() => setStep((s) => (s < total ? ((s + 1) as 1 | 2 | 3) : s))}
+            onClick={goForward}
             type="button"
           >
             Continue
@@ -235,10 +303,48 @@ export function BuyerProfileWizard({
         ) : (
           <button className="button primary" name="visibilityStatus" type="submit" value="ACTIVE">
             <Icon name="sparkle" size={14} />
-            Submit profile
+            Yes, submit profile
           </button>
         )}
       </footer>
     </form>
   );
+}
+
+function formText(formData: FormData, key: string) {
+  const value = formData.get(key);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function moneyLabel(value: string) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return "No minimum";
+  if (amount >= 1_000_000) return `$${amount / 1_000_000}M`;
+  return `$${amount / 1_000}k`;
+}
+
+function rangeLabel(min: string, max: string) {
+  return `${moneyLabel(min)} - ${moneyLabel(max)}`;
+}
+
+function summaryFromBuyer(buyer: BuyerForWizard): ReviewSummary {
+  return {
+    budget: rangeLabel(String(buyer.budgetMin || ""), String(buyer.budgetMax || "")),
+    downPayment: rangeLabel(String(buyer.downPaymentMin || ""), String(buyer.downPaymentMax || "")),
+    location: buyer.location || buyer.city || "Not set",
+    name: buyer.name || "New buyer",
+    purpose: buyer.purpose || "Owner occupy",
+    type: buyer.type || "Home Buyer",
+  };
+}
+
+function summaryFromForm(formData: FormData): ReviewSummary {
+  return {
+    budget: rangeLabel(formText(formData, "budgetMin"), formText(formData, "budgetMax")),
+    downPayment: rangeLabel(formText(formData, "downPaymentMin"), formText(formData, "downPaymentMax")),
+    location: formText(formData, "desiredLocationText") || formText(formData, "desiredCity") || "Not set",
+    name: formText(formData, "displayName") || "New buyer",
+    purpose: formText(formData, "buyingPurpose") || "Owner occupy",
+    type: formText(formData, "buyerType") || "Home Buyer",
+  };
 }
