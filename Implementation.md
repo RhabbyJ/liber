@@ -28,6 +28,7 @@ Current backend status:
 - RLS is enabled on app tables, private `app_private` trigger functions are installed, storage buckets exist, and PostGIS radius search is available.
 - Core buyer/seller/admin actions now use Prisma for real Supabase users only; there is no local auth bypass or fixture-store fallback.
 - Buyer/seller role selection writes server-controlled roles to `User.roles`; seller role selection creates `SellerAccess.status = PENDING`, role alone does not grant buyer-directory/profile/invite access, role-less Supabase users are sent to onboarding, admin cannot be self-assigned, and auth-user creation is idempotent by email so re-created auth users can reclaim an existing app user row.
+- Password login verifies the Supabase session against the server-controlled `User` row before redirecting; suspended or missing app users are signed out, and role-less users continue to onboarding.
 - Buyer profile editing now uploads profile photos to the public `profile-photos` bucket and stores the public URL in `User.avatarUrl`.
 - Buyer profile editing submits profiles directly to Active visibility, uses dropdowns for buyer type, purpose, budget, and down payment, and keeps admin-controlled Hidden/Suspended profiles from being restored by buyer form submission.
 - Buyer criteria still derives category from subtype in the backend, but v1 visible buyer criteria is residential-first and exposes only simple home-search preferences: price, beds/baths, square feet, lot size, year built, condition, and features.

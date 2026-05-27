@@ -23,6 +23,7 @@ Current remote state:
 - PostGIS functional spatial indexes exist for buyer and seller coordinates.
 - Remote smoke checks passed for unverified seller invite rate limiting and PostGIS radius search.
 - Role selection writes buyer/seller roles to server-controlled `User.roles` and creates pending `SellerAccess` for selected sellers. Runtime authorization reads `User.roles`; roles are not mirrored into Supabase app metadata, and seller role alone does not grant buyer-directory/profile/invite access.
+- Password login now verifies the signed-in Supabase user against the server-controlled `User` row before redirecting: suspended or missing app users are signed out, and role-less users are sent to role onboarding.
 - Core actions for buyer profile, buyer criteria, seller property, seller search, invites, notifications, and internal admin operations read/write Prisma for UUID-backed Supabase users.
 - Buyer profile editing uploads real profile photo files to `profile-photos`, writes the public URL to `User.avatarUrl`, and lets the buyer set Draft/Active visibility, desired location text/coordinates, budget, and down payment. Admin-controlled Hidden/Suspended profiles cannot be restored by buyer form submission.
 - Buyer criteria derives `propertyCategory` from `propertySubtype` before persistence so `HOME`, `LAND`, and `COMMERCIAL` filters stay aligned.

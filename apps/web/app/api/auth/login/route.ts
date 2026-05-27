@@ -1,3 +1,4 @@
+import { prisma } from "@liber/db";
 import { NextResponse, type NextRequest } from "next/server";
 import { safeInternalPath } from "../../../../lib/redirect";
 import { checkRateLimit, clientIpFromRequest } from "../../../../server/rate-limit";
@@ -35,6 +36,26 @@ export async function POST(request: NextRequest) {
     }
 
     return redirectTo(request, `/login?status=invalid-login&email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
+  }
+
+  const { data: authData, error: userError } = await supabase.auth.getUser();
+  if (userError || !authData.user) {
+    return redirectTo(request, `/login?status=invalid-login&email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
+  }
+
+  const appUser = await prisma.user.findUnique({
+    where: { id: authData.user.id },
+    select: { roles: true, status: true },
+  });
+
+  if (!appUser || appUser.status === "SUSPENDED") {
+    await supabase.auth.signOut();
+    return redirectTo(request, "/login?status=account-unavailable");
+  }
+
+  if (appUser.roles.length === 0) {
+    const onboardingPath = next === "/" ? "/onboarding/role" : `/onboarding/role?next=${encodeURIComponent(next)}`;
+    return redirectTo(request, onboardingPath);
   }
 
   return redirectTo(request, next);

@@ -115,6 +115,25 @@ export async function loginWithPassword(formData: FormData) {
     redirect(`/login?status=invalid-login&email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
   }
 
+  const { data: authData, error: userError } = await supabase.auth.getUser();
+  if (userError || !authData.user) {
+    redirect(`/login?status=invalid-login&email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
+  }
+
+  const appUser = await prisma.user.findUnique({
+    where: { id: authData.user.id },
+    select: { roles: true, status: true },
+  });
+
+  if (!appUser || appUser.status === "SUSPENDED") {
+    await supabase.auth.signOut();
+    redirect("/login?status=account-unavailable");
+  }
+
+  if (appUser.roles.length === 0) {
+    redirect(next === "/" ? "/onboarding/role" : `/onboarding/role?next=${encodeURIComponent(next)}`);
+  }
+
   redirect(next);
 }
 
