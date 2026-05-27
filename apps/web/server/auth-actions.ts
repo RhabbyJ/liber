@@ -43,6 +43,29 @@ async function persistUserRoles(args: {
   roles: AppRole[];
   userId: string;
 }) {
+  const email = args.email ?? "";
+  const userData = {
+    avatarUrl: args.avatarUrl ?? undefined,
+    email,
+    name: args.name ?? "",
+    roles: args.roles,
+  };
+
+  if (email) {
+    await prisma.user.upsert({
+      where: { email },
+      update: {
+        ...userData,
+        id: args.userId,
+      },
+      create: {
+        ...userData,
+        id: args.userId,
+      },
+    });
+    return;
+  }
+
   await prisma.user.upsert({
     where: { id: args.userId },
     update: {
@@ -97,14 +120,22 @@ export async function loginWithPassword(formData: FormData) {
 export async function signupWithPassword(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const roles = selectedRoles(formData);
-  const name = requiredText(formData, "name");
-  const email = requiredText(formData, "email");
-  const password = requiredText(formData, "password");
+  const name = textValue(formData, "name");
+  const email = textValue(formData, "email");
+  const password = textValue(formData, "password");
   const next = safeNextValue(formData);
   const redirectTo = await authCallbackUrl(next ?? nextForRoles(roles));
 
   if (!supabase) {
-    throw new Error("Supabase Auth is not configured.");
+    redirect(signupRedirectPath(formData, "auth-error", email));
+  }
+
+  if (!name || !email || !password) {
+    redirect(signupRedirectPath(formData, "missing-fields", email));
+  }
+
+  if (password.length < 12) {
+    redirect(signupRedirectPath(formData, "weak-password", email));
   }
 
   const { data, error } = await supabase.auth.signUp({
@@ -118,7 +149,9 @@ export async function signupWithPassword(formData: FormData) {
     },
   });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    redirect(signupRedirectPath(formData, signupStatusForError(error.message), email));
+  }
 
   const hasRealSignupIdentity = Boolean(data.session || data.user?.identities?.length);
 
@@ -186,6 +219,33 @@ export async function resendSignupConfirmation(formData: FormData) {
 
 function shouldAutoConfirmLocalSignup() {
   return process.env.NODE_ENV !== "production" && process.env.LIBER_AUTO_CONFIRM_SIGNUPS === "true";
+}
+
+function textValue(formData: FormData, key: string) {
+  const value = formData.get(key);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function signupRedirectPath(formData: FormData, status: string, email: string) {
+  const params = new URLSearchParams({ role: signupRoleValue(formData), status });
+  const next = safeNextValue(formData);
+  if (email) params.set("email", email);
+  if (next) params.set("next", next);
+  return `/signup?${params.toString()}`;
+}
+
+function signupRoleValue(formData: FormData) {
+  const value = String(formData.get("role") ?? "").toLowerCase();
+  if (value === "seller" || value === "both") return value;
+  return "buyer";
+}
+
+function signupStatusForError(message: string) {
+  const value = message.toLowerCase();
+  if (value.includes("rate limit")) return "rate-limited";
+  if (value.includes("password")) return "weak-password";
+  if (value.includes("email")) return "invalid-email";
+  return "signup-error";
 }
 
 function isEmailNotConfirmedError(message: string) {

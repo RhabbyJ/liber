@@ -2,7 +2,7 @@
 
 This document is the backend build contract for Liber. It turns `Implementation.md` into backend architecture decisions and includes the required CTO corrections before any backend migrations, Supabase policies, or server actions are implemented.
 
-Status: core v1 backend foundation is substantially implemented. The Supabase project has the initial Prisma migration, the storage-policy tightening migration, the missing-foreign-key-index migration, the profile-photo bucket migration, the unique-buyer-badges migration, the audit-hardening migration, and the Sprint 1 security-hardening migration in repo. Core buyer/seller/admin server actions are Prisma-backed for real Supabase users only. Production launch still depends on the external/product decisions tracked in `docs/product/production-decisions.md`.
+Status: core v1 backend foundation is substantially implemented. The Supabase project has the initial Prisma migration, the storage-policy tightening migration, the missing-foreign-key-index migration, the profile-photo bucket migration, the unique-buyer-badges migration, the audit-hardening migration, the Sprint 1 security-hardening migration, and the auth-sync hardening migration in repo. Core buyer/seller/admin server actions are Prisma-backed for real Supabase users only. Production launch still depends on the external/product decisions tracked in `docs/product/production-decisions.md`.
 
 Current remote state:
 
@@ -15,8 +15,9 @@ Current remote state:
   - `20260520000004_enforce_unique_buyer_badges`
   - `20260521000005_audit_hardening`
   - `20260526000006_sprint1_security_hardening`
+  - `20260526000007_harden_auth_user_sync`
 - App tables have RLS enabled.
-- Auth-sync and invite-limit triggers are installed in the private `app_private` schema.
+- Auth-sync and invite-limit triggers are installed in the private `app_private` schema; auth-user creation is idempotent by email so re-created auth users can reclaim an existing app user row instead of failing signup on a unique email conflict.
 - `profile-photos`, `property-images`, and `verification-documents` buckets exist.
 - The broad public `storage.objects` SELECT policy for `property-images` was removed so public image URLs can work without enabling bucket listing.
 - PostGIS functional spatial indexes exist for buyer and seller coordinates.

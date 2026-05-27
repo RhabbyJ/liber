@@ -14,12 +14,13 @@ const roleOptions: Array<{ value: "buyer" | "seller" | "both"; label: string; de
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; role?: string }>;
+  searchParams: Promise<{ email?: string; next?: string; role?: string; status?: string }>;
 }) {
-  const { next = "", role = "buyer" } = await searchParams;
+  const { email = "", next = "", role = "buyer", status = "" } = await searchParams;
   const safeNext = safeInternalPath(next, "");
   const selectedRole = normalizeRole(role);
   const context = signupContext(selectedRole);
+  const notice = signupNotice(status);
 
   return (
     <div className="page narrow stack loose">
@@ -32,6 +33,12 @@ export default async function SignupPage({
         {context.description}
       </PageTitle>
       <section className="card stack">
+        {notice ? (
+          <div className={`auth-alert ${notice.tone}`}>
+            <strong>{notice.title}</strong>
+            <span>{notice.body}</span>
+          </div>
+        ) : null}
         <div className="auth-alert info">
           <strong>Use a reachable email</strong>
           <span>If confirmation is required, Liber will send a verification link before your account can continue.</span>
@@ -44,11 +51,11 @@ export default async function SignupPage({
           </div>
           <div className="field">
             <label htmlFor="email">Email</label>
-            <input id="email" name="email" type="email" placeholder="you@example.com" required />
+            <input id="email" name="email" type="email" placeholder="you@example.com" defaultValue={email} required />
           </div>
           <div className="field full">
             <label htmlFor="password">Password</label>
-            <input id="password" name="password" type="password" required />
+            <input id="password" name="password" type="password" minLength={12} required />
             <span className="field-hint">Use 12+ characters with a mix of letters and numbers.</span>
           </div>
           <div className="field full">
@@ -80,6 +87,50 @@ function normalizeRole(role: string): "buyer" | "seller" | "both" {
   const value = role.toLowerCase();
   if (value === "seller" || value === "both") return value;
   return "buyer";
+}
+
+function signupNotice(status: string) {
+  if (status === "missing-fields") {
+    return {
+      body: "Enter your name, email, password, and starting role before creating the account.",
+      title: "Complete the form",
+      tone: "info",
+    };
+  }
+
+  if (status === "weak-password") {
+    return {
+      body: "Use a password with at least 12 characters, then try creating the account again.",
+      title: "Password is too short",
+      tone: "info",
+    };
+  }
+
+  if (status === "invalid-email") {
+    return {
+      body: "Check the email address and try again.",
+      title: "Email could not be used",
+      tone: "info",
+    };
+  }
+
+  if (status === "rate-limited") {
+    return {
+      body: "Too many signup attempts were made recently. Wait a minute, then try again.",
+      title: "Signup temporarily limited",
+      tone: "info",
+    };
+  }
+
+  if (status === "auth-error" || status === "signup-error") {
+    return {
+      body: "Signup could not be completed. Try again, or use a different email address.",
+      title: "Account was not created",
+      tone: "info",
+    };
+  }
+
+  return null;
 }
 
 function signupContext(role: "buyer" | "seller" | "both") {

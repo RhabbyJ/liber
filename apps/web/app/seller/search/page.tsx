@@ -3,39 +3,16 @@ import { BuyerCard } from "../../../components/buyer-card";
 import { BuyerMap } from "../../../components/buyer-map";
 import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
-import { LocationLookupFields } from "../../../components/location-lookup-fields";
 import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
+import { SearchFiltersSidebar } from "../../../components/search-filters-sidebar";
+import { SortSelect } from "../../../components/sort-select";
+import { ViewToggle } from "../../../components/view-toggle";
+import { mapboxStaticImageUrl } from "../../../lib/mapbox";
 import { canViewBuyerDirectory } from "../../../server/access";
 import { getCurrentSellerAccess, searchBuyers } from "../../../server/contracts";
 import { getSessionUser } from "../../../server/session";
 
-const budgetMaxOptions = [
-  { label: "Any budget", value: "" },
-  { label: "Up to $500k", value: "500000" },
-  { label: "Up to $750k", value: "750000" },
-  { label: "Up to $1M", value: "1000000" },
-  { label: "Up to $1.5M", value: "1500000" },
-  { label: "Up to $2M", value: "2000000" },
-  { label: "Up to $3M+", value: "3000000" },
-];
-
-const bedroomOptions = [
-  { label: "Any beds", value: "" },
-  { label: "1+ beds", value: "1" },
-  { label: "2+ beds", value: "2" },
-  { label: "3+ beds", value: "3" },
-  { label: "4+ beds", value: "4" },
-  { label: "5+ beds", value: "5" },
-];
-
-const bathroomOptions = [
-  { label: "Any baths", value: "" },
-  { label: "1+ baths", value: "1" },
-  { label: "2+ baths", value: "2" },
-  { label: "3+ baths", value: "3" },
-  { label: "4+ baths", value: "4" },
-];
 
 export default async function SellerSearchPage({
   searchParams,
@@ -53,6 +30,7 @@ export default async function SellerSearchPage({
     radiusMiles?: string;
     sort?: string;
     state?: string;
+    view?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -117,6 +95,9 @@ export default async function SellerSearchPage({
     state: params.state || undefined,
   });
 
+  const staticMapUrl = mapboxStaticImageUrl(results);
+  const view = params.view === "map" ? "map" : "list";
+
   return (
     <div className="page wide stack loose">
       <PageTitle
@@ -135,94 +116,91 @@ export default async function SellerSearchPage({
         Properties stay private until you invite a buyer.
       </PageTitle>
 
-      <section className="filter-panel">
-        <form className="filter-bar">
-          <LocationLookupFields
-            cityName="city"
-            defaultCity={params.city || ""}
-            defaultLat={params.centerLat || ""}
-            defaultLng={params.centerLng || ""}
-            defaultLocation={params.area || params.city || ""}
-            defaultRadiusMiles={params.radiusMiles || 8}
-            inputName="area"
-            intent="search"
-            label="Pilot area or ZIP"
-            latName="centerLat"
-            lngName="centerLng"
-            radiusName="radiusMiles"
-            stateName="state"
-          />
-          <select aria-label="Property subtype" name="propertySubtype" defaultValue={propertySubtype || ""}>
-            <option value="">Any residential buyer</option>
-            <option value="HOME">Home buyer</option>
-          </select>
-          <select aria-label="Sort" name="sort" defaultValue={sort}>
-            <option value="recommended">Recommended</option>
-            <option value="recently_active">Recently active</option>
-            <option value="highest_budget">Highest budget</option>
-            <option value="most_verified">Most verified</option>
-          </select>
-          <select aria-label="Budget max" name="budgetMax" defaultValue={params.budgetMax || ""}>
-            {budgetMaxOptions.map((option) => (
-              <option key={option.label} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-          <select aria-label="Bedrooms" name="bedrooms" defaultValue={params.bedrooms || ""}>
-            {bedroomOptions.map((option) => (
-              <option key={option.label} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-          <select aria-label="Bathrooms" name="bathrooms" defaultValue={params.bathrooms || ""}>
-            {bathroomOptions.map((option) => (
-              <option key={option.label} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-          <select aria-label="Badge" name="badges" defaultValue={badges[0] || ""}>
-            <option value="">Any badge</option>
-            <option value="PRE_APPROVED">Admin-verified pre-approval</option>
-            <option value="CASH_BUYER">Cash buyer</option>
-            <option value="NON_CONTINGENT">Non-contingent</option>
-            <option value="VERIFIED_FUNDS">Verified funds</option>
-            <option value="COMPLETED_TRANSACTION">Completed transaction</option>
-          </select>
-          <div className="filter-actions">
-            <span className="field-hint muted">
-              <Icon name="info" size={12} /> Pilot launch market: San Fernando Valley.
-            </span>
-            <button className="button" type="submit">
-              <Icon name="search" size={14} />
-              Apply filters
-            </button>
-          </div>
-        </form>
-      </section>
+      <div className="search-grid-container">
+        <SearchFiltersSidebar
+          defaultArea={params.area || ""}
+          defaultCity={params.city || ""}
+          defaultState={params.state || "CA"}
+          defaultLat={params.centerLat || ""}
+          defaultLng={params.centerLng || ""}
+          defaultRadiusMiles={params.radiusMiles || 8}
+          defaultBudgetMax={params.budgetMax || ""}
+          defaultPropertySubtype={params.propertySubtype || ""}
+          defaultBadges={badges}
+          defaultSort={sort}
+        />
 
-      <section className="grid search-grid">
-        <BuyerMap buyers={results} centerLat={centerLat} centerLng={centerLng} radiusMiles={radiusMiles} />
-        <div className="buyer-list">
-          <div className="buyer-list-head">
-            <div className="stack tight">
-              <h2>{params.city ? `${params.city} buyers for your property` : "Active buyers for your property"}</h2>
-              <span className="muted small">{results.length} {results.length === 1 ? "match" : "matches"} · Sorted by {sort.replace(/_/g, " ")}</span>
+        <div className="search-results-area">
+          {/* Top Yellow Notice Banner */}
+          <div className="private-invite-alert">
+            <span className="alert-icon">🔒</span>
+            <div className="alert-content">
+              <strong>Private invite only.</strong> Buyers below are not publicly listed. Send a private invite to share details. Your property remains hidden until you invite them.
             </div>
-            <span className="status-dot active">
-              <Icon name="lock" size={12} />
-              Your property stays private
-            </span>
           </div>
-          {results.length === 0 ? (
-            <div style={{ padding: 24 }}>
-              <EmptyState
-                icon="search"
-                title="No buyers match these filters"
-                description="Try widening your radius, raising the budget ceiling, or removing badge filters."
+
+          {/* Results Count, Sort Dropdown & View Toggle */}
+          <div className="search-results-header">
+            <h2>{results.length} matched buyers</h2>
+            <div className="header-controls">
+              <SortSelect value={sort} />
+              <ViewToggle currentView={view} />
+            </div>
+          </div>
+
+          {view === "list" ? (
+            <>
+              {/* Buyer Cards List */}
+              <div className="buyer-cards-list">
+                {results.length === 0 ? (
+                  <div style={{ padding: 24 }}>
+                    <EmptyState
+                      icon="search"
+                      title="No buyers match these filters"
+                      description="Try widening your radius, raising the budget ceiling, or removing badge filters."
+                    />
+                  </div>
+                ) : (
+                  results.map((buyer) => (
+                    <BuyerCard buyer={buyer} key={buyer.id} variant="row" />
+                  ))
+                )}
+              </div>
+
+              {/* Bottom Banner */}
+              <div className="bottom-search-banner">
+                <div className="banner-info">
+                  <h3>New buyers are added daily.</h3>
+                  <p>Save this search to get notified when new matching buyers register on Liber.</p>
+                  <button className="button outline-white save-search-btn" type="button">
+                    <Icon name="bell" size={14} /> Save search
+                  </button>
+                </div>
+                {staticMapUrl ? (
+                  <div className="mini-map-preview">
+                    <img src={staticMapUrl} alt="Matching buyers map preview" />
+                    <span className="map-badge">Seller safe view</span>
+                  </div>
+                ) : (
+                  <div className="mini-map-preview fallback">
+                    <span>Map preview unavailable</span>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            /* Map View */
+            <div className="interactive-map-container">
+              <BuyerMap
+                buyers={results}
+                centerLat={centerLat}
+                centerLng={centerLng}
+                radiusMiles={radiusMiles}
               />
             </div>
-          ) : (
-            results.map((buyer) => <BuyerCard buyer={buyer} key={buyer.id} />)
           )}
         </div>
-      </section>
+      </div>
     </div>
   );
 }

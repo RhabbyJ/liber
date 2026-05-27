@@ -24,10 +24,10 @@ Do not build escrow first. The MVP must prove seller demand for a searchable buy
 Current backend status:
 
 - Supabase project `qfjcrhkjlczvzakxives` is connected and has the initial Prisma schema deployed.
-- Applied migrations: `20260519000000_initial`, `20260520000001_tighten_property_image_storage_policy`, `20260520000002_add_missing_foreign_key_indexes`, `20260520000003_add_profile_photos_bucket`, `20260520000004_enforce_unique_buyer_badges`, `20260521000005_audit_hardening`, and `20260526000006_sprint1_security_hardening`.
+- Applied migrations: `20260519000000_initial`, `20260520000001_tighten_property_image_storage_policy`, `20260520000002_add_missing_foreign_key_indexes`, `20260520000003_add_profile_photos_bucket`, `20260520000004_enforce_unique_buyer_badges`, `20260521000005_audit_hardening`, `20260526000006_sprint1_security_hardening`, and `20260526000007_harden_auth_user_sync`.
 - RLS is enabled on app tables, private `app_private` trigger functions are installed, storage buckets exist, and PostGIS radius search is available.
 - Core buyer/seller/admin actions now use Prisma for real Supabase users only; there is no local auth bypass or fixture-store fallback.
-- Buyer/seller role selection writes server-controlled roles to `User.roles`; seller role selection creates `SellerAccess.status = PENDING`, role alone does not grant buyer-directory/profile/invite access, role-less Supabase users are sent to onboarding, and admin cannot be self-assigned.
+- Buyer/seller role selection writes server-controlled roles to `User.roles`; seller role selection creates `SellerAccess.status = PENDING`, role alone does not grant buyer-directory/profile/invite access, role-less Supabase users are sent to onboarding, admin cannot be self-assigned, and auth-user creation is idempotent by email so re-created auth users can reclaim an existing app user row.
 - Buyer profile editing now uploads profile photos to the public `profile-photos` bucket and stores the public URL in `User.avatarUrl`.
 - Buyer profile editing submits profiles directly to Active visibility, uses dropdowns for buyer type, purpose, budget, and down payment, and keeps admin-controlled Hidden/Suspended profiles from being restored by buyer form submission.
 - Buyer criteria still derives category from subtype in the backend, but v1 visible buyer criteria is residential-first and exposes only simple home-search preferences: price, beds/baths, square feet, lot size, year built, condition, and features.
