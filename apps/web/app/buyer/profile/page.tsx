@@ -17,9 +17,9 @@ import {
 export default async function BuyerProfileBuilderPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ edit?: string }>;
+  searchParams?: Promise<{ edit?: string; verification?: string }>;
 }) {
-  const { edit = "" } = searchParams ? await searchParams : {};
+  const { edit = "", verification = "" } = searchParams ? await searchParams : {};
   const [{ data: buyer }, { data: invites }] = await Promise.all([
     getCurrentBuyerProfile(),
     listBuyerInvites(),
@@ -52,6 +52,18 @@ export default async function BuyerProfileBuilderPage({
             : "Upload a pre-approval letter or proof of funds. Liber reviews it; sellers only see the approved badge."}
       </p>
       <form action={submitBuyerVerificationDocument} className="form-grid" encType="multipart/form-data">
+        {verification === "missing" ? (
+          <div className="auth-alert info field full">
+            <strong>Add a file first</strong>
+            <span>Choose your pre-approval letter or proof of funds before submitting for review.</span>
+          </div>
+        ) : null}
+        {verification === "submitted" ? (
+          <div className="auth-alert success field full">
+            <strong>Submitted for review</strong>
+            <span>Your document is private. Sellers will only see an approved badge.</span>
+          </div>
+        ) : null}
         <div className="field">
           <label htmlFor="documentType">Type</label>
           <select id="documentType" name="documentType">

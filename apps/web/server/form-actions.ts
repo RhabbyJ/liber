@@ -67,13 +67,14 @@ export async function submitBuyerVerificationDocument(formData: FormData) {
   const document = formData.get("document");
 
   if (!document || !isSubmittedFile(document)) {
-    throw new Error("Verification document is required.");
+    redirect("/buyer/profile?verification=missing");
   }
 
   await uploadBuyerVerificationDocumentFile(formData.get("documentType"), document);
   revalidatePath("/buyer/badges");
   revalidatePath("/buyer/profile");
   revalidatePath("/admin/documents");
+  redirect("/buyer/profile?verification=submitted");
 }
 
 export async function submitSellerProperty(formData: FormData) {
