@@ -14,14 +14,74 @@ import {
   submitBuyerVerificationDocument,
 } from "../../../server/form-actions";
 
-export default async function BuyerProfileBuilderPage() {
+export default async function BuyerProfileBuilderPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ edit?: string }>;
+}) {
+  const { edit = "" } = searchParams ? await searchParams : {};
   const [{ data: buyer }, { data: invites }] = await Promise.all([
     getCurrentBuyerProfile(),
     listBuyerInvites(),
   ]);
   const isActive = buyer.visibility === "active";
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
+  const hasPreApproval = activeBadges.some((badge) => badge.type === "PRE_APPROVED");
+  const hasPendingPreApproval = buyer.badges.some((badge) => badge.type === "PRE_APPROVED" && badge.status === "pending");
   const pendingInvites = invites.filter((invite) => invite.status === "Sent" || invite.status === "Viewed");
+  const showProfileWizard = !isActive || edit === "profile";
+  const verificationCard = (
+    <article className={`card stack verification-card ${!showProfileWizard && !hasPreApproval ? "priority" : ""}`}>
+      <div className="section-head compact">
+        <div>
+          <p className="eyebrow">Verification</p>
+          <h2 style={{ fontSize: showProfileWizard ? 20 : 26 }}>
+            {hasPreApproval ? "Verification is active" : "Get pre-approved"}
+          </h2>
+        </div>
+        <span className={`status-dot ${hasPreApproval ? "active" : hasPendingPreApproval ? "warning" : "info"}`}>
+          <Icon name={hasPreApproval ? "check-shield" : "lock"} size={12} />
+          {hasPreApproval ? "Active" : hasPendingPreApproval ? "In review" : "Private"}
+        </span>
+      </div>
+      <p className="muted small">
+        {hasPreApproval
+          ? "Your pre-approval badge is active. Upload refreshed evidence before it expires."
+          : hasPendingPreApproval
+            ? "Your pre-approval evidence is under review. You can upload updated proof of funds if anything changed."
+            : "Upload a pre-approval letter or proof of funds. Liber reviews it; sellers only see the approved badge."}
+      </p>
+      <form action={submitBuyerVerificationDocument} className="form-grid" encType="multipart/form-data">
+        <div className="field">
+          <label htmlFor="documentType">Type</label>
+          <select id="documentType" name="documentType">
+            <option value="PRE_APPROVAL">Pre-approval letter</option>
+            <option value="VERIFIED_FUNDS">Proof of funds</option>
+            <option value="IDENTITY">Identity</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="document">File</label>
+          <input id="document" name="document" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
+          <span className="field-hint">PDF, PNG, JPEG, WebP - 25 MB max</span>
+        </div>
+        <div className="field full">
+          <button className="button primary" type="submit">
+            <Icon name="upload" size={14} />
+            Submit for review
+          </button>
+        </div>
+      </form>
+      {buyer.badges.length > 0 ? (
+        <div className="pill-row">
+          {buyer.badges.map((badge) => (
+            <BadgePill badge={badge} key={badge.label} />
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
 
   return (
     <div className="page wide stack loose">
@@ -32,16 +92,62 @@ export default async function BuyerProfileBuilderPage() {
         badge={<ModeChip mode="buyer" />}
         actions={
           <span className={`status-dot ${isActive ? "active" : "warning"}`}>
-            {isActive ? "Live to sellers" : "Draft — not yet visible"}
+            {isActive ? "Live to sellers" : "Draft - not yet visible"}
           </span>
         }
       >
-        Profile, invites, verification, and your account — all in one place. Walk through the steps below to keep your profile fresh.
+        {isActive
+          ? "Your profile is live. The next priority is verification, then invites and criteria."
+          : "Complete the profile steps below to make your buyer profile visible to sellers."}
       </PageTitle>
 
       <section className="grid sidebar">
-        <div className="card stack loose wizard-card">
-          <BuyerProfileWizard action={submitBuyerProfile} buyer={buyer} />
+        <div className={showProfileWizard ? "card stack loose wizard-card" : "stack loose"}>
+          {showProfileWizard ? (
+            <BuyerProfileWizard action={submitBuyerProfile} buyer={buyer} />
+          ) : (
+            <>
+              {verificationCard}
+              <article className="card stack">
+                <div className="section-head compact">
+                  <div>
+                    <p className="eyebrow">Profile complete</p>
+                    <h2 style={{ fontSize: 22 }}>Your buyer profile is live</h2>
+                  </div>
+                  <span className="status-dot active">
+                    <Icon name="check" size={12} />
+                    Searchable
+                  </span>
+                </div>
+                <p className="muted small">
+                  Sellers can now find your profile when your location, budget, and home criteria match their private property.
+                </p>
+                <div className="summary-grid">
+                  <div>
+                    <span className="summary-label">Location</span>
+                    <span className="summary-value">{buyer.location || "Not set"}</span>
+                  </div>
+                  <div>
+                    <span className="summary-label">Budget</span>
+                    <span className="summary-value">{formatRange(buyer.budgetMin, buyer.budgetMax)}</span>
+                  </div>
+                  <div>
+                    <span className="summary-label">Buying for</span>
+                    <span className="summary-value">{buyer.purpose || "Not set"}</span>
+                  </div>
+                </div>
+                <div className="actions inline">
+                  <Link className="button secondary" href="/buyer/profile?edit=profile">
+                    <Icon name="list" size={14} />
+                    Edit profile basics
+                  </Link>
+                  <Link className="button ghost" href="/buyer/criteria">
+                    Edit search criteria
+                  </Link>
+                </div>
+              </article>
+            </>
+          )}
         </div>
 
         <aside className="public-profile-aside">
@@ -89,48 +195,7 @@ export default async function BuyerProfileBuilderPage() {
             )}
           </article>
 
-          <article className="card stack verification-card">
-            <div className="section-head compact">
-              <div>
-                <p className="eyebrow">Verification</p>
-                <h2 style={{ fontSize: 20 }}>Get a trust badge</h2>
-              </div>
-              <span className="status-dot info">
-                <Icon name="lock" size={12} />
-                Private
-              </span>
-            </div>
-            <p className="muted small">Upload a pre-approval or proof of funds. Liber reviews it; sellers only see the badge.</p>
-            <form action={submitBuyerVerificationDocument} className="form-grid" encType="multipart/form-data">
-              <div className="field">
-                <label htmlFor="documentType">Type</label>
-                <select id="documentType" name="documentType">
-                  <option value="PRE_APPROVAL">Pre-approval letter</option>
-                  <option value="VERIFIED_FUNDS">Proof of funds</option>
-                  <option value="IDENTITY">Identity</option>
-                  <option value="OTHER">Other</option>
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="document">File</label>
-                <input id="document" name="document" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
-                <span className="field-hint">PDF, PNG, JPEG, WebP - 25 MB max</span>
-              </div>
-              <div className="field full">
-                <button className="button primary" type="submit">
-                  <Icon name="upload" size={14} />
-                  Submit
-                </button>
-              </div>
-            </form>
-            {buyer.badges.length > 0 ? (
-              <div className="pill-row">
-                {buyer.badges.map((badge) => (
-                  <BadgePill badge={badge} key={badge.label} />
-                ))}
-              </div>
-            ) : null}
-          </article>
+          {showProfileWizard ? verificationCard : null}
         </aside>
       </section>
 
@@ -209,8 +274,12 @@ export default async function BuyerProfileBuilderPage() {
               <h2 style={{ fontSize: 20 }}>Signed in as {buyer.name || "buyer"}</h2>
             </div>
           </div>
-          <p className="muted small">Profile, invites, search criteria, and verification all live here. Nothing else to manage.</p>
+          <p className="muted small">Profile, invites, search criteria, and verification all live here. Profile setup stays tucked away once complete.</p>
           <div className="actions inline">
+            <Link className="button secondary" href="/buyer/profile?edit=profile">
+              <Icon name="list" size={14} />
+              Edit profile basics
+            </Link>
             <Link className="button secondary" href="/buyer/criteria">
               <Icon name="list" size={14} />
               Edit search criteria

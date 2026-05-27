@@ -2049,6 +2049,15 @@ main {
   box-shadow: var(--shadow-2);
 }
 
+.verification-card.priority {
+  border-color: var(--amber-line);
+  box-shadow: 0 22px 70px rgba(122, 95, 44, 0.16);
+}
+
+.verification-card.priority .button.primary {
+  width: 100%;
+}
+
 /* Buyer profile wizard */
 .wizard-card {
   padding: 0;
