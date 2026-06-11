@@ -56,7 +56,7 @@ V1 must be narrow and trustworthy:
 
 Success signal: a seller can find matched buyers and send relevant private invites.
 
-Immediate UX priority: make the marketplace value obvious before and after signup. Before signup, visitors may see a small limited set of privacy-safe buyer preview cards. After approved seller access, the seller workspace should feel like a real-estate map search for buyer demand: map first, numbered buyer-demand pins/clusters, a clear filter control, and buyer cards tied to the same filtered result set. The numbers represent buyers or buyer demand signals, not public property listings.
+Immediate UX priority: make the marketplace value obvious before and after signup. The public homepage is the map itself — a Zillow-style buyer-demand map with anonymized budget pins (buyers, not listings) at approximate locations, a small set of preview cards, and a signup wall; there is no separate marketing landing page. After approved seller access, the seller workspace is the full version of that experience: map first, budget-labeled buyer-demand pins, a clear filter control, and buyer cards tied to the same filtered result set.
 
 The purple-board verification workflow ideas for owner/buyer proof, lender connections, IDs, and multi-day review are not part of this immediate UI priority.
 

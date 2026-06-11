@@ -1,5 +1,6 @@
 import { prisma } from "@liber/db";
 import { formatBadgeType } from "../lib/format";
+import { findPilotArea } from "../lib/launch-market";
 
 export const PUBLIC_PREVIEW_LIMIT = 6;
 
@@ -8,6 +9,8 @@ const previewAmenities = ["Pool", "Parking", "ADU", "Yard", "Garage"];
 /**
  * Privacy-safe public teaser of buyer demand (V1 public preview rules).
  * No ids, names, avatars, documents, exact locations, or profile links.
+ * Coordinates are approximate only: pilot-area centers (or coarse-rounded
+ * desired-area coordinates) with a deterministic display offset.
  */
 export type PublicBuyerPreview = {
   amenities: string[];
@@ -18,6 +21,8 @@ export type PublicBuyerPreview = {
   budgetLabel: string;
   condition?: string;
   label: string;
+  lat?: number;
+  lng?: number;
   purpose?: string;
   squareFeetMin?: number;
 };
@@ -50,14 +55,22 @@ export async function getPublicBuyerPreviews(): Promise<PublicBuyerPreview[]> {
           },
         },
         desiredCity: true,
+        desiredLat: true,
+        desiredLng: true,
         desiredState: true,
       },
     });
 
-    return profiles.map((profile) => {
+    return profiles.map((profile, index) => {
       const criteria = profile.criteria[0];
       const amenitySet = new Set(
         profile.criteria.flatMap((item) => item.features).map((feature) => feature.trim().toLowerCase()),
+      );
+      const point = approximatePreviewPoint(
+        profile.desiredCity,
+        toNumber(profile.desiredLat),
+        toNumber(profile.desiredLng),
+        index,
       );
 
       return {
@@ -69,6 +82,8 @@ export async function getPublicBuyerPreviews(): Promise<PublicBuyerPreview[]> {
         budgetLabel: budgetBandLabel(toNumber(profile.budgetMin), toNumber(profile.budgetMax)),
         condition: criteria?.condition ?? undefined,
         label: profile.buyerType?.trim() || "Buyer",
+        lat: point?.lat,
+        lng: point?.lng,
         purpose: profile.buyingPurpose ?? undefined,
         squareFeetMin: criteria?.squareFeetMin ?? undefined,
       };
@@ -83,6 +98,24 @@ function toNumber(value: unknown) {
   if (value === null || value === undefined) return 0;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
+ * Public pins must never reveal a precise buyer location: snap to the pilot
+ * area center when possible, otherwise round to ~1 km, then spread stacked
+ * pins with a small deterministic offset so they stay readable.
+ */
+function approximatePreviewPoint(city: string | null, lat: number, lng: number, index: number) {
+  const area = city ? findPilotArea(city) : null;
+  const baseLat = area ? area.lat : lat ? Number(lat.toFixed(2)) : 0;
+  const baseLng = area ? area.lng : lng ? Number(lng.toFixed(2)) : 0;
+  if (!baseLat || !baseLng) return null;
+
+  const angle = (index * 2 * Math.PI) / PUBLIC_PREVIEW_LIMIT;
+  return {
+    lat: baseLat + Math.sin(angle) * 0.006,
+    lng: baseLng + Math.cos(angle) * 0.008,
+  };
 }
 
 // Budgets are shown as coarse $50K bands, never exact figures.

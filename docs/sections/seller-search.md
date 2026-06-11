@@ -28,4 +28,4 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 
 ## Agent notes
 
-Default UX should lead with the map and keep actionable buyer cards close to the map. Public/unauthenticated pages may tease limited buyer demand, but do not expose full search, exact pins, or full buyer profiles before signup and approved seller access.
+Default UX should lead with the map and keep actionable buyer cards close to the map. The public homepage is a separate, limited map teaser (`apps/web/components/public-demand-map.tsx` + `apps/web/server/buyer-preview.ts`) with anonymized budget pins at approximate locations — do not expose full search, precise pins, or full buyer profiles before signup and approved seller access.

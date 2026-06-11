@@ -142,12 +142,14 @@ Do not add search filters based on protected-class proxies or unnecessary person
 
 ## Public buyer-demand preview
 
-`apps/web/server/buyer-preview.ts` powers the unauthenticated homepage teaser (V1 public preview rules):
+`apps/web/server/buyer-preview.ts` powers the unauthenticated map-first homepage (V1 public preview rules). The homepage renders a public Zillow-style demand map (`apps/web/components/public-demand-map.tsx`) with budget-band pins plus preview cards and a signup wall.
 
 - reads at most 6 `ACTIVE` buyer profiles,
 - returns only privacy-safe fields: anonymized buyer-type label, coarse city/state, $50K-banded budget, structured criteria facts, active badge labels,
-- never returns ids, names, avatars, exact locations, coordinates, documents, or storage paths,
-- is best-effort: failures return an empty list and must not break the homepage,
+- pin coordinates are approximate only: pilot-area centers (or coordinates rounded to ~1 km) plus a deterministic display offset — never raw `desiredLat`/`desiredLng`,
+- never returns ids, names, avatars, exact locations, documents, or storage paths,
+- the public map has no search, no filters, and no buyer profile links; the only action is signup,
+- is best-effort: failures return an empty list / hide the map and must not break the homepage,
 - must not grow into public search or expose buyer profile URLs.
 
 ## Rate limiting and audit logs
