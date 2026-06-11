@@ -18,6 +18,7 @@ export default async function SellerSearchPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    amenities?: string | string[];
     area?: string;
     badges?: string | string[];
     bathrooms?: string;
@@ -26,9 +27,11 @@ export default async function SellerSearchPage({
     centerLat?: string;
     centerLng?: string;
     city?: string;
+    condition?: string;
     propertySubtype?: string;
     radiusMiles?: string;
     sort?: string;
+    squareFeet?: string;
     state?: string;
     view?: string;
   }>;
@@ -76,12 +79,14 @@ export default async function SellerSearchPage({
   }
 
   const badges = Array.isArray(params.badges) ? params.badges : params.badges ? [params.badges] : [];
+  const amenities = Array.isArray(params.amenities) ? params.amenities : params.amenities ? [params.amenities] : [];
   const centerLat = numberParam(params.centerLat);
   const centerLng = numberParam(params.centerLng);
   const radiusMiles = numberParam(params.radiusMiles);
   const propertySubtype = params.propertySubtype === "HOME" ? "HOME" : undefined;
   const sort = sellerSortParam(params.sort);
   const { data: results } = await searchBuyers({
+    amenities,
     badges,
     bathrooms: params.bathrooms || undefined,
     bedrooms: params.bedrooms || undefined,
@@ -89,14 +94,17 @@ export default async function SellerSearchPage({
     centerLat: params.centerLat || undefined,
     centerLng: params.centerLng || undefined,
     city: params.city || undefined,
+    condition: params.condition || undefined,
     propertySubtype,
     radiusMiles: params.radiusMiles || undefined,
     sort,
+    squareFeet: params.squareFeet || undefined,
     state: params.state || undefined,
   });
 
   const staticMapUrl = mapboxStaticImageUrl(results);
-  const view = params.view === "map" ? "map" : "list";
+  // Map-first workspace: approved sellers land on the map unless they opt into list view.
+  const view = params.view === "list" ? "list" : "map";
 
   return (
     <div className="page wide stack loose">
@@ -128,6 +136,11 @@ export default async function SellerSearchPage({
           defaultPropertySubtype={params.propertySubtype || ""}
           defaultBadges={badges}
           defaultSort={sort}
+          defaultBedrooms={params.bedrooms || ""}
+          defaultBathrooms={params.bathrooms || ""}
+          defaultSquareFeet={params.squareFeet || ""}
+          defaultCondition={params.condition || ""}
+          defaultAmenities={amenities}
         />
 
         <div className="search-results-area">
@@ -189,15 +202,32 @@ export default async function SellerSearchPage({
               </div>
             </>
           ) : (
-            /* Map View */
-            <div className="interactive-map-container">
-              <BuyerMap
-                buyers={results}
-                centerLat={centerLat}
-                centerLng={centerLng}
-                radiusMiles={radiusMiles}
-              />
-            </div>
+            /* Map-first view: map on top, matching buyer cards from the same result set below */
+            <>
+              <div className="interactive-map-container">
+                <BuyerMap
+                  buyers={results}
+                  centerLat={centerLat}
+                  centerLng={centerLng}
+                  radiusMiles={radiusMiles}
+                />
+              </div>
+              <div className="buyer-cards-list">
+                {results.length === 0 ? (
+                  <div style={{ padding: 24 }}>
+                    <EmptyState
+                      icon="search"
+                      title="No buyers match these filters"
+                      description="Try widening your radius, raising the budget ceiling, or removing badge filters."
+                    />
+                  </div>
+                ) : (
+                  results.map((buyer) => (
+                    <BuyerCard buyer={buyer} key={buyer.id} variant="row" />
+                  ))
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>

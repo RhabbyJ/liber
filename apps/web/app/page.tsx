@@ -1,8 +1,14 @@
 import Link from "next/link";
 import { HomeReveal } from "../components/home-reveal";
 import { Icon } from "../components/icon";
+import { getPublicBuyerPreviews, type PublicBuyerPreview } from "../server/buyer-preview";
 
-export default function HomePage() {
+// Refresh the privacy-safe buyer-demand teaser periodically without making the page fully dynamic.
+export const revalidate = 300;
+
+export default async function HomePage() {
+  const buyerPreviews = await getPublicBuyerPreviews();
+
   return (
     <div className="home-page">
       <HomeReveal />
@@ -52,6 +58,40 @@ export default function HomePage() {
           <span>Scroll</span>
         </a>
       </section>
+
+      {buyerPreviews.length > 0 ? (
+        <section className="content-band" id="buyer-demand" style={{ paddingTop: 0 }}>
+          <div className="section-stack" style={{ marginBottom: 32 }} data-reveal>
+            <p className="section-kicker">Live buyer demand</p>
+            <h2 className="section-title">Real buyers are already searching.</h2>
+            <p className="section-sub">
+              A small, anonymized preview of active buyer demand on Liber. Sign up to search the full directory.
+            </p>
+          </div>
+          <div className="home-preview-grid" data-reveal>
+            {buyerPreviews.map((preview, index) => (
+              <BuyerPreviewCard key={index} preview={preview} />
+            ))}
+            <article className="buyer-preview-card signup-wall">
+              <Icon name="lock" size={22} />
+              <h3>See every matching buyer</h3>
+              <p className="muted small">
+                Full buyer profiles, the demand map, and private invites open after signup and seller approval.
+              </p>
+              <Link className="button primary" href="/signup?role=seller&next=/seller/search">
+                Sign up to search buyers
+                <Icon name="arrow-right" size={14} />
+              </Link>
+              <Link className="muted small" href="/signup?role=buyer&next=/buyer/profile" style={{ textDecoration: "underline" }}>
+                I&apos;m a buyer — add my demand
+              </Link>
+            </article>
+          </div>
+          <p className="muted small" style={{ marginTop: 14 }}>
+            Previews are anonymized and privacy-safe. Buyer identities, documents, and exact locations stay private.
+          </p>
+        </section>
+      ) : null}
 
       <section className="content-band" id="how-it-works" style={{ paddingTop: 0 }}>
         <div className="section-stack" style={{ marginBottom: 40 }} data-reveal>
@@ -174,6 +214,55 @@ export default function HomePage() {
   );
 }
 
+
+function BuyerPreviewCard({ preview }: { preview: PublicBuyerPreview }) {
+  const fitFacts = [
+    preview.bedroomsMin ? `${preview.bedroomsMin}+ bed` : null,
+    preview.bathroomsMin ? `${preview.bathroomsMin}+ bath` : null,
+    preview.squareFeetMin ? `${preview.squareFeetMin.toLocaleString()}+ sqft` : null,
+    preview.condition || null,
+  ].filter((fact): fact is string => Boolean(fact));
+
+  return (
+    <article className="buyer-preview-card">
+      <div className="buyer-preview-head">
+        <span className="buyer-preview-avatar" aria-hidden="true">
+          <Icon name="user" size={18} />
+        </span>
+        <div>
+          <h3>{preview.label}</h3>
+          <p className="muted small">{preview.area}</p>
+        </div>
+      </div>
+      <span className="buyer-preview-budget">{preview.budgetLabel}</span>
+      {preview.purpose ? <p className="muted small" style={{ margin: 0 }}>{preview.purpose}</p> : null}
+      {fitFacts.length > 0 ? (
+        <div className="buyer-preview-facts">
+          {fitFacts.map((fact) => (
+            <span key={fact}>{fact}</span>
+          ))}
+        </div>
+      ) : null}
+      {preview.amenities.length > 0 ? (
+        <div className="buyer-preview-facts subtle">
+          {preview.amenities.map((amenity) => (
+            <span key={amenity}>{amenity}</span>
+          ))}
+        </div>
+      ) : null}
+      {preview.badges.length > 0 ? (
+        <div className="buyer-preview-badges">
+          {preview.badges.map((badge) => (
+            <span key={badge}>
+              <Icon name="check-shield" size={13} />
+              {badge}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+}
 
 type FlowCardProps = {
   tone: "buyer" | "seller";

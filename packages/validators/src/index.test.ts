@@ -60,10 +60,20 @@ describe("Liber validators", () => {
       price: "925000",
       bedrooms: "4",
       features: ["Garage"],
+      ownershipConfirmed: true,
     });
 
     expect(property.price).toBe(925000);
     expect(property.bedrooms).toBe(4);
+  });
+
+  it("rejects property creation without ownership confirmation", () => {
+    expect(() =>
+      createSellerPropertySchema.parse({
+        propertyType: "HOME",
+        price: "925000",
+      }),
+    ).toThrow();
   });
 
   it("rejects reversed searchable criteria ranges", () => {
@@ -100,6 +110,10 @@ describe("Liber validators", () => {
       bedrooms: 4,
       capRate: 5.5,
       units: 6,
+    });
+    expect(searchBuyersSchema.parse({ amenities: ["Pool", "ADU"], condition: "Fixer" })).toMatchObject({
+      amenities: ["Pool", "ADU"],
+      condition: "Fixer",
     });
     expect(reviewDocumentSchema.parse({ documentId: "doc-1", decision: "APPROVED" }).decision).toBe("APPROVED");
     expect(grantBadgeSchema.parse({ buyerProfileId: "buyer-1", badgeType: "VERIFIED_FUNDS" }).badgeType).toBe(

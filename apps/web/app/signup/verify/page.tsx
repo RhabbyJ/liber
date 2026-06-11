@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Icon } from "../../../components/icon";
 import { safeInternalPath } from "../../../lib/redirect";
 import { resendSignupConfirmation } from "../../../server/auth-actions";
+import { defaultPathForSessionUser, getSessionUser } from "../../../server/session";
 
 export default async function VerifySignupPage({
   searchParams,
@@ -10,6 +12,9 @@ export default async function VerifySignupPage({
 }) {
   const { email = "", next = "", resent = "" } = await searchParams;
   const safeNext = safeInternalPath(next, "");
+  const user = await getSessionUser();
+  if (user) redirect(defaultPathForSessionUser(user));
+
   const mailLink = emailProviderLink(email);
 
   return (

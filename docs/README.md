@@ -1,0 +1,50 @@
+# Liber Documentation Map
+
+Use this file to choose the correct source of truth before editing the repo.
+
+## Source-of-truth priority
+
+1. `AGENTS.md` — how agents must work.
+2. `docs/product/V1_DEFINITION.md` — strict product scope and non-goals.
+3. `docs/product/CEO_ROADMAP.md` — CEO vision and sequencing.
+4. `docs/engineering/BACKEND_ARCHITECTURE.md` — backend architecture, security, and data-flow rules.
+5. `docs/sections/*.md` — short code-area notes for implementation tasks.
+
+If docs conflict, use the highest-priority doc above and update the stale lower-priority doc in the same change.
+
+## Core docs
+
+- `product/V1_DEFINITION.md` — exact v1 product boundary. Read before changing customer workflows.
+- `product/CEO_ROADMAP.md` — CEO/product roadmap. Read before planning features.
+- `engineering/BACKEND_ARCHITECTURE.md` — backend, auth, Supabase, Prisma, storage, email, and security architecture.
+
+## Section micro-docs
+
+- `sections/auth-access.md`
+- `sections/buyer-profile-criteria.md`
+- `sections/seller-search.md`
+- `sections/seller-properties-invites.md`
+- `sections/verification-documents-badges.md`
+- `sections/admin-ops.md`
+- `sections/ui-design-system.md`
+- `sections/api-routes-integrations.md`
+- `sections/maps-geocoding.md`
+- `sections/email-maintenance.md`
+- `sections/database-prisma.md`
+- `sections/testing-smoke.md`
+
+These are intentionally short. They tell agents what a section is for, where the entry points are, and what not to break.
+
+## Historical/reference material
+
+These are not source of truth:
+
+- root `Implementation.md`
+- root `backend implementation plan.md`
+- root `sprint1.md`
+- `dobeforelaunch/*`
+- `docs/archive/*`
+- raw CEO transcripts and critique screenshots
+- Figma/reference images
+
+Keep historical files only when they help preserve context. Do not ask agents to read them by default.

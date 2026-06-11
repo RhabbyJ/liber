@@ -1,25 +1,20 @@
 # Liber
 
-Liber is a reverse real-estate marketplace: buyers publish searchable demand profiles, and sellers search for serious buyers who match their property.
+Liber is a private real-estate buyer directory. Buyers publish verified demand profiles. Sellers search qualified buyer demand and send manual property invites.
 
-The repo is being built from `Implementation.md`. Start there before assigning work to agents.
+## Agent entrypoint
 
-## Current Build Target
+Start here:
 
-The first vertical slice is:
+1. `AGENTS.md` — repo-wide agent rules.
+2. `docs/README.md` — docs source-of-truth map.
+3. `docs/product/V1_DEFINITION.md` — strict product scope.
+4. `docs/engineering/BACKEND_ARCHITECTURE.md` — backend architecture and security boundaries.
+5. `docs/sections/*.md` — short context docs for each code area.
 
-```txt
-Buyer creates searchable profile
--> Seller searches buyers
--> Seller views buyer
--> Seller adds property
--> Seller sends invite
--> Buyer receives notification/email
-```
+Old planning docs are not source of truth unless linked from `docs/README.md`.
 
-Escrow, real money movement, lender APIs, and subscriptions are intentionally deferred.
-
-## Commands
+## Core commands
 
 ```bash
 npm install
@@ -30,35 +25,24 @@ npm run build
 npm run db:validate
 npm run readiness:env
 npm run smoke:routes
+npm run smoke:security
 npm run smoke:no-auth-bypass
 npm run smoke:visual
 ```
 
-Use `npm.cmd` on Windows if PowerShell blocks the npm wrapper.
+Run smoke commands one at a time because they may start a temporary Next.js dev server.
 
-For local app testing from the web app package:
+## Local development
 
 ```bash
+npm run dev
+# or
 cd apps/web
 npm run dev -- --port 3000
 ```
 
-`npm run smoke:routes` starts a temporary dev server on an available local port, checks public auth pages, and verifies unauthenticated buyer/seller/admin routes redirect to login.
+Local buyer/seller/admin testing requires real Supabase Auth test users. Do not add auth bypasses or fixture-based login.
 
-`npm run smoke:no-auth-bypass` scans active source and docs for forbidden auth-bypass strings.
+## Production boundary
 
-`npm run smoke:visual` starts a temporary dev server on an available local port and uses a local Firefox/Chrome/Edge executable to capture public desktop and mobile screenshots into `.artifacts/visual-smoke`.
-
-Run the smoke commands one at a time; Next.js blocks multiple dev servers from the same app directory.
-
-`npm run readiness:env` checks local backend configuration without printing secret values. `npm run readiness:production` also requires production-only settings such as Mapbox, Resend, and `CRON_SECRET`; production business decisions are tracked in `docs/product/production-decisions.md`.
-
-Seller search renders a local fallback map without Mapbox. Set `NEXT_PUBLIC_MAPBOX_TOKEN` to enable Mapbox Static Images rendering.
-
-If Supabase Auth or Storage calls fail locally with `UNABLE_TO_VERIFY_LEAF_SIGNATURE`, fix Node's local CA trust with `NODE_EXTRA_CA_CERTS`. Do not disable TLS verification in application code.
-
-Transactional invite email uses Resend only when both `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured. Leave them blank for mock/non-sending development.
-
-Local buyer/seller/admin testing requires real Supabase Auth test users. Create accounts through `/signup` or the Supabase dashboard, then assign roles through onboarding or a controlled admin/database operation.
-
-Marketplace expiry maintenance is exposed at `POST /api/maintenance/expire` and requires `Authorization: Bearer $CRON_SECRET`. It marks expired badges and stale sent/viewed invites as expired.
+Escrow, money movement, lender integrations, subscriptions, automated offer/counteroffer execution, and public buyer profile exposure are not v1 production behavior unless `docs/product/V1_DEFINITION.md` is explicitly changed by the product owner.

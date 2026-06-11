@@ -203,6 +203,8 @@ export const createSellerPropertySchema = z.object({
   features: z.array(z.string().trim().min(1).max(80)).default([]),
   description: z.string().trim().max(2000).optional(),
   price: optionalMoney,
+  // Sellers must confirm ownership/authority before a property can back invites.
+  ownershipConfirmed: z.literal(true),
 });
 
 export const updateSellerPropertySchema = createSellerPropertySchema.partial().extend({
@@ -232,6 +234,8 @@ export const searchBuyersSchema = z.object({
   lotSize: optionalInteger,
   capRate: z.coerce.number().min(0).max(100).optional(),
   units: optionalInteger,
+  condition: z.string().trim().max(80).optional(),
+  amenities: z.array(z.string().trim().min(1).max(40)).default([]),
   minRating: z.coerce.number().min(0).max(5).optional(),
   minReviews: optionalInteger,
   badges: z.array(badgeTypeSchema).default([]),

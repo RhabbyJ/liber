@@ -1,0 +1,24 @@
+# Section: Database and Prisma
+
+## Purpose
+
+Owns Prisma schema, migrations, generated client, indexes, enums, and database-level safety rules.
+
+## Main files
+
+- `packages/db/prisma/schema.prisma`
+- `packages/db/prisma/migrations/**`
+- `packages/db/src/**`
+- `prisma.config.ts`
+
+## Invariants
+
+- Schema changes require migrations.
+- User IDs must remain Supabase Auth UUID-compatible.
+- RLS/storage policies are security boundaries.
+- Do not weaken constraints to bypass application bugs.
+- Keep indexes aligned with search and ownership checks.
+
+## Agent notes
+
+After schema changes, run `npm run db:validate` and regenerate Prisma client when needed.

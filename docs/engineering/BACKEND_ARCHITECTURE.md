@@ -1,0 +1,188 @@
+# Backend Architecture
+
+This is the backend source of truth for agents.
+
+## Stack
+
+- Next.js App Router in `apps/web`
+- TypeScript
+- Prisma schema and migrations in `packages/db`
+- Supabase Auth
+- Supabase Postgres
+- Supabase Storage
+- PostGIS for geography search
+- Zod validators in `packages/validators`
+- Email adapter/outbox in `apps/web/server/email*.ts`
+
+## Repository boundaries
+
+- `apps/web/app/**` — routes, layouts, pages, route handlers.
+- `apps/web/components/**` — React components used by routes.
+- `apps/web/server/**` — server actions, authorization, domain logic, integrations.
+- `apps/web/lib/**` — browser-safe/shared helpers.
+- `packages/db/prisma/schema.prisma` — canonical data model.
+- `packages/db/prisma/migrations/**` — database and RLS/storage migrations.
+- `packages/validators/src/**` — shared validation contracts.
+- `scripts/**` — smoke/readiness checks.
+- `docs/sections/**` — short code-area notes.
+
+## Data model overview
+
+Canonical schema: `packages/db/prisma/schema.prisma`.
+
+Primary models:
+
+- `User`
+- `SellerAccess`
+- `BuyerProfile`
+- `BuyerCriteria`
+- `BuyerBadge`
+- `SellerProperty`
+- `PropertyImage`
+- `VerificationDocument`
+- `Invite`
+- `Notification`
+- `Review`
+- `AdminAuditLog`
+- `EmailOutbox`
+
+User IDs mirror Supabase Auth UUIDs.
+
+## Auth and access
+
+Runtime authorization must read server-controlled state from the database, not browser metadata.
+
+Key concepts:
+
+- `User.roles` stores buyer/seller/admin roles.
+- `User.status` blocks suspended users.
+- `SellerAccess.status` controls buyer-directory/search/profile/invite access.
+- A user self-selecting `SELLER` does not automatically gain directory access.
+- Admin status is not self-service.
+
+Relevant files:
+
+- `apps/web/server/session.ts`
+- `apps/web/server/authz.ts`
+- `apps/web/server/access.ts`
+- `apps/web/server/auth-actions.ts`
+- `apps/web/proxy.ts`
+
+## Server actions and route handlers
+
+Sensitive application data should flow through server actions or route handlers that:
+
+1. load the current session,
+2. check server-side permissions,
+3. validate input,
+4. perform Prisma/Supabase operations,
+5. audit/rate-limit when required,
+6. return safe errors.
+
+Main server files:
+
+- `apps/web/server/contracts.ts`
+- `apps/web/server/form-actions.ts`
+- `apps/web/server/auth-actions.ts`
+- `apps/web/app/api/**/route.ts`
+
+## Storage architecture
+
+Buckets:
+
+- `profile-photos` — public profile photos only.
+- `property-images` — public property images, with write access mediated/validated.
+- `verification-documents` — private documents for buyer evidence and seller ownership evidence.
+
+Rules:
+
+- Verification documents are immutable user evidence.
+- Document owners must not be able to overwrite/delete evidence after upload.
+- Private documents are viewed through admin/server-mediated signed URLs only.
+- Storage paths and signed URLs must not become public profile data.
+- Server uploads should validate file type, size, ownership, and purpose.
+
+## Badge architecture
+
+Badges are admin-reviewed trust signals.
+
+- `BuyerBadge.status = ACTIVE` and unexpired badges affect display/search.
+- Sensitive badge types should reference approved `VerificationDocument` evidence.
+- Pre-approval expires after 90 days unless renewed.
+- Badge grants/revokes should be audited.
+
+## Invite architecture
+
+An invite links:
+
+```txt
+seller User -> SellerProperty -> BuyerProfile
+```
+
+Invite creation must check:
+
+- seller is authenticated and active,
+- seller directory access is approved,
+- property belongs to seller,
+- buyer profile is active,
+- duplicate active invite rules,
+- rate limits / DB trigger constraints.
+
+Invite email should be queued through `EmailOutbox`, not sent inline as the source of truth.
+
+## Search architecture
+
+Seller search should query persisted buyer profiles/criteria and use PostGIS when coordinates are supplied.
+
+List and map views must use the same result set. Approved sellers land on the map view by default; map pins show coarse budget labels, never identities or exact buyer locations.
+
+Property-fit filters (beds/baths/sqft/condition/amenities) are validated by `searchBuyersSchema` and applied in `apps/web/server/domain.ts` against active buyer criteria. Amenity filters match the canonical criteria feature tokens (Pool, Parking, ADU, Yard, Garage).
+
+Do not add search filters based on protected-class proxies or unnecessary personal attributes.
+
+## Public buyer-demand preview
+
+`apps/web/server/buyer-preview.ts` powers the unauthenticated homepage teaser (V1 public preview rules):
+
+- reads at most 6 `ACTIVE` buyer profiles,
+- returns only privacy-safe fields: anonymized buyer-type label, coarse city/state, $50K-banded budget, structured criteria facts, active badge labels,
+- never returns ids, names, avatars, exact locations, coordinates, documents, or storage paths,
+- is best-effort: failures return an empty list and must not break the homepage,
+- must not grow into public search or expose buyer profile URLs.
+
+## Rate limiting and audit logs
+
+Abuse-prone actions should be rate-limited:
+
+- auth attempts/resend where applicable,
+- buyer search,
+- buyer profile view,
+- invite send,
+- uploads,
+- geocode/property enrichment,
+- admin-sensitive actions.
+
+Important actions should write `AdminAuditLog` or equivalent operational events where supported.
+
+## Maintenance
+
+`POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET` and expires stale invites/badges.
+
+Do not create unauthenticated maintenance endpoints.
+
+## External integrations
+
+- Mapbox is optional and should degrade to local/fallback map behavior.
+- ATTOM/property enrichment must require auth and rate limits.
+- Resend transactional email is used only when configured.
+- Missing external keys should not break local development.
+
+## Security invariants
+
+- No auth bypasses.
+- No service role in browser code.
+- No private document public URLs.
+- No seller-directory access from role alone.
+- No public buyer profile exposure.
+- No weakening RLS/storage policy to satisfy UI behavior.
+- No production claims for escrow, money movement, or lender approval.

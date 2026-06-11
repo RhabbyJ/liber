@@ -91,6 +91,20 @@ export default async function NewSellerPropertyPage({
             <span className="field-hint">Stored privately. Liber admins review before trust status changes.</span>
           </div>
 
+          <div className="auth-alert info field full">
+            <strong>Ownership confirmation required</strong>
+            <span>
+              It is illegal to claim a property you do not legally own. Accepting an offer on a property you do not
+              own or represent can be a criminal offense punishable by law. Confirming here does not replace admin
+              review of ownership evidence.
+            </span>
+            <label className="checkbox-container" style={{ marginTop: 8 }}>
+              <input name="ownershipConfirmed" required type="checkbox" value="true" />
+              <span className="checkmark" />
+              I confirm I legally own this property or am authorized to represent the owner.
+            </label>
+          </div>
+
           <div className="actions between" style={{ gridColumn: "1 / -1" }}>
             <Link className="button ghost" href="/seller/properties">Cancel</Link>
             <button className="button primary" type="submit">

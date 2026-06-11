@@ -54,8 +54,33 @@ function matchesBuyerFilters(buyer: Buyer, filters: SearchBuyersInput) {
   if (filters.badges.length > 0 && !filters.badges.every((badge) => hasActiveBadge(buyer, badge))) {
     return false;
   }
+  if (filters.condition && !matchesConditionPreference(buyer, filters.condition)) return false;
+  if (filters.amenities.length > 0 && !matchesAmenityNeeds(buyer, filters.amenities)) return false;
 
   return true;
+}
+
+function matchesConditionPreference(buyer: Buyer, condition: string) {
+  const wanted = condition.trim().toLowerCase();
+  if (!wanted) return true;
+  if (buyer.criteriaDetails.length === 0) return true;
+
+  // Buyers without a stated condition preference are open to any condition.
+  return buyer.criteriaDetails.some((criteria) => {
+    const stated = criteria.condition?.trim().toLowerCase();
+    return !stated || stated === wanted;
+  });
+}
+
+function matchesAmenityNeeds(buyer: Buyer, amenities: string[]) {
+  const stated = new Set(
+    buyer.criteriaDetails
+      .flatMap((criteria) => criteria.features ?? [])
+      .concat(buyer.criteria)
+      .map((feature) => feature.trim().toLowerCase()),
+  );
+
+  return amenities.every((amenity) => stated.has(amenity.trim().toLowerCase()));
 }
 
 function matchesPropertyFit(buyer: Buyer, filters: SearchBuyersInput) {

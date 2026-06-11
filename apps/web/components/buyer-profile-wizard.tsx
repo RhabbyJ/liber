@@ -76,6 +76,7 @@ export function BuyerProfileWizard({
   buyer: BuyerForWizard;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const confirmIntentRef = useRef(false);
   const [step, setStep] = useState<Step>(1);
   const [reviewSummary, setReviewSummary] = useState<ReviewSummary>(() => summaryFromBuyer(buyer));
   const total = STEPS.length;
@@ -92,10 +93,20 @@ export function BuyerProfileWizard({
     setStep((s) => (s < total ? ((s + 1) as Step) : s));
   }
 
+  function confirmAndSubmit() {
+    confirmIntentRef.current = true;
+    formRef.current?.requestSubmit();
+  }
+
+  // The profile only submits through the explicit "Yes" confirmation button.
+  // Enter-key/implicit submissions advance steps instead of activating the profile.
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    if (step === total) return;
+    if (step === total && confirmIntentRef.current) {
+      confirmIntentRef.current = false;
+      return;
+    }
     event.preventDefault();
-    goForward();
+    if (step < total) goForward();
   }
 
   return (
@@ -113,8 +124,10 @@ export function BuyerProfileWizard({
                 <button
                   aria-current={isActive ? "step" : undefined}
                   className="wizard-step-button"
+                  disabled={s.key > step}
                   onClick={() => {
-                    if (s.key === total) refreshReviewSummary();
+                    // Steps can be revisited, but not skipped ahead of the flow.
+                    if (s.key > step) return;
                     setStep(s.key);
                   }}
                   type="button"
@@ -286,10 +299,10 @@ export function BuyerProfileWizard({
         <button
           className="button ghost"
           disabled={step === 1}
-          onClick={() => setStep((s) => (s > 1 ? ((s === total ? 1 : s - 1) as Step) : s))}
+          onClick={() => setStep((s) => (s > 1 ? ((s - 1) as Step) : s))}
           type="button"
         >
-          {step === total ? "No, edit" : "Back"}
+          {step === total ? "No, take me back" : "Back"}
         </button>
         {step < total ? (
           <button
@@ -301,9 +314,9 @@ export function BuyerProfileWizard({
             <Icon name="arrow-right" size={14} />
           </button>
         ) : (
-          <button className="button primary" name="visibilityStatus" type="submit" value="ACTIVE">
+          <button className="button primary" onClick={confirmAndSubmit} type="button">
             <Icon name="sparkle" size={14} />
-            Yes, submit profile
+            Yes, this is correct
           </button>
         )}
       </footer>

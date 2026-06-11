@@ -55,6 +55,8 @@ export async function submitBuyerProfile(formData: FormData) {
 export async function submitBuyerCriteria(formData: FormData) {
   await upsertBuyerCriteria(formData);
   revalidatePath("/buyer/criteria");
+  revalidatePath("/buyer/profile");
+  redirect("/buyer/profile");
 }
 
 export async function respondToBuyerInvite(formData: FormData) {

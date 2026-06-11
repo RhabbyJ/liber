@@ -16,7 +16,15 @@ type Props = {
   defaultPropertySubtype?: string;
   defaultBadges?: string[];
   defaultSort?: string;
+  defaultBedrooms?: string;
+  defaultBathrooms?: string;
+  defaultSquareFeet?: string;
+  defaultCondition?: string;
+  defaultAmenities?: string[];
 };
+
+const amenityOptions = ["Pool", "Parking", "ADU", "Yard", "Garage"] as const;
+const conditionOptions = ["Move-in ready", "Mild fixer", "Fixer"] as const;
 
 const minBudgetOptions = [
   { label: "$300k", value: "300000" },
@@ -50,6 +58,11 @@ export function SearchFiltersSidebar({
   defaultPropertySubtype = "",
   defaultBadges = [],
   defaultSort = "recommended",
+  defaultBedrooms = "",
+  defaultBathrooms = "",
+  defaultSquareFeet = "",
+  defaultCondition = "",
+  defaultAmenities = [],
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -81,6 +94,13 @@ export function SearchFiltersSidebar({
   const [checkedBadges, setCheckedBadges] = useState<string[]>(
     defaultBadges.length > 0 ? defaultBadges : ["PRE_APPROVED", "CASH_BUYER", "NON_CONTINGENT"]
   );
+
+  // Property Fit States
+  const [bedrooms, setBedrooms] = useState(defaultBedrooms);
+  const [bathrooms, setBathrooms] = useState(defaultBathrooms);
+  const [squareFeet, setSquareFeet] = useState(defaultSquareFeet);
+  const [condition, setCondition] = useState(defaultCondition);
+  const [amenities, setAmenities] = useState<string[]>(defaultAmenities);
 
   // Other States
   const [offMarketOnly, setOffMarketOnly] = useState(false);
@@ -186,6 +206,12 @@ export function SearchFiltersSidebar({
     );
   };
 
+  const toggleAmenity = (amenity: string) => {
+    setAmenities((prev) =>
+      prev.includes(amenity) ? prev.filter((a) => a !== amenity) : [...prev, amenity]
+    );
+  };
+
   const handleClearFilters = () => {
     setArea("");
     setCity("");
@@ -198,6 +224,11 @@ export function SearchFiltersSidebar({
     setMaxBudget("1200000");
     setPropertyType(null);
     setCheckedBadges([]);
+    setBedrooms("");
+    setBathrooms("");
+    setSquareFeet("");
+    setCondition("");
+    setAmenities([]);
     setOffMarketOnly(false);
     
     // Trigger submit with cleared values
@@ -221,6 +252,14 @@ export function SearchFiltersSidebar({
     if (propertyType) {
       nextParams.set("propertySubtype", "HOME");
     }
+    if (bedrooms) nextParams.set("bedrooms", bedrooms);
+    if (bathrooms) nextParams.set("bathrooms", bathrooms);
+    if (squareFeet) nextParams.set("squareFeet", squareFeet);
+    if (condition) nextParams.set("condition", condition);
+
+    amenities.forEach((amenity) => {
+      nextParams.append("amenities", amenity);
+    });
 
     checkedBadges.forEach((badge) => {
       nextParams.append("badges", badge);
@@ -231,7 +270,7 @@ export function SearchFiltersSidebar({
   };
 
   return (
-    <aside className="search-sidebar-filters">
+    <aside className="search-sidebar-filters" id="search-filters">
       <form onSubmit={handleFormSubmit} className="filters-form">
         
         {/* Section: Location */}
@@ -348,6 +387,87 @@ export function SearchFiltersSidebar({
             >
               Townhome
             </button>
+          </div>
+        </div>
+
+        {/* Section: Property Fit */}
+        <div className="filter-section">
+          <h4 className="filter-section-title">Property Fit</h4>
+          <div className="form-grid" style={{ gap: 10 }}>
+            <div className="select-wrapper">
+              <select
+                aria-label="Bedrooms"
+                value={bedrooms}
+                onChange={(e) => setBedrooms(e.target.value)}
+              >
+                <option value="">Any beds</option>
+                <option value="1">1 bed</option>
+                <option value="2">2 beds</option>
+                <option value="3">3 beds</option>
+                <option value="4">4 beds</option>
+                <option value="5">5+ beds</option>
+              </select>
+            </div>
+            <div className="select-wrapper">
+              <select
+                aria-label="Bathrooms"
+                value={bathrooms}
+                onChange={(e) => setBathrooms(e.target.value)}
+              >
+                <option value="">Any baths</option>
+                <option value="1">1 bath</option>
+                <option value="2">2 baths</option>
+                <option value="3">3 baths</option>
+                <option value="4">4+ baths</option>
+              </select>
+            </div>
+            <div className="select-wrapper">
+              <select
+                aria-label="Square feet"
+                value={squareFeet}
+                onChange={(e) => setSquareFeet(e.target.value)}
+              >
+                <option value="">Any sqft</option>
+                <option value="1000">1,000 sqft</option>
+                <option value="1200">1,200 sqft</option>
+                <option value="1500">1,500 sqft</option>
+                <option value="2000">2,000 sqft</option>
+                <option value="2500">2,500 sqft</option>
+                <option value="3000">3,000+ sqft</option>
+              </select>
+            </div>
+            <div className="select-wrapper">
+              <select
+                aria-label="Condition"
+                value={condition}
+                onChange={(e) => setCondition(e.target.value)}
+              >
+                <option value="">Any condition</option>
+                {conditionOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <span className="field-hint">Enter your property&apos;s facts to find buyers whose needs fit it.</span>
+        </div>
+
+        {/* Section: Amenities */}
+        <div className="filter-section">
+          <h4 className="filter-section-title">Amenity Needs</h4>
+          <div className="property-pills-row" style={{ flexWrap: "wrap" }}>
+            {amenityOptions.map((amenity) => (
+              <button
+                key={amenity}
+                type="button"
+                className={`pill-btn ${amenities.includes(amenity) ? "active" : "outlined"}`}
+                onClick={() => toggleAmenity(amenity)}
+              >
+                {amenity}
+              </button>
+            ))}
           </div>
         </div>
 

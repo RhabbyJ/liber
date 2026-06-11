@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Icon } from "../../components/icon";
 import { ModeChip } from "../../components/mode-chip";
 import { PageTitle } from "../../components/page-title";
 import { safeInternalPath } from "../../lib/redirect";
+import { defaultPathForSessionUser, getSessionUser } from "../../server/session";
 
 export default async function LoginPage({
   searchParams,
@@ -11,6 +13,9 @@ export default async function LoginPage({
 }) {
   const { email = "", next = "/", status = "" } = await searchParams;
   const safeNext = safeInternalPath(next);
+  const user = await getSessionUser();
+  if (user) redirect(defaultPathForSessionUser(user));
+
   const context = authContextFromNext(safeNext);
   const notice = authNotice(status, email);
 

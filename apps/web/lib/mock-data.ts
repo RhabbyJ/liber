@@ -24,6 +24,7 @@ export type PropertySubtype =
   | "OTHER";
 
 export type BuyerCriteriaDetail = {
+  id?: string;
   propertyCategory: "HOME" | "LAND" | "COMMERCIAL";
   propertySubtype: PropertySubtype;
   bedroomsMin?: number;
@@ -36,6 +37,11 @@ export type BuyerCriteriaDetail = {
   capRateMax?: number;
   unitsMin?: number;
   unitsMax?: number;
+  priceMin?: number;
+  priceMax?: number;
+  yearBuiltMin?: number;
+  condition?: string;
+  features?: string[];
 };
 
 export type Buyer = {

@@ -122,13 +122,14 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
     markersRef.current.clear();
     markerNodesRef.current.clear();
 
-    for (const [index, point] of buyerPoints.entries()) {
+    for (const point of buyerPoints) {
       const markerNode = document.createElement("button");
       markerNode.type = "button";
       markerNode.className = "buyer-map-marker";
       markerNode.setAttribute("aria-label", `Open ${point.buyer.name} map marker`);
       markerNode.dataset.buyerId = point.buyer.id;
-      markerNode.innerHTML = `<span>${index + 1}</span>`;
+      // Budget-first pins: buyer demand reads like price pins, but represents buyers.
+      markerNode.innerHTML = `<span>${escapeHtml(budgetPinLabel(point.buyer))}</span>`;
       markerNode.addEventListener("mouseenter", () => highlightBuyer(point.buyer.id, true));
       markerNode.addEventListener("mouseleave", () => highlightBuyer(point.buyer.id, false));
 
@@ -212,6 +213,9 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
           <span>{radiusMiles} mi radius</span>
           <span>Approximate pins</span>
         </div>
+        <a className="button secondary map-filter-button" href="#search-filters">
+          Filter
+        </a>
       </div>
       <div className="map-canvas" ref={containerRef} />
       <div className="map-legend">
@@ -280,6 +284,16 @@ function mapCenter(points: BuyerPoint[], centerLat?: number, centerLng?: number)
 
   const total = activePilotAreas.reduce((sum, area) => ({ lat: sum.lat + area.lat, lng: sum.lng + area.lng }), { lat: 0, lng: 0 });
   return { lat: total.lat / activePilotAreas.length, lng: total.lng / activePilotAreas.length };
+}
+
+function budgetPinLabel(buyer: Buyer) {
+  const budget = buyer.budgetMax || buyer.budgetMin;
+  if (!budget) return "Buyer";
+  if (budget >= 1_000_000) {
+    const millions = budget / 1_000_000;
+    return `$${millions.toFixed(1).replace(/\.0$/, "")}M`;
+  }
+  return `$${Math.round(budget / 1000)}K`;
 }
 
 function popupHtml(buyer: Buyer) {

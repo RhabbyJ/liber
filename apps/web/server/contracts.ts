@@ -148,28 +148,40 @@ function criteriaDetails(criteria: Array<{
   bedroomsMin: number | null;
   capRateMax: unknown;
   capRateMin: unknown;
+  condition?: string | null;
+  features?: string[];
+  id?: string;
   lotSizeMax: number | null;
   lotSizeMin: number | null;
+  priceMax?: unknown;
+  priceMin?: unknown;
   propertyCategory: BuyerCriteriaDetail["propertyCategory"];
   propertySubtype: Property["propertyType"];
   squareFeetMax: number | null;
   squareFeetMin: number | null;
   unitsMax: number | null;
   unitsMin: number | null;
+  yearBuiltMin?: number | null;
 }>): BuyerCriteriaDetail[] {
   return criteria.map((item) => ({
     bathroomsMin: item.bathroomsMin ?? undefined,
     bedroomsMin: item.bedroomsMin ?? undefined,
     capRateMax: item.capRateMax === null || item.capRateMax === undefined ? undefined : Number(item.capRateMax),
     capRateMin: item.capRateMin === null || item.capRateMin === undefined ? undefined : Number(item.capRateMin),
+    condition: item.condition ?? undefined,
+    features: item.features ?? [],
+    id: item.id,
     lotSizeMax: item.lotSizeMax ?? undefined,
     lotSizeMin: item.lotSizeMin ?? undefined,
+    priceMax: item.priceMax === null || item.priceMax === undefined ? undefined : Number(item.priceMax),
+    priceMin: item.priceMin === null || item.priceMin === undefined ? undefined : Number(item.priceMin),
     propertyCategory: item.propertyCategory,
     propertySubtype: item.propertySubtype,
     squareFeetMax: item.squareFeetMax ?? undefined,
     squareFeetMin: item.squareFeetMin ?? undefined,
     unitsMax: item.unitsMax ?? undefined,
     unitsMin: item.unitsMin ?? undefined,
+    yearBuiltMin: item.yearBuiltMin ?? undefined,
   }));
 }
 
@@ -192,14 +204,18 @@ function buyerFromDb(profile: {
     capRateMin: unknown;
     condition: string | null;
     features: string[];
+    id: string;
     lotSizeMax: number | null;
     lotSizeMin: number | null;
+    priceMax: unknown;
+    priceMin: unknown;
     propertyCategory: BuyerCriteriaDetail["propertyCategory"];
     propertySubtype: Property["propertyType"];
     squareFeetMax: number | null;
     squareFeetMin: number | null;
     unitsMax: number | null;
     unitsMin: number | null;
+    yearBuiltMin: number | null;
     zoning: string | null;
   }>;
   desiredCity: string | null;
@@ -666,15 +682,23 @@ function normalizeInput(input: unknown) {
     output[key] = values.length > 1 ? values : values[0];
   }
 
-  if (typeof output.features === "string") {
-    output.features = output.features
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
+  if (typeof output.features === "string" || Array.isArray(output.features)) {
+    const rawFeatures = Array.isArray(output.features) ? output.features : [output.features];
+    output.features = Array.from(new Set(
+      rawFeatures
+        .filter((value): value is string => typeof value === "string")
+        .flatMap((value) => value.split(","))
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ));
   }
 
   if (typeof output.termsAccepted === "string") {
     output.termsAccepted = output.termsAccepted === "true" || output.termsAccepted === "on";
+  }
+
+  if (typeof output.ownershipConfirmed === "string") {
+    output.ownershipConfirmed = output.ownershipConfirmed === "true" || output.ownershipConfirmed === "on";
   }
 
   return output;
@@ -951,6 +975,9 @@ export async function createSellerProperty(input: unknown) {
       state: data.state,
       zip: data.zip,
     },
+  });
+  await auditSecurityEvent(seller, "property_ownership_confirmed", "seller_property", property.id, {
+    ownershipConfirmed: true,
   });
   return { ok: true, data: propertyFromDb(property) };
 }

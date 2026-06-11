@@ -59,10 +59,19 @@ const lotSizeOptions = [
   { label: "15,000+ lot sqft", value: "15000" },
 ];
 
-const conditionOptions = ["Any condition", "Move-in ready", "Light updates", "Fixer"];
+const conditionOptions = ["Any condition", "Move-in ready", "Mild fixer", "Fixer"];
+
+const amenityOptions = ["Pool", "Parking", "ADU", "Yard", "Garage"];
 
 export default async function BuyerCriteriaPage() {
   const { data: buyer } = await getCurrentBuyerProfile();
+  const existing = buyer.criteriaDetails.find((criteria) => criteria.propertyCategory === "HOME") ?? buyer.criteriaDetails[0];
+  const existingFeatures = existing?.features ?? [];
+  const amenitySet = new Set(amenityOptions.map((amenity) => amenity.toLowerCase()));
+  const selectedAmenities = new Set(
+    existingFeatures.filter((feature) => amenitySet.has(feature.trim().toLowerCase())).map((feature) => feature.trim().toLowerCase()),
+  );
+  const otherFeatures = existingFeatures.filter((feature) => !amenitySet.has(feature.trim().toLowerCase()));
 
   return (
     <div className="page stack loose">
@@ -78,6 +87,7 @@ export default async function BuyerCriteriaPage() {
       <section className="grid sidebar">
         <form action={submitBuyerCriteria} className="card stack loose">
           <input name="buyerProfileId" type="hidden" value={buyer.id} />
+          {existing?.id ? <input name="id" type="hidden" value={existing.id} /> : null}
 
           <div className="section-stack">
             <p className="eyebrow">Property type &amp; condition</p>
@@ -93,11 +103,12 @@ export default async function BuyerCriteriaPage() {
             </div>
             <div className="field">
               <label htmlFor="condition">Condition</label>
-              <select id="condition" name="condition" defaultValue="">
+              <select id="condition" name="condition" defaultValue={existing?.condition ?? ""}>
                 {conditionOptions.map((option) => (
                   <option key={option} value={option === "Any condition" ? "" : option}>{option}</option>
                 ))}
               </select>
+              <span className="field-hint">Fixer, mild fixer, or move-in ready. Sellers filter against this.</span>
             </div>
           </div>
 
@@ -110,7 +121,7 @@ export default async function BuyerCriteriaPage() {
           <div className="form-grid">
             <div className="field">
               <label htmlFor="priceMin">Price min</label>
-              <select id="priceMin" name="priceMin" defaultValue={String(buyer.budgetMin || "")}>
+              <select id="priceMin" name="priceMin" defaultValue={String(existing?.priceMin || buyer.budgetMin || "")}>
                 {priceMinOptions.map((option) => (
                   <option key={option.label} value={option.value}>{option.label}</option>
                 ))}
@@ -118,7 +129,7 @@ export default async function BuyerCriteriaPage() {
             </div>
             <div className="field">
               <label htmlFor="priceMax">Price max</label>
-              <select id="priceMax" name="priceMax" defaultValue={String(buyer.budgetMax || "1000000")}>
+              <select id="priceMax" name="priceMax" defaultValue={String(existing?.priceMax || buyer.budgetMax || "1000000")}>
                 {priceMaxOptions.map((option) => (
                   <option key={option.label} value={option.value}>{option.label}</option>
                 ))}
@@ -135,7 +146,7 @@ export default async function BuyerCriteriaPage() {
           <div className="form-grid">
             <div className="field">
               <label htmlFor="beds">Bedrooms min</label>
-              <select id="beds" name="bedroomsMin" defaultValue="">
+              <select id="beds" name="bedroomsMin" defaultValue={String(existing?.bedroomsMin || "")}>
                 {bedroomsOptions.map((option) => (
                   <option key={option.label} value={option.value}>{option.label}</option>
                 ))}
@@ -143,7 +154,7 @@ export default async function BuyerCriteriaPage() {
             </div>
             <div className="field">
               <label htmlFor="baths">Bathrooms min</label>
-              <select id="baths" name="bathroomsMin" defaultValue="">
+              <select id="baths" name="bathroomsMin" defaultValue={String(existing?.bathroomsMin || "")}>
                 {bathroomsOptions.map((option) => (
                   <option key={option.label} value={option.value}>{option.label}</option>
                 ))}
@@ -151,7 +162,7 @@ export default async function BuyerCriteriaPage() {
             </div>
             <div className="field">
               <label htmlFor="sqft">Square feet min</label>
-              <select id="sqft" name="squareFeetMin" defaultValue="">
+              <select id="sqft" name="squareFeetMin" defaultValue={String(existing?.squareFeetMin || "")}>
                 {squareFeetOptions.map((option) => (
                   <option key={option.label} value={option.value}>{option.label}</option>
                 ))}
@@ -159,7 +170,7 @@ export default async function BuyerCriteriaPage() {
             </div>
             <div className="field">
               <label htmlFor="lot">Lot size min</label>
-              <select id="lot" name="lotSizeMin" defaultValue="">
+              <select id="lot" name="lotSizeMin" defaultValue={String(existing?.lotSizeMin || "")}>
                 {lotSizeOptions.map((option) => (
                   <option key={option.label} value={option.value}>{option.label}</option>
                 ))}
@@ -167,7 +178,7 @@ export default async function BuyerCriteriaPage() {
             </div>
             <div className="field">
               <label htmlFor="yearBuiltMin">Year built</label>
-              <select id="yearBuiltMin" name="yearBuiltMin" defaultValue="">
+              <select id="yearBuiltMin" name="yearBuiltMin" defaultValue={String(existing?.yearBuiltMin || "")}>
                 <option value="">Any year</option>
                 <option value="1950">1950 or newer</option>
                 <option value="1970">1970 or newer</option>
@@ -180,19 +191,37 @@ export default async function BuyerCriteriaPage() {
           <div className="divider" />
 
           <div className="section-stack">
-            <p className="eyebrow">Features &amp; story</p>
+            <p className="eyebrow">Amenities &amp; needs</p>
             <h2>Needs and preferences</h2>
           </div>
           <div className="form-grid">
             <div className="field full">
-              <label htmlFor="features">Describe what you want</label>
+              <label>Amenities you need</label>
+              <div className="pill-row">
+                {amenityOptions.map((amenity) => (
+                  <label className="checkbox-container" key={amenity} style={{ marginRight: 14 }}>
+                    <input
+                      defaultChecked={selectedAmenities.has(amenity.toLowerCase())}
+                      name="features"
+                      type="checkbox"
+                      value={amenity}
+                    />
+                    <span className="checkmark" />
+                    {amenity}
+                  </label>
+                ))}
+              </div>
+              <span className="field-hint">Sellers can filter buyer demand by these amenity needs.</span>
+            </div>
+            <div className="field full">
+              <label htmlFor="features">Other needs</label>
               <textarea
                 id="features"
                 name="features"
-                defaultValue={buyer.needs.join(", ")}
-                placeholder="Single story, no pool, attached garage, low-maintenance yard"
+                defaultValue={otherFeatures.join(", ")}
+                placeholder="Single story, quiet street, low-maintenance"
               />
-              <span className="field-hint">Plain language. Liber can match this against seller descriptions later.</span>
+              <span className="field-hint">Plain language, comma separated. Liber can match this against seller descriptions later.</span>
             </div>
           </div>
 

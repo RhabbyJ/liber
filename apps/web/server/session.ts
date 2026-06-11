@@ -33,3 +33,10 @@ export async function requireSessionRole(role: AppRole, next = "") {
   if (!hasRole(user, role)) redirect(`/onboarding/role${nextParam}`);
   return user;
 }
+
+export function defaultPathForSessionUser(user: SessionUser) {
+  if (hasRole(user, "BUYER")) return "/buyer/profile";
+  if (hasRole(user, "SELLER")) return "/seller/properties";
+  if (hasRole(user, "ADMIN")) return "/admin";
+  return "/onboarding/role";
+}

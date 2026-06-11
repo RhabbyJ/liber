@@ -3,7 +3,7 @@ import { Icon } from "../../../components/icon";
 import { PageTitle } from "../../../components/page-title";
 import { safeInternalPath } from "../../../lib/redirect";
 import { chooseRole } from "../../../server/auth-actions";
-import { getSessionUser } from "../../../server/session";
+import { defaultPathForSessionUser, getSessionUser } from "../../../server/session";
 
 export default async function RoleOnboardingPage({
   searchParams,
@@ -16,6 +16,9 @@ export default async function RoleOnboardingPage({
   const context = roleContext(safeNext);
 
   if (!user) redirect(`/login?next=${encodeURIComponent("/onboarding/role")}`);
+  if (user.roles.length > 0 && (!safeNext || userCanContinueTo(user.roles, safeNext))) {
+    redirect(safeNext || defaultPathForSessionUser(user));
+  }
 
   return (
     <div className="page stack loose">
@@ -86,6 +89,13 @@ export default async function RoleOnboardingPage({
       </section>
     </div>
   );
+}
+
+function userCanContinueTo(roles: string[], next: string) {
+  if (next.startsWith("/buyer") || next.startsWith("/buyers")) return roles.includes("BUYER");
+  if (next.startsWith("/seller")) return roles.includes("SELLER");
+  if (next.startsWith("/admin")) return roles.includes("ADMIN");
+  return false;
 }
 
 function roleContext(next: string) {

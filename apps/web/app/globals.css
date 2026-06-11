@@ -1945,6 +1945,115 @@ main {
   font-weight: 700;
 }
 
+/* Public buyer-demand preview (homepage teaser) */
+.home-preview-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.buyer-preview-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 20px;
+  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.buyer-preview-card:hover {
+  border-color: var(--sage-line);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
+}
+
+.buyer-preview-head {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.buyer-preview-head h3 {
+  font-size: 17px;
+  margin: 0;
+}
+
+.buyer-preview-head p {
+  margin: 2px 0 0;
+}
+
+.buyer-preview-avatar {
+  align-items: center;
+  background: linear-gradient(140deg, var(--sage-tint) 0%, var(--surface-cream) 100%);
+  border: 1px solid var(--sage-line);
+  border-radius: var(--r-pill);
+  color: var(--sage-deep);
+  display: inline-grid;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.buyer-preview-budget {
+  color: var(--ink-strong);
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.buyer-preview-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.buyer-preview-facts span {
+  background: var(--surface-cream);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink-strong);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+}
+
+.buyer-preview-facts.subtle span {
+  background: transparent;
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+
+.buyer-preview-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.buyer-preview-badges span {
+  align-items: center;
+  color: var(--sage-deep);
+  display: inline-flex;
+  font-size: 12.5px;
+  font-weight: 700;
+  gap: 5px;
+}
+
+.buyer-preview-card.signup-wall {
+  align-content: center;
+  background: var(--surface-cream);
+  border-style: dashed;
+  gap: 10px;
+  justify-items: start;
+  text-align: left;
+}
+
+.buyer-preview-card.signup-wall h3 {
+  font-size: 18px;
+  margin: 0;
+}
+
 /* Avatar */
 .avatar {
   align-items: center;
@@ -2624,10 +2733,19 @@ main {
   font-size: 12px;
   font-weight: 800;
   height: 32px;
+  justify-content: center;
   line-height: 1;
-  padding: 0;
+  min-width: 32px;
+  padding: 0 9px;
   transition: box-shadow 0.16s ease, transform 0.16s ease, background 0.16s ease;
-  width: 32px;
+  white-space: nowrap;
+  width: auto;
+}
+
+.map-filter-button {
+  flex-shrink: 0;
+  font-size: 13px;
+  padding: 6px 14px;
 }
 
 .buyer-map-marker span {

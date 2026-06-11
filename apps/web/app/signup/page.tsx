@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import { SignupWizard } from "../../components/signup-wizard";
 import { safeInternalPath } from "../../lib/redirect";
+import { defaultPathForSessionUser, getSessionUser } from "../../server/session";
 
 type Notice = { tone: string; title: string; body: string };
 
@@ -10,6 +12,9 @@ export default async function SignupPage({
 }) {
   const { email = "", next = "", role = "", status = "" } = await searchParams;
   const safeNext = safeInternalPath(next, "");
+  const user = await getSessionUser();
+  if (user) redirect(defaultPathForSessionUser(user));
+
   const initialRole = parseRole(role);
   const notice = signupNotice(status);
 
