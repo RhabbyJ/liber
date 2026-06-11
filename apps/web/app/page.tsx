@@ -13,18 +13,13 @@ export default async function HomePage() {
 
   return (
     <div className="map-landing">
-      <section className="map-landing-intro">
-        <div>
-          <h1>
-            Meet <strong>the buyer</strong> before you list.
-          </h1>
-          <p className="muted">
-            Live, verified buyer demand on the map — budgets instead of listings. Properties stay private; outreach is manual.
-          </p>
-        </div>
+      <section className="map-landing-bar">
+        <h1>
+          Meet <strong>the buyer</strong> before you list.
+        </h1>
         <div className="map-landing-actions">
           <Link className="button primary" href="/signup?role=seller&next=/seller/search">
-            Find serious buyers
+            Find buyers
             <Icon name="arrow-right" size={14} />
           </Link>
           <Link className="button secondary" href="/signup?role=buyer&next=/buyer/profile">
@@ -36,51 +31,45 @@ export default async function HomePage() {
       <section className="map-landing-body" aria-label="Buyer demand preview">
         {showMap ? <PublicDemandMap previews={buyerPreviews} token={mapboxToken} /> : null}
 
-        <aside className={`map-landing-panel ${showMap ? "" : "full"}`}>
-          <div className="map-landing-panel-head">
-            <p className="eyebrow">Live buyer demand</p>
-            <h2>
-              {buyerPreviews.length > 0
-                ? `${buyerPreviews.length} active ${buyerPreviews.length === 1 ? "buyer" : "buyers"} previewed`
-                : "Buyer demand preview"}
-            </h2>
-            <p className="muted small">
-              A small, anonymized preview. Buyer identities, documents, and exact locations stay private until you sign up
-              and seller access is approved.
-            </p>
-          </div>
+        <aside className={`demand-panel ${showMap ? "" : "full"}`}>
+          <header className="demand-panel-head">
+            <h2>Buyer demand</h2>
+            <span className="demand-count">
+              {buyerPreviews.length} active
+            </span>
+          </header>
 
           {buyerPreviews.map((preview, index) => (
             <BuyerPreviewCard key={index} preview={preview} />
           ))}
 
-          <article className="buyer-preview-card signup-wall">
-            <Icon name="lock" size={22} />
+          <article className="demand-card signup-wall">
+            <span className="demand-lock" aria-hidden="true">
+              <Icon name="lock" size={18} />
+            </span>
             <h3>See every matching buyer</h3>
-            <p className="muted small">
-              Full buyer profiles, the complete demand map, filters, and private invites open after signup and seller
-              approval.
-            </p>
             <Link className="button primary" href="/signup?role=seller&next=/seller/search">
-              Sign up to search buyers
+              Sign up to search
               <Icon name="arrow-right" size={14} />
             </Link>
-            <Link className="muted small" href="/signup?role=buyer&next=/buyer/profile" style={{ textDecoration: "underline" }}>
+            <Link className="demand-buyer-link" href="/signup?role=buyer&next=/buyer/profile">
               I&apos;m a buyer — add my demand
             </Link>
           </article>
+
+          <p className="demand-privacy">Anonymized preview · exact locations stay private</p>
         </aside>
       </section>
 
       <section className="map-landing-footnote">
         <span>
-          <Icon name="check-shield" size={14} /> Admin-reviewed trust badges
+          <Icon name="check-shield" size={13} /> Admin-reviewed badges
         </span>
         <span>
-          <Icon name="lock" size={14} /> Private properties, manual invites only
+          <Icon name="lock" size={13} /> Private invites only
         </span>
         <span>
-          <Icon name="map-pin" size={14} /> San Fernando Valley pilot
+          <Icon name="map-pin" size={13} /> San Fernando Valley pilot
         </span>
       </section>
     </div>
@@ -88,47 +77,34 @@ export default async function HomePage() {
 }
 
 function BuyerPreviewCard({ preview }: { preview: PublicBuyerPreview }) {
-  const fitFacts = [
-    preview.bedroomsMin ? `${preview.bedroomsMin}+ bed` : null,
-    preview.bathroomsMin ? `${preview.bathroomsMin}+ bath` : null,
+  const meta = [
+    preview.bedroomsMin ? `${preview.bedroomsMin}+ bd` : null,
+    preview.bathroomsMin ? `${preview.bathroomsMin}+ ba` : null,
     preview.squareFeetMin ? `${preview.squareFeetMin.toLocaleString()}+ sqft` : null,
     preview.condition || null,
   ].filter((fact): fact is string => Boolean(fact));
 
+  const chips = [...preview.badges.slice(0, 2), ...preview.amenities].slice(0, 4);
+
   return (
-    <article className="buyer-preview-card">
-      <div className="buyer-preview-head">
-        <span className="buyer-preview-avatar" aria-hidden="true">
-          <Icon name="user" size={18} />
-        </span>
-        <div>
-          <h3>{preview.label}</h3>
-          <p className="muted small">{preview.area}</p>
-        </div>
+    <article className="demand-card">
+      <div className="demand-card-top">
+        <span className="demand-card-budget">{preview.budgetLabel}</span>
+        {preview.badges.length > 0 ? (
+          <span className="demand-card-verified">
+            <Icon name="check-shield" size={13} />
+            Verified
+          </span>
+        ) : null}
       </div>
-      <span className="buyer-preview-budget">{preview.budgetLabel}</span>
-      {preview.purpose ? <p className="muted small" style={{ margin: 0 }}>{preview.purpose}</p> : null}
-      {fitFacts.length > 0 ? (
-        <div className="buyer-preview-facts">
-          {fitFacts.map((fact) => (
-            <span key={fact}>{fact}</span>
-          ))}
-        </div>
-      ) : null}
-      {preview.amenities.length > 0 ? (
-        <div className="buyer-preview-facts subtle">
-          {preview.amenities.map((amenity) => (
-            <span key={amenity}>{amenity}</span>
-          ))}
-        </div>
-      ) : null}
-      {preview.badges.length > 0 ? (
-        <div className="buyer-preview-badges">
-          {preview.badges.map((badge) => (
-            <span key={badge}>
-              <Icon name="check-shield" size={13} />
-              {badge}
-            </span>
+      {meta.length > 0 ? <p className="demand-card-meta">{meta.join(" · ")}</p> : null}
+      <p className="demand-card-sub">
+        {preview.label} · {preview.area}
+      </p>
+      {chips.length > 0 ? (
+        <div className="demand-card-chips">
+          {chips.map((chip) => (
+            <span key={chip}>{chip}</span>
           ))}
         </div>
       ) : null}

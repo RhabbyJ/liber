@@ -20,6 +20,8 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - Protected routes should redirect/reject unauthenticated users.
 - Visual smoke is for public/non-auth pages unless test auth is explicitly available.
 - Do not weaken tests to make a bad change pass.
+- Demo/test buyer data may be used for smoke and CEO demo verification only when clearly seeded and removable.
+- Tests and smoke scripts must not depend on fake data being present in true production.
 
 ## Agent notes
 

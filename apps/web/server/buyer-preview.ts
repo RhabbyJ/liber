@@ -1,6 +1,16 @@
 import { prisma } from "@liber/db";
-import { formatBadgeType } from "../lib/format";
 import { findPilotArea } from "../lib/launch-market";
+
+// Short, display-safe badge labels for the compact public preview UI.
+const previewBadgeLabels: Record<string, string> = {
+  PRE_APPROVED: "Pre-approved",
+  EARNEST_MONEY_DEPOSITED: "Earnest reviewed",
+  CASH_BUYER: "Cash buyer",
+  NON_CONTINGENT: "Non-contingent",
+  VERIFIED_IDENTITY: "ID verified",
+  VERIFIED_FUNDS: "Verified funds",
+  COMPLETED_TRANSACTION: "Past transaction",
+};
 
 export const PUBLIC_PREVIEW_LIMIT = 6;
 
@@ -23,7 +33,6 @@ export type PublicBuyerPreview = {
   label: string;
   lat?: number;
   lng?: number;
-  purpose?: string;
   squareFeetMin?: number;
 };
 
@@ -44,7 +53,6 @@ export async function getPublicBuyerPreviews(): Promise<PublicBuyerPreview[]> {
         budgetMax: true,
         budgetMin: true,
         buyerType: true,
-        buyingPurpose: true,
         criteria: {
           select: {
             bathroomsMin: true,
@@ -76,7 +84,9 @@ export async function getPublicBuyerPreviews(): Promise<PublicBuyerPreview[]> {
       return {
         amenities: previewAmenities.filter((amenity) => amenitySet.has(amenity.toLowerCase())),
         area: [profile.desiredCity, profile.desiredState].filter(Boolean).join(", ") || "San Fernando Valley pilot",
-        badges: profile.badges.map((badge) => formatBadgeType(badge.badgeType)).slice(0, 3),
+        badges: profile.badges
+          .map((badge) => previewBadgeLabels[badge.badgeType] ?? "Verified")
+          .slice(0, 3),
         bathroomsMin: criteria?.bathroomsMin ?? undefined,
         bedroomsMin: criteria?.bedroomsMin ?? undefined,
         budgetLabel: budgetBandLabel(toNumber(profile.budgetMin), toNumber(profile.budgetMax)),
@@ -84,7 +94,6 @@ export async function getPublicBuyerPreviews(): Promise<PublicBuyerPreview[]> {
         label: profile.buyerType?.trim() || "Buyer",
         lat: point?.lat,
         lng: point?.lng,
-        purpose: profile.buyingPurpose ?? undefined,
         squareFeetMin: criteria?.squareFeetMin ?? undefined,
       };
     });

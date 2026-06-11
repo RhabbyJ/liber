@@ -48,10 +48,32 @@ The public or unauthenticated experience must not:
 - expose a fully searchable buyer directory or public search filters,
 - expose real buyer profile URLs as public SEO/crawlable pages,
 - allow unauthenticated users to message, invite, contact, save, export, or otherwise act on a buyer,
-- use fake production buyers or fake trust signals,
+- use fake production buyers or fake trust signals outside the CEO demo / private preview data policy below,
 - imply that previewed buyers are guaranteed to transact.
 
 Limited pre-signup previews are product marketing and onboarding support. They are not seller search, and they do not replace approved seller-directory access.
+
+## Demo and production data policy
+
+The current shared Vercel deployment may be treated as a CEO demo / private preview environment while access is intentionally limited and the product is not publicly launched. In that environment, agents may seed clearly marked test buyer demand so the map, preview cards, search, and invite flows can be demonstrated.
+
+Demo/test buyer data must:
+
+- use obvious non-real names, emails, and labels such as `Liber Demo Buyer` or `@example.test`,
+- be seeded only through an explicit test/demo seed command or script,
+- be safe to delete and recreate,
+- avoid real private documents, real financial documents, real IDs, real lender documents, and real contact information,
+- use approximate pilot-area locations only,
+- keep any trust/badge labels clearly demo-safe unless backed by real reviewed evidence,
+- be removed or replaced before a true public production launch.
+
+Demo/test buyer data must not:
+
+- pretend to be real production buyers,
+- include fake production reviews, fake production transactions, or fake legal/financial claims,
+- be mixed into a real public launch without an explicit cleanup/review step.
+
+When the product moves from CEO demo / private preview to true production launch, fake buyers and fake trust signals are no longer allowed.
 
 ## V1 roles
 
@@ -291,7 +313,7 @@ Do not build these as production behavior in v1:
 - public marketplace listings,
 - broad public buyer-profile pages,
 - customer-facing admin analytics,
-- fake reviews or fake production buyers.
+- fake reviews or fake production buyers outside approved CEO demo / private preview seeding.
 
 ## Product-owner approval required
 

@@ -132,12 +132,7 @@ export function PublicDemandMap({ previews, token }: Props) {
     <div className="public-map-shell">
       <div className="map-canvas" ref={containerRef} />
       {status ? <div className="map-status">{status}</div> : null}
-      <div className="public-map-note">
-        <strong>
-          {previews.length} active {previews.length === 1 ? "buyer" : "buyers"} previewed
-        </strong>
-        <span>Approximate areas only. Sign up to search all buyer demand.</span>
-      </div>
+      <div className="public-map-note">Approximate areas · anonymized preview</div>
     </div>
   );
 }
@@ -157,11 +152,9 @@ function previewPopupHtml(preview: PublicBuyerPreview) {
 
   return `
     <div class="buyer-map-popup">
-      <strong>${escapeHtml(preview.label)}</strong>
-      <span>${escapeHtml(preview.area)}</span>
-      <span>${escapeHtml(preview.budgetLabel)}</span>
+      <strong>${escapeHtml(preview.budgetLabel)}</strong>
       ${facts.length > 0 ? `<span>${escapeHtml(facts.join(" · "))}</span>` : ""}
-      ${preview.badges.length > 0 ? `<span>${escapeHtml(preview.badges.join(", "))}</span>` : ""}
+      <span>${escapeHtml(preview.label)} · ${escapeHtml(preview.area)}</span>
       <div>
         <a href="/signup?role=seller&next=/seller/search">Sign up to view buyers</a>
       </div>
