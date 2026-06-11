@@ -2694,8 +2694,20 @@ main {
 }
 
 .map-canvas {
+  height: 100%;
   inset: 0;
   position: absolute;
+  width: 100%;
+}
+
+.public-map-shell .map-canvas,
+.map-shell.interactive .map-canvas,
+.public-map-shell .mapboxgl-map,
+.map-shell.interactive .mapboxgl-map {
+  height: 100%;
+  inset: 0;
+  position: absolute;
+  width: 100%;
 }
 
 .map-shell.interactive .mapboxgl-canvas {
