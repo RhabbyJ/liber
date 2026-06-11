@@ -2128,6 +2128,30 @@ main {
   font-size: 12.5px;
 }
 
+.public-map-shell.unavailable {
+  align-items: center;
+  background: var(--surface-cream);
+  display: grid;
+  justify-items: center;
+}
+
+.public-map-fallback {
+  display: grid;
+  gap: 6px;
+  max-width: 360px;
+  padding: 24px;
+  text-align: center;
+}
+
+.public-map-fallback strong {
+  color: var(--ink-strong);
+}
+
+.public-map-fallback span {
+  color: var(--ink-muted);
+  font-size: 13.5px;
+}
+
 .map-landing-panel {
   align-content: start;
   background: var(--surface);

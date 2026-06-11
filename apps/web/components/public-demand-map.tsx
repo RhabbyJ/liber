@@ -60,14 +60,17 @@ export function PublicDemandMap({ previews, token }: Props) {
           zoom: 10.6,
         });
 
+        let loaded = false;
         mapRef.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
         mapRef.current.on("load", () => {
           if (canceled) return;
+          loaded = true;
           setIsReady(true);
           setStatus("");
         });
+        // Only treat errors before first load as fatal; later tile hiccups are recoverable.
         mapRef.current.on("error", () => {
-          if (!canceled) setDidFail(true);
+          if (!canceled && !loaded) setDidFail(true);
         });
       } catch {
         if (!canceled) setDidFail(true);
@@ -114,7 +117,16 @@ export function PublicDemandMap({ previews, token }: Props) {
     }
   }, [isReady, points]);
 
-  if (didFail) return null;
+  if (didFail) {
+    return (
+      <div className="public-map-shell unavailable">
+        <div className="public-map-fallback">
+          <strong>Buyer demand map is unavailable right now.</strong>
+          <span>The buyer previews beside this panel are still live. Sign up to search all buyer demand.</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="public-map-shell">
