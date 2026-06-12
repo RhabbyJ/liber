@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRef, useState, type FormEvent } from "react";
 import { Icon } from "./icon";
 import { LocationLookupFields } from "./location-lookup-fields";
@@ -35,6 +34,64 @@ const downPaymentOptions = [
 const buyerTypeOptions = ["Home Buyer", "Investor", "Cash Buyer", "Move-up Buyer", "Downsizing Buyer"];
 const buyingPurposeOptions = ["Owner occupy", "Rental", "Fix and flip", "Other"];
 
+const bedroomsOptions = [
+  { label: "Any bedrooms", value: "" },
+  { label: "1+ bedrooms", value: "1" },
+  { label: "2+ bedrooms", value: "2" },
+  { label: "3+ bedrooms", value: "3" },
+  { label: "4+ bedrooms", value: "4" },
+  { label: "5+ bedrooms", value: "5" },
+];
+
+const bathroomsOptions = [
+  { label: "Any bathrooms", value: "" },
+  { label: "1+ bathrooms", value: "1" },
+  { label: "2+ bathrooms", value: "2" },
+  { label: "3+ bathrooms", value: "3" },
+  { label: "4+ bathrooms", value: "4" },
+];
+
+const squareFeetOptions = [
+  { label: "Any square feet", value: "" },
+  { label: "1,000+ sqft", value: "1000" },
+  { label: "1,500+ sqft", value: "1500" },
+  { label: "2,000+ sqft", value: "2000" },
+  { label: "2,500+ sqft", value: "2500" },
+  { label: "3,000+ sqft", value: "3000" },
+  { label: "4,000+ sqft", value: "4000" },
+];
+
+const lotSizeOptions = [
+  { label: "Any lot size", value: "" },
+  { label: "2,500+ lot sqft", value: "2500" },
+  { label: "5,000+ lot sqft", value: "5000" },
+  { label: "7,500+ lot sqft", value: "7500" },
+  { label: "10,000+ lot sqft", value: "10000" },
+  { label: "15,000+ lot sqft", value: "15000" },
+];
+
+const yearBuiltOptions = [
+  { label: "Any year", value: "" },
+  { label: "1950 or newer", value: "1950" },
+  { label: "1970 or newer", value: "1970" },
+  { label: "1990 or newer", value: "1990" },
+  { label: "2010 or newer", value: "2010" },
+];
+
+const conditionOptions = ["Any condition", "Move-in ready", "Mild fixer", "Fixer"];
+
+const amenityOptions = ["Pool", "Parking", "ADU", "Yard", "Garage"];
+
+type CriteriaForWizard = {
+  bedroomsMin?: number;
+  bathroomsMin?: number;
+  squareFeetMin?: number;
+  lotSizeMin?: number;
+  yearBuiltMin?: number;
+  condition?: string;
+  features?: string[];
+};
+
 type BuyerForWizard = {
   name: string;
   type: string;
@@ -48,13 +105,15 @@ type BuyerForWizard = {
   downPaymentMin: number;
   downPaymentMax: number;
   bio: string;
+  criteriaDetails?: CriteriaForWizard[];
 };
 
 const STEPS = [
   { key: 1, label: "Who you are", helper: "Name and intent" },
   { key: 2, label: "Your budget", helper: "Price + down payment" },
-  { key: 3, label: "Your story", helper: "A few sentences" },
-  { key: 4, label: "Review", helper: "Confirm" },
+  { key: 3, label: "Home fit", helper: "Beds, baths, features" },
+  { key: 4, label: "Your story", helper: "A few sentences" },
+  { key: 5, label: "Review", helper: "Confirm" },
 ] as const;
 
 type Step = (typeof STEPS)[number]["key"];
@@ -62,6 +121,7 @@ type Step = (typeof STEPS)[number]["key"];
 type ReviewSummary = {
   budget: string;
   downPayment: string;
+  homeFit: string;
   location: string;
   name: string;
   purpose: string;
@@ -81,6 +141,12 @@ export function BuyerProfileWizard({
   const [reviewSummary, setReviewSummary] = useState<ReviewSummary>(() => summaryFromBuyer(buyer));
   const total = STEPS.length;
   const progress = (step / total) * 100;
+  const criteria = buyer.criteriaDetails?.[0];
+  const selectedAmenities = new Set(
+    (criteria?.features ?? [])
+      .map((feature) => feature.trim().toLowerCase())
+      .filter((feature) => amenityOptions.some((amenity) => amenity.toLowerCase() === feature)),
+  );
 
   function refreshReviewSummary() {
     const form = formRef.current;
@@ -241,6 +307,82 @@ export function BuyerProfileWizard({
         <section className="wizard-pane" hidden={step !== 3} aria-hidden={step !== 3}>
           <div className="section-stack">
             <p className="eyebrow">Step 3 of {total}</p>
+            <h2>Home fit</h2>
+            <p className="muted small">The home you&apos;d say yes to. Sellers match their property against this.</p>
+          </div>
+          <div className="form-grid">
+            <div className="field">
+              <label htmlFor="bedroomsMin">Bedrooms min</label>
+              <select id="bedroomsMin" name="bedroomsMin" defaultValue={String(criteria?.bedroomsMin || "")}>
+                {bedroomsOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="bathroomsMin">Bathrooms min</label>
+              <select id="bathroomsMin" name="bathroomsMin" defaultValue={String(criteria?.bathroomsMin || "")}>
+                {bathroomsOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="squareFeetMin">Square feet min</label>
+              <select id="squareFeetMin" name="squareFeetMin" defaultValue={String(criteria?.squareFeetMin || "")}>
+                {squareFeetOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="lotSizeMin">Lot size min</label>
+              <select id="lotSizeMin" name="lotSizeMin" defaultValue={String(criteria?.lotSizeMin || "")}>
+                {lotSizeOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="yearBuiltMin">Year built</label>
+              <select id="yearBuiltMin" name="yearBuiltMin" defaultValue={String(criteria?.yearBuiltMin || "")}>
+                {yearBuiltOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="condition">Condition</label>
+              <select id="condition" name="condition" defaultValue={criteria?.condition ?? ""}>
+                {conditionOptions.map((option) => (
+                  <option key={option} value={option === "Any condition" ? "" : option}>{option}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field full">
+              <label>Amenities you need</label>
+              <div className="pill-row">
+                {amenityOptions.map((amenity) => (
+                  <label className="checkbox-container" key={amenity} style={{ marginRight: 14 }}>
+                    <input
+                      defaultChecked={selectedAmenities.has(amenity.toLowerCase())}
+                      name="features"
+                      type="checkbox"
+                      value={amenity}
+                    />
+                    <span className="checkmark" />
+                    {amenity}
+                  </label>
+                ))}
+              </div>
+              <span className="field-hint">Sellers can filter buyer demand by these amenity needs.</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="wizard-pane" hidden={step !== 4} aria-hidden={step !== 4}>
+          <div className="section-stack">
+            <p className="eyebrow">Step 4 of {total}</p>
             <h2>Your story</h2>
             <p className="muted small">A short bio helps sellers understand what you're looking for and why.</p>
           </div>
@@ -255,14 +397,11 @@ export function BuyerProfileWizard({
               />
             </div>
           </div>
-          <p className="muted small">
-            Want to fine-tune bedrooms, baths, lot size, and features? <Link href="/buyer/criteria">Edit search criteria →</Link>
-          </p>
         </section>
 
-        <section className="wizard-pane" hidden={step !== 4} aria-hidden={step !== 4}>
+        <section className="wizard-pane" hidden={step !== 5} aria-hidden={step !== 5}>
           <div className="section-stack">
-            <p className="eyebrow">Step 4 of {total}</p>
+            <p className="eyebrow">Step 5 of {total}</p>
             <h2>Does this all look correct?</h2>
             <p className="muted small">Confirm the profile basics before making it visible to sellers.</p>
           </div>
@@ -290,6 +429,10 @@ export function BuyerProfileWizard({
             <div>
               <span className="summary-label">Down payment</span>
               <span className="summary-value">{reviewSummary.downPayment}</span>
+            </div>
+            <div>
+              <span className="summary-label">Home fit</span>
+              <span className="summary-value">{reviewSummary.homeFit}</span>
             </div>
           </div>
         </section>
@@ -340,10 +483,23 @@ function rangeLabel(min: string, max: string) {
   return `${moneyLabel(min)} - ${moneyLabel(max)}`;
 }
 
+function homeFitLabel(parts: Array<string | undefined>) {
+  const facts = parts.filter((part): part is string => Boolean(part));
+  return facts.length > 0 ? facts.join(" · ") : "Any home";
+}
+
 function summaryFromBuyer(buyer: BuyerForWizard): ReviewSummary {
+  const criteria = buyer.criteriaDetails?.[0];
   return {
     budget: rangeLabel(String(buyer.budgetMin || ""), String(buyer.budgetMax || "")),
     downPayment: rangeLabel(String(buyer.downPaymentMin || ""), String(buyer.downPaymentMax || "")),
+    homeFit: homeFitLabel([
+      criteria?.bedroomsMin ? `${criteria.bedroomsMin}+ bd` : undefined,
+      criteria?.bathroomsMin ? `${criteria.bathroomsMin}+ ba` : undefined,
+      criteria?.squareFeetMin ? `${criteria.squareFeetMin.toLocaleString()}+ sqft` : undefined,
+      criteria?.condition || undefined,
+      ...(criteria?.features ?? []),
+    ]),
     location: buyer.location || buyer.city || "Not set",
     name: buyer.name || "New buyer",
     purpose: buyer.purpose || "Owner occupy",
@@ -352,9 +508,20 @@ function summaryFromBuyer(buyer: BuyerForWizard): ReviewSummary {
 }
 
 function summaryFromForm(formData: FormData): ReviewSummary {
+  const bedrooms = formText(formData, "bedroomsMin");
+  const bathrooms = formText(formData, "bathroomsMin");
+  const squareFeet = formText(formData, "squareFeetMin");
+  const features = formData.getAll("features").filter((value): value is string => typeof value === "string" && value !== "");
   return {
     budget: rangeLabel(formText(formData, "budgetMin"), formText(formData, "budgetMax")),
     downPayment: rangeLabel(formText(formData, "downPaymentMin"), formText(formData, "downPaymentMax")),
+    homeFit: homeFitLabel([
+      bedrooms ? `${bedrooms}+ bd` : undefined,
+      bathrooms ? `${bathrooms}+ ba` : undefined,
+      squareFeet ? `${Number(squareFeet).toLocaleString()}+ sqft` : undefined,
+      formText(formData, "condition") || undefined,
+      ...features,
+    ]),
     location: formText(formData, "desiredLocationText") || formText(formData, "desiredCity") || "Not set",
     name: formText(formData, "displayName") || "New buyer",
     purpose: formText(formData, "buyingPurpose") || "Owner occupy",

@@ -135,7 +135,7 @@ function authContextFromNext(next: string): LoginContext {
 
   if (next.startsWith("/buyer") || next.startsWith("/buyers")) {
     return {
-      description: "Continue to your buyer profile, criteria, verification, and invites.",
+      description: "Continue to your buyer profile, verification, and invites.",
       loginTitle: "Log in as a buyer",
       signupHref: `/signup?role=buyer&next=${encodeURIComponent(next)}`,
       signupLabel: "a buyer account",

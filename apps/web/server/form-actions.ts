@@ -47,15 +47,15 @@ export async function submitBuyerProfile(formData: FormData) {
     await uploadBuyerAvatarFile(avatar);
   }
 
+  // The wizard's "Home fit" step doubles as the buyer's search criteria.
+  formData.set("buyerProfileId", buyer.id);
+  formData.set("propertySubtype", "HOME");
+  formData.set("priceMin", String(formData.get("budgetMin") ?? ""));
+  formData.set("priceMax", String(formData.get("budgetMax") ?? ""));
+  await upsertBuyerCriteria(formData);
+
   revalidatePath("/buyer/profile");
   revalidatePath(`/buyers/${buyer.id}`);
-  redirect("/buyer/profile");
-}
-
-export async function submitBuyerCriteria(formData: FormData) {
-  await upsertBuyerCriteria(formData);
-  revalidatePath("/buyer/criteria");
-  revalidatePath("/buyer/profile");
   redirect("/buyer/profile");
 }
 

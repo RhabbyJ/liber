@@ -762,9 +762,23 @@ export async function upsertBuyerCriteria(input: unknown) {
     });
     if (result.count !== 1) throw new Error("Criteria not found.");
   } else {
-    await prisma.buyerCriteria.create({
-      data: { ...criteriaData, buyerProfileId: profile.id },
+    // One criteria row per profile in v1: update the existing row instead of
+    // stacking duplicates when the caller (e.g. the profile wizard) has no id.
+    const existing = await prisma.buyerCriteria.findFirst({
+      where: { buyerProfileId: profile.id },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
     });
+    if (existing) {
+      await prisma.buyerCriteria.update({
+        where: { id: existing.id },
+        data: criteriaData,
+      });
+    } else {
+      await prisma.buyerCriteria.create({
+        data: { ...criteriaData, buyerProfileId: profile.id },
+      });
+    }
   }
   await prisma.buyerProfile.update({
     where: { id: profile.id },

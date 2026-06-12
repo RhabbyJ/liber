@@ -7,7 +7,7 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 ## Main files
 
 - `apps/web/app/buyer/profile/page.tsx`
-- `apps/web/app/buyer/criteria/page.tsx`
+- `apps/web/app/buyer/criteria/page.tsx` (redirects to profile wizard)
 - `apps/web/app/buyer/invites/page.tsx`
 - `apps/web/app/buyer/notifications/page.tsx`
 - `apps/web/app/buyers/[buyerProfileId]/page.tsx`
@@ -23,7 +23,8 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - Buyer documents are never shown to sellers.
 - Criteria should describe property fit, not protected-class attributes.
 - Amenity needs use canonical feature tokens (Pool, Parking, ADU, Yard, Garage) so seller amenity filters can match; condition uses Move-in ready / Mild fixer / Fixer.
-- The profile wizard only activates a profile through the explicit confirmation step; the criteria form updates the existing criteria row instead of creating duplicates.
+- Buyer setup is one wizard on `/buyer/profile`: who you are → budget → home fit (beds/baths/footprint/amenities) → story → confirm. Criteria save in the same submit as the profile.
+- `/buyer/criteria` redirects to the profile wizard for old links; there is no separate criteria onboarding flow.
 
 ## Agent notes
 

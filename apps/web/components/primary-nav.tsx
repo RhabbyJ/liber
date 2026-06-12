@@ -23,8 +23,7 @@ const buyerItems: NavItem[] = [
   {
     href: "/buyer/profile",
     label: "Profile",
-    isActive: (p) =>
-      p === "/buyer/profile" || p === "/buyer/criteria" || p === "/buyer/badges",
+    isActive: (p) => p === "/buyer/profile" || p === "/buyer/badges",
     mode: "buyer",
   },
   {

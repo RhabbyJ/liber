@@ -75,7 +75,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               <div>
                 <h4>For Buyers</h4>
                 <p><Link href="/buyer/profile">Create a profile</Link></p>
-                <p><Link href="/buyer/criteria">Save search criteria</Link></p>
                 <p><Link href="/buyer/badges">Get verified</Link></p>
               </div>
               <div>

@@ -109,8 +109,8 @@ export default async function BuyerProfileBuilderPage({
         }
       >
         {isActive
-          ? "Your profile is live. The next priority is verification, then invites and criteria."
-          : "Complete the profile steps below to make your buyer profile visible to sellers."}
+          ? "Your profile is live. The next priority is verification, then invites."
+          : "Complete the steps below — profile, budget, home fit, and story — to become visible to sellers."}
       </PageTitle>
 
       <section className="grid sidebar">
@@ -151,10 +151,7 @@ export default async function BuyerProfileBuilderPage({
                 <div className="actions inline">
                   <Link className="button secondary" href="/buyer/profile?edit=profile">
                     <Icon name="list" size={14} />
-                    Edit profile basics
-                  </Link>
-                  <Link className="button ghost" href="/buyer/criteria">
-                    Edit search criteria
+                    Edit profile
                   </Link>
                 </div>
               </article>
@@ -286,15 +283,11 @@ export default async function BuyerProfileBuilderPage({
               <h2 style={{ fontSize: 20 }}>Signed in as {buyer.name || "buyer"}</h2>
             </div>
           </div>
-          <p className="muted small">Profile, invites, search criteria, and verification all live here. Profile setup stays tucked away once complete.</p>
+          <p className="muted small">Profile, invites, and verification all live here. Setup stays tucked away once complete.</p>
           <div className="actions inline">
             <Link className="button secondary" href="/buyer/profile?edit=profile">
               <Icon name="list" size={14} />
-              Edit profile basics
-            </Link>
-            <Link className="button secondary" href="/buyer/criteria">
-              <Icon name="list" size={14} />
-              Edit search criteria
+              Edit profile
             </Link>
             <form action="/logout" method="post">
               <button className="button ghost" type="submit">

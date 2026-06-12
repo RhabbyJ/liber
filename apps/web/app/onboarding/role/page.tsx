@@ -35,7 +35,7 @@ export default async function RoleOnboardingPage({
             <h2 style={{ marginTop: 6 }}>Create demand</h2>
           </div>
           <p className="muted">
-            Publish a searchable profile, criteria, and trust badges. Receive invites from sellers whose property fits your needs.
+            Publish a searchable profile with home-fit preferences and trust badges. Receive invites from sellers whose property fits your needs.
           </p>
           <form action={chooseRole}>
             <input name="next" type="hidden" value={safeNext} />
@@ -108,7 +108,7 @@ function roleContext(next: string) {
 
   if (next.startsWith("/buyer")) {
     return {
-      description: "Add buyer access to publish your profile, criteria, verification, and invite inbox.",
+      description: "Add buyer access to publish your profile, verification, and invite inbox.",
       title: "Add buyer access",
     };
   }
