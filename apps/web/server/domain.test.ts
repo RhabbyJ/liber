@@ -37,19 +37,11 @@ describe("seller buyer search", () => {
     expect(results[0]?.id).toBe("julie-p");
   });
 
-  it("filters by minimum review count", () => {
-    const results = searchBuyerDirectory({ minReviews: 5 });
-
-    expect(results.map((buyer) => buyer.id)).toContain("marcus-r");
-    expect(results.map((buyer) => buyer.id)).not.toContain("julie-p");
-  });
-
   it("filters by structured property fit criteria", () => {
     expect(searchBuyerDirectory({ bedrooms: 3 }).map((buyer) => buyer.id)).not.toContain("julie-p");
     expect(searchBuyerDirectory({ bedrooms: 4 }).map((buyer) => buyer.id)).toContain("julie-p");
-    expect(searchBuyerDirectory({ propertyCategory: "COMMERCIAL", capRate: 4 }).map((buyer) => buyer.id)).not.toContain("asha-k");
-    expect(searchBuyerDirectory({ propertyCategory: "COMMERCIAL", capRate: 5, units: 5 }).map((buyer) => buyer.id)).not.toContain("asha-k");
-    expect(searchBuyerDirectory({ propertyCategory: "COMMERCIAL", capRate: 5, units: 6 }).map((buyer) => buyer.id)).toContain("asha-k");
+    expect(searchBuyerDirectory({ bedrooms: 4 }).map((buyer) => buyer.id)).not.toContain("asha-k");
+    expect(searchBuyerDirectory({ bedrooms: 5 }).map((buyer) => buyer.id)).toContain("asha-k");
   });
 
   it("filters by radius when a coordinate center is supplied", () => {

@@ -42,11 +42,12 @@ Primary models:
 - `VerificationDocument`
 - `Invite`
 - `Notification`
-- `Review`
 - `AdminAuditLog`
 - `EmailOutbox`
 
 User IDs mirror Supabase Auth UUIDs.
+
+The schema is intentionally trimmed to the v1 flow: residential-only (`PropertyCategory`/`PropertySubtype` contain only `HOME`; re-add values with `ALTER TYPE ... ADD VALUE` when commercial/land returns), no review/rating system, no commercial criteria fields (cap rate, units, zoning). Do not re-add speculative tables or columns without a v1-approved feature behind them.
 
 ## Environment classes
 

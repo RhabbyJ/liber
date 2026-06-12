@@ -21,6 +21,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Admin cannot be self-assigned through customer UI.
 - Suspended users must not continue into protected workflows.
 - Authorization must be server-side.
+- Signup role selection may bootstrap only BUYER/SELLER roles after Supabase verifies the user; admin remains server-controlled.
 
 ## Agent notes
 

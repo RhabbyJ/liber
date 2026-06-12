@@ -80,22 +80,19 @@ describe("Liber validators", () => {
     expect(() =>
       upsertBuyerCriteriaSchema.parse({
         buyerProfileId: "buyer-1",
-        propertyCategory: "COMMERCIAL",
-        propertySubtype: "MULTIFAMILY",
+        propertySubtype: "HOME",
         squareFeetMin: 2000,
         squareFeetMax: 1000,
       }),
     ).toThrow("Square feet minimum cannot exceed square feet maximum.");
 
+    // Non-residential subtypes are out of v1 scope.
     expect(() =>
       upsertBuyerCriteriaSchema.parse({
         buyerProfileId: "buyer-1",
-        propertyCategory: "COMMERCIAL",
         propertySubtype: "MULTIFAMILY",
-        capRateMin: 8,
-        capRateMax: 5,
       }),
-    ).toThrow("Cap rate minimum cannot exceed cap rate maximum.");
+    ).toThrow();
   });
 
   it("validates search, document review, and badge admin inputs", () => {
@@ -104,12 +101,9 @@ describe("Liber validators", () => {
     ]);
     expect(() => searchBuyersSchema.parse({ radiusMiles: 10 })).toThrow("Radius search requires latitude and longitude.");
     expect(searchBuyersSchema.parse({ centerLat: 34.2381, centerLng: -118.5301, radiusMiles: 10 }).radiusMiles).toBe(10);
-    expect(searchBuyersSchema.parse({ minReviews: "3" }).minReviews).toBe(3);
-    expect(searchBuyersSchema.parse({ bedrooms: "4", bathrooms: "2", capRate: "5.5", units: "6" })).toMatchObject({
+    expect(searchBuyersSchema.parse({ bedrooms: "4", bathrooms: "2" })).toMatchObject({
       bathrooms: 2,
       bedrooms: 4,
-      capRate: 5.5,
-      units: 6,
     });
     expect(searchBuyersSchema.parse({ amenities: ["Pool", "ADU"], condition: "Fixer" })).toMatchObject({
       amenities: ["Pool", "ADU"],

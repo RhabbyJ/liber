@@ -24,10 +24,14 @@ function safeNextValue(formData: FormData) {
 }
 
 function selectedRoles(formData: FormData): AppRole[] {
-  const value = String(formData.get("role") ?? "").toLowerCase();
+  return selectedRolesFromValue(String(formData.get("role") ?? ""));
+}
 
-  if (value === "seller") return ["SELLER"];
-  if (value === "both" || value === "buyer and seller") return ["BUYER", "SELLER"];
+function selectedRolesFromValue(value: string): AppRole[] {
+  const role = value.toLowerCase();
+
+  if (role === "seller") return ["SELLER"];
+  if (role === "both" || role === "buyer and seller") return ["BUYER", "SELLER"];
   return ["BUYER"];
 }
 
@@ -45,39 +49,40 @@ async function persistUserRoles(args: {
   userId: string;
 }) {
   const email = args.email ?? "";
+  const existingById = await prisma.user.findUnique({
+    where: { id: args.userId },
+    select: { id: true },
+  });
+  const emailOwner = email
+    ? await prisma.user.findUnique({
+        where: { email },
+        select: { id: true },
+      })
+    : null;
+  const writableEmail = email && (!emailOwner || emailOwner.id === args.userId) ? email : undefined;
   const userData = {
     avatarUrl: args.avatarUrl ?? undefined,
-    email,
+    ...(writableEmail ? { email: writableEmail } : {}),
     name: args.name ?? "",
     roles: args.roles,
   };
 
-  if (email) {
-    await prisma.user.upsert({
-      where: { email },
-      update: {
-        ...userData,
-        id: args.userId,
-      },
-      create: {
-        ...userData,
-        id: args.userId,
-      },
+  if (existingById) {
+    await prisma.user.update({
+      where: { id: args.userId },
+      data: userData,
     });
     return;
   }
 
-  await prisma.user.upsert({
-    where: { id: args.userId },
-    update: {
-      avatarUrl: args.avatarUrl ?? undefined,
-      email: args.email ?? undefined,
-      name: args.name ?? undefined,
-      roles: args.roles,
-    },
-    create: {
+  if (emailOwner && emailOwner.id !== args.userId) {
+    throw new Error("A different app user already owns this email address.");
+  }
+
+  await prisma.user.create({
+    data: {
       id: args.userId,
-      email: args.email ?? "",
+      email,
       name: args.name ?? "",
       avatarUrl: args.avatarUrl ?? undefined,
       roles: args.roles,
@@ -165,6 +170,7 @@ export async function signupWithPassword(formData: FormData) {
       emailRedirectTo: redirectTo,
       data: {
         name,
+        role: signupRoleValue(formData),
       },
     },
   });

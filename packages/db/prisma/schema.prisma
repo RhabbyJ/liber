@@ -32,21 +32,13 @@ enum BuyerVisibilityStatus {
   SUSPENDED
 }
 
+// V1 is residential-only. Re-add values with ALTER TYPE when commercial/land returns.
 enum PropertyCategory {
   HOME
-  LAND
-  COMMERCIAL
 }
 
 enum PropertySubtype {
   HOME
-  MULTIFAMILY
-  RETAIL
-  STNL
-  INDUSTRIAL
-  LAND
-  OFFICE
-  OTHER
 }
 
 enum BadgeType {
@@ -97,12 +89,6 @@ enum InviteStatus {
   WITHDRAWN
 }
 
-enum ReviewStatus {
-  PENDING
-  VISIBLE
-  HIDDEN
-}
-
 enum EmailOutboxStatus {
   PENDING
   SENDING
@@ -113,7 +99,6 @@ enum EmailOutboxStatus {
 model User {
   id        String     @id @db.Uuid
   email     String     @unique
-  phone     String?
   name      String?
   avatarUrl String?
   roles     UserRole[] @default([])
@@ -128,11 +113,8 @@ model User {
   notifications Notification[]
   documents VerificationDocument[] @relation("UserDocuments")
   documentsUploaded VerificationDocument[] @relation("DocumentUploader")
-  badgesVerified BuyerBadge[] @relation("BadgeVerifier")
   badgesGranted BuyerBadge[] @relation("BadgeGranter")
   documentsReviewed VerificationDocument[] @relation("DocumentReviewer")
-  reviewsWritten Review[] @relation("ReviewsWritten")
-  reviewsReceived Review[] @relation("ReviewsReceived")
   auditLogs AdminAuditLog[] @relation("AuditActor")
 
   createdAt DateTime @default(now())
@@ -177,8 +159,6 @@ model BuyerProfile {
   downPaymentMax      Decimal? @db.Decimal(12, 2)
   visibilityStatus    BuyerVisibilityStatus @default(DRAFT)
   profileCompleteness Int @default(0)
-  ratingAverage       Decimal? @db.Decimal(3, 2)
-  reviewCount         Int @default(0)
   lastRefreshedAt     DateTime?
 
   criteria  BuyerCriteria[]
@@ -209,16 +189,9 @@ model BuyerCriteria {
   lotSizeMax       Int?
   bedroomsMin      Int?
   bathroomsMin     Int?
-  capRateMin       Decimal? @db.Decimal(5, 2)
-  capRateMax       Decimal? @db.Decimal(5, 2)
-  unitsMin         Int?
-  unitsMax         Int?
   yearBuiltMin     Int?
-  yearBuiltMax     Int?
   condition        String?
-  zoning           String?
   features         String[] @default([])
-  extraCriteria    Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -237,8 +210,6 @@ model BuyerBadge {
   status           BadgeStatus @default(PENDING)
   issuedAt         DateTime?
   expiresAt        DateTime?
-  verifiedByUserId String? @db.Uuid
-  verifiedBy       User? @relation("BadgeVerifier", fields: [verifiedByUserId], references: [id], onDelete: SetNull)
   grantedByUserId  String? @db.Uuid
   grantedBy        User? @relation("BadgeGranter", fields: [grantedByUserId], references: [id], onDelete: SetNull)
   grantedAt        DateTime?
@@ -253,7 +224,6 @@ model BuyerBadge {
   @@index([buyerProfileId])
   @@index([badgeType, status])
   @@index([expiresAt])
-  @@index([verifiedByUserId])
   @@index([grantedByUserId])
   @@index([evidenceDocumentId])
   @@unique([buyerProfileId, badgeType])
@@ -327,7 +297,6 @@ model VerificationDocument {
   storagePath      String
   originalFilename String?
   uploadedAt       DateTime @default(now())
-  status           DocumentStatus @default(PENDING)
   reviewStatus     DocumentStatus @default(PENDING)
   reviewedByUserId String? @db.Uuid
   reviewedBy       User? @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
@@ -345,7 +314,6 @@ model VerificationDocument {
   @@index([buyerProfileId])
   @@index([propertyId])
   @@index([reviewedByUserId])
-  @@index([status])
   @@index([reviewStatus])
   @@unique([storageBucket, storagePath])
 }
@@ -389,23 +357,6 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, readAt])
-}
-
-model Review {
-  id         String @id @default(cuid())
-  reviewerId String @db.Uuid
-  reviewer   User @relation("ReviewsWritten", fields: [reviewerId], references: [id], onDelete: Cascade)
-  revieweeId String @db.Uuid
-  reviewee   User @relation("ReviewsReceived", fields: [revieweeId], references: [id], onDelete: Cascade)
-  rating     Int
-  comment    String?
-  status     ReviewStatus @default(PENDING)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([reviewerId])
-  @@index([revieweeId, status])
 }
 
 model AdminAuditLog {

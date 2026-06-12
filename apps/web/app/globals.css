@@ -2565,23 +2565,6 @@ main {
   width: 8px;
 }
 
-.rating {
-  align-items: center;
-  color: var(--amber);
-  display: inline-flex;
-  font-weight: 700;
-  gap: 4px;
-}
-
-.rating strong {
-  color: var(--ink-strong);
-  margin-left: 6px;
-}
-
-.rating .muted {
-  color: var(--ink-muted);
-}
-
 /* ==========================================================================
    Seller search layout
    ========================================================================== */

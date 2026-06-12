@@ -13,19 +13,12 @@ export type Badge = {
   expiresInDays?: number;
 };
 
-export type PropertySubtype =
-  | "HOME"
-  | "MULTIFAMILY"
-  | "RETAIL"
-  | "STNL"
-  | "INDUSTRIAL"
-  | "LAND"
-  | "OFFICE"
-  | "OTHER";
+// V1 is residential-only; expand alongside the Prisma enums when commercial/land returns.
+export type PropertySubtype = "HOME";
 
 export type BuyerCriteriaDetail = {
   id?: string;
-  propertyCategory: "HOME" | "LAND" | "COMMERCIAL";
+  propertyCategory: "HOME";
   propertySubtype: PropertySubtype;
   bedroomsMin?: number;
   bathroomsMin?: number;
@@ -33,10 +26,6 @@ export type BuyerCriteriaDetail = {
   squareFeetMax?: number;
   lotSizeMin?: number;
   lotSizeMax?: number;
-  capRateMin?: number;
-  capRateMax?: number;
-  unitsMin?: number;
-  unitsMax?: number;
   priceMin?: number;
   priceMax?: number;
   yearBuiltMin?: number;
@@ -59,8 +48,6 @@ export type Buyer = {
   budgetMax: number;
   downPaymentMin: number;
   downPaymentMax: number;
-  rating: number;
-  reviewCount: number;
   bio: string;
   needs: string[];
   wants: string[];
@@ -88,8 +75,6 @@ export const buyers: Buyer[] = [
     budgetMax: 960000,
     downPaymentMin: 190000,
     downPaymentMax: 260000,
-    rating: 5,
-    reviewCount: 1,
     bio: "Looking to simplify life in a quiet, comfortable home with low maintenance and good access to family.",
     needs: ["4 bedrooms", "2 bathrooms", "Garage", "Quiet street", "No major remodel"],
     wants: ["Single story", "No pool", "Low-maintenance yard", "Near Northridge"],
@@ -119,8 +104,6 @@ export const buyers: Buyer[] = [
     budgetMax: 1200000,
     downPaymentMin: 300000,
     downPaymentMax: 500000,
-    rating: 4.8,
-    reviewCount: 7,
     bio: "Cash-heavy investor looking for light rehab homes with clear upside and fast closing potential.",
     needs: ["Fixer or dated home", "Clear title", "Price below ARV"],
     wants: ["Non-contingent", "Quick inspection", "Valley locations"],
@@ -143,21 +126,19 @@ export const buyers: Buyer[] = [
     location: "Los Angeles, CA",
     city: "Los Angeles",
     state: "CA",
-    type: "Commercial Buyer",
-    purpose: "Small multifamily acquisition",
+    type: "Home Buyer",
+    purpose: "Primary residence",
     visibility: "active",
     budgetMin: 1800000,
     budgetMax: 4200000,
     downPaymentMin: 600000,
     downPaymentMax: 1200000,
-    rating: 4.9,
-    reviewCount: 3,
-    bio: "Seeking stable multifamily assets with durable rent growth and clean operating history.",
-    needs: ["Multifamily", "6+ units", "5%+ cap rate"],
-    wants: ["Value-add", "Parking", "Built after 1970"],
-    criteria: ["Multifamily", "6+ units", "5%+ cap", "LA County"],
-    criteriaDetails: [{ propertyCategory: "COMMERCIAL", propertySubtype: "MULTIFAMILY", capRateMin: 5, unitsMin: 6 }],
-    propertySubtypes: ["MULTIFAMILY"],
+    bio: "Searching for a spacious family home with room to grow in LA County.",
+    needs: ["5 bedrooms", "3 bathrooms", "Large lot"],
+    wants: ["Pool", "Parking", "Built after 1970"],
+    criteria: ["Home", "5+ bedrooms", "Pool", "LA County"],
+    criteriaDetails: [{ propertyCategory: "HOME", propertySubtype: "HOME", bedroomsMin: 5, bathroomsMin: 3 }],
+    propertySubtypes: ["HOME"],
     refreshedAt: "2026-05-16",
     lat: 34.0522,
     lng: -118.2437,
@@ -180,8 +161,6 @@ export const buyers: Buyer[] = [
     budgetMax: 800000,
     downPaymentMin: 100000,
     downPaymentMax: 200000,
-    rating: 0,
-    reviewCount: 0,
     bio: "This profile proves draft visibility filtering.",
     needs: ["Draft profile"],
     wants: ["Activation"],

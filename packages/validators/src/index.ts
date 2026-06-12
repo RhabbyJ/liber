@@ -18,18 +18,10 @@ export const buyerVisibilityStatusSchema = z.enum([
 
 export const buyerSelfVisibilityStatusSchema = z.enum(["DRAFT", "ACTIVE"]);
 
-export const propertyCategorySchema = z.enum(["HOME", "LAND", "COMMERCIAL"]);
+// V1 is residential-only; expand alongside the Prisma enums when commercial/land returns.
+export const propertyCategorySchema = z.enum(["HOME"]);
 
-export const propertySubtypeSchema = z.enum([
-  "HOME",
-  "MULTIFAMILY",
-  "RETAIL",
-  "STNL",
-  "INDUSTRIAL",
-  "LAND",
-  "OFFICE",
-  "OTHER",
-]);
+export const propertySubtypeSchema = z.enum(["HOME"]);
 
 export const badgeTypeSchema = z.enum([
   "PRE_APPROVED",
@@ -137,16 +129,9 @@ export const upsertBuyerCriteriaSchema = z.object({
   lotSizeMax: optionalInteger,
   bedroomsMin: optionalInteger,
   bathroomsMin: optionalInteger,
-  capRateMin: z.coerce.number().min(0).max(100).optional(),
-  capRateMax: z.coerce.number().min(0).max(100).optional(),
-  unitsMin: optionalInteger,
-  unitsMax: optionalInteger,
   yearBuiltMin: optionalInteger,
-  yearBuiltMax: optionalInteger,
   condition: z.string().trim().max(80).optional(),
-  zoning: z.string().trim().max(80).optional(),
   features: z.array(z.string().trim().min(1).max(80)).default([]),
-  extraCriteria: z.record(z.string(), z.unknown()).optional(),
 }).refine(
   (input) => minDoesNotExceedMax(input, "priceMin", "priceMax"),
   {
@@ -164,24 +149,6 @@ export const upsertBuyerCriteriaSchema = z.object({
   {
     message: "Lot size minimum cannot exceed lot size maximum.",
     path: ["lotSizeMin"],
-  },
-).refine(
-  (input) => minDoesNotExceedMax(input, "capRateMin", "capRateMax"),
-  {
-    message: "Cap rate minimum cannot exceed cap rate maximum.",
-    path: ["capRateMin"],
-  },
-).refine(
-  (input) => minDoesNotExceedMax(input, "unitsMin", "unitsMax"),
-  {
-    message: "Units minimum cannot exceed units maximum.",
-    path: ["unitsMin"],
-  },
-).refine(
-  (input) => minDoesNotExceedMax(input, "yearBuiltMin", "yearBuiltMax"),
-  {
-    message: "Year built minimum cannot exceed year built maximum.",
-    path: ["yearBuiltMin"],
   },
 );
 
@@ -232,19 +199,14 @@ export const searchBuyersSchema = z.object({
   bathrooms: optionalInteger,
   squareFeet: optionalInteger,
   lotSize: optionalInteger,
-  capRate: z.coerce.number().min(0).max(100).optional(),
-  units: optionalInteger,
   condition: z.string().trim().max(80).optional(),
   amenities: z.array(z.string().trim().min(1).max(40)).default([]),
-  minRating: z.coerce.number().min(0).max(5).optional(),
-  minReviews: optionalInteger,
   badges: z.array(badgeTypeSchema).default([]),
   sort: z.enum([
     "recommended",
     "recently_active",
     "highest_budget",
     "most_verified",
-    "highest_rated",
   ]).default("recommended"),
 }).refine(
   (input) =>

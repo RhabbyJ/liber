@@ -4,7 +4,6 @@ import { Avatar } from "../../../components/avatar";
 import { BadgePill } from "../../../components/badge-pill";
 import { Icon } from "../../../components/icon";
 import { ModeChip } from "../../../components/mode-chip";
-import { RatingStars } from "../../../components/rating-stars";
 import { formatRange } from "../../../lib/format";
 import { getPublicBuyerProfile } from "../../../server/contracts";
 import { getSessionUser } from "../../../server/session";
@@ -84,7 +83,6 @@ export default async function PublicBuyerProfilePage({
               <h2 style={{ fontSize: 24, margin: 0 }}>{buyer.name}</h2>
               <p className="muted" style={{ marginTop: 6 }}>{buyer.location}</p>
             </div>
-            <RatingStars rating={buyer.rating} reviewCount={buyer.reviewCount} />
             {activeBadges.length > 0 ? (
               <div className="pill-row" style={{ justifyContent: "center" }}>
                 {activeBadges.slice(0, 3).map((badge) => (

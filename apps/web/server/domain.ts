@@ -49,8 +49,6 @@ function matchesBuyerFilters(buyer: Buyer, filters: SearchBuyersInput) {
   if (filters.propertySubtype && !buyer.propertySubtypes.includes(filters.propertySubtype)) return false;
   if (filters.budgetMax !== undefined && buyer.budgetMin > filters.budgetMax) return false;
   if (!matchesPropertyFit(buyer, filters)) return false;
-  if (filters.minRating !== undefined && buyer.rating < filters.minRating) return false;
-  if (filters.minReviews !== undefined && buyer.reviewCount < filters.minReviews) return false;
   if (filters.badges.length > 0 && !filters.badges.every((badge) => hasActiveBadge(buyer, badge))) {
     return false;
   }
@@ -88,9 +86,7 @@ function matchesPropertyFit(buyer: Buyer, filters: SearchBuyersInput) {
     filters.bedrooms !== undefined ||
     filters.bathrooms !== undefined ||
     filters.squareFeet !== undefined ||
-    filters.lotSize !== undefined ||
-    filters.capRate !== undefined ||
-    filters.units !== undefined;
+    filters.lotSize !== undefined;
   if (!hasPropertyFitFilter) return true;
 
   return buyer.criteriaDetails.some((criteria) => {
@@ -102,10 +98,6 @@ function matchesPropertyFit(buyer: Buyer, filters: SearchBuyersInput) {
     if (filters.squareFeet !== undefined && criteria.squareFeetMax !== undefined && criteria.squareFeetMax < filters.squareFeet) return false;
     if (filters.lotSize !== undefined && criteria.lotSizeMin !== undefined && criteria.lotSizeMin > filters.lotSize) return false;
     if (filters.lotSize !== undefined && criteria.lotSizeMax !== undefined && criteria.lotSizeMax < filters.lotSize) return false;
-    if (filters.capRate !== undefined && criteria.capRateMin !== undefined && criteria.capRateMin > filters.capRate) return false;
-    if (filters.capRate !== undefined && criteria.capRateMax !== undefined && criteria.capRateMax < filters.capRate) return false;
-    if (filters.units !== undefined && criteria.unitsMin !== undefined && criteria.unitsMin > filters.units) return false;
-    if (filters.units !== undefined && criteria.unitsMax !== undefined && criteria.unitsMax < filters.units) return false;
     return true;
   });
 }
@@ -124,7 +116,6 @@ function distanceMiles(lat1: number, lng1: number, lat2: number, lng2: number) {
 
 function compareBuyers(a: Buyer, b: Buyer, sort: SearchBuyersInput["sort"]) {
   if (sort === "highest_budget") return b.budgetMax - a.budgetMax;
-  if (sort === "highest_rated") return b.rating - a.rating;
   if (sort === "most_verified") {
     return b.badges.filter(isBadgeActive).length - a.badges.filter(isBadgeActive).length;
   }
@@ -135,9 +126,7 @@ function compareBuyers(a: Buyer, b: Buyer, sort: SearchBuyersInput["sort"]) {
 
 export function recommendedScore(buyer: Buyer) {
   return (
-    Math.min(buyer.rating, 5) * 10 +
     buyer.badges.filter(isBadgeActive).length * 8 +
-    Math.min(buyer.reviewCount, 10) * 2 +
     Math.min(buyer.budgetMax / 250000, 20)
   );
 }

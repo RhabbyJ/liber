@@ -4,7 +4,6 @@ import type { Buyer } from "../lib/mock-data";
 import { Avatar } from "./avatar";
 import { BadgePill } from "./badge-pill";
 import { Icon } from "./icon";
-import { RatingStars } from "./rating-stars";
 
 export function BuyerCard({
   buyer,
@@ -73,9 +72,7 @@ export function BuyerCard({
   const isBadgeActive = (badge: any) => badge.status === "active";
   const recommendedScore = (b: Buyer) => {
     return (
-      Math.min(b.rating, 5) * 10 +
       b.badges.filter(isBadgeActive).length * 8 +
-      Math.min(b.reviewCount, 10) * 2 +
       Math.min(b.budgetMax / 250000, 20)
     );
   };

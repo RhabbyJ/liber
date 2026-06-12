@@ -90,10 +90,9 @@ function propertyStatusLabel(value: string) {
   return "Ownership not submitted";
 }
 
-function categoryForSubtype(subtype: Property["propertyType"]): "HOME" | "LAND" | "COMMERCIAL" {
-  if (subtype === "HOME") return "HOME";
-  if (subtype === "LAND") return "LAND";
-  return "COMMERCIAL";
+// V1 is residential-only; expand when commercial/land categories return.
+function categoryForSubtype(_subtype: Property["propertyType"]): "HOME" {
+  return "HOME";
 }
 
 function badgeFromDb(badge: {
@@ -129,12 +128,10 @@ function criteriaLabels(criteria: Array<{
   lotSizeMin: number | null;
   propertySubtype: Property["propertyType"];
   squareFeetMin: number | null;
-  zoning: string | null;
 }>) {
   return criteria.flatMap((item) => [
     item.propertySubtype,
     item.condition ?? undefined,
-    item.zoning ?? undefined,
     item.squareFeetMin ? `${item.squareFeetMin}+ sqft` : undefined,
     item.lotSizeMin ? `${item.lotSizeMin}+ lot` : undefined,
     item.bedroomsMin ? `${item.bedroomsMin}+ bedrooms` : undefined,
@@ -146,8 +143,6 @@ function criteriaLabels(criteria: Array<{
 function criteriaDetails(criteria: Array<{
   bathroomsMin: number | null;
   bedroomsMin: number | null;
-  capRateMax: unknown;
-  capRateMin: unknown;
   condition?: string | null;
   features?: string[];
   id?: string;
@@ -159,15 +154,11 @@ function criteriaDetails(criteria: Array<{
   propertySubtype: Property["propertyType"];
   squareFeetMax: number | null;
   squareFeetMin: number | null;
-  unitsMax: number | null;
-  unitsMin: number | null;
   yearBuiltMin?: number | null;
 }>): BuyerCriteriaDetail[] {
   return criteria.map((item) => ({
     bathroomsMin: item.bathroomsMin ?? undefined,
     bedroomsMin: item.bedroomsMin ?? undefined,
-    capRateMax: item.capRateMax === null || item.capRateMax === undefined ? undefined : Number(item.capRateMax),
-    capRateMin: item.capRateMin === null || item.capRateMin === undefined ? undefined : Number(item.capRateMin),
     condition: item.condition ?? undefined,
     features: item.features ?? [],
     id: item.id,
@@ -179,8 +170,6 @@ function criteriaDetails(criteria: Array<{
     propertySubtype: item.propertySubtype,
     squareFeetMax: item.squareFeetMax ?? undefined,
     squareFeetMin: item.squareFeetMin ?? undefined,
-    unitsMax: item.unitsMax ?? undefined,
-    unitsMin: item.unitsMin ?? undefined,
     yearBuiltMin: item.yearBuiltMin ?? undefined,
   }));
 }
@@ -200,8 +189,6 @@ function buyerFromDb(profile: {
   criteria: Array<{
     bathroomsMin: number | null;
     bedroomsMin: number | null;
-    capRateMax: unknown;
-    capRateMin: unknown;
     condition: string | null;
     features: string[];
     id: string;
@@ -213,10 +200,7 @@ function buyerFromDb(profile: {
     propertySubtype: Property["propertyType"];
     squareFeetMax: number | null;
     squareFeetMin: number | null;
-    unitsMax: number | null;
-    unitsMin: number | null;
     yearBuiltMin: number | null;
-    zoning: string | null;
   }>;
   desiredCity: string | null;
   desiredLat: unknown;
@@ -228,8 +212,6 @@ function buyerFromDb(profile: {
   downPaymentMin: unknown;
   id: string;
   lastRefreshedAt: Date | null;
-  ratingAverage: unknown;
-  reviewCount: number;
   updatedAt: Date;
   user?: { avatarUrl: string | null };
   userId: string;
@@ -253,8 +235,6 @@ function buyerFromDb(profile: {
     budgetMax: toNumber(profile.budgetMax),
     downPaymentMin: toNumber(profile.downPaymentMin),
     downPaymentMax: toNumber(profile.downPaymentMax),
-    rating: toNumber(profile.ratingAverage),
-    reviewCount: profile.reviewCount,
     bio: profile.bio || "",
     needs: criteria.slice(0, 5),
     wants: criteria.slice(5, 10),
@@ -283,8 +263,6 @@ function emptyBuyerForUser(user: SessionUser): Buyer {
     budgetMax: 0,
     downPaymentMin: 0,
     downPaymentMax: 0,
-    rating: 0,
-    reviewCount: 0,
     bio: "",
     needs: [],
     wants: [],
@@ -498,12 +476,6 @@ async function searchDbBuyerProfiles(filters: SearchBuyersInput, excludeUserId?:
       ],
     });
   }
-  if (filters.minRating !== undefined) {
-    and.push({ ratingAverage: { gte: new Prisma.Decimal(filters.minRating) } });
-  }
-  if (filters.minReviews !== undefined) {
-    and.push({ reviewCount: { gte: filters.minReviews } });
-  }
   const criteriaWhere = propertyFitCriteriaWhere(filters);
   if (criteriaWhere) {
     and.push({ criteria: { some: criteriaWhere } });
@@ -531,9 +503,7 @@ async function searchDbBuyerProfiles(filters: SearchBuyersInput, excludeUserId?:
       ? { lastRefreshedAt: "desc" }
       : filters.sort === "highest_budget"
         ? { budgetMax: "desc" }
-        : filters.sort === "highest_rated"
-          ? { ratingAverage: "desc" }
-          : { updatedAt: "desc" },
+        : { updatedAt: "desc" },
     take: 100,
   });
 
@@ -565,22 +535,6 @@ function propertyFitCriteriaWhere(filters: SearchBuyersInput) {
       OR: [{ lotSizeMax: null }, { lotSizeMax: { gte: filters.lotSize } }],
     });
   }
-  if (filters.capRate !== undefined) {
-    const capRate = new Prisma.Decimal(filters.capRate);
-    and.push({
-      OR: [{ capRateMin: null }, { capRateMin: { lte: capRate } }],
-    }, {
-      OR: [{ capRateMax: null }, { capRateMax: { gte: capRate } }],
-    });
-  }
-  if (filters.units !== undefined) {
-    and.push({
-      OR: [{ unitsMin: null }, { unitsMin: { lte: filters.units } }],
-    }, {
-      OR: [{ unitsMax: null }, { unitsMax: { gte: filters.units } }],
-    });
-  }
-
   return and.length > 0 ? { AND: and } satisfies Prisma.BuyerCriteriaWhereInput : null;
 }
 
@@ -788,10 +742,7 @@ export async function upsertBuyerCriteria(input: unknown) {
   const criteriaData = {
     bathroomsMin: data.bathroomsMin,
     bedroomsMin: data.bedroomsMin,
-    capRateMax: data.capRateMax,
-    capRateMin: data.capRateMin,
     condition: data.condition,
-    extraCriteria: data.extraCriteria as Prisma.InputJsonValue | undefined,
     features: data.features,
     lotSizeMax: data.lotSizeMax,
     lotSizeMin: data.lotSizeMin,
@@ -801,11 +752,7 @@ export async function upsertBuyerCriteria(input: unknown) {
     propertySubtype: data.propertySubtype,
     squareFeetMax: data.squareFeetMax,
     squareFeetMin: data.squareFeetMin,
-    unitsMax: data.unitsMax,
-    unitsMin: data.unitsMin,
-    yearBuiltMax: data.yearBuiltMax,
     yearBuiltMin: data.yearBuiltMin,
-    zoning: data.zoning,
   };
 
   if (data.id) {
@@ -1367,7 +1314,6 @@ export async function listAdminBuyerProfiles() {
       where: {
         buyerProfileId: { not: null },
         reviewStatus: "APPROVED",
-        status: "APPROVED",
       },
       orderBy: { reviewedAt: "desc" },
       select: {
@@ -1412,7 +1358,7 @@ export async function listAdminInvites() {
 export async function listPendingDocuments() {
   await requireCurrentUser("ADMIN");
   const documents = await prisma.verificationDocument.findMany({
-    where: { status: "PENDING" },
+    where: { reviewStatus: "PENDING" },
     include: {
       buyerProfile: { select: { displayName: true } },
       property: { select: { addressLine1: true, city: true, propertyType: true } },
@@ -1451,7 +1397,7 @@ export async function reviewDocument(input: unknown) {
     const document = await tx.verificationDocument.findUnique({
       where: { id: data.documentId },
     });
-    if (!document || document.status !== "PENDING") {
+    if (!document || document.reviewStatus !== "PENDING") {
       throw new Error("Document has already been reviewed.");
     }
 
@@ -1463,7 +1409,6 @@ export async function reviewDocument(input: unknown) {
         reviewedByUserId: admin.id,
         reviewNotes: data.rejectionReason,
         reviewStatus: data.decision,
-        status: data.decision,
       },
     });
 
@@ -1525,7 +1470,6 @@ export async function grantBadge(input: unknown) {
           buyerProfileId: data.buyerProfileId,
           id: data.evidenceDocumentId,
           reviewStatus: "APPROVED",
-          status: "APPROVED",
         },
         select: {
           documentType: true,
@@ -1554,7 +1498,6 @@ export async function grantBadge(input: unknown) {
       notes: data.notes,
       source: evidenceDocument ? "ADMIN_REVIEWED_DOCUMENT" : "ADMIN_MANUAL",
       status: "ACTIVE" as const,
-      verifiedByUserId: admin.id,
     };
     const created = await tx.buyerBadge.upsert({
       where: {
