@@ -40,3 +40,44 @@ export function defaultPathForSessionUser(user: SessionUser) {
   if (hasRole(user, "ADMIN")) return "/admin";
   return "/onboarding/role";
 }
+
+export function pathForSignedInAuthIntent(
+  user: SessionUser,
+  {
+    next = "",
+    role = null,
+  }: {
+    next?: string;
+    role?: "buyer" | "seller" | "both" | null;
+  },
+) {
+  const intendedNext = next === "/" ? "" : next;
+
+  if (intendedNext && userCanContinueTo(user, intendedNext)) return intendedNext;
+
+  if (role === "seller" || (role === "both" && !hasRole(user, "SELLER")) || intendedNext.startsWith("/seller")) {
+    return hasRole(user, "SELLER")
+      ? intendedNext || "/seller/properties"
+      : `/onboarding/role?next=${encodeURIComponent(intendedNext || "/seller/properties")}`;
+  }
+
+  if (role === "buyer" || intendedNext.startsWith("/buyer") || intendedNext.startsWith("/buyers")) {
+    return hasRole(user, "BUYER")
+      ? intendedNext || "/buyer/profile"
+      : `/onboarding/role?next=${encodeURIComponent(intendedNext || "/buyer/profile")}`;
+  }
+
+  if (role === "both" && !hasRole(user, "BUYER")) {
+    return `/onboarding/role?next=${encodeURIComponent(intendedNext || "/buyer/profile")}`;
+  }
+
+  if (intendedNext) return `/onboarding/role?next=${encodeURIComponent(intendedNext)}`;
+  return defaultPathForSessionUser(user);
+}
+
+function userCanContinueTo(user: SessionUser, next: string) {
+  if (next.startsWith("/buyer") || next.startsWith("/buyers")) return hasRole(user, "BUYER");
+  if (next.startsWith("/seller")) return hasRole(user, "SELLER");
+  if (next.startsWith("/admin")) return hasRole(user, "ADMIN");
+  return true;
+}

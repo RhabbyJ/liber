@@ -22,6 +22,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Suspended users must not continue into protected workflows.
 - Authorization must be server-side.
 - Signup role selection may bootstrap only BUYER/SELLER roles after Supabase verifies the user; admin remains server-controlled.
+- Signed-in users should redirect only when they already have the role needed for the requested path; buyer-only users following seller-intent login/signup links should go through role onboarding to add seller access.
 
 ## Agent notes
 
