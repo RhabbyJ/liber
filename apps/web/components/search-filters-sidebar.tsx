@@ -91,9 +91,7 @@ export function SearchFiltersSidebar({
   );
 
   // Buyer Trust States
-  const [checkedBadges, setCheckedBadges] = useState<string[]>(
-    defaultBadges.length > 0 ? defaultBadges : ["PRE_APPROVED", "CASH_BUYER", "NON_CONTINGENT"]
-  );
+  const [checkedBadges, setCheckedBadges] = useState<string[]>(defaultBadges);
 
   // Property Fit States
   const [bedrooms, setBedrooms] = useState(defaultBedrooms);
@@ -244,9 +242,12 @@ export function SearchFiltersSidebar({
     if (area) nextParams.set("area", area);
     if (city) nextParams.set("city", city);
     if (state) nextParams.set("state", state);
-    if (lat) nextParams.set("centerLat", lat);
-    if (lng) nextParams.set("centerLng", lng);
-    if (radiusMiles) nextParams.set("radiusMiles", radiusMiles);
+    const hasRadiusCoordinates = lat.trim() !== "" && lng.trim() !== "";
+    if (hasRadiusCoordinates) {
+      nextParams.set("centerLat", lat);
+      nextParams.set("centerLng", lng);
+      if (radiusMiles) nextParams.set("radiusMiles", radiusMiles);
+    }
     if (maxBudget) nextParams.set("budgetMax", maxBudget);
     
     if (propertyType) {

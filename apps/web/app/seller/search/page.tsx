@@ -83,6 +83,10 @@ export default async function SellerSearchPage({
   const centerLat = numberParam(params.centerLat);
   const centerLng = numberParam(params.centerLng);
   const radiusMiles = numberParam(params.radiusMiles);
+  const hasRadiusCoordinates = centerLat !== undefined && centerLng !== undefined;
+  const searchCenterLat = hasRadiusCoordinates ? String(centerLat) : undefined;
+  const searchCenterLng = hasRadiusCoordinates ? String(centerLng) : undefined;
+  const searchRadiusMiles = hasRadiusCoordinates && radiusMiles !== undefined ? String(radiusMiles) : undefined;
   const propertySubtype = params.propertySubtype === "HOME" ? "HOME" : undefined;
   const sort = sellerSortParam(params.sort);
   const { data: results } = await searchBuyers({
@@ -91,12 +95,12 @@ export default async function SellerSearchPage({
     bathrooms: params.bathrooms || undefined,
     bedrooms: params.bedrooms || undefined,
     budgetMax: params.budgetMax || undefined,
-    centerLat: params.centerLat || undefined,
-    centerLng: params.centerLng || undefined,
+    centerLat: searchCenterLat,
+    centerLng: searchCenterLng,
     city: params.city || undefined,
     condition: params.condition || undefined,
     propertySubtype,
-    radiusMiles: params.radiusMiles || undefined,
+    radiusMiles: searchRadiusMiles,
     sort,
     squareFeet: params.squareFeet || undefined,
     state: params.state || undefined,
@@ -209,7 +213,7 @@ export default async function SellerSearchPage({
                   buyers={results}
                   centerLat={centerLat}
                   centerLng={centerLng}
-                  radiusMiles={radiusMiles}
+                  radiusMiles={hasRadiusCoordinates ? radiusMiles : undefined}
                 />
               </div>
               <div className="buyer-cards-list">
