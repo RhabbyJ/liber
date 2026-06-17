@@ -147,7 +147,7 @@ Seller search should query persisted buyer profiles/criteria and use PostGIS whe
 
 List and map views must use the same result set. Approved sellers land on the map view by default; map pins show coarse budget labels, never identities or exact buyer locations.
 
-Property-fit filters (beds/baths/sqft/condition/amenities) are validated by `searchBuyersSchema` and applied in `apps/web/server/domain.ts` against active buyer criteria. Amenity filters match the canonical criteria feature tokens (Pool, Parking, ADU, Yard, Garage).
+Budget filters are treated as range-overlap filters: a buyer matches when the buyer's max budget is at or above the seller's minimum and the buyer's min budget is at or below the seller's maximum. Property-fit filters (beds/baths/sqft/condition/amenities) are validated by `searchBuyersSchema` and applied in `apps/web/server/domain.ts` against active buyer criteria. Amenity filters match the canonical criteria feature tokens (Pool, Parking, ADU, Yard, Garage).
 
 Do not add search filters based on protected-class proxies or unnecessary personal attributes.
 

@@ -47,6 +47,7 @@ function matchesBuyerFilters(buyer: Buyer, filters: SearchBuyersInput) {
     return false;
   }
   if (filters.propertySubtype && !buyer.propertySubtypes.includes(filters.propertySubtype)) return false;
+  if (filters.budgetMin !== undefined && buyer.budgetMax < filters.budgetMin) return false;
   if (filters.budgetMax !== undefined && buyer.budgetMin > filters.budgetMax) return false;
   if (!matchesPropertyFit(buyer, filters)) return false;
   if (filters.badges.length > 0 && !filters.badges.every((badge) => hasActiveBadge(buyer, badge))) {

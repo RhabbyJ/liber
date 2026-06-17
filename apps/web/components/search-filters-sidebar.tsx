@@ -12,6 +12,7 @@ type Props = {
   defaultLat?: string | number;
   defaultLng?: string | number;
   defaultRadiusMiles?: string | number;
+  defaultBudgetMin?: string | number;
   defaultBudgetMax?: string | number;
   defaultPropertySubtype?: string;
   defaultBadges?: string[];
@@ -54,6 +55,7 @@ export function SearchFiltersSidebar({
   defaultLat = "",
   defaultLng = "",
   defaultRadiusMiles = 8,
+  defaultBudgetMin = "",
   defaultBudgetMax = "",
   defaultPropertySubtype = "",
   defaultBadges = [],
@@ -78,7 +80,7 @@ export function SearchFiltersSidebar({
   const [isLookingUp, setIsLookingUp] = useState(false);
 
   // Budget States
-  const [minBudget, setMinBudget] = useState("600000"); // Mockup defaults to $600k
+  const [minBudget, setMinBudget] = useState(String(defaultBudgetMin || "600000")); // Mockup defaults to $600k
   const [maxBudget, setMaxBudget] = useState(String(defaultBudgetMax || "1200000")); // Mockup defaults to $1.2M+
 
   // Slider visual positions (percent 0-100)
@@ -248,6 +250,7 @@ export function SearchFiltersSidebar({
       nextParams.set("centerLng", lng);
       if (radiusMiles) nextParams.set("radiusMiles", radiusMiles);
     }
+    if (minBudget) nextParams.set("budgetMin", minBudget);
     if (maxBudget) nextParams.set("budgetMax", maxBudget);
     
     if (propertyType) {

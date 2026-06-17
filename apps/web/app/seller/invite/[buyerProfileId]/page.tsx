@@ -67,7 +67,7 @@ export default async function InviteBuyerPage({
   const verified = property.status.toLowerCase().includes("verified");
 
   return (
-    <div className="page wide stack loose">
+    <div className="page wide stack loose invite-compose-page">
       <PageTitle
         eyebrow="Manual outreach"
         title={`Invite ${buyer.name}`}
@@ -83,13 +83,13 @@ export default async function InviteBuyerPage({
         Manual invites only. Liber never sends offers, creates contracts, or moves money on your behalf.
       </PageTitle>
 
-      <section className="grid sidebar">
-        <form action={submitInvite} className="card stack loose" encType="multipart/form-data">
+      <section className="invite-compose-grid">
+        <form action={submitInvite} className="invite-compose-form" encType="multipart/form-data">
           <input name="buyerProfileId" type="hidden" value={buyer.id} />
 
-          <div className="section-stack">
-            <p className="eyebrow">Step 1</p>
-            <h2>Choose property &amp; write your message</h2>
+          <div className="invite-compose-heading">
+            <p className="eyebrow seller">Manual invite</p>
+            <h2>Send Message to {buyer.name}</h2>
           </div>
           <div className="field">
             <label htmlFor="property">Property</label>
@@ -101,17 +101,18 @@ export default async function InviteBuyerPage({
               ))}
             </select>
           </div>
-          <div className="form-grid">
+          <div className="reference-form-section">
+            <h3>Personal Info</h3>
             <div className="field full">
               <label htmlFor="title">Message title</label>
-              <input id="title" name="title" defaultValue="Your Northridge criteria match this home" />
+              <input id="title" name="title" defaultValue="Invite to buy a house" />
             </div>
             <div className="field full">
               <label htmlFor="message">Message body</label>
               <textarea
                 id="message"
                 name="message"
-                defaultValue="This property appears to fit your preferred location, budget, and low-maintenance needs."
+                defaultValue={`Hi ${buyer.name}, I'm inviting you to review my property because it appears to fit your preferred location, budget, and home needs.`}
               />
               <span className="field-hint">Keep it short. {buyer.name.split(".")[0]} will see this in their invite inbox.</span>
             </div>
@@ -119,12 +120,17 @@ export default async function InviteBuyerPage({
 
           <div className="divider" />
 
-          <div className="section-stack">
-            <p className="eyebrow">Step 2</p>
-            <h2>Confirm property details</h2>
-            <p className="muted small">These are shown to {buyer.name.split(".")[0]} inside the invite. Update them if anything changed.</p>
+          <div className="reference-form-section">
+            <div className="section-stack">
+              <h3>Details of Your Home</h3>
+              <p className="muted small">These are shown to {buyer.name.split(".")[0]} inside the invite. Update them if anything changed.</p>
+            </div>
+            <div className="reference-map-strip" aria-hidden="true">
+              <Icon name="map-pin" size={28} />
+              <span>Choose location on map</span>
+            </div>
           </div>
-          <div className="form-grid">
+          <div className="form-grid invite-property-fields">
             <div className="field">
               <label htmlFor="address">Address</label>
               <input id="address" name="addressLine1" defaultValue={property.title} />
@@ -147,11 +153,21 @@ export default async function InviteBuyerPage({
             </div>
             <div className="field">
               <label htmlFor="beds">Bedrooms</label>
-              <input id="beds" name="bedrooms" defaultValue={property.beds} inputMode="numeric" />
+              <select id="beds" name="bedrooms" defaultValue={property.beds ? String(property.beds) : ""}>
+                <option value="">Studio</option>
+                {[1, 2, 3, 4, 5, 6, 7].map((count) => (
+                  <option key={count} value={count}>{count}</option>
+                ))}
+              </select>
             </div>
             <div className="field">
               <label htmlFor="baths">Bathrooms</label>
-              <input id="baths" name="bathrooms" defaultValue={property.baths} inputMode="numeric" />
+              <select id="baths" name="bathrooms" defaultValue={property.baths ? String(property.baths) : ""}>
+                <option value="">Any</option>
+                {[1, 2, 3, 4, 5, 6].map((count) => (
+                  <option key={count} value={count}>{count}</option>
+                ))}
+              </select>
             </div>
             <div className="field">
               <label htmlFor="area">Area (sqft)</label>
@@ -193,8 +209,8 @@ export default async function InviteBuyerPage({
           </div>
         </form>
 
-        <aside className="public-profile-aside">
-          <article className="card stack">
+        <aside className="public-profile-aside invite-compose-aside">
+          <article className="card stack invite-recipient-card">
             <p className="eyebrow">Recipient</p>
             <div style={{ alignItems: "center", display: "flex", gap: 12 }}>
               <Avatar name={buyer.name} size="lg" src={buyer.avatarUrl} />
@@ -212,7 +228,8 @@ export default async function InviteBuyerPage({
             ) : null}
           </article>
 
-          <article className="property-card">
+          <article className="property-card quick-overview-card">
+            <p className="eyebrow seller">Quick overview</p>
             <div className="media-preview">
               <span className="media-hint">
                 <Icon name="home" size={12} />

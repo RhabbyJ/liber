@@ -21,6 +21,7 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - Approved sellers land on the map view by default (`view=list` opts out); buyer cards render below the map from the same result set.
 - List and map use the same result set.
 - Map pins show coarse budget labels for buyer demand signals, not seller listings, identities, or exact buyer locations.
+- Budget min/max filters match overlapping buyer budget ranges, not exact prices.
 - Property-fit filters (beds/baths/sqft/condition/amenities Pool/Parking/ADU/Yard/Garage) stay fit-and-trust oriented; no protected-class proxies.
 - Public pre-signup previews may show only limited privacy-safe buyer cards; they are not full seller search.
 - Search should explain why a buyer matches where possible.

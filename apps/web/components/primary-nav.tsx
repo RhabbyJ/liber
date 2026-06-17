@@ -138,23 +138,25 @@ export function PrimaryNav({
             </Link>
           );
         })}
-        <div className="mobile-nav-actions">
-          {isAuthenticated ? (
-            <form action="/logout" method="post">
-              <button className="button ghost" type="submit">
-                <Icon name="logout" size={15} />
-                Sign out
-              </button>
-            </form>
-          ) : (
-            <>
-              <Link className="button ghost" href="/login" onClick={close}>Log in</Link>
-              <Link className="button primary" href="/signup" onClick={close}>
-                Get started
-              </Link>
-            </>
-          )}
-        </div>
+        {isOpen ? (
+          <div className="mobile-nav-actions">
+            {isAuthenticated ? (
+              <form action="/logout" method="post">
+                <button className="button ghost" type="submit">
+                  <Icon name="logout" size={15} />
+                  Sign out
+                </button>
+              </form>
+            ) : (
+              <>
+                <Link className="button ghost" href="/login" onClick={close}>Log in</Link>
+                <Link className="button primary" href="/signup" onClick={close}>
+                  Get started
+                </Link>
+              </>
+            )}
+          </div>
+        ) : null}
       </nav>
     </div>
   );

@@ -148,6 +148,8 @@ A searchable buyer profile may include:
 - active trust badges,
 - rating/review count if supported by real eligible interactions.
 
+Buyer profile intent is purchase-only in v1. Rental/tenant demand is out of scope and must not be offered as a buyer signup or profile purpose.
+
 A buyer profile must not expose:
 
 - verification document files,

@@ -44,6 +44,14 @@ describe("seller buyer search", () => {
     expect(searchBuyerDirectory({ bedrooms: 5 }).map((buyer) => buyer.id)).toContain("asha-k");
   });
 
+  it("filters by budget range overlap", () => {
+    expect(searchBuyerDirectory({ budgetMin: 1_000_000 }).map((buyer) => buyer.id)).not.toContain("julie-p");
+    expect(searchBuyerDirectory({ budgetMin: 1_000_000 }).map((buyer) => buyer.id)).toContain("marcus-r");
+    expect(searchBuyerDirectory({ budgetMin: 1_000_000, budgetMax: 1_500_000 }).map((buyer) => buyer.id)).toEqual([
+      "marcus-r",
+    ]);
+  });
+
   it("filters by radius when a coordinate center is supplied", () => {
     const results = searchBuyerDirectory({
       centerLat: 34.2381,

@@ -31,6 +31,20 @@ describe("Liber validators", () => {
     ).toThrow();
   });
 
+  it("keeps buyer profile purpose purchase-only", () => {
+    expect(createBuyerProfileSchema.parse({
+      displayName: "Julie P.",
+      buyingPurpose: "Owner occupy",
+    }).buyingPurpose).toBe("Owner occupy");
+
+    expect(() =>
+      createBuyerProfileSchema.parse({
+        displayName: "Julie P.",
+        buyingPurpose: "Rental",
+      }),
+    ).toThrow();
+  });
+
   it("keeps omitted buyer update visibility unchanged", () => {
     expect(updateBuyerProfileSchema.parse({ displayName: "Julie P." })).not.toHaveProperty("visibilityStatus");
     expect(() =>
@@ -109,6 +123,13 @@ describe("Liber validators", () => {
       amenities: ["Pool", "ADU"],
       condition: "Fixer",
     });
+    expect(searchBuyersSchema.parse({ budgetMin: "900000", budgetMax: "1200000" })).toMatchObject({
+      budgetMax: 1200000,
+      budgetMin: 900000,
+    });
+    expect(() => searchBuyersSchema.parse({ budgetMin: "1200000", budgetMax: "900000" })).toThrow(
+      "Budget minimum cannot exceed budget maximum.",
+    );
     expect(reviewDocumentSchema.parse({ documentId: "doc-1", decision: "APPROVED" }).decision).toBe("APPROVED");
     expect(grantBadgeSchema.parse({ buyerProfileId: "buyer-1", badgeType: "VERIFIED_FUNDS" }).badgeType).toBe(
       "VERIFIED_FUNDS",

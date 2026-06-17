@@ -468,6 +468,11 @@ async function searchDbBuyerProfiles(filters: SearchBuyersInput, excludeUserId?:
   if (radiusIds) and.push({ id: { in: radiusIds } });
   if (!hasRadiusFilter && filters.city) where.desiredCity = { equals: filters.city, mode: "insensitive" };
   if (!hasRadiusFilter && filters.state) where.desiredState = filters.state.toUpperCase();
+  if (filters.budgetMin !== undefined) {
+    and.push({
+      budgetMax: { gte: new Prisma.Decimal(filters.budgetMin) },
+    });
+  }
   if (filters.budgetMax !== undefined) {
     and.push({
       OR: [

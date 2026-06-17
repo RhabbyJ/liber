@@ -24,6 +24,7 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - Criteria should describe property fit, not protected-class attributes.
 - Amenity needs use canonical feature tokens (Pool, Parking, ADU, Yard, Garage) so seller amenity filters can match; condition uses Move-in ready / Mild fixer / Fixer.
 - Buyer setup is one wizard on `/buyer/profile`: who you are → budget → home fit (beds/baths/footprint/amenities) → story → confirm. Criteria save in the same submit as the profile.
+- Buyer profile purpose is purchase-only; do not add rental/tenant intent to signup, profile, criteria, or seller-search surfaces.
 - `/buyer/criteria` redirects to the profile wizard for old links; there is no separate criteria onboarding flow.
 
 ## Agent notes

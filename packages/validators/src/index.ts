@@ -23,6 +23,8 @@ export const propertyCategorySchema = z.enum(["HOME"]);
 
 export const propertySubtypeSchema = z.enum(["HOME"]);
 
+export const buyingPurposeSchema = z.enum(["Owner occupy", "Fix and flip", "Other"]);
+
 export const badgeTypeSchema = z.enum([
   "PRE_APPROVED",
   "EARNEST_MONEY_DEPOSITED",
@@ -49,7 +51,7 @@ const buyerProfileShape = {
   displayName: z.string().trim().min(1).max(120),
   buyerType: z.string().trim().max(80).optional(),
   bio: z.string().trim().max(1200).optional(),
-  buyingPurpose: z.string().trim().max(160).optional(),
+  buyingPurpose: buyingPurposeSchema.optional(),
   desiredLocationText: z.string().trim().max(160).optional(),
   desiredCity: z.string().trim().max(80).optional(),
   desiredState: z.string().trim().length(2).optional(),
@@ -194,6 +196,7 @@ export const searchBuyersSchema = z.object({
   radiusMiles: z.coerce.number().min(1).max(100).optional(),
   propertyCategory: propertyCategorySchema.optional(),
   propertySubtype: propertySubtypeSchema.optional(),
+  budgetMin: optionalMoney,
   budgetMax: optionalMoney,
   bedrooms: optionalInteger,
   bathrooms: optionalInteger,
@@ -215,6 +218,15 @@ export const searchBuyersSchema = z.object({
   {
     message: "Radius search requires latitude and longitude.",
     path: ["radiusMiles"],
+  },
+).refine(
+  (input) =>
+    input.budgetMin === undefined ||
+    input.budgetMax === undefined ||
+    input.budgetMin <= input.budgetMax,
+  {
+    message: "Budget minimum cannot exceed budget maximum.",
+    path: ["budgetMin"],
   },
 );
 

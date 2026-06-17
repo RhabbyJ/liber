@@ -32,7 +32,7 @@ const downPaymentOptions = [
 ];
 
 const buyerTypeOptions = ["Home Buyer", "Investor", "Cash Buyer", "Move-up Buyer", "Downsizing Buyer"];
-const buyingPurposeOptions = ["Owner occupy", "Rental", "Fix and flip", "Other"];
+const buyingPurposeOptions = ["Owner occupy", "Fix and flip", "Other"];
 
 const bedroomsOptions = [
   { label: "Any bedrooms", value: "" },
@@ -176,7 +176,14 @@ export function BuyerProfileWizard({
   }
 
   return (
-    <form action={action} className="wizard stack loose" encType="multipart/form-data" onSubmit={handleSubmit} ref={formRef}>
+    <form
+      action={action}
+      className="wizard stack loose profile-reference-form"
+      data-buyer-profile-wizard
+      encType="multipart/form-data"
+      onSubmit={handleSubmit}
+      ref={formRef}
+    >
       <header className="wizard-header stack">
         <div className="wizard-progress" aria-hidden="true">
           <div className="wizard-progress-fill" style={{ width: `${progress}%` }} />
@@ -309,6 +316,13 @@ export function BuyerProfileWizard({
             <p className="eyebrow">Step 3 of {total}</p>
             <h2>Home fit</h2>
             <p className="muted small">The home you&apos;d say yes to. Sellers match their property against this.</p>
+          </div>
+          <div className="criteria-type-strip" aria-label="Supported property type">
+            <span className="criteria-type-tab active">Home</span>
+            <span className="criteria-type-pill active">
+              <Icon name="home" size={14} />
+              Residential home
+            </span>
           </div>
           <div className="form-grid">
             <div className="field">

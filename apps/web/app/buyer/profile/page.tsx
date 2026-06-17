@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Avatar } from "../../../components/avatar";
 import { BadgePill } from "../../../components/badge-pill";
+import { BuyerProfileLivePreview } from "../../../components/buyer-profile-live-preview";
 import { BuyerProfileWizard } from "../../../components/buyer-profile-wizard";
 import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
@@ -96,7 +97,7 @@ export default async function BuyerProfileBuilderPage({
   );
 
   return (
-    <div className="page wide stack loose">
+    <div className="page wide stack loose buyer-profile-page">
       <PageTitle
         eyebrow="Buyer hub"
         title={isActive ? `Welcome back, ${buyer.name || "buyer"}.` : "Build your buyer profile"}
@@ -113,8 +114,8 @@ export default async function BuyerProfileBuilderPage({
           : "Complete the steps below — profile, budget, home fit, and story — to become visible to sellers."}
       </PageTitle>
 
-      <section className="grid sidebar">
-        <div className={showProfileWizard ? "card stack loose wizard-card" : "stack loose"}>
+      <section className={`grid sidebar buyer-profile-layout ${showProfileWizard ? "editing" : "live"}`}>
+        <div className={showProfileWizard ? "card stack loose wizard-card profile-builder-card" : "stack loose"}>
           {showProfileWizard ? (
             <BuyerProfileWizard action={submitBuyerProfile} buyer={buyer} />
           ) : (
@@ -159,50 +160,54 @@ export default async function BuyerProfileBuilderPage({
           )}
         </div>
 
-        <aside className="public-profile-aside">
-          <article className="card stack">
-            <p className="eyebrow">Live preview</p>
-            <div style={{ alignItems: "center", display: "flex", flexDirection: "column", gap: 12 }}>
-              <div className="profile-photo">
-                <Avatar name={buyer.name} size="xl" src={buyer.avatarUrl} />
+        <aside className="public-profile-aside buyer-profile-preview-aside">
+          {showProfileWizard ? (
+            <BuyerProfileLivePreview activeBadges={activeBadges} buyer={buyer} />
+          ) : (
+            <article className="card stack buyer-live-preview">
+              <p className="eyebrow">Live preview</p>
+              <div style={{ alignItems: "center", display: "flex", flexDirection: "column", gap: 12 }}>
+                <div className="profile-photo">
+                  <Avatar name={buyer.name} size="xl" src={buyer.avatarUrl} />
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <h2 style={{ fontSize: 22, margin: 0 }}>{buyer.name}</h2>
+                  <p className="muted small" style={{ marginTop: 4 }}>{buyer.location}</p>
+                </div>
               </div>
-              <div style={{ textAlign: "center" }}>
-                <h2 style={{ fontSize: 22, margin: 0 }}>{buyer.name}</h2>
-                <p className="muted small" style={{ marginTop: 4 }}>{buyer.location}</p>
+              <div className="summary-grid" style={{ gridTemplateColumns: "1fr" }}>
+                <div>
+                  <span className="summary-label">Budget</span>
+                  <span className="summary-value">{formatRange(buyer.budgetMin, buyer.budgetMax)}</span>
+                </div>
+                <div>
+                  <span className="summary-label">Down payment</span>
+                  <span className="summary-value">{formatRange(buyer.downPaymentMin, buyer.downPaymentMax)}</span>
+                </div>
+                <div>
+                  <span className="summary-label">Buying for</span>
+                  <span className="summary-value">{buyer.purpose}</span>
+                </div>
               </div>
-            </div>
-            <div className="summary-grid" style={{ gridTemplateColumns: "1fr" }}>
-              <div>
-                <span className="summary-label">Budget</span>
-                <span className="summary-value">{formatRange(buyer.budgetMin, buyer.budgetMax)}</span>
-              </div>
-              <div>
-                <span className="summary-label">Down payment</span>
-                <span className="summary-value">{formatRange(buyer.downPaymentMin, buyer.downPaymentMax)}</span>
-              </div>
-              <div>
-                <span className="summary-label">Buying for</span>
-                <span className="summary-value">{buyer.purpose}</span>
-              </div>
-            </div>
-            {activeBadges.length > 0 ? (
-              <div className="pill-row">
-                {activeBadges.map((badge) => (
-                  <BadgePill badge={badge} key={badge.label} />
-                ))}
-              </div>
-            ) : (
-              <p className="muted small">No trust badges yet. Add one below to stand out.</p>
-            )}
-            {isActive && buyer.id !== "new-profile" ? (
-              <Link className="button secondary" href={`/buyers/${buyer.id}`}>
-                <Icon name="eye" size={14} />
-                View as seller
-              </Link>
-            ) : (
-              <p className="muted small">Finish the steps before sharing the seller-facing page.</p>
-            )}
-          </article>
+              {activeBadges.length > 0 ? (
+                <div className="pill-row">
+                  {activeBadges.map((badge) => (
+                    <BadgePill badge={badge} key={badge.label} />
+                  ))}
+                </div>
+              ) : (
+                <p className="muted small">No trust badges yet. Add one below to stand out.</p>
+              )}
+              {isActive && buyer.id !== "new-profile" ? (
+                <Link className="button secondary" href={`/buyers/${buyer.id}`}>
+                  <Icon name="eye" size={14} />
+                  View as seller
+                </Link>
+              ) : (
+                <p className="muted small">Finish the steps before sharing the seller-facing page.</p>
+              )}
+            </article>
+          )}
 
           {showProfileWizard ? verificationCard : null}
         </aside>

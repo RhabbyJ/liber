@@ -23,6 +23,7 @@ export default async function SellerSearchPage({
     badges?: string | string[];
     bathrooms?: string;
     bedrooms?: string;
+    budgetMin?: string;
     budgetMax?: string;
     centerLat?: string;
     centerLng?: string;
@@ -94,6 +95,7 @@ export default async function SellerSearchPage({
     badges,
     bathrooms: params.bathrooms || undefined,
     bedrooms: params.bedrooms || undefined,
+    budgetMin: params.budgetMin || undefined,
     budgetMax: params.budgetMax || undefined,
     centerLat: searchCenterLat,
     centerLng: searchCenterLng,
@@ -136,6 +138,7 @@ export default async function SellerSearchPage({
           defaultLat={params.centerLat || ""}
           defaultLng={params.centerLng || ""}
           defaultRadiusMiles={params.radiusMiles || 8}
+          defaultBudgetMin={params.budgetMin || ""}
           defaultBudgetMax={params.budgetMax || ""}
           defaultPropertySubtype={params.propertySubtype || ""}
           defaultBadges={badges}

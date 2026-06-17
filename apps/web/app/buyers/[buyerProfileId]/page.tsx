@@ -73,9 +73,9 @@ export default async function PublicBuyerProfilePage({
         </section>
       ) : null}
 
-      <section className="public-profile">
-        <aside className="public-profile-aside">
-          <div className="card stack" style={{ alignItems: "center", textAlign: "center" }}>
+      <section className="public-profile buyer-reference-profile">
+        <aside className="public-profile-aside buyer-reference-aside">
+          <div className="card stack buyer-reference-photo">
             <div className="profile-photo">
               <Avatar name={buyer.name} size="xl" src={buyer.avatarUrl} />
             </div>
@@ -111,26 +111,26 @@ export default async function PublicBuyerProfilePage({
             ) : null}
           </div>
 
-          <div className="card flat stack">
-            <p className="eyebrow">Profile freshness</p>
-            <p className="muted small">
-              Buyers who refresh their profile recently get prioritized in seller search.
-            </p>
+          <div className="card flat stack buyer-reference-bio">
+            <h3>Bio</h3>
+            <p className="muted">{buyer.bio || "No bio added yet."}</p>
           </div>
         </aside>
 
-        <article className="public-profile-main">
-          <div className="public-profile-summary">
-            <div className="section-head">
+        <article className="public-profile-main buyer-reference-main">
+          <div className="public-profile-summary buyer-reference-summary">
+            <div className="section-head buyer-reference-head">
               <div>
                 <p className="eyebrow">{buyer.type}</p>
                 <h1 style={{ margin: "8px 0 0" }}>{buyer.name}</h1>
                 <p className="muted" style={{ marginTop: 6 }}>{buyer.location}</p>
               </div>
-              <button className="button ghost" type="button" aria-label="Bookmark buyer">
-                <Icon name="bookmark" size={14} />
-                Save
-              </button>
+              {!isOwner && inviteHref ? (
+                <Link className="button primary" href={inviteHref}>
+                  <Icon name="mail" size={14} />
+                  Send invite
+                </Link>
+              ) : null}
             </div>
             <div className="summary-grid">
               <div>
@@ -145,10 +145,6 @@ export default async function PublicBuyerProfilePage({
                 <span className="summary-label">Down payment</span>
                 <span className="summary-value">{formatRange(buyer.downPaymentMin, buyer.downPaymentMax)}</span>
               </div>
-            </div>
-            <div className="stack tight">
-              <p className="eyebrow">Bio</p>
-              <p>{buyer.bio}</p>
             </div>
           </div>
 
