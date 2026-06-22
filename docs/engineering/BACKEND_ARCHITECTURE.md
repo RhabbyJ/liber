@@ -72,6 +72,7 @@ Key concepts:
 - A user self-selecting `SELLER` does not automatically gain directory access.
 - Admin status is not self-service.
 - Auth POST routes preserve the incoming request host/protocol for same-origin checks and redirects so local `127.0.0.1` and `localhost` sessions do not cross origins under the CSP `form-action` rule.
+- Login and signed-in auth entry points resolve `next` through a role-aware intent helper. Stale auth-flow destinations such as `/signup` or `/login` must fall back to the user's default role path or onboarding instead of looping through the auth wizard.
 
 Relevant files:
 

@@ -25,7 +25,9 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Signup name is private account identity; do not treat it as seller/public buyer profile display.
 - Signup role selection may bootstrap only BUYER/SELLER roles after Supabase verifies the user; admin remains server-controlled.
 - Signed-in users should redirect only when they already have the role needed for the requested path; buyer-only users following seller-intent login/signup links should go through role onboarding to add seller access.
+- Auth routes must not use `/login`, `/signup`, `/signup/*`, `/auth/callback`, or `/onboarding/role` as post-login destinations; resolve stale auth-flow `next` values to the user's role-aware default or onboarding path.
 - Auth POST redirects and same-origin checks must use `request-origin.ts` to keep the incoming request host/protocol and avoid local `127.0.0.1`/`localhost` CSP and cookie mismatches.
+- Server-side signup errors should return to the relevant wizard pane instead of restarting the user at the role/name step. Do not put the private signup account name in URLs; same-browser draft recovery is acceptable for error recovery.
 - Logout is a POST-only auth action. Desktop and mobile logout controls must submit successfully under the CSP `form-action` policy, clear Supabase cookies, and land on `/login?status=signed-out`.
 - Buyer-only users opening seller routes such as `/seller/search` or `/seller/properties` must resolve to seller onboarding/access gating, not a buyer-profile redirect, loading hang, or approved seller search bypass.
 

@@ -1,6 +1,7 @@
 import { prisma } from "@liber/db";
 import { NextResponse, type NextRequest } from "next/server";
 import { safeInternalPath } from "../../../../lib/redirect";
+import { pathForSignedInAuthIntent } from "../../../../server/auth-intent";
 import { checkRateLimit, clientIpFromRequest } from "../../../../server/rate-limit";
 import { isRequestSameOrigin, requestUrl } from "../../../../server/request-origin";
 import { createSupabaseServerClient } from "../../../../server/supabase";
@@ -54,12 +55,7 @@ export async function POST(request: NextRequest) {
     return redirectTo(request, "/login?status=account-unavailable");
   }
 
-  if (appUser.roles.length === 0) {
-    const onboardingPath = next === "/" ? "/onboarding/role" : `/onboarding/role?next=${encodeURIComponent(next)}`;
-    return redirectTo(request, onboardingPath);
-  }
-
-  return redirectTo(request, next);
+  return redirectTo(request, pathForSignedInAuthIntent({ id: authData.user.id, roles: appUser.roles }, { next }));
 }
 
 function redirectTo(request: NextRequest, path: string) {

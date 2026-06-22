@@ -8,11 +8,12 @@ type Notice = { tone: string; title: string; body: string };
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ email?: string; next?: string; role?: string; status?: string }>;
+  searchParams: Promise<{ email?: string; next?: string; role?: string; status?: string; step?: string }>;
 }) {
-  const { email = "", next = "", role = "", status = "" } = await searchParams;
+  const { email = "", next = "", role = "", status = "", step = "" } = await searchParams;
   const safeNext = safeInternalPath(next, "");
   const initialRole = parseRole(role);
+  const initialStep = parseStep(step);
   const user = await getSessionUser();
   if (user) redirect(pathForSignedInAuthIntent(user, { next: safeNext, role: initialRole }));
 
@@ -23,6 +24,7 @@ export default async function SignupPage({
       <SignupWizard
         initialEmail={email}
         initialRole={initialRole}
+        initialStep={initialStep}
         next={safeNext}
         notice={notice}
       />
@@ -33,6 +35,15 @@ export default async function SignupPage({
 function parseRole(role: string): "buyer" | "seller" | "both" | null {
   const value = role.toLowerCase();
   if (value === "buyer" || value === "seller" || value === "both") return value;
+  return null;
+}
+
+function parseStep(step: string) {
+  const value = step.toLowerCase();
+  if (value === "role") return 0;
+  if (value === "name") return 1;
+  if (value === "email") return 2;
+  if (value === "password") return 3;
   return null;
 }
 

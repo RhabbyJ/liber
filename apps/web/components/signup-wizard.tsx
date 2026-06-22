@@ -12,13 +12,17 @@ type Notice = { tone: string; title: string; body: string };
 type Props = {
   initialRole: Role | null;
   initialEmail: string;
+  initialStep: number | null;
   next: string;
   notice: Notice | null;
 };
 
 const STEP_LABELS = ["You", "Name", "Email", "Password"] as const;
+const SIGNUP_DRAFT_KEY = "liber.signup.draft";
 const SIGNUP_WIZARD_FALLBACK = String.raw`
 (() => {
+  const draftKey = "liber.signup.draft";
+
   function init(flow) {
     if (flow.dataset.signupFallbackReady === "true") return;
     flow.dataset.signupFallbackReady = "true";
@@ -29,7 +33,6 @@ const SIGNUP_WIZARD_FALLBACK = String.raw`
     const progress = flow.querySelector("[data-signup-progress]");
     const back = flow.querySelector("[data-signup-back]");
     const next = flow.querySelector("[data-signup-next]");
-    const create = flow.querySelector("[data-signup-create]");
     const error = flow.querySelector("[data-signup-error]");
     const roleInput = form?.querySelector('input[name="role"]');
     const roleCards = Array.from(flow.querySelectorAll("[data-signup-role]"));
@@ -41,6 +44,41 @@ const SIGNUP_WIZARD_FALLBACK = String.raw`
     function text(name) {
       const input = form.querySelector('input[name="' + name + '"]');
       return input?.value.trim() || "";
+    }
+
+    function setRole(value) {
+      if (roleInput) roleInput.value = value;
+      roleCards.forEach((item) => {
+        const selected = item.dataset.signupRole === value;
+        item.classList.toggle("selected", selected);
+        const check = item.querySelector(".signup-role-check");
+        if (check) check.hidden = !selected;
+      });
+    }
+
+    function restoreDraft() {
+      try {
+        if (flow.dataset.signupHasNotice !== "true") {
+          window.sessionStorage.removeItem(draftKey);
+          return;
+        }
+        const draft = JSON.parse(window.sessionStorage.getItem(draftKey) || "{}");
+        if (draft.role && !roleInput?.value) setRole(draft.role);
+        const nameInput = form.querySelector('input[name="name"]');
+        const emailInput = form.querySelector('input[name="email"]');
+        const emailMatches = !emailInput?.value || !draft.email || emailInput.value === draft.email;
+        if (nameInput && draft.name && emailMatches) nameInput.value = draft.name;
+        if (emailInput && !emailInput.value && draft.email) emailInput.value = draft.email;
+      } catch {}
+    }
+
+    function saveDraft() {
+      try {
+        window.sessionStorage.setItem(
+          draftKey,
+          JSON.stringify({ email: text("email"), name: text("name"), role: roleInput?.value || "buyer" })
+        );
+      } catch {}
     }
 
     function setError(message) {
@@ -79,8 +117,7 @@ const SIGNUP_WIZARD_FALLBACK = String.raw`
       });
       if (progress) progress.style.width = ((step + 1) / panes.length) * 100 + "%";
       if (back) back.disabled = step === 0;
-      if (next) next.hidden = step >= panes.length - 1;
-      if (create) create.hidden = step < panes.length - 1;
+      if (next) next.type = step >= panes.length - 1 ? "submit" : "button";
       if (shouldFocus) window.setTimeout(() => panes[step]?.querySelector("input")?.focus(), 0);
     }
 
@@ -92,21 +129,18 @@ const SIGNUP_WIZARD_FALLBACK = String.raw`
 
     roleCards.forEach((card) => {
       card.addEventListener("click", () => {
-        const value = card.dataset.signupRole || "buyer";
-        if (roleInput) roleInput.value = value;
-        roleCards.forEach((item) => {
-          const selected = item === card;
-          item.classList.toggle("selected", selected);
-          const check = item.querySelector(".signup-role-check");
-          if (check) check.hidden = !selected;
-        });
+        setRole(card.dataset.signupRole || "buyer");
       });
     });
 
     next?.addEventListener("click", (event) => {
-      event.preventDefault();
       const message = validate();
-      if (message) return setError(message);
+      if (message) {
+        event.preventDefault();
+        return setError(message);
+      }
+      if (step >= panes.length - 1) return;
+      event.preventDefault();
       go(1);
     });
 
@@ -129,9 +163,12 @@ const SIGNUP_WIZARD_FALLBACK = String.raw`
       if (message) {
         event.preventDefault();
         setError(message);
+        return;
       }
+      saveDraft();
     });
 
+    restoreDraft();
     render(false);
   }
 
@@ -170,8 +207,9 @@ const ROLE_CARDS: Array<{
   },
 ];
 
-export function SignupWizard({ initialRole, initialEmail, next, notice }: Props) {
-  const [step, setStep] = useState(initialRole ? 1 : 0);
+export function SignupWizard({ initialRole, initialEmail, initialStep, next, notice }: Props) {
+  const startingStep = initialStep ?? (initialRole ? 1 : 0);
+  const [step, setStep] = useState(startingStep);
   const [role, setRole] = useState<Role>(initialRole ?? "buyer");
   const [name, setName] = useState("");
   const [email, setEmail] = useState(initialEmail);
@@ -192,6 +230,20 @@ export function SignupWizard({ initialRole, initialEmail, next, notice }: Props)
       return () => window.clearTimeout(id);
     }
   }, [step]);
+
+  useEffect(() => {
+    if (!notice) {
+      clearSignupDraft();
+      return;
+    }
+
+    const draft = readSignupDraft();
+    if (!draft) return;
+    const emailMatches = !initialEmail || !draft.email || initialEmail === draft.email;
+    if (!initialRole && draft.role) setRole(draft.role);
+    if (draft.name && emailMatches) setName(draft.name);
+    if (!initialEmail && draft.email) setEmail(draft.email);
+  }, [initialEmail, initialRole, notice]);
 
   function validateCurrent(): string | null {
     if (step === 0 && !role) return "Pick one to continue.";
@@ -236,11 +288,13 @@ export function SignupWizard({ initialRole, initialEmail, next, notice }: Props)
     if (message) {
       event.preventDefault();
       setError(message);
+      return;
     }
+    saveSignupDraft({ email, name, role });
   }
 
   return (
-    <div className="signup-flow" data-signup-wizard>
+    <div className="signup-flow" data-signup-has-notice={notice ? "true" : undefined} data-signup-wizard>
       <div className="signup-progress" aria-hidden="true">
         <div className="signup-progress-fill" data-signup-progress style={{ width: `${progress}%` }} />
       </div>
@@ -268,7 +322,7 @@ export function SignupWizard({ initialRole, initialEmail, next, notice }: Props)
         <input name="next" type="hidden" value={next} />
         <input name="role" type="hidden" value={role} />
 
-        {notice && step === 0 ? (
+        {notice ? (
           <div className={`auth-alert ${notice.tone}`}>
             <strong>{notice.title}</strong>
             <span>{notice.body}</span>
@@ -374,13 +428,14 @@ export function SignupWizard({ initialRole, initialEmail, next, notice }: Props)
           <button className="button ghost" data-signup-back disabled={step === 0} onClick={goBack} type="button">
             Back
           </button>
-          <button className="button primary lg" data-signup-next hidden={step >= total - 1} onClick={goNext} type="button">
+          <button
+            className="button primary lg"
+            data-signup-next
+            onClick={step < total - 1 ? goNext : undefined}
+            type={step < total - 1 ? "button" : "submit"}
+          >
             Continue
             <Icon name="arrow-right" size={14} />
-          </button>
-          <button className="button primary lg" data-signup-create hidden={step < total - 1} type="submit">
-            <Icon name="sparkle" size={14} />
-            Create account
           </button>
         </div>
 
@@ -398,4 +453,35 @@ function summarizeRole(role: Role) {
   if (role === "seller") return "Selling a home";
   if (role === "both") return "Buyer and seller";
   return "Buying a home";
+}
+
+function saveSignupDraft(draft: { email: string; name: string; role: Role }) {
+  try {
+    window.sessionStorage.setItem(SIGNUP_DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    // Session storage is best-effort recovery for same-browser signup errors.
+  }
+}
+
+function readSignupDraft(): { email?: string; name?: string; role?: Role } | null {
+  try {
+    const raw = window.sessionStorage.getItem(SIGNUP_DRAFT_KEY);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as { email?: unknown; name?: unknown; role?: unknown };
+    return {
+      email: typeof draft.email === "string" ? draft.email : undefined,
+      name: typeof draft.name === "string" ? draft.name : undefined,
+      role: draft.role === "buyer" || draft.role === "seller" || draft.role === "both" ? draft.role : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearSignupDraft() {
+  try {
+    window.sessionStorage.removeItem(SIGNUP_DRAFT_KEY);
+  } catch {
+    // Ignore blocked storage; the form still works without draft recovery.
+  }
 }

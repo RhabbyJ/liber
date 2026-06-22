@@ -4,6 +4,7 @@ import { prisma } from "@liber/db";
 import { redirect } from "next/navigation";
 import { safeInternalPath } from "../lib/redirect";
 import { ensureSellerAccessRequested } from "./access";
+import { pathForSignedInAuthIntent } from "./auth-intent";
 import type { AppRole } from "./authz";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
 
@@ -135,11 +136,7 @@ export async function loginWithPassword(formData: FormData) {
     redirect("/login?status=account-unavailable");
   }
 
-  if (appUser.roles.length === 0) {
-    redirect(next === "/" ? "/onboarding/role" : `/onboarding/role?next=${encodeURIComponent(next)}`);
-  }
-
-  redirect(next);
+  redirect(pathForSignedInAuthIntent({ id: authData.user.id, roles: appUser.roles }, { next }));
 }
 
 export async function signupWithPassword(formData: FormData) {
@@ -255,9 +252,16 @@ function textValue(formData: FormData, key: string) {
 function signupRedirectPath(formData: FormData, status: string, email: string) {
   const params = new URLSearchParams({ role: signupRoleValue(formData), status });
   const next = safeNextValue(formData);
+  params.set("step", signupStepForStatus(status));
   if (email) params.set("email", email);
   if (next) params.set("next", next);
   return `/signup?${params.toString()}`;
+}
+
+function signupStepForStatus(status: string) {
+  if (status === "weak-password") return "password";
+  if (status === "missing-fields") return "name";
+  return "email";
 }
 
 function signupRoleValue(formData: FormData) {
