@@ -346,7 +346,14 @@ main {
 
 .top-actions form,
 .mobile-nav-actions form {
-  display: contents;
+  align-items: center;
+  display: inline-flex;
+  margin: 0;
+}
+
+.mobile-nav-actions form,
+.mobile-nav-actions form .button {
+  width: 100%;
 }
 
 .notification-button {

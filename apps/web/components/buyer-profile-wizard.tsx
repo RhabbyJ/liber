@@ -3,6 +3,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Icon } from "./icon";
 import { LocationLookupFields } from "./location-lookup-fields";
+import { activePilotAreas } from "../lib/launch-market";
 
 const budgetMinOptions = [
   { label: "No minimum", value: "" },
@@ -116,6 +117,230 @@ const STEPS = [
   { key: 5, label: "Review", helper: "Confirm" },
 ] as const;
 
+const BUYER_PROFILE_WIZARD_FALLBACK = `
+(() => {
+  const pilotAreas = ${JSON.stringify(activePilotAreas)};
+
+  function init(form) {
+    if (form.dataset.buyerProfileFallbackReady === "true") return;
+    form.dataset.buyerProfileFallbackReady = "true";
+
+    const panes = Array.from(form.querySelectorAll("[data-buyer-profile-pane]"));
+    const steps = Array.from(form.querySelectorAll("[data-buyer-profile-step-item]"));
+    const progress = form.querySelector("[data-buyer-profile-progress]");
+    const back = form.querySelector("[data-buyer-profile-back]");
+    const next = form.querySelector("[data-buyer-profile-next]");
+    const confirm = form.querySelector("[data-buyer-profile-confirm]");
+    const error = form.querySelector("[data-buyer-profile-error]");
+    if (panes.length === 0) return;
+
+    let step = panes.findIndex((pane) => !pane.hidden);
+    if (step < 0) step = 0;
+    let isApplyingPilotArea = false;
+
+    function field(name) {
+      return form.querySelector('[name="' + name + '"]');
+    }
+
+    function text(name) {
+      return field(name)?.value?.trim() || "";
+    }
+
+    function setValue(name, value, notify) {
+      const input = field(name);
+      if (!input) return;
+      input.value = value || "";
+      if (notify === false) return;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    function setError(message) {
+      if (!error) return;
+      error.textContent = message || "";
+      error.hidden = !message;
+    }
+
+    function moneyLabel(value) {
+      const amount = Number(value);
+      if (!Number.isFinite(amount) || amount <= 0) return "No minimum";
+      if (amount >= 1000000) return "$" + (amount / 1000000) + "M";
+      return "$" + (amount / 1000) + "k";
+    }
+
+    function rangeLabel(min, max) {
+      return moneyLabel(min) + " - " + moneyLabel(max);
+    }
+
+    function summary(key, value) {
+      const node = form.querySelector('[data-buyer-summary="' + key + '"]');
+      if (node) node.textContent = value || "";
+    }
+
+    function selectedFeatures() {
+      return Array.from(form.querySelectorAll('input[name="features"]:checked')).map((input) => input.value);
+    }
+
+    function homeFitLabel() {
+      const facts = [];
+      if (text("bedroomsMin")) facts.push(text("bedroomsMin") + "+ bd");
+      if (text("bathroomsMin")) facts.push(text("bathroomsMin") + "+ ba");
+      if (text("squareFeetMin")) facts.push(Number(text("squareFeetMin")).toLocaleString() + "+ sqft");
+      if (text("condition")) facts.push(text("condition"));
+      facts.push(...selectedFeatures());
+      return facts.length > 0 ? facts.join(" / ") : "Any home";
+    }
+
+    function refreshReviewSummary() {
+      summary("name", text("displayName") || "Private buyer");
+      summary("location", text("desiredLocationText") || text("desiredCity") || "Not set");
+      summary("type", text("buyerType") || "Home Buyer");
+      summary("purpose", text("buyingPurpose") || "Owner occupy");
+      summary("budget", rangeLabel(text("budgetMin"), text("budgetMax")));
+      summary("downPayment", rangeLabel(text("downPaymentMin"), text("downPaymentMax")));
+      summary("homeFit", homeFitLabel());
+    }
+
+    function applyPilotArea(value) {
+      const query = (value || "").toLowerCase();
+      const area = pilotAreas.find((item) => item.zip === value || query.includes(item.zip) || query.includes(item.city.toLowerCase()));
+      if (!area) return;
+      isApplyingPilotArea = true;
+      setValue("desiredLocationText", area.label, false);
+      setValue("desiredCity", area.city, false);
+      setValue("desiredState", area.state, false);
+      setValue("desiredLat", String(area.lat), false);
+      setValue("desiredLng", String(area.lng), false);
+      isApplyingPilotArea = false;
+    }
+
+    function validate() {
+      if (step === 0 && !text("displayName")) return "Add a seller-facing display name.";
+      const budgetMin = Number(text("budgetMin") || 0);
+      const budgetMax = Number(text("budgetMax") || 0);
+      if (step === 1 && budgetMin > 0 && budgetMax > 0 && budgetMin > budgetMax) return "Budget minimum cannot exceed maximum.";
+      const downMin = Number(text("downPaymentMin") || 0);
+      const downMax = Number(text("downPaymentMax") || 0);
+      if (step === 1 && downMin > 0 && downMax > 0 && downMin > downMax) return "Down payment minimum cannot exceed maximum.";
+      return null;
+    }
+
+    function render(shouldFocus) {
+      panes.forEach((pane, index) => {
+        const active = index === step;
+        pane.hidden = !active;
+        pane.setAttribute("aria-hidden", active ? "false" : "true");
+      });
+      steps.forEach((item, index) => {
+        const active = index === step;
+        item.classList.toggle("active", active);
+        item.classList.toggle("done", index < step);
+        const button = item.querySelector("[data-buyer-profile-step-button]");
+        if (button) {
+          button.disabled = index > step;
+          if (active) button.setAttribute("aria-current", "step");
+          else button.removeAttribute("aria-current");
+        }
+      });
+      if (progress) progress.style.width = ((step + 1) / panes.length) * 100 + "%";
+      if (back) {
+        back.disabled = step === 0;
+        back.textContent = step === panes.length - 1 ? "No, take me back" : "Back";
+      }
+      if (next) next.hidden = step >= panes.length - 1;
+      if (confirm) confirm.hidden = step < panes.length - 1;
+      if (shouldFocus) window.setTimeout(() => panes[step]?.querySelector("input, select, textarea, button:not([disabled])")?.focus(), 0);
+    }
+
+    function go(delta) {
+      setError("");
+      if (delta > 0) {
+        const message = validate();
+        if (message) return setError(message);
+      }
+      if (step === panes.length - 2 && delta > 0) refreshReviewSummary();
+      step = Math.max(0, Math.min(step + delta, panes.length - 1));
+      render(true);
+    }
+
+    function submitProfile() {
+      const message = validate();
+      if (message) return setError(message);
+      refreshReviewSummary();
+      form.dataset.buyerProfileConfirmed = "true";
+      HTMLFormElement.prototype.submit.call(form);
+    }
+
+    form.addEventListener("click", (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const stepButton = target?.closest("[data-buyer-profile-step-button]");
+      if (!stepButton) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const index = Number(stepButton.dataset.buyerProfileStepButton || 0);
+      if (index <= step) {
+        step = index;
+        render(true);
+      }
+    }, true);
+
+    next?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      go(1);
+    }, true);
+
+    back?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      go(-1);
+    }, true);
+
+    confirm?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      submitProfile();
+    }, true);
+
+    form.addEventListener("submit", (event) => {
+      if (form.dataset.buyerProfileConfirmed === "true") return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (step >= panes.length - 1) submitProfile();
+      else go(1);
+    }, true);
+
+    form.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || event.target?.tagName === "TEXTAREA") return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (step >= panes.length - 1) submitProfile();
+      else go(1);
+    }, true);
+
+    const pilotSelect = Array.from(form.querySelectorAll("select")).find((select) => select.getAttribute("aria-label") === "Active pilot ZIP");
+    pilotSelect?.addEventListener("change", (event) => {
+      applyPilotArea(event.target.value);
+    }, true);
+
+    field("desiredLocationText")?.addEventListener("change", (event) => {
+      if (isApplyingPilotArea) return;
+      applyPilotArea(event.target.value);
+    }, true);
+
+    form.addEventListener("input", () => setError(""));
+    render(false);
+  }
+
+  function boot() {
+    document.querySelectorAll("[data-buyer-profile-wizard]").forEach(init);
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
+  else boot();
+})();
+`;
+
 type Step = (typeof STEPS)[number]["key"];
 
 type ReviewSummary = {
@@ -186,17 +411,22 @@ export function BuyerProfileWizard({
     >
       <header className="wizard-header stack">
         <div className="wizard-progress" aria-hidden="true">
-          <div className="wizard-progress-fill" style={{ width: `${progress}%` }} />
+          <div className="wizard-progress-fill" data-buyer-profile-progress style={{ width: `${progress}%` }} />
         </div>
         <ol className="wizard-steps" aria-label="Profile steps">
-          {STEPS.map((s) => {
+          {STEPS.map((s, index) => {
             const isActive = step === s.key;
             const isDone = step > s.key;
             return (
-              <li key={s.key} className={`wizard-step ${isActive ? "active" : ""} ${isDone ? "done" : ""}`}>
+              <li
+                data-buyer-profile-step-item
+                key={s.key}
+                className={`wizard-step ${isActive ? "active" : ""} ${isDone ? "done" : ""}`}
+              >
                 <button
                   aria-current={isActive ? "step" : undefined}
                   className="wizard-step-button"
+                  data-buyer-profile-step-button={index}
                   disabled={s.key > step}
                   onClick={() => {
                     // Steps can be revisited, but not skipped ahead of the flow.
@@ -220,17 +450,17 @@ export function BuyerProfileWizard({
       </header>
 
       <div className="wizard-body stack">
-        <section className="wizard-pane" hidden={step !== 1} aria-hidden={step !== 1}>
+        <section className="wizard-pane" data-buyer-profile-pane hidden={step !== 1} aria-hidden={step !== 1}>
           <div className="section-stack">
             <p className="eyebrow">Step 1 of {total}</p>
             <h2>Who you are</h2>
-            <p className="muted small">Sellers see this card first. Keep it clear and human.</p>
+            <p className="muted small">Sellers see this card first. Keep it clear and privacy-safe.</p>
           </div>
           <div className="form-grid">
             <div className="field">
-              <label htmlFor="displayName">Display name</label>
-              <input id="displayName" name="displayName" defaultValue={buyer.name} placeholder="Julie P." />
-              <span className="field-hint">Most buyers use first name + last initial.</span>
+              <label htmlFor="displayName">Seller-facing display name</label>
+              <input id="displayName" name="displayName" defaultValue={buyer.name} placeholder="Private buyer" />
+              <span className="field-hint">Use an alias or first name + last initial. Your account name stays private.</span>
             </div>
             <div className="field">
               <label htmlFor="avatar">Profile photo</label>
@@ -269,7 +499,7 @@ export function BuyerProfileWizard({
           </div>
         </section>
 
-        <section className="wizard-pane" hidden={step !== 2} aria-hidden={step !== 2}>
+        <section className="wizard-pane" data-buyer-profile-pane hidden={step !== 2} aria-hidden={step !== 2}>
           <div className="section-stack">
             <p className="eyebrow">Step 2 of {total}</p>
             <h2>Your budget</h2>
@@ -311,7 +541,7 @@ export function BuyerProfileWizard({
           </div>
         </section>
 
-        <section className="wizard-pane" hidden={step !== 3} aria-hidden={step !== 3}>
+        <section className="wizard-pane" data-buyer-profile-pane hidden={step !== 3} aria-hidden={step !== 3}>
           <div className="section-stack">
             <p className="eyebrow">Step 3 of {total}</p>
             <h2>Home fit</h2>
@@ -394,7 +624,7 @@ export function BuyerProfileWizard({
           </div>
         </section>
 
-        <section className="wizard-pane" hidden={step !== 4} aria-hidden={step !== 4}>
+        <section className="wizard-pane" data-buyer-profile-pane hidden={step !== 4} aria-hidden={step !== 4}>
           <div className="section-stack">
             <p className="eyebrow">Step 4 of {total}</p>
             <h2>Your story</h2>
@@ -413,7 +643,7 @@ export function BuyerProfileWizard({
           </div>
         </section>
 
-        <section className="wizard-pane" hidden={step !== 5} aria-hidden={step !== 5}>
+        <section className="wizard-pane" data-buyer-profile-pane hidden={step !== 5} aria-hidden={step !== 5}>
           <div className="section-stack">
             <p className="eyebrow">Step 5 of {total}</p>
             <h2>Does this all look correct?</h2>
@@ -422,61 +652,70 @@ export function BuyerProfileWizard({
           <div className="summary-grid">
             <div>
               <span className="summary-label">Name</span>
-              <span className="summary-value">{reviewSummary.name}</span>
+              <span className="summary-value" data-buyer-summary="name">{reviewSummary.name}</span>
             </div>
             <div>
               <span className="summary-label">Location</span>
-              <span className="summary-value">{reviewSummary.location}</span>
+              <span className="summary-value" data-buyer-summary="location">{reviewSummary.location}</span>
             </div>
             <div>
               <span className="summary-label">Buyer type</span>
-              <span className="summary-value">{reviewSummary.type}</span>
+              <span className="summary-value" data-buyer-summary="type">{reviewSummary.type}</span>
             </div>
             <div>
               <span className="summary-label">Buying for</span>
-              <span className="summary-value">{reviewSummary.purpose}</span>
+              <span className="summary-value" data-buyer-summary="purpose">{reviewSummary.purpose}</span>
             </div>
             <div>
               <span className="summary-label">Budget</span>
-              <span className="summary-value">{reviewSummary.budget}</span>
+              <span className="summary-value" data-buyer-summary="budget">{reviewSummary.budget}</span>
             </div>
             <div>
               <span className="summary-label">Down payment</span>
-              <span className="summary-value">{reviewSummary.downPayment}</span>
+              <span className="summary-value" data-buyer-summary="downPayment">{reviewSummary.downPayment}</span>
             </div>
             <div>
               <span className="summary-label">Home fit</span>
-              <span className="summary-value">{reviewSummary.homeFit}</span>
+              <span className="summary-value" data-buyer-summary="homeFit">{reviewSummary.homeFit}</span>
             </div>
           </div>
         </section>
       </div>
 
+      <p className="signup-error" data-buyer-profile-error hidden />
+
       <footer className="wizard-footer actions between">
         <button
           className="button ghost"
+          data-buyer-profile-back
           disabled={step === 1}
           onClick={() => setStep((s) => (s > 1 ? ((s - 1) as Step) : s))}
           type="button"
         >
           {step === total ? "No, take me back" : "Back"}
         </button>
-        {step < total ? (
-          <button
-            className="button primary"
-            onClick={goForward}
-            type="button"
-          >
-            Continue
-            <Icon name="arrow-right" size={14} />
-          </button>
-        ) : (
-          <button className="button primary" onClick={confirmAndSubmit} type="button">
-            <Icon name="sparkle" size={14} />
-            Yes, this is correct
-          </button>
-        )}
+        <button
+          className="button primary"
+          data-buyer-profile-next
+          hidden={step >= total}
+          onClick={goForward}
+          type="button"
+        >
+          Continue
+          <Icon name="arrow-right" size={14} />
+        </button>
+        <button
+          className="button primary"
+          data-buyer-profile-confirm
+          hidden={step < total}
+          onClick={confirmAndSubmit}
+          type="button"
+        >
+          <Icon name="sparkle" size={14} />
+          Yes, this is correct
+        </button>
       </footer>
+      <script dangerouslySetInnerHTML={{ __html: BUYER_PROFILE_WIZARD_FALLBACK }} />
     </form>
   );
 }

@@ -22,6 +22,8 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - Do not weaken tests to make a bad change pass.
 - Demo/test buyer data may be used for smoke and CEO demo verification only when clearly seeded and removable.
 - Tests and smoke scripts must not depend on fake data being present in true production.
+- After auth, nav, or protected-route changes, run a focused browser auth pass covering signed-out CTAs, buyer signup/login/logout, buyer-to-seller intent, seller signup/access gating, both-role signup when supported, and mobile nav/logout.
+- Browser auth QA failures or inconclusive results should include a screenshot or compact state dump with URL, relevant DOM attributes, visible text excerpt, and console errors.
 
 ## Agent notes
 

@@ -31,6 +31,7 @@ export default async function BuyerProfileBuilderPage({
   const hasPendingPreApproval = buyer.badges.some((badge) => badge.type === "PRE_APPROVED" && badge.status === "pending");
   const pendingInvites = invites.filter((invite) => invite.status === "Sent" || invite.status === "Viewed");
   const showProfileWizard = !isActive || edit === "profile";
+  const accountName = buyer.accountName || "buyer";
   const verificationCard = (
     <article className={`card stack verification-card ${!showProfileWizard && !hasPreApproval ? "priority" : ""}`}>
       <div className="section-head compact">
@@ -100,7 +101,7 @@ export default async function BuyerProfileBuilderPage({
     <div className="page wide stack loose buyer-profile-page">
       <PageTitle
         eyebrow="Buyer hub"
-        title={isActive ? `Welcome back, ${buyer.name || "buyer"}.` : "Build your buyer profile"}
+        title={isActive ? `Welcome back, ${accountName}.` : `Your profile, ${accountName}.`}
         tone="buyer"
         badge={<ModeChip mode="buyer" />}
         actions={
@@ -110,8 +111,8 @@ export default async function BuyerProfileBuilderPage({
         }
       >
         {isActive
-          ? "Your profile is live. The next priority is verification, then invites."
-          : "Complete the steps below — profile, budget, home fit, and story — to become visible to sellers."}
+          ? "Your profile is live. Only you see your account name here; sellers see the buyer display name on your profile."
+          : "Complete the steps below. Your account name stays private; sellers see only the buyer display name you choose."}
       </PageTitle>
 
       <section className={`grid sidebar buyer-profile-layout ${showProfileWizard ? "editing" : "live"}`}>
@@ -285,10 +286,12 @@ export default async function BuyerProfileBuilderPage({
           <div className="section-head compact">
             <div>
               <p className="eyebrow">Account</p>
-              <h2 style={{ fontSize: 20 }}>Signed in as {buyer.name || "buyer"}</h2>
+              <h2 style={{ fontSize: 20 }}>Signed in as {accountName}</h2>
             </div>
           </div>
-          <p className="muted small">Profile, invites, and verification all live here. Setup stays tucked away once complete.</p>
+          <p className="muted small">
+            Your account name is private to your buyer portal. Sellers and public previews use your buyer profile display name.
+          </p>
           <div className="actions inline">
             <Link className="button secondary" href="/buyer/profile?edit=profile">
               <Icon name="list" size={14} />

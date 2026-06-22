@@ -17,6 +17,132 @@ type Props = {
 };
 
 const STEP_LABELS = ["You", "Name", "Email", "Password"] as const;
+const SIGNUP_WIZARD_FALLBACK = String.raw`
+(() => {
+  function init(flow) {
+    if (flow.dataset.signupFallbackReady === "true") return;
+    flow.dataset.signupFallbackReady = "true";
+
+    const form = flow.querySelector("[data-signup-form]");
+    const panes = Array.from(flow.querySelectorAll("[data-signup-pane]"));
+    const steps = Array.from(flow.querySelectorAll("[data-signup-step-item]"));
+    const progress = flow.querySelector("[data-signup-progress]");
+    const back = flow.querySelector("[data-signup-back]");
+    const next = flow.querySelector("[data-signup-next]");
+    const create = flow.querySelector("[data-signup-create]");
+    const error = flow.querySelector("[data-signup-error]");
+    const roleInput = form?.querySelector('input[name="role"]');
+    const roleCards = Array.from(flow.querySelectorAll("[data-signup-role]"));
+    if (!form || panes.length === 0) return;
+
+    let step = panes.findIndex((pane) => !pane.hidden);
+    if (step < 0) step = roleInput?.value ? 1 : 0;
+
+    function text(name) {
+      const input = form.querySelector('input[name="' + name + '"]');
+      return input?.value.trim() || "";
+    }
+
+    function setError(message) {
+      if (!error) return;
+      error.textContent = message || "";
+      error.hidden = !message;
+    }
+
+    function validate() {
+      if (step === 0 && !roleInput?.value) return "Pick one to continue.";
+      if (step === 1 && text("name").length < 1) return "Add your name to continue.";
+      if (step === 2) {
+        const email = text("email");
+        if (!email) return "Enter your email.";
+        if (!/^\S+@\S+\.\S+$/.test(email)) return "Use a valid email format.";
+      }
+      if (step === 3) {
+        const password = text("password");
+        if (!password) return "Create a password.";
+        if (password.length < 12) return "Use at least 12 characters.";
+      }
+      return null;
+    }
+
+    function render(shouldFocus) {
+      panes.forEach((pane, index) => {
+        const active = index === step;
+        pane.hidden = !active;
+        pane.setAttribute("aria-hidden", active ? "false" : "true");
+      });
+      steps.forEach((item, index) => {
+        item.classList.toggle("active", index === step);
+        item.classList.toggle("done", index < step);
+        if (index === step) item.setAttribute("aria-current", "step");
+        else item.removeAttribute("aria-current");
+      });
+      if (progress) progress.style.width = ((step + 1) / panes.length) * 100 + "%";
+      if (back) back.disabled = step === 0;
+      if (next) next.hidden = step >= panes.length - 1;
+      if (create) create.hidden = step < panes.length - 1;
+      if (shouldFocus) window.setTimeout(() => panes[step]?.querySelector("input")?.focus(), 0);
+    }
+
+    function go(delta) {
+      setError("");
+      step = Math.max(0, Math.min(step + delta, panes.length - 1));
+      render(true);
+    }
+
+    roleCards.forEach((card) => {
+      card.addEventListener("click", () => {
+        const value = card.dataset.signupRole || "buyer";
+        if (roleInput) roleInput.value = value;
+        roleCards.forEach((item) => {
+          const selected = item === card;
+          item.classList.toggle("selected", selected);
+          const check = item.querySelector(".signup-role-check");
+          if (check) check.hidden = !selected;
+        });
+      });
+    });
+
+    next?.addEventListener("click", (event) => {
+      event.preventDefault();
+      const message = validate();
+      if (message) return setError(message);
+      go(1);
+    });
+
+    back?.addEventListener("click", (event) => {
+      event.preventDefault();
+      go(-1);
+    });
+
+    form.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || step >= panes.length - 1 || event.target?.tagName === "TEXTAREA") return;
+      event.preventDefault();
+      const message = validate();
+      if (message) return setError(message);
+      go(1);
+    });
+
+    form.addEventListener("input", () => setError(""));
+    form.addEventListener("submit", (event) => {
+      const message = validate();
+      if (message) {
+        event.preventDefault();
+        setError(message);
+      }
+    });
+
+    render(false);
+  }
+
+  function boot() {
+    document.querySelectorAll("[data-signup-wizard]").forEach(init);
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
+  else boot();
+})();
+`;
 
 const ROLE_CARDS: Array<{
   value: Role;
@@ -114,9 +240,9 @@ export function SignupWizard({ initialRole, initialEmail, next, notice }: Props)
   }
 
   return (
-    <div className="signup-flow">
+    <div className="signup-flow" data-signup-wizard>
       <div className="signup-progress" aria-hidden="true">
-        <div className="signup-progress-fill" style={{ width: `${progress}%` }} />
+        <div className="signup-progress-fill" data-signup-progress style={{ width: `${progress}%` }} />
       </div>
       <ol className="signup-steps" aria-label="Signup steps">
         {STEP_LABELS.map((label, idx) => {
@@ -125,6 +251,7 @@ export function SignupWizard({ initialRole, initialEmail, next, notice }: Props)
           return (
             <li
               key={label}
+              data-signup-step-item
               className={`signup-step ${isActive ? "active" : ""} ${isDone ? "done" : ""}`}
               aria-current={isActive ? "step" : undefined}
             >
@@ -137,7 +264,7 @@ export function SignupWizard({ initialRole, initialEmail, next, notice }: Props)
         })}
       </ol>
 
-      <form action={signupWithPassword} className="signup-form" onSubmit={handleSubmit} onKeyDown={handleKeyDown}>
+      <form action={signupWithPassword} className="signup-form" data-signup-form onSubmit={handleSubmit} onKeyDown={handleKeyDown}>
         <input name="next" type="hidden" value={next} />
         <input name="role" type="hidden" value={role} />
 
@@ -148,7 +275,7 @@ export function SignupWizard({ initialRole, initialEmail, next, notice }: Props)
           </div>
         ) : null}
 
-        <section className="signup-pane" hidden={step !== 0} aria-hidden={step !== 0} key={`pane-${step}`}>
+        <section className="signup-pane" data-signup-pane hidden={step !== 0} aria-hidden={step !== 0} key={`pane-${step}`}>
           <p className="signup-eyebrow">Step 1 of {total}</p>
           <h1 className="signup-question">What brings you to Liber?</h1>
           <p className="signup-helper">Pick the path that fits today. You can add the other later.</p>
@@ -158,6 +285,7 @@ export function SignupWizard({ initialRole, initialEmail, next, notice }: Props)
               return (
                 <button
                   className={`signup-role-card ${selected ? "selected" : ""}`}
+                  data-signup-role={card.value}
                   key={card.value}
                   onClick={() => setRole(card.value)}
                   type="button"
@@ -180,10 +308,10 @@ export function SignupWizard({ initialRole, initialEmail, next, notice }: Props)
           </div>
         </section>
 
-        <section className="signup-pane" hidden={step !== 1} aria-hidden={step !== 1}>
+        <section className="signup-pane" data-signup-pane hidden={step !== 1} aria-hidden={step !== 1}>
           <p className="signup-eyebrow">Step 2 of {total}</p>
           <h1 className="signup-question">What should we call you?</h1>
-          <p className="signup-helper">Sellers see this on invites and your profile.</p>
+          <p className="signup-helper">Only you see this in your buyer portal. You choose a seller-facing display name later.</p>
           <input
             autoComplete="name"
             className="signup-input"
@@ -196,7 +324,7 @@ export function SignupWizard({ initialRole, initialEmail, next, notice }: Props)
           />
         </section>
 
-        <section className="signup-pane" hidden={step !== 2} aria-hidden={step !== 2}>
+        <section className="signup-pane" data-signup-pane hidden={step !== 2} aria-hidden={step !== 2}>
           <p className="signup-eyebrow">Step 3 of {total}</p>
           <h1 className="signup-question">What&rsquo;s your email?</h1>
           <p className="signup-helper">We&rsquo;ll send a verification link before your account goes live.</p>
@@ -213,7 +341,7 @@ export function SignupWizard({ initialRole, initialEmail, next, notice }: Props)
           />
         </section>
 
-        <section className="signup-pane" hidden={step !== 3} aria-hidden={step !== 3}>
+        <section className="signup-pane" data-signup-pane hidden={step !== 3} aria-hidden={step !== 3}>
           <p className="signup-eyebrow">Step 4 of {total}</p>
           <h1 className="signup-question">Create a password</h1>
           <p className="signup-helper">Use at least 12 characters with letters and numbers.</p>
@@ -238,23 +366,22 @@ export function SignupWizard({ initialRole, initialEmail, next, notice }: Props)
           </div>
         </section>
 
-        {error ? <p className="signup-error">{error}</p> : null}
+        <p className="signup-error" data-signup-error hidden={!error}>
+          {error}
+        </p>
 
         <div className="signup-actions">
-          <button className="button ghost" disabled={step === 0} onClick={goBack} type="button">
+          <button className="button ghost" data-signup-back disabled={step === 0} onClick={goBack} type="button">
             Back
           </button>
-          {step < total - 1 ? (
-            <button className="button primary lg" onClick={goNext} type="button">
-              Continue
-              <Icon name="arrow-right" size={14} />
-            </button>
-          ) : (
-            <button className="button primary lg" type="submit">
-              <Icon name="sparkle" size={14} />
-              Create account
-            </button>
-          )}
+          <button className="button primary lg" data-signup-next hidden={step >= total - 1} onClick={goNext} type="button">
+            Continue
+            <Icon name="arrow-right" size={14} />
+          </button>
+          <button className="button primary lg" data-signup-create hidden={step < total - 1} type="submit">
+            <Icon name="sparkle" size={14} />
+            Create account
+          </button>
         </div>
 
         <p className="signup-foot muted small">
@@ -262,6 +389,7 @@ export function SignupWizard({ initialRole, initialEmail, next, notice }: Props)
           <Link href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}>Log in</Link>
         </p>
       </form>
+      <script dangerouslySetInnerHTML={{ __html: SIGNUP_WIZARD_FALLBACK }} />
     </div>
   );
 }

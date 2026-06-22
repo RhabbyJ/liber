@@ -252,7 +252,7 @@ function emptyBuyerForUser(user: SessionUser): Buyer {
   return {
     id: "new-profile",
     userId: user.id,
-    name: "New buyer",
+    name: "Private buyer",
     location: "",
     city: "",
     state: "",
@@ -273,6 +273,17 @@ function emptyBuyerForUser(user: SessionUser): Buyer {
     refreshedAt: "",
     lat: 0,
     lng: 0,
+  };
+}
+
+function privateAccountName(user: { name: string | null } | null) {
+  return user?.name?.trim() || "buyer";
+}
+
+function withPrivateAccountName(buyer: Buyer, accountName: string) {
+  return {
+    ...buyer,
+    accountName,
   };
 }
 
@@ -829,11 +840,21 @@ export async function uploadBuyerAvatarFile(file: File) {
 
 export async function getCurrentBuyerProfile() {
   const user = await requireCurrentUser("BUYER");
-  const profile = await prisma.buyerProfile.findUnique({
-    where: { userId: user.id },
-    include: buyerInclude,
-  });
-  return { ok: true, data: profile ? buyerFromDb(profile) : emptyBuyerForUser(user) };
+  const [profile, account] = await Promise.all([
+    prisma.buyerProfile.findUnique({
+      where: { userId: user.id },
+      include: buyerInclude,
+    }),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { name: true },
+    }),
+  ]);
+  const accountName = privateAccountName(account);
+  return {
+    ok: true,
+    data: withPrivateAccountName(profile ? buyerFromDb(profile) : emptyBuyerForUser(user), accountName),
+  };
 }
 
 export async function listBuyerInvites() {

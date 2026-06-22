@@ -21,6 +21,7 @@ Owns shared visual language, navigation, layouts, reusable components, and globa
 - CTAs should describe the actual action.
 - Avoid fake/dead controls.
 - Keep mobile and keyboard accessibility in scope.
+- Primary mobile navigation must remain usable during delayed or missing client hydration; keep menu contents/actions in the DOM and preserve the fallback behavior in `primary-nav.tsx`.
 - Do not use real-looking buyer imagery as a trust shortcut.
 
 ## Agent notes

@@ -66,10 +66,12 @@ Runtime authorization must read server-controlled state from the database, not b
 Key concepts:
 
 - `User.roles` stores buyer/seller/admin roles.
+- `User.name` is private account identity for owner-only UI; seller/public buyer surfaces must use `BuyerProfile.displayName` or an anonymized preview label.
 - `User.status` blocks suspended users.
 - `SellerAccess.status` controls buyer-directory/search/profile/invite access.
 - A user self-selecting `SELLER` does not automatically gain directory access.
 - Admin status is not self-service.
+- Auth POST routes preserve the incoming request host/protocol for same-origin checks and redirects so local `127.0.0.1` and `localhost` sessions do not cross origins under the CSP `form-action` rule.
 
 Relevant files:
 

@@ -2,10 +2,11 @@ import { prisma } from "@liber/db";
 import { NextResponse, type NextRequest } from "next/server";
 import { safeInternalPath } from "../../../../lib/redirect";
 import { checkRateLimit, clientIpFromRequest } from "../../../../server/rate-limit";
+import { isRequestSameOrigin, requestUrl } from "../../../../server/request-origin";
 import { createSupabaseServerClient } from "../../../../server/supabase";
 
 export async function POST(request: NextRequest) {
-  if (!isSameOrigin(request)) {
+  if (!isRequestSameOrigin(request)) {
     return NextResponse.json({ error: "Invalid origin." }, { status: 403 });
   }
 
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
 }
 
 function redirectTo(request: NextRequest, path: string) {
-  const response = NextResponse.redirect(new URL(path, request.url), 303);
+  const response = NextResponse.redirect(requestUrl(request, path), 303);
   response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
@@ -70,10 +71,4 @@ function redirectTo(request: NextRequest, path: string) {
 function textValue(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
-}
-
-function isSameOrigin(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  return origin === new URL(request.url).origin;
 }
