@@ -1,36 +1,9 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { Icon } from "./icon";
 import { LocationLookupFields } from "./location-lookup-fields";
 import { activePilotAreas } from "../lib/launch-market";
-
-const budgetMinOptions = [
-  { label: "No minimum", value: "" },
-  { label: "$500k", value: "500000" },
-  { label: "$750k", value: "750000" },
-  { label: "$1M", value: "1000000" },
-  { label: "$1.5M", value: "1500000" },
-  { label: "$2M", value: "2000000" },
-];
-
-const budgetMaxOptions = [
-  { label: "$500k", value: "500000" },
-  { label: "$750k", value: "750000" },
-  { label: "$1M", value: "1000000" },
-  { label: "$1.5M", value: "1500000" },
-  { label: "$2M", value: "2000000" },
-  { label: "$3M+", value: "3000000" },
-];
-
-const downPaymentOptions = [
-  { label: "No minimum", value: "" },
-  { label: "$50k", value: "50000" },
-  { label: "$100k", value: "100000" },
-  { label: "$200k", value: "200000" },
-  { label: "$300k", value: "300000" },
-  { label: "$500k+", value: "500000" },
-];
 
 const buyerTypeOptions = ["Home Buyer", "Investor", "Cash Buyer", "Move-up Buyer", "Downsizing Buyer"];
 const buyingPurposeOptions = ["Owner occupy", "Fix and flip", "Other"];
@@ -50,25 +23,6 @@ const bathroomsOptions = [
   { label: "2+ bathrooms", value: "2" },
   { label: "3+ bathrooms", value: "3" },
   { label: "4+ bathrooms", value: "4" },
-];
-
-const squareFeetOptions = [
-  { label: "Any square feet", value: "" },
-  { label: "1,000+ sqft", value: "1000" },
-  { label: "1,500+ sqft", value: "1500" },
-  { label: "2,000+ sqft", value: "2000" },
-  { label: "2,500+ sqft", value: "2500" },
-  { label: "3,000+ sqft", value: "3000" },
-  { label: "4,000+ sqft", value: "4000" },
-];
-
-const lotSizeOptions = [
-  { label: "Any lot size", value: "" },
-  { label: "2,500+ lot sqft", value: "2500" },
-  { label: "5,000+ lot sqft", value: "5000" },
-  { label: "7,500+ lot sqft", value: "7500" },
-  { label: "10,000+ lot sqft", value: "10000" },
-  { label: "15,000+ lot sqft", value: "15000" },
 ];
 
 const yearBuiltOptions = [
@@ -506,38 +460,30 @@ export function BuyerProfileWizard({
             <p className="muted small">Ranges, not exact numbers. Sellers filter against this.</p>
           </div>
           <div className="form-grid">
-            <div className="field">
-              <label htmlFor="budgetMin">Budget min</label>
-              <select id="budgetMin" name="budgetMin" defaultValue={String(buyer.budgetMin || "")}>
-                {budgetMinOptions.map((option) => (
-                  <option key={option.label} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="budgetMax">Budget max</label>
-              <select id="budgetMax" name="budgetMax" defaultValue={String(buyer.budgetMax || "1000000")}>
-                {budgetMaxOptions.map((option) => (
-                  <option key={option.label} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="downPaymentMin">Down payment min</label>
-              <select id="downPaymentMin" name="downPaymentMin" defaultValue={String(buyer.downPaymentMin || "")}>
-                {downPaymentOptions.map((option) => (
-                  <option key={option.label} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="downPaymentMax">Down payment max</label>
-              <select id="downPaymentMax" name="downPaymentMax" defaultValue={String(buyer.downPaymentMax || "200000")}>
-                {downPaymentOptions.slice(1).map((option) => (
-                  <option key={option.label} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
+            <NumberRangeField
+              defaultMax={String(buyer.budgetMax || "1000000")}
+              defaultMin={String(buyer.budgetMin || "")}
+              label="Budget range"
+              max={3_000_000}
+              maxId="budgetMax"
+              maxName="budgetMax"
+              min={0}
+              minId="budgetMin"
+              minName="budgetMin"
+              step={25_000}
+            />
+            <NumberRangeField
+              defaultMax={String(buyer.downPaymentMax || "200000")}
+              defaultMin={String(buyer.downPaymentMin || "")}
+              label="Down payment range"
+              max={1_000_000}
+              maxId="downPaymentMax"
+              maxName="downPaymentMax"
+              min={0}
+              minId="downPaymentMin"
+              minName="downPaymentMin"
+              step={10_000}
+            />
           </div>
         </section>
 
@@ -571,22 +517,28 @@ export function BuyerProfileWizard({
                 ))}
               </select>
             </div>
-            <div className="field">
-              <label htmlFor="squareFeetMin">Square feet min</label>
-              <select id="squareFeetMin" name="squareFeetMin" defaultValue={String(criteria?.squareFeetMin || "")}>
-                {squareFeetOptions.map((option) => (
-                  <option key={option.label} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="lotSizeMin">Lot size min</label>
-              <select id="lotSizeMin" name="lotSizeMin" defaultValue={String(criteria?.lotSizeMin || "")}>
-                {lotSizeOptions.map((option) => (
-                  <option key={option.label} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
+            <NumberSliderField
+              defaultValue={String(criteria?.squareFeetMin || "")}
+              id="squareFeetMin"
+              label="Square feet min"
+              max={6_000}
+              min={0}
+              name="squareFeetMin"
+              placeholder="Any square feet"
+              step={100}
+              suffix="sqft"
+            />
+            <NumberSliderField
+              defaultValue={String(criteria?.lotSizeMin || "")}
+              id="lotSizeMin"
+              label="Lot size min"
+              max={20_000}
+              min={0}
+              name="lotSizeMin"
+              placeholder="Any lot size"
+              step={500}
+              suffix="sqft lot"
+            />
             <div className="field">
               <label htmlFor="yearBuiltMin">Year built</label>
               <select id="yearBuiltMin" name="yearBuiltMin" defaultValue={String(criteria?.yearBuiltMin || "")}>
@@ -718,6 +670,201 @@ export function BuyerProfileWizard({
       <script dangerouslySetInnerHTML={{ __html: BUYER_PROFILE_WIZARD_FALLBACK }} />
     </form>
   );
+}
+
+type NumberRangeFieldProps = {
+  defaultMax: string;
+  defaultMin: string;
+  label: string;
+  max: number;
+  maxId: string;
+  maxName: string;
+  min: number;
+  minId: string;
+  minName: string;
+  step: number;
+};
+
+function NumberRangeField({
+  defaultMax,
+  defaultMin,
+  label,
+  max,
+  maxId,
+  maxName,
+  min,
+  minId,
+  minName,
+  step,
+}: NumberRangeFieldProps) {
+  const [minValue, setMinValue] = useState(() => normalizeNumberValue(defaultMin, min, max, ""));
+  const [maxValue, setMaxValue] = useState(() => normalizeNumberValue(defaultMax, min, max, String(max)));
+  const minSliderValue = sliderNumber(minValue, min, max);
+  const maxSliderValue = sliderNumber(maxValue, min, max);
+  const lowerValue = Math.min(minSliderValue, maxSliderValue);
+  const upperValue = Math.max(minSliderValue, maxSliderValue);
+
+  return (
+    <div className="field full range-field">
+      <label>{label}</label>
+      <div className="range-input-pair">
+        <label className="range-number-box" htmlFor={minId}>
+          <span>Min</span>
+          <span className="range-number-wrap">
+            <span className="range-prefix" aria-hidden="true">$</span>
+            <input
+              className="range-number-input has-prefix"
+              id={minId}
+              inputMode="numeric"
+              max={max}
+              min={min}
+              name={minName}
+              onChange={(event) => setMinValue(normalizeNumberValue(event.target.value, min, max, ""))}
+              placeholder="No min"
+              step={step}
+              type="number"
+              value={minValue}
+            />
+          </span>
+        </label>
+        <label className="range-number-box" htmlFor={maxId}>
+          <span>Max</span>
+          <span className="range-number-wrap">
+            <span className="range-prefix" aria-hidden="true">$</span>
+            <input
+              className="range-number-input has-prefix"
+              id={maxId}
+              inputMode="numeric"
+              max={max}
+              min={min}
+              name={maxName}
+              onChange={(event) => setMaxValue(normalizeNumberValue(event.target.value, min, max, String(max)))}
+              placeholder="No max"
+              step={step}
+              type="number"
+              value={maxValue}
+            />
+          </span>
+        </label>
+      </div>
+      <div className="range-control dual" style={rangeStyle(lowerValue, upperValue, min, max)}>
+        <span className="range-track" aria-hidden="true" />
+        <input
+          aria-label={`${label} minimum`}
+          className="profile-range"
+          max={max}
+          min={min}
+          onChange={(event) => {
+            const next = Math.min(Number(event.target.value), maxSliderValue);
+            setMinValue(next === min ? "" : String(next));
+          }}
+          step={step}
+          type="range"
+          value={minSliderValue}
+        />
+        <input
+          aria-label={`${label} maximum`}
+          className="profile-range"
+          max={max}
+          min={min}
+          onChange={(event) => {
+            const next = Math.max(Number(event.target.value), minSliderValue);
+            setMaxValue(String(next));
+          }}
+          step={step}
+          type="range"
+          value={maxSliderValue}
+        />
+      </div>
+    </div>
+  );
+}
+
+type NumberSliderFieldProps = {
+  defaultValue: string;
+  id: string;
+  label: string;
+  max: number;
+  min: number;
+  name: string;
+  placeholder: string;
+  step: number;
+  suffix: string;
+};
+
+function NumberSliderField({
+  defaultValue,
+  id,
+  label,
+  max,
+  min,
+  name,
+  placeholder,
+  step,
+  suffix,
+}: NumberSliderFieldProps) {
+  const [value, setValue] = useState(() => normalizeNumberValue(defaultValue, min, max, ""));
+  const sliderValue = sliderNumber(value, min, max);
+
+  return (
+    <div className="field range-field">
+      <label htmlFor={id}>{label}</label>
+      <span className="range-number-wrap">
+        <input
+          className="range-number-input"
+          id={id}
+          inputMode="numeric"
+          max={max}
+          min={min}
+          name={name}
+          onChange={(event) => setValue(normalizeNumberValue(event.target.value, min, max, ""))}
+          placeholder={placeholder}
+          step={step}
+          type="number"
+          value={value}
+        />
+        <span className="range-suffix" aria-hidden="true">{suffix}</span>
+      </span>
+      <div className="range-control single" style={rangeStyle(min, sliderValue, min, max)}>
+        <span className="range-track" aria-hidden="true" />
+        <input
+          aria-label={`${label} slider`}
+          className="profile-range"
+          max={max}
+          min={min}
+          onChange={(event) => {
+            const next = Number(event.target.value);
+            setValue(next === min ? "" : String(next));
+          }}
+          step={step}
+          type="range"
+          value={sliderValue}
+        />
+      </div>
+    </div>
+  );
+}
+
+function normalizeNumberValue(value: string, min: number, max: number, emptyFallback: string) {
+  if (value.trim() === "") return emptyFallback;
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return emptyFallback;
+  return String(Math.max(min, Math.min(max, Math.round(amount))));
+}
+
+function sliderNumber(value: string, min: number, max: number) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return min;
+  return Math.max(min, Math.min(max, amount));
+}
+
+function rangeStyle(start: number, end: number, min: number, max: number) {
+  const startPercent = ((start - min) / (max - min)) * 100;
+  const endPercent = ((end - min) / (max - min)) * 100;
+  return {
+    "--range-start": `${Math.max(0, Math.min(100, startPercent))}%`,
+    "--range-end": `${Math.max(0, Math.min(100, endPercent))}%`,
+  } as CSSProperties;
 }
 
 function formText(formData: FormData, key: string) {

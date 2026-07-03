@@ -2615,6 +2615,140 @@ main {
   display: none;
 }
 
+.range-field {
+  gap: 12px;
+}
+
+.range-input-pair {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.range-number-box {
+  color: var(--ink-muted);
+  display: grid;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.range-number-wrap {
+  display: block;
+  position: relative;
+}
+
+.field .range-number-input {
+  font-variant-numeric: tabular-nums;
+  padding-right: 72px;
+}
+
+.field .range-number-input.has-prefix {
+  padding-left: 30px;
+}
+
+.range-prefix,
+.range-suffix {
+  color: var(--ink-muted);
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.range-prefix {
+  left: 14px;
+}
+
+.range-suffix {
+  right: 14px;
+}
+
+.range-control {
+  height: 32px;
+  position: relative;
+}
+
+.range-track {
+  background: linear-gradient(
+    to right,
+    var(--line-soft) 0 var(--range-start),
+    var(--sage-strong) var(--range-start) var(--range-end),
+    var(--line-soft) var(--range-end) 100%
+  );
+  border-radius: var(--r-pill);
+  height: 5px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.profile-range {
+  appearance: none;
+  background: transparent;
+  height: 32px;
+  left: 0;
+  margin: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+
+.profile-range:focus {
+  outline: none;
+}
+
+.profile-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: var(--focus-ring);
+}
+
+.profile-range:focus-visible::-moz-range-thumb {
+  box-shadow: var(--focus-ring);
+}
+
+.profile-range::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 5px;
+}
+
+.profile-range::-webkit-slider-thumb {
+  appearance: none;
+  background: #fff;
+  border: 2px solid var(--sage-strong);
+  border-radius: var(--r-pill);
+  box-shadow: 0 3px 10px rgba(31, 27, 22, 0.18);
+  cursor: grab;
+  height: 22px;
+  margin-top: -8px;
+  pointer-events: auto;
+  width: 22px;
+}
+
+.profile-range::-webkit-slider-thumb:active {
+  cursor: grabbing;
+}
+
+.profile-range::-moz-range-track {
+  background: transparent;
+  height: 5px;
+}
+
+.profile-range::-moz-range-thumb {
+  background: #fff;
+  border: 2px solid var(--sage-strong);
+  border-radius: var(--r-pill);
+  box-shadow: 0 3px 10px rgba(31, 27, 22, 0.18);
+  cursor: grab;
+  height: 18px;
+  pointer-events: auto;
+  width: 18px;
+}
+
 @keyframes wizard-fade-in {
   from {
     opacity: 0;
@@ -2634,6 +2768,12 @@ main {
 
 .wizard-footer [hidden] {
   display: none;
+}
+
+@media (max-width: 640px) {
+  .range-input-pair {
+    grid-template-columns: 1fr;
+  }
 }
 
 .buyer-profile-page .page-title {
