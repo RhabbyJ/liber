@@ -2632,6 +2632,10 @@ main {
   padding-top: 18px;
 }
 
+.wizard-footer [hidden] {
+  display: none;
+}
+
 .buyer-profile-page .page-title {
   margin-bottom: 0;
 }
