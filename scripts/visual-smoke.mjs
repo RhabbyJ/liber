@@ -248,7 +248,7 @@ try {
   const targets = [
     { file: "desktop-home.png", height: 1000, path: "/", width: 1440 },
     { file: "desktop-login.png", height: 900, markers: ["Log in", "Email"], path: "/login", width: 1440 },
-    { file: "desktop-signup.png", height: 900, markers: ["Sign up", "Email"], path: "/signup", width: 1440 },
+    { file: "desktop-signup.png", height: 900, markers: ["What brings you to Liber?", "Looking to buy a home"], path: "/signup", width: 1440 },
     { file: "mobile-home.png", height: 844, path: "/", width: 390 },
     { file: "mobile-login.png", height: 844, markers: ["Log in", "Email"], path: "/login", width: 390 },
   ];

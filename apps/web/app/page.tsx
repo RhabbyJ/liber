@@ -9,7 +9,6 @@ export const revalidate = 300;
 export default async function HomePage() {
   const buyerPreviews = await getPublicBuyerPreviews();
   const mapboxToken = (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim();
-  const showMap = Boolean(mapboxToken);
 
   return (
     <div className="map-landing">
@@ -23,15 +22,15 @@ export default async function HomePage() {
             <Icon name="arrow-right" size={14} />
           </Link>
           <Link className="button secondary" href="/signup?role=buyer&next=/buyer/profile">
-            I&apos;m a buyer
+            Add buyer demand
           </Link>
         </div>
       </section>
 
       <section className="map-landing-body" aria-label="Buyer demand preview">
-        {showMap ? <PublicDemandMap previews={buyerPreviews} token={mapboxToken} /> : null}
+        <PublicDemandMap previews={buyerPreviews} token={mapboxToken} />
 
-        <aside className={`demand-panel ${showMap ? "" : "full"}`}>
+        <aside className="demand-panel">
           <header className="demand-panel-head">
             <h2>Buyer demand</h2>
             <span className="demand-count">
@@ -53,7 +52,7 @@ export default async function HomePage() {
               <Icon name="arrow-right" size={14} />
             </Link>
             <Link className="demand-buyer-link" href="/signup?role=buyer&next=/buyer/profile">
-              I&apos;m a buyer — add my demand
+              Add my buyer demand
             </Link>
           </article>
 

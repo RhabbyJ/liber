@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
-import { activePilotAreas, findPilotArea, pilotAreas } from "../lib/launch-market";
+import { useRouter } from "next/navigation";
+import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { findPilotArea } from "../lib/launch-market";
 import { Icon } from "./icon";
 
 type Props = {
@@ -14,7 +14,6 @@ type Props = {
   defaultRadiusMiles?: string | number;
   defaultBudgetMin?: string | number;
   defaultBudgetMax?: string | number;
-  defaultPropertySubtype?: string;
   defaultBadges?: string[];
   defaultSort?: string;
   defaultBedrooms?: string;
@@ -28,6 +27,7 @@ const amenityOptions = ["Pool", "Parking", "ADU", "Yard", "Garage"] as const;
 const conditionOptions = ["Move-in ready", "Mild fixer", "Fixer"] as const;
 
 const minBudgetOptions = [
+  { label: "No min", value: "" },
   { label: "$300k", value: "300000" },
   { label: "$400k", value: "400000" },
   { label: "$500k", value: "500000" },
@@ -35,17 +35,25 @@ const minBudgetOptions = [
   { label: "$700k", value: "700000" },
   { label: "$800k", value: "800000" },
   { label: "$900k", value: "900000" },
-  { label: "$1.0M", value: "1000000" },
+  { label: "$1M", value: "1000000" },
 ];
 
 const maxBudgetOptions = [
+  { label: "No max", value: "" },
   { label: "$500k", value: "500000" },
   { label: "$750k", value: "750000" },
-  { label: "$1.0M", value: "1000000" },
-  { label: "$1.2M+", value: "1200000" },
+  { label: "$1M", value: "1000000" },
+  { label: "$1.2M", value: "1200000" },
   { label: "$1.5M", value: "1500000" },
-  { label: "$2.0M", value: "2000000" },
-  { label: "$3.0M+", value: "3000000" },
+  { label: "$2M", value: "2000000" },
+  { label: "$3M", value: "3000000" },
+];
+
+const trustOptions = [
+  { label: "Pre-approved", value: "PRE_APPROVED" },
+  { label: "Verified funds", value: "VERIFIED_FUNDS" },
+  { label: "Cash buyer", value: "CASH_BUYER" },
+  { label: "Non-contingent", value: "NON_CONTINGENT" },
 ];
 
 export function SearchFiltersSidebar({
@@ -57,7 +65,6 @@ export function SearchFiltersSidebar({
   defaultRadiusMiles = 8,
   defaultBudgetMin = "",
   defaultBudgetMax = "",
-  defaultPropertySubtype = "",
   defaultBadges = [],
   defaultSort = "recommended",
   defaultBedrooms = "",
@@ -67,9 +74,6 @@ export function SearchFiltersSidebar({
   defaultAmenities = [],
 }: Props) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  // Location States
   const [area, setArea] = useState(defaultArea);
   const [city, setCity] = useState(defaultCity);
   const [state, setState] = useState(defaultState);
@@ -78,66 +82,36 @@ export function SearchFiltersSidebar({
   const [radiusMiles, setRadiusMiles] = useState(String(defaultRadiusMiles || 8));
   const [locationMessage, setLocationMessage] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
-
-  // Budget States
-  const [minBudget, setMinBudget] = useState(String(defaultBudgetMin || "600000")); // Mockup defaults to $600k
-  const [maxBudget, setMaxBudget] = useState(String(defaultBudgetMax || "1200000")); // Mockup defaults to $1.2M+
-
-  // Slider visual positions (percent 0-100)
-  const [minPercent, setMinPercent] = useState(25);
-  const [maxPercent, setMaxPercent] = useState(65);
-
-  // Property Type States: SFR, Condo, Townhome (active SFR in mockup)
-  const [propertyType, setPropertyType] = useState<"SFR" | "Condo" | "Townhome" | null>(
-    defaultPropertySubtype === "HOME" ? "SFR" : null
-  );
-
-  // Buyer Trust States
+  const [minBudget, setMinBudget] = useState(String(defaultBudgetMin || ""));
+  const [maxBudget, setMaxBudget] = useState(String(defaultBudgetMax || ""));
   const [checkedBadges, setCheckedBadges] = useState<string[]>(defaultBadges);
-
-  // Property Fit States
   const [bedrooms, setBedrooms] = useState(defaultBedrooms);
   const [bathrooms, setBathrooms] = useState(defaultBathrooms);
   const [squareFeet, setSquareFeet] = useState(defaultSquareFeet);
   const [condition, setCondition] = useState(defaultCondition);
   const [amenities, setAmenities] = useState<string[]>(defaultAmenities);
 
-  // Other States
-  const [offMarketOnly, setOffMarketOnly] = useState(false);
-
-  // Sync Slider percentages on mount or value change
-  useEffect(() => {
-    const minVal = Number(minBudget) || 300000;
-    const maxVal = Number(maxBudget) || 1200000;
-    
-    // Scale $300k - $3M range to 0 - 100%
-    const minP = Math.min(100, Math.max(0, ((minVal - 300000) / 2700000) * 100));
-    const maxP = Math.min(100, Math.max(0, ((maxVal - 300000) / 2700000) * 100));
-    
-    setMinPercent(minP);
-    setMaxPercent(maxP);
-  }, [minBudget, maxBudget]);
-
-  const handleLocationChange = (val: string) => {
-    setArea(val);
+  function handleLocationChange(value: string) {
+    setArea(value);
     setLocationMessage("");
 
-    const matchedArea = findPilotArea(val);
+    const matchedArea = findPilotArea(value);
     if (matchedArea) {
       setCity(matchedArea.city);
       setState(matchedArea.state);
       setLat(String(matchedArea.lat));
       setLng(String(matchedArea.lng));
       setRadiusMiles(String(matchedArea.radiusMiles));
-    } else {
-      setCity("");
-      setState("CA");
-      setLat("");
-      setLng("");
+      return;
     }
-  };
 
-  const handleLocationLookup = async () => {
+    setCity("");
+    setState("CA");
+    setLat("");
+    setLng("");
+  }
+
+  async function handleLocationLookup() {
     if (!area.trim()) return;
     setLocationMessage("");
 
@@ -188,9 +162,15 @@ export function SearchFiltersSidebar({
     } finally {
       setIsLookingUp(false);
     }
-  };
+  }
 
-  const handleClearLocation = () => {
+  function handleLocationKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    void handleLocationLookup();
+  }
+
+  function handleClearLocation() {
     setArea("");
     setCity("");
     setState("CA");
@@ -198,86 +178,53 @@ export function SearchFiltersSidebar({
     setLng("");
     setRadiusMiles("8");
     setLocationMessage("");
-  };
+  }
 
-  const toggleBadge = (badge: string) => {
-    setCheckedBadges((prev) =>
-      prev.includes(badge) ? prev.filter((b) => b !== badge) : [...prev, badge]
+  function toggleBadge(badge: string) {
+    setCheckedBadges((current) =>
+      current.includes(badge) ? current.filter((item) => item !== badge) : [...current, badge],
     );
-  };
+  }
 
-  const toggleAmenity = (amenity: string) => {
-    setAmenities((prev) =>
-      prev.includes(amenity) ? prev.filter((a) => a !== amenity) : [...prev, amenity]
+  function toggleAmenity(amenity: string) {
+    setAmenities((current) =>
+      current.includes(amenity) ? current.filter((item) => item !== amenity) : [...current, amenity],
     );
-  };
+  }
 
-  const handleClearFilters = () => {
-    setArea("");
-    setCity("");
-    setState("CA");
-    setLat("");
-    setLng("");
-    setRadiusMiles("8");
-    setLocationMessage("");
-    setMinBudget("300000");
-    setMaxBudget("1200000");
-    setPropertyType(null);
-    setCheckedBadges([]);
-    setBedrooms("");
-    setBathrooms("");
-    setSquareFeet("");
-    setCondition("");
-    setAmenities([]);
-    setOffMarketOnly(false);
-    
-    // Trigger submit with cleared values
-    const nextParams = new URLSearchParams();
-    nextParams.set("sort", defaultSort);
-    router.push(`/seller/search?${nextParams.toString()}`);
-  };
+  function handleClearFilters() {
+    router.push(queryPath(new URLSearchParams(defaultSort === "recommended" ? "" : `sort=${defaultSort}`)));
+  }
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
     const nextParams = new URLSearchParams();
     if (area) nextParams.set("area", area);
     if (city) nextParams.set("city", city);
     if (state) nextParams.set("state", state);
-    const hasRadiusCoordinates = lat.trim() !== "" && lng.trim() !== "";
-    if (hasRadiusCoordinates) {
+    if (lat.trim() && lng.trim()) {
       nextParams.set("centerLat", lat);
       nextParams.set("centerLng", lng);
       if (radiusMiles) nextParams.set("radiusMiles", radiusMiles);
     }
     if (minBudget) nextParams.set("budgetMin", minBudget);
     if (maxBudget) nextParams.set("budgetMax", maxBudget);
-    
-    if (propertyType) {
-      nextParams.set("propertySubtype", "HOME");
-    }
     if (bedrooms) nextParams.set("bedrooms", bedrooms);
     if (bathrooms) nextParams.set("bathrooms", bathrooms);
     if (squareFeet) nextParams.set("squareFeet", squareFeet);
     if (condition) nextParams.set("condition", condition);
+    if (defaultSort !== "recommended") nextParams.set("sort", defaultSort);
 
-    amenities.forEach((amenity) => {
-      nextParams.append("amenities", amenity);
-    });
+    amenities.forEach((amenity) => nextParams.append("amenities", amenity));
+    checkedBadges.forEach((badge) => nextParams.append("badges", badge));
 
-    checkedBadges.forEach((badge) => {
-      nextParams.append("badges", badge);
-    });
-
-    nextParams.set("sort", defaultSort);
-    router.push(`/seller/search?${nextParams.toString()}`);
-  };
+    router.push(queryPath(nextParams));
+  }
 
   return (
     <aside className="search-sidebar-filters" id="search-filters">
-      <form onSubmit={handleFormSubmit} className="filters-form">
-        
-        {/* Section: Location */}
+      <form className="filters-form" onSubmit={handleFormSubmit}>
         <div className="filter-section">
           <h4 className="filter-section-title">Location</h4>
           <div className="location-input-container">
@@ -287,165 +234,91 @@ export function SearchFiltersSidebar({
                 autoComplete="off"
                 id="search-area-input"
                 name="area"
-                onChange={(e) => handleLocationChange(e.target.value)}
                 onBlur={handleLocationLookup}
-                onKeyDown={(e) => e.key === "Enter" && handleLocationLookup()}
-                placeholder="San Fernando Valley"
+                onChange={(event) => handleLocationChange(event.target.value)}
+                onKeyDown={handleLocationKeyDown}
+                placeholder="City, ZIP, or neighborhood"
                 type="text"
                 value={area}
               />
-              {area && (
+              {area ? (
                 <button
-                  type="button"
+                  aria-label="Clear location input"
                   className="clear-input-btn"
                   onClick={handleClearLocation}
-                  aria-label="Clear location input"
+                  type="button"
                 >
                   &times;
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
-          <button
-            type="button"
-            className="add-neighborhood-link"
-            onClick={() => document.getElementById("search-area-input")?.focus()}
-          >
-            + Add neighborhood
+          <button className="link-button" disabled={isLookingUp || !area.trim()} onClick={handleLocationLookup} type="button">
+            {isLookingUp ? "Checking..." : "Verify area"}
           </button>
-          {locationMessage && (
-            <span className="location-message-info">{locationMessage}</span>
-          )}
+          {locationMessage ? <span className="location-message-info">{locationMessage}</span> : null}
         </div>
 
-        {/* Section: Budget Range */}
         <div className="filter-section">
-          <h4 className="filter-section-title">Budget Range</h4>
+          <h4 className="filter-section-title">Budget</h4>
           <div className="budget-select-row">
             <div className="select-wrapper">
-              <select
-                aria-label="Min Budget"
-                value={minBudget}
-                onChange={(e) => setMinBudget(e.target.value)}
-              >
-                {minBudgetOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
+              <select aria-label="Minimum budget" onChange={(event) => setMinBudget(event.target.value)} value={minBudget}>
+                {minBudgetOptions.map((option) => (
+                  <option key={option.label} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
             </div>
-            <span className="budget-separator">-</span>
+            <span className="budget-separator">to</span>
             <div className="select-wrapper">
-              <select
-                aria-label="Max Budget"
-                value={maxBudget}
-                onChange={(e) => setMaxBudget(e.target.value)}
-              >
-                {maxBudgetOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
+              <select aria-label="Maximum budget" onChange={(event) => setMaxBudget(event.target.value)} value={maxBudget}>
+                {maxBudgetOptions.map((option) => (
+                  <option key={option.label} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
             </div>
           </div>
-
-          {/* Slider Visual representation */}
-          <div className="slider-container">
-            <div className="slider-track" />
-            <div
-              className="slider-highlight-bar"
-              style={{
-                left: `${minPercent}%`,
-                width: `${maxPercent - minPercent}%`,
-              }}
-            />
-            <div className="slider-thumb thumb-left" style={{ left: `${minPercent}%` }} />
-            <div className="slider-thumb thumb-right" style={{ left: `${maxPercent}%` }} />
-          </div>
         </div>
 
-        {/* Section: Property Type */}
         <div className="filter-section">
-          <h4 className="filter-section-title">Property Type</h4>
-          <div className="property-pills-row">
-            <button
-              type="button"
-              className={`pill-btn ${propertyType === "SFR" ? "active" : "outlined"}`}
-              onClick={() => setPropertyType(propertyType === "SFR" ? null : "SFR")}
-            >
-              SFR
-            </button>
-            <button
-              type="button"
-              className={`pill-btn ${propertyType === "Condo" ? "active" : "outlined"}`}
-              onClick={() => setPropertyType(propertyType === "Condo" ? null : "Condo")}
-            >
-              Condo
-            </button>
-            <button
-              type="button"
-              className={`pill-btn ${propertyType === "Townhome" ? "active" : "outlined"}`}
-              onClick={() => setPropertyType(propertyType === "Townhome" ? null : "Townhome")}
-            >
-              Townhome
-            </button>
-          </div>
-        </div>
-
-        {/* Section: Property Fit */}
-        <div className="filter-section">
-          <h4 className="filter-section-title">Property Fit</h4>
-          <div className="form-grid" style={{ gap: 10 }}>
+          <h4 className="filter-section-title">Home fit</h4>
+          <div className="form-grid filter-form-grid">
             <div className="select-wrapper">
-              <select
-                aria-label="Bedrooms"
-                value={bedrooms}
-                onChange={(e) => setBedrooms(e.target.value)}
-              >
+              <select aria-label="Bedrooms" onChange={(event) => setBedrooms(event.target.value)} value={bedrooms}>
                 <option value="">Any beds</option>
-                <option value="1">1 bed</option>
-                <option value="2">2 beds</option>
-                <option value="3">3 beds</option>
-                <option value="4">4 beds</option>
+                <option value="1">1+ bed</option>
+                <option value="2">2+ beds</option>
+                <option value="3">3+ beds</option>
+                <option value="4">4+ beds</option>
                 <option value="5">5+ beds</option>
               </select>
             </div>
             <div className="select-wrapper">
-              <select
-                aria-label="Bathrooms"
-                value={bathrooms}
-                onChange={(e) => setBathrooms(e.target.value)}
-              >
+              <select aria-label="Bathrooms" onChange={(event) => setBathrooms(event.target.value)} value={bathrooms}>
                 <option value="">Any baths</option>
-                <option value="1">1 bath</option>
-                <option value="2">2 baths</option>
-                <option value="3">3 baths</option>
+                <option value="1">1+ bath</option>
+                <option value="2">2+ baths</option>
+                <option value="3">3+ baths</option>
                 <option value="4">4+ baths</option>
               </select>
             </div>
             <div className="select-wrapper">
-              <select
-                aria-label="Square feet"
-                value={squareFeet}
-                onChange={(e) => setSquareFeet(e.target.value)}
-              >
+              <select aria-label="Square feet" onChange={(event) => setSquareFeet(event.target.value)} value={squareFeet}>
                 <option value="">Any sqft</option>
-                <option value="1000">1,000 sqft</option>
-                <option value="1200">1,200 sqft</option>
-                <option value="1500">1,500 sqft</option>
-                <option value="2000">2,000 sqft</option>
-                <option value="2500">2,500 sqft</option>
+                <option value="1000">1,000+ sqft</option>
+                <option value="1200">1,200+ sqft</option>
+                <option value="1500">1,500+ sqft</option>
+                <option value="2000">2,000+ sqft</option>
+                <option value="2500">2,500+ sqft</option>
                 <option value="3000">3,000+ sqft</option>
               </select>
             </div>
             <div className="select-wrapper">
-              <select
-                aria-label="Condition"
-                value={condition}
-                onChange={(e) => setCondition(e.target.value)}
-              >
+              <select aria-label="Condition" onChange={(event) => setCondition(event.target.value)} value={condition}>
                 <option value="">Any condition</option>
                 {conditionOptions.map((option) => (
                   <option key={option} value={option}>
@@ -455,19 +328,18 @@ export function SearchFiltersSidebar({
               </select>
             </div>
           </div>
-          <span className="field-hint">Enter your property&apos;s facts to find buyers whose needs fit it.</span>
+          <span className="field-hint">Use your property facts to find buyers whose needs fit.</span>
         </div>
 
-        {/* Section: Amenities */}
         <div className="filter-section">
-          <h4 className="filter-section-title">Amenity Needs</h4>
-          <div className="property-pills-row" style={{ flexWrap: "wrap" }}>
+          <h4 className="filter-section-title">Amenity needs</h4>
+          <div className="property-pills-row wrap">
             {amenityOptions.map((amenity) => (
               <button
-                key={amenity}
-                type="button"
                 className={`pill-btn ${amenities.includes(amenity) ? "active" : "outlined"}`}
+                key={amenity}
                 onClick={() => toggleAmenity(amenity)}
+                type="button"
               >
                 {amenity}
               </button>
@@ -475,83 +347,38 @@ export function SearchFiltersSidebar({
           </div>
         </div>
 
-        {/* Section: Buyer Trust */}
         <div className="filter-section">
-          <h4 className="filter-section-title">Buyer Trust</h4>
+          <h4 className="filter-section-title">Buyer trust</h4>
           <div className="checkboxes-stack">
-            <label className="checkbox-container">
-              <input
-                type="checkbox"
-                checked={checkedBadges.includes("PRE_APPROVED")}
-                onChange={() => toggleBadge("PRE_APPROVED")}
-              />
-              <span className="checkmark" />
-              Pre-approved
-            </label>
-            <label className="checkbox-container">
-              <input
-                type="checkbox"
-                checked={checkedBadges.includes("CASH_BUYER")}
-                onChange={() => toggleBadge("CASH_BUYER")}
-              />
-              <span className="checkmark" />
-              Cash buyer
-            </label>
-            <label className="checkbox-container">
-              <input
-                type="checkbox"
-                checked={checkedBadges.includes("NON_CONTINGENT")}
-                onChange={() => toggleBadge("NON_CONTINGENT")}
-              />
-              <span className="checkmark" />
-              Non-contingent
-            </label>
+            {trustOptions.map((option) => (
+              <label className="checkbox-container" key={option.value}>
+                <input
+                  checked={checkedBadges.includes(option.value)}
+                  onChange={() => toggleBadge(option.value)}
+                  type="checkbox"
+                />
+                <span className="checkmark" />
+                {option.label}
+              </label>
+            ))}
           </div>
         </div>
 
-        {/* Section: Other */}
-        <div className="filter-section">
-          <h4 className="filter-section-title">Other</h4>
-          <div className="checkboxes-stack">
-            <label className="checkbox-container">
-              <input
-                type="checkbox"
-                checked={offMarketOnly}
-                onChange={() => setOffMarketOnly(!offMarketOnly)}
-              />
-              <span className="checkmark" />
-              Off-market only
-            </label>
-          </div>
-        </div>
-
-        {/* Form Action Buttons */}
         <div className="sidebar-form-actions">
-          <button type="submit" className="button primary update-matches-btn">
-            <svg
-              className="refresh-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              width="15"
-              height="15"
-            >
-              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l.73-.73" />
-            </svg>
+          <button className="button primary update-matches-btn" type="submit">
+            <Icon name="search" size={15} />
             Update matches
           </button>
-          <button
-            type="button"
-            className="clear-filters-link"
-            onClick={handleClearFilters}
-          >
+          <button className="clear-filters-link" onClick={handleClearFilters} type="button">
             Clear filters
           </button>
         </div>
       </form>
     </aside>
   );
+}
+
+function queryPath(params: URLSearchParams) {
+  const query = params.toString();
+  return query ? `/seller/search?${query}` : "/seller/search";
 }

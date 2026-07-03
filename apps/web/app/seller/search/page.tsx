@@ -8,34 +8,33 @@ import { PageTitle } from "../../../components/page-title";
 import { SearchFiltersSidebar } from "../../../components/search-filters-sidebar";
 import { SortSelect } from "../../../components/sort-select";
 import { ViewToggle } from "../../../components/view-toggle";
-import { mapboxStaticImageUrl } from "../../../lib/mapbox";
 import { canViewBuyerDirectory } from "../../../server/access";
 import { getCurrentSellerAccess, searchBuyers } from "../../../server/contracts";
 import { getSessionUser } from "../../../server/session";
 
+type SellerSearchParams = {
+  amenities?: string | string[];
+  area?: string;
+  badges?: string | string[];
+  bathrooms?: string;
+  bedrooms?: string;
+  budgetMin?: string;
+  budgetMax?: string;
+  centerLat?: string;
+  centerLng?: string;
+  city?: string;
+  condition?: string;
+  radiusMiles?: string;
+  sort?: string;
+  squareFeet?: string;
+  state?: string;
+  view?: string;
+};
 
 export default async function SellerSearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    amenities?: string | string[];
-    area?: string;
-    badges?: string | string[];
-    bathrooms?: string;
-    bedrooms?: string;
-    budgetMin?: string;
-    budgetMax?: string;
-    centerLat?: string;
-    centerLng?: string;
-    city?: string;
-    condition?: string;
-    propertySubtype?: string;
-    radiusMiles?: string;
-    sort?: string;
-    squareFeet?: string;
-    state?: string;
-    view?: string;
-  }>;
+  searchParams: Promise<SellerSearchParams>;
 }) {
   const params = await searchParams;
   const user = await getSessionUser();
@@ -88,7 +87,6 @@ export default async function SellerSearchPage({
   const searchCenterLat = hasRadiusCoordinates ? String(centerLat) : undefined;
   const searchCenterLng = hasRadiusCoordinates ? String(centerLng) : undefined;
   const searchRadiusMiles = hasRadiusCoordinates && radiusMiles !== undefined ? String(radiusMiles) : undefined;
-  const propertySubtype = params.propertySubtype === "HOME" ? "HOME" : undefined;
   const sort = sellerSortParam(params.sort);
   const { data: results } = await searchBuyers({
     amenities,
@@ -101,16 +99,15 @@ export default async function SellerSearchPage({
     centerLng: searchCenterLng,
     city: params.city || undefined,
     condition: params.condition || undefined,
-    propertySubtype,
     radiusMiles: searchRadiusMiles,
     sort,
     squareFeet: params.squareFeet || undefined,
     state: params.state || undefined,
   });
 
-  const staticMapUrl = mapboxStaticImageUrl(results);
   // Map-first workspace: approved sellers land on the map unless they opt into list view.
   const view = params.view === "list" ? "list" : "map";
+  const activeFilters = buildActiveFilters(params, badges, amenities);
 
   return (
     <div className="page wide stack loose">
@@ -140,7 +137,6 @@ export default async function SellerSearchPage({
           defaultRadiusMiles={params.radiusMiles || 8}
           defaultBudgetMin={params.budgetMin || ""}
           defaultBudgetMax={params.budgetMax || ""}
-          defaultPropertySubtype={params.propertySubtype || ""}
           defaultBadges={badges}
           defaultSort={sort}
           defaultBedrooms={params.bedrooms || ""}
@@ -153,7 +149,9 @@ export default async function SellerSearchPage({
         <div className="search-results-area">
           {/* Top Yellow Notice Banner */}
           <div className="private-invite-alert">
-            <span className="alert-icon">🔒</span>
+            <span className="alert-icon">
+              <Icon name="lock" size={18} />
+            </span>
             <div className="alert-content">
               <strong>Private invite only.</strong> Buyers below are not publicly listed. Send a private invite to share details. Your property remains hidden until you invite them.
             </div>
@@ -167,6 +165,17 @@ export default async function SellerSearchPage({
               <ViewToggle currentView={view} />
             </div>
           </div>
+
+          {activeFilters.length > 0 ? (
+            <div className="active-filter-row" aria-label="Active filters">
+              {activeFilters.map((filter) => (
+                <Link className="filter-chip" href={filter.href} key={filter.label}>
+                  {filter.label}
+                  <span aria-hidden="true">&times;</span>
+                </Link>
+              ))}
+            </div>
+          ) : null}
 
           {view === "list" ? (
             <>
@@ -184,27 +193,6 @@ export default async function SellerSearchPage({
                   results.map((buyer) => (
                     <BuyerCard buyer={buyer} key={buyer.id} variant="row" />
                   ))
-                )}
-              </div>
-
-              {/* Bottom Banner */}
-              <div className="bottom-search-banner">
-                <div className="banner-info">
-                  <h3>New buyers are added daily.</h3>
-                  <p>Save this search to get notified when new matching buyers register on Liber.</p>
-                  <button className="button outline-white save-search-btn" type="button">
-                    <Icon name="bell" size={14} /> Save search
-                  </button>
-                </div>
-                {staticMapUrl ? (
-                  <div className="mini-map-preview">
-                    <img src={staticMapUrl} alt="Matching buyers map preview" />
-                    <span className="map-badge">Seller safe view</span>
-                  </div>
-                ) : (
-                  <div className="mini-map-preview fallback">
-                    <span>Map preview unavailable</span>
-                  </div>
                 )}
               </div>
             </>
@@ -257,4 +245,88 @@ function sellerSortParam(value?: string) {
     return value;
   }
   return "recommended";
+}
+
+function buildActiveFilters(params: SellerSearchParams, badges: string[], amenities: string[]) {
+  const filters: Array<{ href: string; label: string }> = [];
+
+  if (params.area || params.city || (params.centerLat && params.centerLng)) {
+    filters.push({
+      href: sellerSearchHrefWithout(params, ["area", "city", "state", "centerLat", "centerLng", "radiusMiles"]),
+      label: `Location: ${params.area || params.city || "map area"}`,
+    });
+  }
+
+  if (params.budgetMin || params.budgetMax) {
+    filters.push({
+      href: sellerSearchHrefWithout(params, ["budgetMin", "budgetMax"]),
+      label: `Budget: ${moneyLabel(params.budgetMin) || "Any"} to ${moneyLabel(params.budgetMax) || "Any"}`,
+    });
+  }
+
+  if (params.bedrooms) {
+    filters.push({ href: sellerSearchHrefWithout(params, ["bedrooms"]), label: `${params.bedrooms}+ beds` });
+  }
+
+  if (params.bathrooms) {
+    filters.push({ href: sellerSearchHrefWithout(params, ["bathrooms"]), label: `${params.bathrooms}+ baths` });
+  }
+
+  if (params.squareFeet) {
+    filters.push({
+      href: sellerSearchHrefWithout(params, ["squareFeet"]),
+      label: `${Number(params.squareFeet).toLocaleString()}+ sqft`,
+    });
+  }
+
+  if (params.condition) {
+    filters.push({ href: sellerSearchHrefWithout(params, ["condition"]), label: params.condition });
+  }
+
+  if (amenities.length > 0) {
+    filters.push({
+      href: sellerSearchHrefWithout(params, ["amenities"]),
+      label: `Amenities: ${amenities.join(", ")}`,
+    });
+  }
+
+  if (badges.length > 0) {
+    filters.push({
+      href: sellerSearchHrefWithout(params, ["badges"]),
+      label: `Trust: ${badges.map(badgeFilterLabel).join(", ")}`,
+    });
+  }
+
+  return filters;
+}
+
+function sellerSearchHrefWithout(params: SellerSearchParams, remove: string[]) {
+  const nextParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (remove.includes(key) || value === undefined || value === "") continue;
+    if (Array.isArray(value)) {
+      value.forEach((item) => nextParams.append(key, item));
+    } else {
+      nextParams.set(key, value);
+    }
+  }
+  const query = nextParams.toString();
+  return query ? `/seller/search?${query}` : "/seller/search";
+}
+
+function moneyLabel(value?: string) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return "";
+  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1).replace(".0", "")}M`;
+  return `$${Math.round(amount / 1000)}k`;
+}
+
+function badgeFilterLabel(value: string) {
+  const labels: Record<string, string> = {
+    CASH_BUYER: "Cash buyer",
+    NON_CONTINGENT: "Non-contingent",
+    PRE_APPROVED: "Pre-approved",
+    VERIFIED_FUNDS: "Verified funds",
+  };
+  return labels[value] ?? value;
 }

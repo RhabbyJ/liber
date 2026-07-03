@@ -7,7 +7,7 @@ import type { PublicBuyerPreview } from "../server/buyer-preview";
 
 type Props = {
   previews: PublicBuyerPreview[];
-  token: string;
+  token?: string;
 };
 
 type PreviewPoint = {
@@ -26,7 +26,7 @@ export function PublicDemandMap({ previews, token }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
-  const [status, setStatus] = useState("Loading buyer demand map");
+  const [status, setStatus] = useState("");
   const [didFail, setDidFail] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
@@ -37,18 +37,20 @@ export function PublicDemandMap({ previews, token }: Props) {
         .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng)),
     [previews],
   );
+  const mapboxToken = token?.trim() ?? "";
+  const shouldUseMapbox = Boolean(mapboxToken);
 
   useEffect(() => {
     let canceled = false;
 
     async function setupMap() {
-      if (!containerRef.current) return;
+      if (!containerRef.current || !shouldUseMapbox) return;
 
       try {
         const mapboxgl = await loadMapboxGl();
         if (canceled || !containerRef.current) return;
 
-        mapboxgl.accessToken = token;
+        mapboxgl.accessToken = mapboxToken;
         mapRef.current = new mapboxgl.Map({
           antialias: true,
           attributionControl: true,
@@ -86,7 +88,7 @@ export function PublicDemandMap({ previews, token }: Props) {
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [token]);
+  }, [mapboxToken, shouldUseMapbox]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current || !window.mapboxgl) return;
@@ -117,22 +119,52 @@ export function PublicDemandMap({ previews, token }: Props) {
     }
   }, [isReady, points]);
 
-  if (didFail) {
-    return (
-      <div className="public-map-shell unavailable">
-        <div className="public-map-fallback">
-          <strong>Buyer demand map is unavailable right now.</strong>
-          <span>The buyer previews beside this panel are still live. Sign up to search all buyer demand.</span>
-        </div>
-      </div>
-    );
+  if (!shouldUseMapbox || didFail) {
+    return <PublicStaticDemandMap points={points} />;
   }
 
   return (
     <div className="public-map-shell">
+      <StaticDemandLayer points={points} />
       <div className="map-canvas" ref={containerRef} />
       {status ? <div className="map-status">{status}</div> : null}
       <div className="public-map-note">Approximate areas · anonymized preview</div>
+    </div>
+  );
+}
+
+function PublicStaticDemandMap({ points }: { points: PreviewPoint[] }) {
+  return (
+    <div className="public-map-shell fallback" aria-label="Buyer demand preview map">
+      <StaticDemandLayer points={points} />
+      <div className="public-map-note">Approximate areas - privacy-safe preview</div>
+    </div>
+  );
+}
+
+function StaticDemandLayer({ points }: { points: PreviewPoint[] }) {
+  return (
+    <div className="public-map-static-grid">
+      {points.length === 0 ? (
+        <div className="public-map-static-empty">
+          <strong>Buyer demand map</strong>
+          <span>Preview pins will appear as active buyer demand is added.</span>
+        </div>
+      ) : (
+        points.map((point) => {
+          const position = publicPinPosition(point, points);
+          return (
+            <span
+              aria-label={`Buyer demand around ${point.preview.area}`}
+              className="buyer-map-marker public-map-static-pin"
+              key={`${point.preview.area}-${point.index}`}
+              style={{ left: `${position.left}%`, top: `${position.top}%` }}
+            >
+              <span>{staticBudgetLabel(point.preview.budgetLabel)}</span>
+            </span>
+          );
+        })
+      )}
     </div>
   );
 }
@@ -169,4 +201,42 @@ function escapeHtml(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function publicPinPosition(point: PreviewPoint, points: PreviewPoint[]) {
+  const lats = points.map((item) => item.lat);
+  const lngs = points.map((item) => item.lng);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const latSpan = maxLat - minLat || 0.1;
+  const lngSpan = maxLng - minLng || 0.1;
+  const offset = staticPinOffset(point.index);
+
+  return {
+    left: clamp(((point.lng - minLng) / lngSpan) * 76 + 12 + offset.left),
+    top: clamp((1 - (point.lat - minLat) / latSpan) * 76 + 12 + offset.top),
+  };
+}
+
+function staticPinOffset(index: number) {
+  const offsets = [
+    { left: 0, top: 0 },
+    { left: 8, top: -5 },
+    { left: -7, top: 5 },
+    { left: 7, top: 6 },
+    { left: -8, top: -6 },
+    { left: 10, top: 3 },
+  ];
+  return offsets[index % offsets.length];
+}
+
+function staticBudgetLabel(value: string) {
+  if (value.startsWith("Up to")) return value;
+  return value.replace(/\u2013.*$/, "+");
+}
+
+function clamp(value: number) {
+  return Math.max(24, Math.min(76, value));
 }

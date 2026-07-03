@@ -55,21 +55,6 @@ const sellerItems: NavItem[] = [
   },
 ];
 
-const publicItems: NavItem[] = [
-  {
-    href: "/signup?role=buyer&next=/buyer/profile",
-    label: "For Buyers",
-    isActive: () => false,
-    mode: "buyer",
-  },
-  {
-    href: "/signup?role=seller&next=/seller/search",
-    label: "For Sellers",
-    isActive: () => false,
-    mode: "seller",
-  },
-];
-
 const adminItem: NavItem = {
   href: "/admin",
   label: "Admin",
@@ -136,7 +121,7 @@ export function PrimaryNav({
 
   const items: NavItem[] = [];
   if (!isAuthenticated) {
-    items.push(homeItem, ...publicItems);
+    items.push(homeItem);
   } else {
     if (hasBuyer) items.push(...buyerItems);
     if (hasSeller) items.push(...sellerItems);

@@ -86,10 +86,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               <div>
                 <h4>Stay in touch</h4>
                 <p className="small">Pilot updates from the San Fernando Valley market.</p>
-                <div className="site-footer-newsletter" aria-label="Newsletter signup">
-                  <input aria-label="Email address" placeholder="you@example.com" type="email" />
-                  <button type="button">Join</button>
-                </div>
               </div>
             </div>
             <div className="footer-bottom">

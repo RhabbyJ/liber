@@ -58,27 +58,7 @@ export function BuyerCard({
     .join("")
     .toUpperCase();
 
-  // Helper for "Looking in..." neighborhoods
-  let lookingIn = `Woodland Hills, Tarzana, Encino`;
-  if (buyer.name.includes("Alex")) {
-    lookingIn = `Sherman Oaks, Studio City, Encino`;
-  } else if (buyer.name.includes("Morgan")) {
-    lookingIn = `Northridge, Chatsworth, Porter Ranch`;
-  } else if (buyer.city) {
-    lookingIn = buyer.city;
-  }
-
-  // Calculate Match Score based on recommended score
-  const isBadgeActive = (badge: any) => badge.status === "active";
-  const recommendedScore = (b: Buyer) => {
-    return (
-      b.badges.filter(isBadgeActive).length * 8 +
-      Math.min(b.budgetMax / 250000, 20)
-    );
-  };
-  const score = recommendedScore(buyer);
-  const matchPercent = Math.min(98, Math.max(90, Math.round(score + 25)));
-  const activeDots = matchPercent >= 95 ? 5 : matchPercent >= 90 ? 4 : matchPercent >= 80 ? 3 : 2;
+  const fitSummary = buyerFitSummary(buyer);
 
   return (
     <article className="buyer-row" data-buyer-id={buyer.id}>
@@ -88,9 +68,9 @@ export function BuyerCard({
         <div className="buyer-info-details">
           <h3>{buyer.name}</h3>
           <p className="buyer-location">{buyer.city}, {buyer.state}</p>
-          <p className="buyer-looking-in">
+          <p className="buyer-fit-summary">
             <Icon name="home" size={13} className="home-icon" />
-            <span>Looking in {lookingIn}</span>
+            <span>{fitSummary}</span>
           </p>
         </div>
       </div>
@@ -133,24 +113,27 @@ export function BuyerCard({
       <div className="buyer-col-actions">
         <Link className="button primary invite-btn" href={`/seller/invite/${buyer.id}`}>
           Invite 
-          <svg className="paper-plane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="13" height="13">
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-          </svg>
+          <Icon name="message" size={13} />
         </Link>
         <span className="invite-subtext">Private invite</span>
-        
-        <div className="match-score-indicator">
-          <span className="match-percent">{matchPercent}% match</span>
-          <div className="match-dots">
-            {[1, 2, 3, 4, 5].map((dot) => (
-              <span key={dot} className={`dot ${dot <= activeDots ? "active" : ""}`} />
-            ))}
-          </div>
-        </div>
       </div>
     </article>
   );
+}
+
+function buyerFitSummary(buyer: Buyer) {
+  const criteria = buyer.criteriaDetails[0];
+  const facts = [
+    criteria?.bedroomsMin ? `${criteria.bedroomsMin}+ bd` : null,
+    criteria?.bathroomsMin ? `${criteria.bathroomsMin}+ ba` : null,
+    criteria?.squareFeetMin ? `${criteria.squareFeetMin.toLocaleString()}+ sqft` : null,
+    criteria?.condition || null,
+    ...(criteria?.features ?? []),
+  ].filter((fact): fact is string => Boolean(fact));
+
+  if (facts.length > 0) return facts.slice(0, 4).join(" / ");
+  if (buyer.location) return `Target area: ${buyer.location}`;
+  return "Home fit criteria not set";
 }
 
 function formatKRange(min?: number | null, max?: number | null) {

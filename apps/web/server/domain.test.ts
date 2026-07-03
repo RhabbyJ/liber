@@ -44,6 +44,37 @@ describe("seller buyer search", () => {
     expect(searchBuyerDirectory({ bedrooms: 5 }).map((buyer) => buyer.id)).toContain("asha-k");
   });
 
+  it("filters by amenity needs and condition preference", () => {
+    const fixerWithPool: Buyer = {
+      ...buyers[0],
+      id: "fixer-with-pool",
+      criteria: ["Pool"],
+      criteriaDetails: [{
+        propertyCategory: "HOME",
+        propertySubtype: "HOME",
+        condition: "Fixer",
+        features: ["Pool"],
+      }],
+    };
+    const moveInReadyWithPool: Buyer = {
+      ...fixerWithPool,
+      id: "move-in-ready-with-pool",
+      criteriaDetails: [{
+        propertyCategory: "HOME",
+        propertySubtype: "HOME",
+        condition: "Move-in ready",
+        features: ["Pool"],
+      }],
+    };
+
+    const results = searchBuyerDirectory(
+      { amenities: ["Pool"], condition: "Fixer" },
+      [fixerWithPool, moveInReadyWithPool],
+    );
+
+    expect(results.map((buyer) => buyer.id)).toEqual(["fixer-with-pool"]);
+  });
+
   it("filters by budget range overlap", () => {
     expect(searchBuyerDirectory({ budgetMin: 1_000_000 }).map((buyer) => buyer.id)).not.toContain("julie-p");
     expect(searchBuyerDirectory({ budgetMin: 1_000_000 }).map((buyer) => buyer.id)).toContain("marcus-r");
