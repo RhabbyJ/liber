@@ -5,8 +5,6 @@ import { BuyerProfileLivePreview } from "../../../components/buyer-profile-live-
 import { BuyerProfileWizard } from "../../../components/buyer-profile-wizard";
 import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
-import { ModeChip } from "../../../components/mode-chip";
-import { PageTitle } from "../../../components/page-title";
 import { formatRange } from "../../../lib/format";
 import { getCurrentBuyerProfile, listBuyerInvites } from "../../../server/contracts";
 import {
@@ -33,7 +31,10 @@ export default async function BuyerProfileBuilderPage({
   const showProfileWizard = !isActive || edit === "profile";
   const accountName = buyer.accountName || "buyer";
   const verificationCard = (
-    <article className={`card stack verification-card ${!showProfileWizard && !hasPreApproval ? "priority" : ""}`}>
+    <article
+      className={`card stack verification-card ${!showProfileWizard && !hasPreApproval ? "priority" : ""}`}
+      id="buyer-verification-card"
+    >
       <div className="section-head compact">
         <div>
           <p className="eyebrow">Verification</p>
@@ -99,21 +100,44 @@ export default async function BuyerProfileBuilderPage({
 
   return (
     <div className="page wide stack loose buyer-profile-page">
-      <PageTitle
-        eyebrow="Buyer hub"
-        title={isActive ? `Welcome back, ${accountName}.` : `Your profile, ${accountName}.`}
-        tone="buyer"
-        badge={<ModeChip mode="buyer" />}
-        actions={
-          <span className={`status-dot ${isActive ? "active" : "warning"}`}>
-            {isActive ? "Live to sellers" : "Draft - not yet visible"}
-          </span>
-        }
-      >
-        {isActive
-          ? "Your profile is live. Only you see your account name here; sellers see the buyer display name on your profile."
-          : "Complete the steps below. Your account name stays private; sellers see only the buyer display name you choose."}
-      </PageTitle>
+      <section className="buyer-account-panel">
+        <div className="buyer-account-photo">
+          <div className="profile-photo">
+            <Avatar name={buyer.name} size="xl" src={buyer.avatarUrl} />
+          </div>
+          <Link className="link-button" href="/buyer/profile?edit=profile">
+            Update photo
+          </Link>
+        </div>
+
+        <dl className="buyer-account-details">
+          <div>
+            <dt>Name</dt>
+            <dd>{buyer.name || accountName}</dd>
+          </div>
+          <div>
+            <dt>Buyer type</dt>
+            <dd>{buyer.type || "Home Buyer"}</dd>
+          </div>
+          <div>
+            <dt>Location</dt>
+            <dd>{buyer.location || "Not set"}</dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd>{isActive ? "Live to sellers" : "Draft - not yet visible"}</dd>
+          </div>
+        </dl>
+
+        <div className="buyer-account-actions">
+          <Link className="button primary" href="#buyer-verification-card">
+            {hasPreApproval ? "Verification active" : "Get Pre-approved"}
+          </Link>
+          <Link className="button secondary" href="/buyer/profile?edit=profile">
+            Edit profile
+          </Link>
+        </div>
+      </section>
 
       <section className={`grid sidebar buyer-profile-layout ${showProfileWizard ? "editing" : "live"}`}>
         <div className={showProfileWizard ? "card stack loose wizard-card profile-builder-card" : "stack loose"}>

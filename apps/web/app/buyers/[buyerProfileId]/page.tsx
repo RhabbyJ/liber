@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { Avatar } from "../../../components/avatar";
 import { BadgePill } from "../../../components/badge-pill";
 import { Icon } from "../../../components/icon";
-import { ModeChip } from "../../../components/mode-chip";
 import { formatRange } from "../../../lib/format";
 import { getPublicBuyerProfile } from "../../../server/contracts";
 import { getSessionUser } from "../../../server/session";
@@ -48,57 +47,87 @@ export default async function PublicBuyerProfilePage({
     ? user ? invitePath : `/login?next=${encodeURIComponent(invitePath)}`
     : null;
   const isOwner = buyer.viewerIsOwner;
+  const firstName = displayFirstName(buyer.name);
+  const primaryBadge = activeBadges[0];
 
   return (
-    <div className="page wide stack loose">
-      <div className="page-title-top">
-        <ModeChip mode={isOwner ? "buyer" : "seller"} />
-        <span className={`eyebrow${isOwner ? "" : " seller"}`}>
-          {isOwner ? "Profile preview · this is what sellers see" : "Buyer profile · seller view"}
-        </span>
-      </div>
-
+    <div className="page wide buyer-reference-page">
       {isOwner ? (
-        <section className="card sage" style={{ padding: 18 }}>
-          <div className="section-head compact">
-            <div className="stack tight">
-              <p className="eyebrow">Preview only</p>
-              <h2 style={{ fontSize: 18 }}>This is how sellers see your profile.</h2>
-            </div>
-            <Link className="button" href="/buyer/profile">
-              <Icon name="pencil" size={14} />
-              Edit profile
-            </Link>
+        <section className="buyer-reference-owner-note">
+          <div>
+            <p className="eyebrow">Preview only</p>
+            <h2>This is how sellers see your profile.</h2>
           </div>
+          <Link className="button secondary" href="/buyer/profile">
+            <Icon name="pencil" size={14} />
+            Edit profile
+          </Link>
         </section>
       ) : null}
 
       <section className="public-profile buyer-reference-profile">
         <aside className="public-profile-aside buyer-reference-aside">
-          <div className="card stack buyer-reference-photo">
+          <div className="buyer-reference-photo">
             <div className="profile-photo">
               <Avatar name={buyer.name} size="xl" src={buyer.avatarUrl} />
             </div>
-            <div>
-              <h2 style={{ fontSize: 24, margin: 0 }}>{buyer.name}</h2>
-              <p className="muted" style={{ marginTop: 6 }}>{buyer.location}</p>
+          </div>
+
+          <section className="buyer-reference-bio">
+            <h3>Bio:</h3>
+            <p>{buyer.bio || "No bio added yet."}</p>
+          </section>
+        </aside>
+
+        <article className="public-profile-main buyer-reference-main">
+          <section className="buyer-reference-hero">
+            <div className="buyer-reference-head">
+              <div className="buyer-reference-name-line">
+                <h1>{buyer.name}</h1>
+                <span className="buyer-reference-location">
+                  <Icon name="map-pin" size={16} />
+                  {buyer.location}
+                </span>
+              </div>
+              <p className="buyer-reference-type">{buyer.type}</p>
             </div>
-            {activeBadges.length > 0 ? (
-              <div className="pill-row" style={{ justifyContent: "center" }}>
-                {activeBadges.slice(0, 3).map((badge) => (
+
+            {primaryBadge ? (
+              <div className="buyer-reference-verified">
+                <span className="buyer-reference-verified-icon">
+                  <Icon name="check-shield" size={16} />
+                </span>
+                <div>
+                  <strong>{primaryBadge.label}</strong>
+                  <span>Documents stay private</span>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="buyer-reference-facts">
+              <ProfileFact label="Buying for" value={buyer.purpose} />
+              <ProfileFact label="Down payment" value={formatRange(buyer.downPaymentMin, buyer.downPaymentMax)} />
+              <ProfileFact label="Budget" value={formatRange(buyer.budgetMin, buyer.budgetMax)} />
+            </div>
+
+            {activeBadges.length > 1 || otherBadges.length > 0 ? (
+              <div className="buyer-reference-badge-row">
+                {activeBadges.slice(primaryBadge ? 1 : 0).map((badge) => (
+                  <BadgePill badge={badge} key={badge.label} />
+                ))}
+                {otherBadges.map((badge) => (
                   <BadgePill badge={badge} key={badge.label} />
                 ))}
               </div>
             ) : null}
-            {isOwner ? (
-              <Link className="button secondary block" href="/buyer/profile">
-                <Icon name="arrow-right" size={14} />
-                Back to your profile
+
+            {!isOwner && inviteHref ? (
+              <Link className="button primary buyer-reference-invite" href={inviteHref}>
+                Send Invite
               </Link>
-            ) : inviteHref ? (
-              <Link className="button primary block lg" href={inviteHref}>
-                <Icon name="mail" size={16} />
-                Send invite
+            ) : isOwner ? (
+              <Link className="button secondary buyer-reference-invite" href="/buyer/profile">
+                Back to your profile
               </Link>
             ) : (
               <span className="status-dot warning">
@@ -106,110 +135,41 @@ export default async function PublicBuyerProfilePage({
                 Approved seller access required
               </span>
             )}
-            {!isOwner ? (
-              <p className="muted small">Outreach is manual. Liber never sends offers on your behalf.</p>
-            ) : null}
-          </div>
+          </section>
 
-          <div className="card flat stack buyer-reference-bio">
-            <h3>Bio</h3>
-            <p className="muted">{buyer.bio || "No bio added yet."}</p>
-          </div>
-        </aside>
-
-        <article className="public-profile-main buyer-reference-main">
-          <div className="public-profile-summary buyer-reference-summary">
-            <div className="section-head buyer-reference-head">
+          <section className="buyer-reference-detail">
+            <h2>{firstName}&apos;s wants and needs</h2>
+            <div className="buyer-reference-needs-grid">
               <div>
-                <p className="eyebrow">{buyer.type}</p>
-                <h1 style={{ margin: "8px 0 0" }}>{buyer.name}</h1>
-                <p className="muted" style={{ marginTop: 6 }}>{buyer.location}</p>
-              </div>
-              {!isOwner && inviteHref ? (
-                <Link className="button primary" href={inviteHref}>
-                  <Icon name="mail" size={14} />
-                  Send invite
-                </Link>
-              ) : null}
-            </div>
-            <div className="summary-grid">
-              <div>
-                <span className="summary-label">Buying for</span>
-                <span className="summary-value">{buyer.purpose}</span>
-              </div>
-              <div>
-                <span className="summary-label">Budget</span>
-                <span className="summary-value">{formatRange(buyer.budgetMin, buyer.budgetMax)}</span>
-              </div>
-              <div>
-                <span className="summary-label">Down payment</span>
-                <span className="summary-value">{formatRange(buyer.downPaymentMin, buyer.downPaymentMax)}</span>
-              </div>
-            </div>
-          </div>
-
-          {activeBadges.length > 0 ? (
-            <div className="card stack">
-              <div className="section-head compact">
-                <div>
-                  <p className="eyebrow">Trust</p>
-                  <h2 style={{ fontSize: 22 }}>Verified by Liber</h2>
-                </div>
-                <span className="status-dot info">
-                  <Icon name="lock" size={12} />
-                  Documents stay private
-                </span>
-              </div>
-              <div className="pill-row">
-                {activeBadges.map((badge) => (
-                  <BadgePill badge={badge} key={badge.label} />
-                ))}
-                {otherBadges.map((badge) => (
-                  <BadgePill badge={badge} key={badge.label} />
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="card stack">
-            <div className="section-head compact">
-              <h2 style={{ fontSize: 22 }}>What {buyer.name.split(".")[0]} is looking for</h2>
-            </div>
-            <div className="grid two">
-              <div className="stack tight">
-                <p className="eyebrow">Needs</p>
+                <h3>Need:</h3>
                 <ul className="clean-list">
                   {buyer.needs.map((need) => <li key={need}>{need}</li>)}
                 </ul>
               </div>
-              <div className="stack tight">
-                <p className="eyebrow">Wants</p>
+              <div>
+                <h3>Want:</h3>
                 <ul className="clean-list">
                   {buyer.wants.map((want) => <li key={want}>{want}</li>)}
                 </ul>
               </div>
             </div>
-          </div>
-
-          {!isOwner && inviteHref ? (
-            <div className="card sage">
-              <div className="card-row">
-                <div className="stack tight">
-                  <p className="eyebrow">Ready to reach out?</p>
-                  <h3>Send a manual invite with your private property</h3>
-                  <p className="muted small">
-                    Your property profile is only shared with this buyer if they accept.
-                  </p>
-                </div>
-                <Link className="button primary lg" href={inviteHref}>
-                  <Icon name="mail" size={15} />
-                  Send invite
-                </Link>
-              </div>
-            </div>
-          ) : null}
+          </section>
         </article>
       </section>
     </div>
   );
+}
+
+function ProfileFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span>{label}:</span>
+      <strong>{value || "Not set"}</strong>
+    </div>
+  );
+}
+
+function displayFirstName(name: string) {
+  const trimmed = name.trim();
+  return trimmed.split(/[.\s]/).filter(Boolean)[0] || "Buyer";
 }
