@@ -13,12 +13,6 @@ type NavItem = {
   mode?: "buyer" | "seller" | "admin";
 };
 
-const homeItem: NavItem = {
-  href: "/",
-  isActive: (pathname) => pathname === "/",
-  label: "Home",
-};
-
 const buyerItems: NavItem[] = [
   {
     href: "/buyer/profile",
@@ -120,9 +114,7 @@ export function PrimaryNav({
   const hasAdmin = roles.includes("ADMIN");
 
   const items: NavItem[] = [];
-  if (!isAuthenticated) {
-    items.push(homeItem);
-  } else {
+  if (isAuthenticated) {
     if (hasBuyer) items.push(...buyerItems);
     if (hasSeller) items.push(...sellerItems);
     if (hasAdmin) items.push(adminItem);
@@ -179,11 +171,8 @@ export function PrimaryNav({
           ) : (
             <>
               <Link className="button ghost" href="/login" onClick={close}>Log in</Link>
-              <Link className="button primary" href="/signup?role=seller&next=/seller/search" onClick={close}>
-                Find buyers
-              </Link>
-              <Link className="button secondary" href="/signup?role=buyer&next=/buyer/profile" onClick={close}>
-                Add buyer demand
+              <Link className="button primary" href="/signup" onClick={close}>
+                Get started
               </Link>
             </>
           )}

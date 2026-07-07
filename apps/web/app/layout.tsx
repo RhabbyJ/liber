@@ -52,12 +52,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               ) : (
                 <>
                   <Link className="button ghost" href="/login">Log in</Link>
-                  <Link className="button primary" href="/signup?role=seller&next=/seller/search">
-                    Find buyers
+                  <Link className="button primary" href="/signup">
+                    Get started
                     <Icon name="arrow-right" size={14} />
-                  </Link>
-                  <Link className="button secondary" href="/signup?role=buyer&next=/buyer/profile">
-                    Add buyer demand
                   </Link>
                 </>
               )}
