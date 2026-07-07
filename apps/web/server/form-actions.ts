@@ -58,6 +58,7 @@ export async function shuffleBuyerAvatar(_formData: FormData) {
   const { data } = await shuffleBuyerAvatarVariant();
   revalidatePath("/buyer/profile");
   if (data.buyerProfileId) revalidatePath(`/buyers/${data.buyerProfileId}`);
+  redirect("/buyer/profile?edit=profile");
 }
 
 export async function respondToBuyerInvite(formData: FormData) {
