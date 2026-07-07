@@ -73,7 +73,7 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
           container: containerRef.current,
           maxBounds: [[-118.75, 34.08], [-118.3, 34.37]],
           pitch: 38,
-          style: "mapbox://styles/mapbox/streets-v12",
+          style: "mapbox://styles/mapbox/light-v11",
           zoom: buyerPoints.length > 1 ? 10.4 : 11.4,
         });
 

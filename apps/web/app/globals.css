@@ -1,64 +1,65 @@
 /* ==========================================================================
-   Liber design system — warm neutrals, sage accent, premium real-estate feel
+   Liber design system - crisp neutrals, green accent, map-first real estate UI
    ========================================================================== */
 
 :root {
-  /* Surfaces (warm neutral) */
-  --canvas: #faf7f1;
-  --canvas-tint: #f3eee3;
+  /* Surfaces (cool neutral) */
+  --canvas: #f6faf8;
+  --canvas-tint: #eef5f1;
   --surface: #ffffff;
   --surface-raised: #ffffff;
-  --surface-muted: #f6f2e8;
-  --surface-sand: #ece4d2;
-  --surface-cream: #fbf6ea;
+  --surface-muted: #f1f7f4;
+  --surface-sand: #e7f0ec;
+  --surface-cream: #f8fbf9;
 
   /* Ink */
-  --ink: #1f1b16;
-  --ink-strong: #110e0a;
-  --ink-soft: #3c372e;
-  --ink-muted: #6e685d;
-  --ink-faint: #9b948a;
+  --ink: #17211d;
+  --ink-strong: #071411;
+  --ink-soft: #33423d;
+  --ink-muted: #64736d;
+  --ink-faint: #91a09a;
 
   /* Lines */
-  --line: #e7e1d2;
-  --line-soft: #f1ecdf;
-  --line-strong: #d6cfbd;
+  --line: #dbe7e1;
+  --line-soft: #eaf1ee;
+  --line-strong: #c5d5ce;
 
-  /* Sage accent (light, fresh green) */
-  --sage: #6fbf85;
-  --sage-strong: #3f9c5b;
-  --sage-deep: #2a7340;
-  --sage-tint: #eef7ea;
-  --sage-tint-strong: #d6ecd0;
-  --sage-line: #b9dfb2;
+  /* Green accent */
+  --sage: #2fb46f;
+  --sage-strong: #16834c;
+  --sage-deep: #0e5f38;
+  --sage-tint: #e9f8ef;
+  --sage-tint-strong: #d2f0dd;
+  --sage-line: #aee1c0;
 
-  /* Amber / honey accent (warm gold) */
-  --amber: #b78527;
-  --amber-strong: #8f661a;
-  --amber-tint: #f7edd4;
-  --amber-line: #e7d5a1;
+  /* Cool supporting accent */
+  --amber: #1677c8;
+  --amber-strong: #075da8;
+  --amber-tint: #e9f4ff;
+  --amber-line: #b9dcff;
 
   /* Status */
-  --info: #2c6396;
-  --info-tint: #e3edf6;
+  --info: #0c6ba8;
+  --info-tint: #e7f4fb;
   --success: var(--sage-strong);
   --success-tint: var(--sage-tint);
   --warning: var(--amber-strong);
   --warning-tint: var(--amber-tint);
-  --danger: #a04335;
-  --danger-tint: #f4e3df;
+  --danger: #b42318;
+  --danger-tint: #fff0ee;
 
   /* Roles */
   --buyer: var(--sage-strong);
   --buyer-tint: var(--sage-tint);
-  --seller: var(--amber-strong);
-  --seller-tint: var(--amber-tint);
+  --seller: var(--sage-strong);
+  --seller-tint: var(--sage-tint);
 
   /* Shadow + elevation */
-  --shadow-1: 0 1px 2px rgba(31, 27, 22, 0.04), 0 1px 1px rgba(31, 27, 22, 0.03);
-  --shadow-2: 0 6px 14px rgba(31, 27, 22, 0.06), 0 2px 4px rgba(31, 27, 22, 0.04);
-  --shadow-3: 0 18px 40px rgba(31, 27, 22, 0.10), 0 6px 14px rgba(31, 27, 22, 0.05);
-  --shadow-hero: 0 32px 80px rgba(31, 27, 22, 0.12), 0 10px 24px rgba(31, 27, 22, 0.06);
+  --shadow-1: 0 1px 2px rgba(12, 35, 28, 0.06), 0 1px 1px rgba(12, 35, 28, 0.04);
+  --shadow-2: 0 8px 20px rgba(12, 35, 28, 0.08), 0 2px 5px rgba(12, 35, 28, 0.05);
+  --shadow-3: 0 22px 54px rgba(12, 35, 28, 0.14), 0 8px 18px rgba(12, 35, 28, 0.07);
+  --shadow-float: 0 18px 46px rgba(12, 35, 28, 0.16), 0 3px 10px rgba(12, 35, 28, 0.08);
+  --shadow-hero: 0 32px 80px rgba(12, 35, 28, 0.16), 0 10px 24px rgba(12, 35, 28, 0.08);
 
   /* Radii */
   --r-xs: 6px;
@@ -99,8 +100,9 @@ body {
 
 body {
   background:
-    radial-gradient(1000px 600px at 95% -10%, rgba(183, 133, 39, 0.06), transparent 60%),
-    radial-gradient(900px 500px at -5% 105%, rgba(63, 156, 91, 0.06), transparent 60%),
+    linear-gradient(120deg, rgba(22, 131, 76, 0.08), transparent 34%),
+    linear-gradient(300deg, rgba(22, 119, 200, 0.06), transparent 38%),
+    linear-gradient(180deg, #fbfdfc 0%, var(--canvas) 48%, var(--canvas-tint) 100%),
     var(--canvas);
   min-height: 100vh;
 }
@@ -314,8 +316,8 @@ main {
 }
 
 .nav a.active.seller {
-  background: var(--amber-tint);
-  color: var(--amber-strong);
+  background: var(--sage-tint);
+  color: var(--sage-deep);
 }
 
 .nav-group-label {
@@ -431,8 +433,8 @@ main {
 }
 
 .button:hover {
-  background: #2a251e;
-  border-color: #2a251e;
+  background: #14221d;
+  border-color: #14221d;
 }
 
 .button:active {
@@ -449,11 +451,13 @@ main {
 .button.primary {
   background: var(--sage-strong);
   border-color: var(--sage-strong);
+  box-shadow: 0 10px 22px rgba(22, 131, 76, 0.22);
 }
 
 .button.primary:hover {
   background: var(--sage-deep);
   border-color: var(--sage-deep);
+  box-shadow: 0 14px 28px rgba(14, 95, 56, 0.26);
 }
 
 .button.secondary {
@@ -463,8 +467,8 @@ main {
 }
 
 .button.secondary:hover {
-  background: var(--surface-muted);
-  border-color: var(--ink-muted);
+  background: #f8fbfa;
+  border-color: var(--sage-line);
   color: var(--ink-strong);
 }
 
@@ -662,7 +666,7 @@ main {
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow-1);
   display: grid;
   gap: 16px;
@@ -683,7 +687,7 @@ main {
 
 .card.cream {
   background: var(--surface-cream);
-  border-color: var(--amber-line);
+  border-color: var(--line);
 }
 
 .card.sage {
@@ -692,10 +696,10 @@ main {
 }
 
 .card.ink {
-  background: linear-gradient(140deg, #221d16 0%, #100c08 100%);
-  border-color: #2a241c;
+  background: linear-gradient(140deg, #123325 0%, #061411 100%);
+  border-color: #1c4a37;
   box-shadow: var(--shadow-3);
-  color: #f7f2e6;
+  color: #eef8f3;
 }
 
 .card.ink h1,
@@ -707,11 +711,11 @@ main {
 
 .card.ink p,
 .card.ink .muted {
-  color: rgba(247, 242, 230, 0.78);
+  color: rgba(238, 248, 243, 0.78);
 }
 
 .card.ink .eyebrow {
-  color: var(--amber-tint);
+  color: var(--sage-tint-strong);
 }
 
 .card.outline {
@@ -900,9 +904,9 @@ main {
 }
 
 .mode-chip.seller {
-  background: var(--amber-tint);
-  border-color: var(--amber-line);
-  color: var(--amber-strong);
+  background: var(--sage-tint);
+  border-color: var(--sage-line);
+  color: var(--sage-deep);
 }
 
 .mode-chip.admin {
@@ -1219,22 +1223,23 @@ main {
 
 .hero-art::before {
   background:
-    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.45), transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.16), transparent 55%),
-    linear-gradient(150deg, #f7eedb 0%, #ecdfbd 38%, #c6a261 100%);
+    linear-gradient(90deg, rgba(14, 95, 56, 0.08) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(14, 95, 56, 0.08) 1px, transparent 1px),
+    linear-gradient(150deg, #f0faf4 0%, #dff3e8 48%, #9fd7b6 100%);
+  background-size: 54px 54px, 54px 54px, auto;
 }
 
 .hero-art::after {
   background-image:
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 16px),
-    repeating-linear-gradient(-45deg, rgba(31, 27, 22, 0.04) 0 1px, transparent 1px 16px);
+    repeating-linear-gradient(-45deg, rgba(12, 35, 28, 0.04) 0 1px, transparent 1px 16px);
   mix-blend-mode: overlay;
 }
 
 .hero-art-card {
   background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(31, 27, 22, 0.08);
-  border-radius: var(--r-lg);
+  border: 1px solid rgba(12, 35, 28, 0.08);
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow-2);
   padding: 18px;
   position: absolute;
@@ -1279,7 +1284,7 @@ main {
   background: var(--sage-deep);
   border: 3px solid #fff;
   border-radius: var(--r-pill);
-  box-shadow: 0 10px 24px rgba(31, 27, 22, 0.18);
+  box-shadow: 0 10px 24px rgba(12, 35, 28, 0.18);
   color: #fff;
   display: grid;
   font-size: 12px;
@@ -1292,7 +1297,7 @@ main {
 }
 
 .hero-art-pin.amber {
-  background: var(--amber-strong);
+  background: var(--sage-strong);
 }
 
 .hero-art-pin.a {
@@ -1355,7 +1360,7 @@ main {
 .mode-card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow-1);
   display: grid;
   gap: 16px;
@@ -1371,13 +1376,13 @@ main {
 }
 
 .mode-card.seller:hover {
-  border-color: var(--amber-line);
+  border-color: var(--sage-line);
 }
 
 .mode-card-icon {
   align-items: center;
   background: var(--sage-tint);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--sage-strong);
   display: inline-flex;
   height: 48px;
@@ -1386,8 +1391,8 @@ main {
 }
 
 .mode-card.seller .mode-card-icon {
-  background: var(--amber-tint);
-  color: var(--amber-strong);
+  background: var(--sage-tint);
+  color: var(--sage-strong);
 }
 
 /* Steps strip */
@@ -1401,7 +1406,7 @@ main {
 .step {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   display: grid;
   gap: 14px;
   padding: 26px;
@@ -1430,7 +1435,7 @@ main {
 
 /* Auth pages */
 .auth-alert {
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   display: grid;
   gap: 4px;
   padding: 14px 16px;
@@ -1954,7 +1959,7 @@ main {
 
 /* Zillow-style public map landing — clean white chrome, single sage accent */
 .map-landing {
-  background: var(--surface);
+  background: var(--canvas);
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -1962,7 +1967,9 @@ main {
 
 .map-landing-bar {
   align-items: center;
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid var(--line-soft);
+  box-shadow: var(--shadow-1);
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
@@ -1988,7 +1995,7 @@ main {
 }
 
 .map-landing-body {
-  border-top: 1px solid var(--line-soft);
+  background: var(--canvas);
   display: grid;
   grid-template-columns: minmax(0, 1fr) 400px;
   height: calc(100vh - 150px);
@@ -1997,12 +2004,12 @@ main {
 
 .public-map-shell {
   background:
-    linear-gradient(90deg, rgba(31, 27, 22, 0.055) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(31, 27, 22, 0.055) 1px, transparent 1px),
-    radial-gradient(circle at 24% 22%, rgba(63, 156, 91, 0.18), transparent 28%),
-    radial-gradient(circle at 72% 62%, rgba(183, 133, 39, 0.16), transparent 30%),
-    linear-gradient(160deg, #eef1e7, #f4eedf);
-  background-size: 64px 64px, 64px 64px, auto, auto, auto;
+    linear-gradient(90deg, rgba(14, 95, 56, 0.07) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(14, 95, 56, 0.07) 1px, transparent 1px),
+    linear-gradient(32deg, transparent 0 42%, rgba(255, 255, 255, 0.72) 42% 45%, transparent 45%),
+    linear-gradient(145deg, rgba(22, 131, 76, 0.12), transparent 44%),
+    linear-gradient(160deg, #eaf4ef, #f8fbf9);
+  background-size: 62px 62px, 62px 62px, auto, auto, auto;
   overflow: hidden;
   position: relative;
 }
@@ -2041,11 +2048,11 @@ main {
 
 .public-map-static-grid::before,
 .public-map-static-grid::after {
-  background: rgba(255, 255, 255, 0.58);
-  border: 1px solid rgba(31, 27, 22, 0.06);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(12, 35, 28, 0.07);
   border-radius: 999px;
   content: "";
-  height: 52px;
+  height: 50px;
   position: absolute;
   transform: rotate(-22deg);
   width: 72%;
@@ -2069,9 +2076,10 @@ main {
 }
 
 .public-map-static-empty {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.94);
   border: 1px solid var(--line-soft);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-2);
   display: grid;
   gap: 6px;
   left: 50%;
@@ -2112,12 +2120,19 @@ main {
 /* Buyer demand panel (Zillow result-list style) */
 .demand-panel {
   align-content: start;
-  background: var(--surface);
-  border-left: 1px solid var(--line-soft);
+  backdrop-filter: blur(14px) saturate(140%);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-float);
   display: grid;
   gap: 12px;
+  margin: 16px 16px 16px 0;
+  max-height: calc(100% - 32px);
   overflow-y: auto;
   padding: 16px;
+  position: relative;
+  z-index: 3;
 }
 
 .demand-panel.full {
@@ -2140,6 +2155,7 @@ main {
 
 .demand-count {
   background: var(--sage-tint);
+  border: 1px solid var(--sage-line);
   border-radius: var(--r-pill);
   color: var(--sage-deep);
   font-size: 12.5px;
@@ -2150,17 +2166,19 @@ main {
 .demand-card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-1);
   display: grid;
   align-content: start;
   gap: 7px;
   padding: 16px;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
 }
 
 .demand-card:hover {
   border-color: var(--sage-strong);
   box-shadow: var(--shadow-2);
+  transform: translateY(-1px);
 }
 
 .demand-card-top {
@@ -2209,6 +2227,7 @@ main {
 
 .demand-card-chips span {
   background: var(--surface-muted);
+  border: 1px solid var(--line-soft);
   border-radius: var(--r-pill);
   color: var(--ink-soft);
   font-size: 11.5px;
@@ -2217,8 +2236,9 @@ main {
 }
 
 .demand-card.signup-wall {
-  background: var(--sage-tint);
+  background: linear-gradient(135deg, #f2fbf6 0%, #ffffff 100%);
   border: 1px solid var(--sage-line);
+  box-shadow: var(--shadow-2);
   gap: 10px;
   justify-items: start;
 }
@@ -2286,15 +2306,15 @@ main {
 
   .public-map-static-pin {
     border-width: 2px;
-    box-shadow: 0 8px 16px rgba(31, 27, 22, 0.2), 0 0 0 5px rgba(63, 156, 91, 0.14);
+    box-shadow: 0 8px 16px rgba(12, 35, 28, 0.18), 0 0 0 5px rgba(22, 131, 76, 0.14);
     font-size: 10px;
     height: 28px;
     padding: 0 7px;
   }
 
   .demand-panel {
-    border-left: 0;
-    border-top: 1px solid var(--line-soft);
+    margin: 14px;
+    max-height: none;
     overflow: visible;
   }
 }
@@ -2317,9 +2337,9 @@ main {
 }
 
 .avatar.seller {
-  background: linear-gradient(140deg, var(--amber-tint) 0%, var(--surface-cream) 100%);
-  border-color: var(--amber-line);
-  color: var(--amber-strong);
+  background: linear-gradient(140deg, var(--sage-tint) 0%, var(--surface-cream) 100%);
+  border-color: var(--sage-line);
+  color: var(--sage-strong);
 }
 
 .avatar.lg {
@@ -2721,7 +2741,7 @@ main {
   background: #fff;
   border: 2px solid var(--sage-strong);
   border-radius: var(--r-pill);
-  box-shadow: 0 3px 10px rgba(31, 27, 22, 0.18);
+  box-shadow: 0 3px 10px rgba(12, 35, 28, 0.18);
   cursor: grab;
   height: 22px;
   margin-top: -8px;
@@ -2742,7 +2762,7 @@ main {
   background: #fff;
   border: 2px solid var(--sage-strong);
   border-radius: var(--r-pill);
-  box-shadow: 0 3px 10px rgba(31, 27, 22, 0.18);
+  box-shadow: 0 3px 10px rgba(12, 35, 28, 0.18);
   cursor: grab;
   height: 18px;
   pointer-events: auto;
@@ -2786,7 +2806,7 @@ main {
 
 .profile-builder-card {
   border-radius: var(--r-sm);
-  box-shadow: 0 12px 32px rgba(31, 27, 22, 0.06);
+  box-shadow: 0 12px 32px rgba(12, 35, 28, 0.06);
 }
 
 .buyer-profile-preview-aside {
@@ -3000,12 +3020,14 @@ main {
 
 .map-shell {
   background:
-    radial-gradient(circle at 22% 20%, rgba(183, 133, 39, 0.14), transparent 26%),
-    radial-gradient(circle at 78% 28%, rgba(63, 156, 91, 0.16), transparent 28%),
-    linear-gradient(160deg, #e8e1cf, #f5efde);
+    linear-gradient(90deg, rgba(14, 95, 56, 0.07) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(14, 95, 56, 0.07) 1px, transparent 1px),
+    linear-gradient(28deg, transparent 0 42%, rgba(255, 255, 255, 0.72) 42% 45%, transparent 45%),
+    linear-gradient(160deg, #eaf4ef, #f8fbf9);
+  background-size: 62px 62px, 62px 62px, auto, auto;
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-2);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-float);
   display: grid;
   isolation: isolate;
   min-height: 720px;
@@ -3017,8 +3039,8 @@ main {
 
 .map-shell.fallback::before {
   background-image:
-    repeating-linear-gradient(0deg, rgba(31, 27, 22, 0.05) 0 1px, transparent 1px 56px),
-    repeating-linear-gradient(90deg, rgba(31, 27, 22, 0.05) 0 1px, transparent 1px 56px);
+    repeating-linear-gradient(0deg, rgba(14, 95, 56, 0.06) 0 1px, transparent 1px 56px),
+    repeating-linear-gradient(90deg, rgba(14, 95, 56, 0.06) 0 1px, transparent 1px 56px);
   content: "";
   inset: 0;
   pointer-events: none;
@@ -3063,7 +3085,8 @@ main {
 }
 
 .map-shell.interactive .mapboxgl-ctrl-group {
-  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow-2);
   overflow: hidden;
 }
@@ -3071,10 +3094,10 @@ main {
 .map-toolbar {
   align-items: start;
   backdrop-filter: blur(12px) saturate(140%);
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-1);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-2);
   display: flex;
   gap: 12px;
   justify-content: space-between;
@@ -3108,7 +3131,7 @@ main {
 }
 
 .map-toolbar-pills span {
-  background: var(--surface-muted);
+  background: #f8fbfa;
   border: 1px solid var(--line);
   border-radius: var(--r-pill);
   color: var(--ink-soft);
@@ -3124,7 +3147,8 @@ main {
 .map-empty {
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid var(--line);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-2);
   color: var(--ink-soft);
   left: 50%;
   padding: 12px 16px;
@@ -3151,9 +3175,9 @@ main {
   align-items: center;
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid var(--line);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   bottom: 18px;
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--shadow-2);
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -3184,7 +3208,7 @@ main {
 }
 
 .legend-dot.active {
-  background: var(--amber);
+  background: var(--sage);
 }
 
 .map-pins {
@@ -3198,7 +3222,7 @@ main {
   background: var(--sage-deep);
   border: 3px solid #fff;
   border-radius: var(--r-pill);
-  box-shadow: 0 10px 26px rgba(31, 27, 22, 0.22), 0 0 0 8px rgba(63, 156, 91, 0.18);
+  box-shadow: 0 10px 26px rgba(12, 35, 28, 0.22), 0 0 0 8px rgba(22, 131, 76, 0.18);
   color: #fff;
   display: grid;
   font-size: 13px;
@@ -3214,14 +3238,16 @@ main {
 }
 
 .map-pins .map-pin:nth-child(3n) {
-  background: var(--amber-strong);
+  background: var(--sage-strong);
 }
 
 .map-shell.small {
   align-content: center;
   background:
-    radial-gradient(circle at 30% 30%, rgba(63, 156, 91, 0.16), transparent 50%),
-    linear-gradient(160deg, #f3eedf, #e9e1ce);
+    linear-gradient(90deg, rgba(14, 95, 56, 0.07) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(14, 95, 56, 0.07) 1px, transparent 1px),
+    linear-gradient(160deg, #eef7f2, #f8fbf9);
+  background-size: 44px 44px, 44px 44px, auto;
   justify-items: center;
   min-height: 180px;
   padding: 18px;
@@ -3244,7 +3270,7 @@ main {
   background: var(--sage-deep);
   border: 3px solid #fff;
   border-radius: var(--r-pill);
-  box-shadow: 0 10px 22px rgba(31, 27, 22, 0.24), 0 0 0 7px rgba(63, 156, 91, 0.16);
+  box-shadow: 0 10px 22px rgba(12, 35, 28, 0.24), 0 0 0 7px rgba(22, 131, 76, 0.16);
   color: #fff;
   cursor: pointer;
   display: grid;
@@ -3272,8 +3298,8 @@ main {
 
 .buyer-map-marker.active,
 .buyer-map-marker:hover {
-  background: var(--amber-strong);
-  box-shadow: 0 18px 32px rgba(31, 27, 22, 0.28), 0 0 0 10px rgba(183, 133, 39, 0.22);
+  background: var(--sage-strong);
+  box-shadow: 0 18px 32px rgba(12, 35, 28, 0.28), 0 0 0 10px rgba(22, 131, 76, 0.22);
   transform: scale(1.18);
 }
 
@@ -3332,8 +3358,10 @@ main {
 
 .media-preview {
   background:
-    radial-gradient(circle at 22% 20%, rgba(255, 255, 255, 0.35), transparent 60%),
-    linear-gradient(160deg, #d3bf94 0%, #b69661 100%);
+    linear-gradient(90deg, rgba(14, 95, 56, 0.08) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(14, 95, 56, 0.08) 1px, transparent 1px),
+    linear-gradient(160deg, #d8f0e3 0%, #9fd7b6 100%);
+  background-size: 42px 42px, 42px 42px, auto;
   border-bottom: 1px solid var(--line);
   display: grid;
   min-height: 200px;
@@ -3353,7 +3381,7 @@ main {
 
 .media-preview .media-hint {
   background: rgba(255, 255, 255, 0.84);
-  border: 1px solid rgba(31, 27, 22, 0.08);
+  border: 1px solid rgba(12, 35, 28, 0.08);
   border-radius: var(--r-pill);
   color: var(--ink-soft);
   font-size: 11.5px;
@@ -3402,7 +3430,7 @@ main {
 .invite-compose-form .field select,
 .invite-compose-form .field textarea {
   background: #fff;
-  border-color: #ded8cc;
+  border-color: var(--line);
   border-radius: var(--r-sm);
   min-height: 48px;
 }
@@ -3419,8 +3447,8 @@ main {
   align-items: center;
   background:
     linear-gradient(rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.78)),
-    repeating-linear-gradient(0deg, rgba(63, 156, 91, 0.08) 0 1px, transparent 1px 54px),
-    repeating-linear-gradient(90deg, rgba(31, 27, 22, 0.06) 0 1px, transparent 1px 72px),
+    repeating-linear-gradient(0deg, rgba(22, 131, 76, 0.08) 0 1px, transparent 1px 54px),
+    repeating-linear-gradient(90deg, rgba(12, 35, 28, 0.06) 0 1px, transparent 1px 72px),
     var(--sage-tint);
   border: 1px solid var(--line-soft);
   border-radius: var(--r-sm);
@@ -3450,7 +3478,7 @@ main {
 
 .quick-overview-card {
   border-radius: var(--r-sm);
-  box-shadow: 0 10px 28px rgba(31, 27, 22, 0.08);
+  box-shadow: 0 10px 28px rgba(12, 35, 28, 0.08);
 }
 
 .quick-overview-card > .eyebrow {
@@ -3887,7 +3915,7 @@ main {
 .search-grid-container {
   display: grid;
   grid-template-columns: 290px minmax(0, 1fr);
-  gap: 32px;
+  gap: 28px;
   align-items: start;
 }
 
@@ -3899,11 +3927,12 @@ main {
 
 /* Left-hand Sidebar filters */
 .search-sidebar-filters {
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px) saturate(140%);
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-1);
-  padding: 24px;
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-float);
+  padding: 20px;
   height: fit-content;
   position: sticky;
   top: 96px;
@@ -3912,7 +3941,7 @@ main {
 .filters-form {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
 .filter-section {
@@ -3920,7 +3949,7 @@ main {
   flex-direction: column;
   gap: 10px;
   border-bottom: 1px solid var(--line-soft);
-  padding-bottom: 20px;
+  padding-bottom: 18px;
 }
 
 .filter-section:last-of-type {
@@ -3930,10 +3959,10 @@ main {
 
 .filter-section-title {
   color: var(--ink-strong);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   margin: 0;
 }
 
@@ -3950,7 +3979,7 @@ main {
 .search-field-icon {
   position: absolute;
   left: 14px;
-  color: var(--ink-muted);
+  color: var(--sage-strong);
 }
 
 .input-with-clear input {
@@ -3958,7 +3987,7 @@ main {
   padding-right: 32px !important;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--ink-strong);
   min-height: 40px;
   width: 100%;
@@ -3998,8 +4027,8 @@ main {
 }
 
 .location-message-info {
+  color: var(--info);
   font-size: 12px;
-  color: var(--amber-strong);
 }
 
 /* Budget Range Selects */
@@ -4016,7 +4045,7 @@ main {
 .budget-select-row select {
   width: 100%;
   min-height: 38px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   border: 1px solid var(--line);
   padding: 8px 12px;
   font-size: 13.5px;
@@ -4055,17 +4084,18 @@ main {
   background: var(--sage-tint);
   border: 1px solid var(--sage-line);
   color: var(--sage-deep);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72);
 }
 
 .property-pills-row .pill-btn.outlined {
-  background: transparent;
+  background: #ffffff;
   border: 1px solid var(--line-strong);
   color: var(--ink-soft);
 }
 
 .property-pills-row .pill-btn.outlined:hover {
-  background: var(--surface-muted);
-  border-color: var(--ink-muted);
+  background: #f8fbfa;
+  border-color: var(--sage-line);
 }
 
 .property-pills-row.wrap .pill-btn {
@@ -4081,7 +4111,7 @@ main {
 .select-wrapper select {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--ink-strong);
   min-height: 38px;
   padding: 8px 12px;
@@ -4127,7 +4157,7 @@ main {
 }
 
 .checkbox-container:hover input ~ .checkmark {
-  border-color: var(--ink-muted);
+  border-color: var(--sage-line);
 }
 
 .checkbox-container input:checked ~ .checkmark {
@@ -4189,15 +4219,16 @@ main {
 }
 
 .clear-filters-link:hover {
-  color: var(--ink-strong);
+  color: var(--sage-deep);
   text-decoration: underline;
 }
 
 /* Notice Banner style */
 .private-invite-alert {
-  background-color: var(--amber-tint);
-  border: 1px solid var(--amber-line);
-  border-radius: var(--r-md);
+  background-color: #f2fbf6;
+  border: 1px solid var(--sage-line);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-1);
   padding: 14px 18px;
   display: flex;
   gap: 12px;
@@ -4205,6 +4236,7 @@ main {
 }
 
 .private-invite-alert .alert-icon {
+  color: var(--sage-deep);
   font-size: 18px;
 }
 
@@ -4255,7 +4287,7 @@ main {
 
 .filter-chip:hover {
   background: var(--surface);
-  border-color: var(--ink-muted);
+  border-color: var(--sage-line);
   color: var(--ink-strong);
 }
 
@@ -4298,8 +4330,8 @@ main {
   padding: 20px 24px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-1);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-2);
   transition: all 0.16s ease;
 }
 
@@ -4308,10 +4340,10 @@ main {
 }
 
 .buyer-cards-list .buyer-row:hover {
-  background: var(--surface-muted);
-  border-color: var(--line-strong);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-2);
+  background: #ffffff;
+  border-color: var(--sage-line);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-float);
 }
 
 .buyer-col-info {
@@ -4481,7 +4513,7 @@ main {
 
 .view-toggle-container {
   display: inline-flex;
-  background: var(--line-soft);
+  background: var(--surface-muted);
   border: 1px solid var(--line);
   border-radius: var(--r-pill);
   padding: 3px;
@@ -4506,14 +4538,14 @@ main {
 
 .view-toggle-btn.active {
   background: #ffffff;
-  color: var(--ink-strong);
-  box-shadow: var(--shadow-1);
+  color: var(--sage-deep);
+  box-shadow: var(--shadow-2);
 }
 
 .interactive-map-container {
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-2);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-float);
   overflow: hidden;
   height: 680px;
   position: relative;
@@ -4570,7 +4602,7 @@ body:has(.home-page) .topbar .brand-subtitle {
 }
 
 body:has(.home-page) .topbar .nav a {
-  color: #d1c8bd !important;
+  color: #d7e6df !important;
 }
 
 body:has(.home-page) .topbar .nav a:hover {
@@ -4584,14 +4616,14 @@ body:has(.home-page) .topbar .nav a.active {
 }
 
 body:has(.home-page) .topbar .nav a.active.seller {
-  background: var(--amber-strong) !important;
+  background: var(--sage-strong) !important;
   color: #ffffff !important;
 }
 
 body:has(.home-page) .topbar .notification-button {
   background: rgba(255, 255, 255, 0.05) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
-  color: #d1c8bd !important;
+  color: #d7e6df !important;
 }
 
 body:has(.home-page) .topbar .notification-button:hover {
@@ -4601,7 +4633,7 @@ body:has(.home-page) .topbar .notification-button:hover {
 }
 
 body:has(.home-page) .topbar .button.ghost {
-  color: #d1c8bd !important;
+  color: #d7e6df !important;
 }
 
 body:has(.home-page) .topbar .button.ghost:hover {
@@ -4615,7 +4647,9 @@ body:has(.home-page) .topbar .brand-mark {
 
 /* Home Hero Overrides */
 .home-hero {
-  background: radial-gradient(circle at 65% 28%, #2c5a40 0%, #18402c 35%, #0c2218 100%) !important;
+  background:
+    linear-gradient(118deg, rgba(47, 180, 111, 0.18), transparent 34%),
+    linear-gradient(180deg, #0c2b1d 0%, #071411 100%) !important;
   color: #ffffff !important;
   padding: 0 !important;
   max-width: none !important;
@@ -4657,7 +4691,7 @@ body:has(.home-page) .topbar .brand-mark {
   font-family: inherit !important;
   font-weight: inherit !important;
   font-style: italic !important;
-  color: #8bb796 !important; /* Premium sage green shade */
+  color: #9fd7b6 !important;
   background: none !important;
   -webkit-text-fill-color: initial !important;
   display: inline !important;
@@ -4766,7 +4800,7 @@ body:has(.home-page) .topbar .brand-mark {
   padding: 8px 16px;
   font-size: 13.5px;
   font-weight: 600;
-  color: #d1c8bd;
+  color: #d7e6df;
   transition: all 0.15s ease;
 }
 
@@ -4954,8 +4988,8 @@ body:has(.home-page) .home-page {
 
 .home-hero::before {
   background:
-    radial-gradient(circle at 80% 22%, rgba(139, 183, 150, 0.28), transparent 55%),
-    radial-gradient(circle at 18% 75%, rgba(60, 110, 80, 0.22), transparent 50%);
+    linear-gradient(112deg, transparent 0 18%, rgba(255, 255, 255, 0.07) 18% 20%, transparent 20% 44%, rgba(47, 180, 111, 0.12) 44% 46%, transparent 46%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 58%);
   content: "";
   inset: 0;
   pointer-events: none;

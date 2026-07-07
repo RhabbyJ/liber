@@ -58,7 +58,7 @@ export function PublicDemandMap({ previews, token }: Props) {
           container: containerRef.current,
           cooperativeGestures: true,
           maxBounds: [[-118.75, 34.08], [-118.3, 34.37]],
-          style: "mapbox://styles/mapbox/streets-v12",
+          style: "mapbox://styles/mapbox/light-v11",
           zoom: 10.6,
         });
 
