@@ -31,7 +31,6 @@ export function GeneratedAvatar({ alt, className, seed, size = "md", variant }: 
   return (
     <span aria-label={alt || "Generated buyer avatar"} className={classes} role="img">
       <BoringAvatar
-        colors={resolved.colors}
         name={resolved.name}
         size="100%"
         title={false}

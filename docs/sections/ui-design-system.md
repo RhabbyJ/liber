@@ -23,7 +23,7 @@ Owns shared visual language, navigation, layouts, reusable components, and globa
 - Keep mobile and keyboard accessibility in scope.
 - Primary mobile navigation must remain usable during delayed or missing client hydration; keep menu contents/actions in the DOM and preserve the fallback behavior in `primary-nav.tsx`.
 - Do not use real-looking buyer imagery as a trust shortcut.
-- Buyer avatar UI uses Boring Avatars generated art from app-approved styles and palettes.
+- Buyer avatar UI uses Boring Avatars generated art from app-approved package variants.
 
 ## Agent notes
 
