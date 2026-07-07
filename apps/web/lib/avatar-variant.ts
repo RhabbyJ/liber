@@ -1,68 +1,81 @@
-export const avatarShapes = ["dog", "cat", "house", "key", "leaf", "star"] as const;
-export const avatarColorOptions = [
-  { id: "purple", hex: "#6f43d6" },
-  { id: "green", hex: "#5fbe43" },
-  { id: "blue", hex: "#1677c8" },
-  { id: "teal", hex: "#169f8f" },
-  { id: "rose", hex: "#d94f70" },
-  { id: "gold", hex: "#d89614" },
+export const boringAvatarVariants = ["beam", "marble", "ring", "bauhaus", "sunset", "pixel"] as const;
+export const boringAvatarPalettes = [
+  { id: "liber", colors: ["#6f43d6", "#5fbe43", "#1677c8", "#ffffff", "#242326"] },
+  { id: "garden", colors: ["#195f52", "#5fbe43", "#d6f0cf", "#f7f9f5", "#24342f"] },
+  { id: "coast", colors: ["#1677c8", "#169f8f", "#d8eef7", "#f7f9f5", "#243449"] },
+  { id: "orchard", colors: ["#d94f70", "#d89614", "#f7d9df", "#fff7e4", "#3b2730"] },
+  { id: "violet", colors: ["#6f43d6", "#9c7af0", "#e7defd", "#f7f9f5", "#2f2447"] },
 ] as const;
 
-export type AvatarShape = (typeof avatarShapes)[number];
-export type AvatarColorId = (typeof avatarColorOptions)[number]["id"];
+export type BoringAvatarVariant = (typeof boringAvatarVariants)[number];
+export type BoringAvatarPaletteId = (typeof boringAvatarPalettes)[number]["id"];
 
 export type AvatarVariantParts = {
-  color: AvatarColorId;
-  colorHex: string;
+  colors: string[];
+  name: string;
+  palette: BoringAvatarPaletteId;
   salt: number;
-  shape: AvatarShape;
   value: string;
+  variant: BoringAvatarVariant;
 };
 
-const avatarSalts = [0, 1, 2, 3] as const;
-const colorById = new Map(avatarColorOptions.map((color) => [color.id, color.hex]));
+const avatarSalts = [0, 1, 2, 3, 4, 5, 6, 7] as const;
+const paletteById = new Map(boringAvatarPalettes.map((palette) => [palette.id, palette]));
 
 export function normalizeAvatarVariant(value?: string | null) {
   const parts = value?.split(":");
-  if (!parts || parts.length !== 3) return null;
+  if (!parts || parts.length !== 4) return null;
 
-  const [shape, color, saltValue] = parts;
-  if (!avatarShapes.includes(shape as AvatarShape)) return null;
-  if (!colorById.has(color as AvatarColorId)) return null;
+  const [namespace, variant, palette, saltValue] = parts;
+  if (namespace !== "boring") return null;
+  if (!boringAvatarVariants.includes(variant as BoringAvatarVariant)) return null;
+  if (!paletteById.has(palette as BoringAvatarPaletteId)) return null;
   if (!/^\d+$/.test(saltValue)) return null;
 
   const salt = Number(saltValue);
   if (!Number.isInteger(salt) || salt < 0 || salt > 99) return null;
 
-  return `${shape}:${color}:${salt}`;
+  return `${namespace}:${variant}:${palette}:${salt}`;
 }
 
 export function avatarVariantFromSeed(seed: string) {
   const hash = hashSeed(seed || "buyer");
-  const shape = avatarShapes[hash % avatarShapes.length];
-  const color = avatarColorOptions[Math.floor(hash / avatarShapes.length) % avatarColorOptions.length].id;
-  const salt = avatarSalts[Math.floor(hash / (avatarShapes.length * avatarColorOptions.length)) % avatarSalts.length];
+  const variant = boringAvatarVariants[hash % boringAvatarVariants.length];
+  const palette = boringAvatarPalettes[
+    Math.floor(hash / boringAvatarVariants.length) % boringAvatarPalettes.length
+  ].id;
+  const salt = avatarSalts[
+    Math.floor(hash / (boringAvatarVariants.length * boringAvatarPalettes.length)) % avatarSalts.length
+  ];
 
-  return `${shape}:${color}:${salt}`;
+  return `boring:${variant}:${palette}:${salt}`;
 }
 
 export function resolveAvatarVariant(value: string | null | undefined, seed: string): AvatarVariantParts {
   const normalized = normalizeAvatarVariant(value) ?? avatarVariantFromSeed(seed);
-  const [shape, color, saltValue] = normalized.split(":") as [AvatarShape, AvatarColorId, string];
+  const [, variant, palette, saltValue] = normalized.split(":") as [
+    "boring",
+    BoringAvatarVariant,
+    BoringAvatarPaletteId,
+    string,
+  ];
+  const salt = Number(saltValue);
+  const paletteConfig = paletteById.get(palette) ?? boringAvatarPalettes[0];
 
   return {
-    color,
-    colorHex: colorById.get(color) ?? avatarColorOptions[0].hex,
-    salt: Number(saltValue),
-    shape,
+    colors: [...paletteConfig.colors],
+    name: `${seed || "buyer"}:${salt}`,
+    palette,
+    salt,
     value: normalized,
+    variant,
   };
 }
 
 export function randomAvatarVariant(exclude?: string | null) {
   const normalizedExclude = normalizeAvatarVariant(exclude);
-  const options = avatarShapes.flatMap((shape) =>
-    avatarColorOptions.flatMap((color) => avatarSalts.map((salt) => `${shape}:${color.id}:${salt}`)),
+  const options = boringAvatarVariants.flatMap((variant) =>
+    boringAvatarPalettes.flatMap((palette) => avatarSalts.map((salt) => `boring:${variant}:${palette.id}:${salt}`)),
   );
   let index = randomIndex(options.length);
 

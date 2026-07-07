@@ -2609,7 +2609,6 @@ body:has(.map-landing) .site-footer {
 .generated-avatar {
   align-items: center;
   border-radius: var(--r-pill);
-  color: #fff;
   display: inline-grid;
   height: 48px;
   overflow: hidden;
@@ -2634,9 +2633,8 @@ body:has(.map-landing) .site-footer {
 
 .generated-avatar svg {
   display: block;
-  fill: currentColor;
-  height: 70%;
-  width: 70%;
+  height: 100%;
+  width: 100%;
 }
 
 /* Generated avatar mark on profile pages */

@@ -26,7 +26,7 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - Buyer setup is one form on `/buyer/profile`: buyer info, criteria, size, details, and location. Criteria save in the same submit as the profile.
 - Buyer profile purpose is purchase-only; do not add rental/tenant intent to signup, profile, criteria, or seller-search surfaces.
 - Buyer account names are private to the buyer portal. Seller/public surfaces must use `BuyerProfile.displayName` or a privacy-safe label, not `User.name`.
-- Buyer avatars are generated from allowlisted `User.avatarVariant` tokens.
+- Buyer avatars are generated with Boring Avatars from allowlisted `User.avatarVariant` tokens.
 - `/buyer/criteria` redirects to the profile form for old links; there is no separate criteria onboarding flow.
 
 ## Agent notes

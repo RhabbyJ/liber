@@ -27,7 +27,7 @@ import {
   type Invite,
   type Property,
 } from "../lib/mock-data";
-import { randomAvatarVariant } from "../lib/avatar-variant";
+import { avatarVariantFromSeed, normalizeAvatarVariant, randomAvatarVariant } from "../lib/avatar-variant";
 import { hasRole, type SessionUser } from "./authz";
 import {
   canViewBuyerDirectory,
@@ -843,7 +843,8 @@ export async function shuffleBuyerAvatarVariant() {
     where: { id: user.id },
     select: { avatarVariant: true },
   });
-  const avatarVariant = randomAvatarVariant(account?.avatarVariant);
+  const displayedAvatarVariant = normalizeAvatarVariant(account?.avatarVariant) ?? avatarVariantFromSeed(user.id);
+  const avatarVariant = randomAvatarVariant(displayedAvatarVariant);
   const [updatedUser, profile] = await prisma.$transaction([
     prisma.user.update({
       where: { id: user.id },
