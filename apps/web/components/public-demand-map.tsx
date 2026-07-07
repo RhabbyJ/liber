@@ -18,8 +18,8 @@ type PreviewPoint = {
 };
 
 /**
- * Public Zillow-style buyer-demand map. Pins are anonymized budget bands at
- * approximate locations only. There are no buyer ids, names, or profile
+ * Public Zillow-style buyer-demand map. Pins show anonymized demand at
+ * approximate locations only. There are no buyer ids, names, budget labels, or profile
  * links here — the only action is signing up.
  */
 export function PublicDemandMap({ previews, token }: Props) {
@@ -29,6 +29,7 @@ export function PublicDemandMap({ previews, token }: Props) {
   const [status, setStatus] = useState("");
   const [didFail, setDidFail] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [hasLiveMarkers, setHasLiveMarkers] = useState(false);
 
   const points = useMemo<PreviewPoint[]>(
     () =>
@@ -58,7 +59,7 @@ export function PublicDemandMap({ previews, token }: Props) {
           container: containerRef.current,
           cooperativeGestures: true,
           maxBounds: [[-118.75, 34.08], [-118.3, 34.37]],
-          style: "mapbox://styles/mapbox/light-v11",
+          style: "mapbox://styles/mapbox/streets-v12",
           zoom: 10.6,
         });
 
@@ -79,6 +80,7 @@ export function PublicDemandMap({ previews, token }: Props) {
       }
     }
 
+    setHasLiveMarkers(false);
     setupMap();
 
     return () => {
@@ -95,13 +97,14 @@ export function PublicDemandMap({ previews, token }: Props) {
 
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
+    setHasLiveMarkers(false);
 
     for (const point of points) {
       const markerNode = document.createElement("button");
       markerNode.type = "button";
-      markerNode.className = "buyer-map-marker";
+      markerNode.className = "buyer-map-marker public-demand-pin";
       markerNode.setAttribute("aria-label", `Buyer demand around ${point.preview.area}`);
-      markerNode.innerHTML = `<span>${escapeHtml(point.preview.budgetLabel)}</span>`;
+      markerNode.innerHTML = `<span aria-hidden="true"></span>`;
 
       const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(previewPopupHtml(point.preview));
       const marker = new window.mapboxgl.Marker({ element: markerNode })
@@ -111,6 +114,7 @@ export function PublicDemandMap({ previews, token }: Props) {
 
       markersRef.current.push(marker);
     }
+    setHasLiveMarkers(points.length > 0);
 
     if (points.length > 1) {
       const bounds = new window.mapboxgl.LngLatBounds();
@@ -125,7 +129,7 @@ export function PublicDemandMap({ previews, token }: Props) {
 
   return (
     <div className="public-map-shell">
-      <StaticDemandLayer points={points} />
+      {hasLiveMarkers ? null : <StaticDemandLayer points={points} />}
       <div className="map-canvas" ref={containerRef} />
       {status ? <div className="map-status">{status}</div> : null}
       <div className="public-map-note">Approximate areas · anonymized preview</div>
@@ -160,7 +164,7 @@ function StaticDemandLayer({ points }: { points: PreviewPoint[] }) {
               key={`${point.preview.area}-${point.index}`}
               style={{ left: `${position.left}%`, top: `${position.top}%` }}
             >
-              <span>{staticBudgetLabel(point.preview.budgetLabel)}</span>
+              <span aria-hidden="true" />
             </span>
           );
         })
@@ -184,7 +188,6 @@ function previewPopupHtml(preview: PublicBuyerPreview) {
 
   return `
     <div class="buyer-map-popup">
-      <strong>${escapeHtml(preview.budgetLabel)}</strong>
       ${facts.length > 0 ? `<span>${escapeHtml(facts.join(" · "))}</span>` : ""}
       <span>${escapeHtml(preview.label)} · ${escapeHtml(preview.area)}</span>
       <div>
@@ -230,11 +233,6 @@ function staticPinOffset(index: number) {
     { left: 10, top: 3 },
   ];
   return offsets[index % offsets.length];
-}
-
-function staticBudgetLabel(value: string) {
-  if (value.startsWith("Up to")) return value;
-  return value.replace(/\u2013.*$/, "+");
 }
 
 function clamp(value: number) {

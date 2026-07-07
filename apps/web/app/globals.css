@@ -3296,6 +3296,25 @@ main {
   transform: translateY(1px);
 }
 
+.buyer-map-marker.public-demand-pin,
+.buyer-map-marker.public-map-static-pin {
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  width: 28px;
+}
+
+.buyer-map-marker.public-demand-pin span,
+.buyer-map-marker.public-map-static-pin span {
+  background: #fff;
+  border-radius: var(--r-pill);
+  display: block;
+  height: 8px;
+  opacity: 0.92;
+  transform: none;
+  width: 8px;
+}
+
 .buyer-map-marker.active,
 .buyer-map-marker:hover {
   background: var(--sage-strong);

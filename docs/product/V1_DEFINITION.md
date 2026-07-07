@@ -30,14 +30,14 @@ The loop is successful when a seller can find a relevant buyer and send a compli
 
 Liber v1 includes a limited pre-signup preview of buyer demand to make the marketplace value obvious before account creation.
 
-The public homepage is a map-first landing surface: a Zillow-style map showing anonymized buyer-demand pins labeled with budget bands instead of listing prices, plus a small set of matching preview cards and a signup wall. There is no separate marketing landing page.
+The public homepage is a map-first landing surface: a Zillow-style map showing anonymized, unlabeled buyer-demand pins at approximate locations, plus a small set of matching preview cards and a signup wall. There is no separate marketing landing page.
 
 The public or unauthenticated experience can:
 
 - show a small fixed set of privacy-safe buyer preview records, currently up to 6, as map pins and preview cards,
 - use active, non-hidden, non-suspended buyer demand records whose preview fields are approved or derived from preview-safe criteria,
 - place pins only at approximate locations (pilot-area centers or similarly coarse coordinates with a display offset), never at precise buyer locations,
-- show coarse buyer-demand context such as broad geography, budget band, property type, size needs, room needs, amenities, condition preference, and display-safe trust signals,
+- show coarse buyer-demand context in preview cards, such as broad geography, budget band, property type, size needs, room needs, amenities, condition preference, and display-safe trust signals,
 - use anonymized or privacy-safe buyer labels,
 - invite the visitor to sign up or request seller access before viewing full search results or profiles.
 
@@ -217,7 +217,7 @@ Seller search filters should include the v1-safe criteria needed to find propert
 
 Filters must remain property-fit and trust oriented. Do not add filters based on protected-class proxies or unnecessary personal characteristics.
 
-The public/unauthenticated homepage is a map-first preview of limited buyer demand (anonymized budget-band pins at approximate locations plus preview cards), but must not expose full buyer search, pins tied to precise locations, full buyer profiles, or crawlable buyer-directory data. The fully searchable, filterable buyer-demand map remains an approved-seller workspace.
+The public/unauthenticated homepage is a map-first preview of limited buyer demand (anonymized, unlabeled pins at approximate locations plus preview cards), but must not expose full buyer search, pins tied to precise locations, full buyer profiles, or crawlable buyer-directory data. The fully searchable, filterable buyer-demand map remains an approved-seller workspace.
 
 ## V1 property rules
 
