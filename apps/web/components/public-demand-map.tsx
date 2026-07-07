@@ -3,10 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadMapboxGl } from "../lib/mapbox-gl-loader";
 import { activePilotAreas } from "../lib/launch-market";
+import { selectedAreaBounds, selectedAreaFeature, type SelectedMapArea } from "../lib/map-area";
 import type { PublicBuyerPreview } from "../server/buyer-preview";
 
 type Props = {
   previews: PublicBuyerPreview[];
+  selectedArea?: SelectedMapArea | null;
+  selectedAreaLabel?: string;
   token?: string;
 };
 
@@ -22,7 +25,7 @@ type PreviewPoint = {
  * approximate locations only. There are no buyer ids, names, budget labels, or profile
  * links here — the only action is signing up.
  */
-export function PublicDemandMap({ previews, token }: Props) {
+export function PublicDemandMap({ previews, selectedArea = null, selectedAreaLabel, token }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -97,6 +100,7 @@ export function PublicDemandMap({ previews, token }: Props) {
 
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
+    syncSelectedAreaLayer(mapRef.current, selectedArea);
     setHasLiveMarkers(false);
 
     for (const point of points) {
@@ -116,20 +120,25 @@ export function PublicDemandMap({ previews, token }: Props) {
     }
     setHasLiveMarkers(points.length > 0);
 
-    if (points.length > 1) {
+    if (selectedArea) {
+      mapRef.current.fitBounds(selectedAreaBounds(selectedArea), { maxZoom: 12.6, padding: 92 });
+    } else if (points.length > 1) {
       const bounds = new window.mapboxgl.LngLatBounds();
       points.forEach((point) => bounds.extend([point.lng, point.lat]));
       mapRef.current.fitBounds(bounds, { maxZoom: 12, padding: 90 });
     }
-  }, [isReady, points]);
+  }, [isReady, points, selectedArea]);
 
   if (!shouldUseMapbox || didFail) {
-    return <PublicStaticDemandMap points={points} />;
+    return <PublicStaticDemandMap points={points} selectedArea={selectedArea} />;
   }
 
   return (
-    <div className="public-map-shell">
-      {hasLiveMarkers ? null : <StaticDemandLayer points={points} />}
+    <div
+      aria-label={selectedAreaLabel ? `Buyer demand preview map around ${selectedAreaLabel}` : "Buyer demand preview map"}
+      className="public-map-shell"
+    >
+      {hasLiveMarkers ? null : <StaticDemandLayer points={points} selectedArea={selectedArea} />}
       <div className="map-canvas" ref={containerRef} />
       {status ? <div className="map-status">{status}</div> : null}
       <div className="public-map-note">Approximate areas · anonymized preview</div>
@@ -137,18 +146,19 @@ export function PublicDemandMap({ previews, token }: Props) {
   );
 }
 
-function PublicStaticDemandMap({ points }: { points: PreviewPoint[] }) {
+function PublicStaticDemandMap({ points, selectedArea }: { points: PreviewPoint[]; selectedArea: SelectedMapArea | null }) {
   return (
     <div className="public-map-shell fallback" aria-label="Buyer demand preview map">
-      <StaticDemandLayer points={points} />
+      <StaticDemandLayer points={points} selectedArea={selectedArea} />
       <div className="public-map-note">Approximate areas - privacy-safe preview</div>
     </div>
   );
 }
 
-function StaticDemandLayer({ points }: { points: PreviewPoint[] }) {
+function StaticDemandLayer({ points, selectedArea }: { points: PreviewPoint[]; selectedArea: SelectedMapArea | null }) {
   return (
     <div className="public-map-static-grid">
+      {selectedArea ? <span aria-hidden="true" className="public-map-selected-area-static" /> : null}
       {points.length === 0 ? (
         <div className="public-map-static-empty">
           <strong>Buyer demand map</strong>
@@ -237,4 +247,50 @@ function staticPinOffset(index: number) {
 
 function clamp(value: number) {
   return Math.max(24, Math.min(76, value));
+}
+
+const selectedAreaSourceId = "public-preview-selected-area";
+const selectedAreaFillLayerId = "public-preview-selected-area-fill";
+const selectedAreaLineLayerId = "public-preview-selected-area-line";
+
+function syncSelectedAreaLayer(map: any, area: SelectedMapArea | null) {
+  if (!area) {
+    removeSelectedAreaLayer(map);
+    return;
+  }
+
+  const data = selectedAreaFeature(area);
+  const source = map.getSource(selectedAreaSourceId);
+  if (source) {
+    source.setData(data);
+    return;
+  }
+
+  map.addSource(selectedAreaSourceId, { data, type: "geojson" });
+  map.addLayer({
+    id: selectedAreaFillLayerId,
+    paint: {
+      "fill-color": "#16834c",
+      "fill-opacity": 0.08,
+    },
+    source: selectedAreaSourceId,
+    type: "fill",
+  });
+  map.addLayer({
+    id: selectedAreaLineLayerId,
+    paint: {
+      "line-color": "#0e5f38",
+      "line-dasharray": [2, 1],
+      "line-opacity": 0.84,
+      "line-width": 3,
+    },
+    source: selectedAreaSourceId,
+    type: "line",
+  });
+}
+
+function removeSelectedAreaLayer(map: any) {
+  if (map.getLayer(selectedAreaLineLayerId)) map.removeLayer(selectedAreaLineLayerId);
+  if (map.getLayer(selectedAreaFillLayerId)) map.removeLayer(selectedAreaFillLayerId);
+  if (map.getSource(selectedAreaSourceId)) map.removeSource(selectedAreaSourceId);
 }

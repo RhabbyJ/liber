@@ -7,7 +7,6 @@ import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
 import { SearchFiltersSidebar } from "../../../components/search-filters-sidebar";
 import { SortSelect } from "../../../components/sort-select";
-import { ViewToggle } from "../../../components/view-toggle";
 import { canViewBuyerDirectory } from "../../../server/access";
 import { getCurrentSellerAccess, searchBuyers } from "../../../server/contracts";
 import { getSessionUser } from "../../../server/session";
@@ -105,64 +104,58 @@ export default async function SellerSearchPage({
     state: params.state || undefined,
   });
 
-  // Map-first workspace: approved sellers land on the map unless they opt into list view.
-  const view = params.view === "list" ? "list" : "map";
   const activeFilters = buildActiveFilters(params, badges, amenities);
+  const locationLabel = sellerSearchLocationLabel(params);
 
   return (
-    <div className="page wide stack loose">
-      <PageTitle
-        eyebrow="Seller workspace"
-        title="Search the buyer directory"
-        tone="seller"
-        badge={<ModeChip mode="seller" />}
-        actions={
-          <Link className="button primary" href="/seller/properties/new">
-            <Icon name="plus" size={14} />
-            Add private property
-          </Link>
-        }
-      >
-        {results.length} active buyer {results.length === 1 ? "profile matches" : "profiles match"} the current filters.
-        Properties stay private until you invite a buyer.
-      </PageTitle>
+    <div className="page wide seller-profile-search-page">
+      <div className="seller-profile-top-action">
+        <Link className="button primary" href="/seller/properties/new">
+          Add My Property Details
+        </Link>
+      </div>
 
-      <div className="search-grid-container">
-        <SearchFiltersSidebar
-          defaultArea={params.area || ""}
-          defaultCity={params.city || ""}
-          defaultState={params.state || "CA"}
-          defaultLat={params.centerLat || ""}
-          defaultLng={params.centerLng || ""}
-          defaultRadiusMiles={params.radiusMiles || 8}
-          defaultBudgetMin={params.budgetMin || ""}
-          defaultBudgetMax={params.budgetMax || ""}
-          defaultBadges={badges}
-          defaultSort={sort}
-          defaultBedrooms={params.bedrooms || ""}
-          defaultBathrooms={params.bathrooms || ""}
-          defaultSquareFeet={params.squareFeet || ""}
-          defaultCondition={params.condition || ""}
-          defaultAmenities={amenities}
-        />
-
-        <div className="search-results-area">
-          {/* Top Yellow Notice Banner */}
-          <div className="private-invite-alert">
-            <span className="alert-icon">
-              <Icon name="lock" size={18} />
-            </span>
-            <div className="alert-content">
-              <strong>Private invite only.</strong> Buyers below are not publicly listed. Send a private invite to share details. Your property remains hidden until you invite them.
-            </div>
+      <section className="seller-profile-search-grid">
+        <div className="seller-profile-map-column">
+          <h1>Showing {results.length} buyers</h1>
+          <div className="interactive-map-container seller-profile-map-frame">
+            <BuyerMap
+              buyers={results}
+              centerLat={centerLat}
+              centerLng={centerLng}
+              radiusMiles={hasRadiusCoordinates ? radiusMiles : undefined}
+            />
           </div>
+        </div>
 
-          {/* Results Count, Sort Dropdown & View Toggle */}
-          <div className="search-results-header">
-            <h2>{results.length} matched buyers</h2>
+        <div className="seller-profile-results-column">
+          <div className="seller-profile-results-header">
+            <div>
+              <h2>{locationLabel} Buyers for your property</h2>
+              <p>{results.length} active buyer {results.length === 1 ? "profile matches" : "profiles match"} your filters.</p>
+            </div>
             <div className="header-controls">
               <SortSelect value={sort} />
-              <ViewToggle currentView={view} />
+              <details className="seller-inline-filters">
+                <summary>All Filters</summary>
+                <SearchFiltersSidebar
+                  defaultArea={params.area || ""}
+                  defaultCity={params.city || ""}
+                  defaultState={params.state || "CA"}
+                  defaultLat={params.centerLat || ""}
+                  defaultLng={params.centerLng || ""}
+                  defaultRadiusMiles={params.radiusMiles || 8}
+                  defaultBudgetMin={params.budgetMin || ""}
+                  defaultBudgetMax={params.budgetMax || ""}
+                  defaultBadges={badges}
+                  defaultSort={sort}
+                  defaultBedrooms={params.bedrooms || ""}
+                  defaultBathrooms={params.bathrooms || ""}
+                  defaultSquareFeet={params.squareFeet || ""}
+                  defaultCondition={params.condition || ""}
+                  defaultAmenities={amenities}
+                />
+              </details>
             </div>
           </div>
 
@@ -177,55 +170,23 @@ export default async function SellerSearchPage({
             </div>
           ) : null}
 
-          {view === "list" ? (
-            <>
-              {/* Buyer Cards List */}
-              <div className="buyer-cards-list">
-                {results.length === 0 ? (
-                  <div style={{ padding: 24 }}>
-                    <EmptyState
-                      icon="search"
-                      title="No buyers match these filters"
-                      description="Try widening your radius, raising the budget ceiling, or removing badge filters."
-                    />
-                  </div>
-                ) : (
-                  results.map((buyer) => (
-                    <BuyerCard buyer={buyer} key={buyer.id} variant="row" />
-                  ))
-                )}
-              </div>
-            </>
-          ) : (
-            /* Map-first view: map on top, matching buyer cards from the same result set below */
-            <>
-              <div className="interactive-map-container">
-                <BuyerMap
-                  buyers={results}
-                  centerLat={centerLat}
-                  centerLng={centerLng}
-                  radiusMiles={hasRadiusCoordinates ? radiusMiles : undefined}
+          <div className="buyer-cards-list seller-profile-buyer-list">
+            {results.length === 0 ? (
+              <div style={{ padding: 24 }}>
+                <EmptyState
+                  icon="search"
+                  title="No buyers match these filters"
+                  description="Try widening your radius, raising the budget ceiling, or removing badge filters."
                 />
               </div>
-              <div className="buyer-cards-list">
-                {results.length === 0 ? (
-                  <div style={{ padding: 24 }}>
-                    <EmptyState
-                      icon="search"
-                      title="No buyers match these filters"
-                      description="Try widening your radius, raising the budget ceiling, or removing badge filters."
-                    />
-                  </div>
-                ) : (
-                  results.map((buyer) => (
-                    <BuyerCard buyer={buyer} key={buyer.id} variant="row" />
-                  ))
-                )}
-              </div>
-            </>
-          )}
+            ) : (
+              results.map((buyer) => (
+                <BuyerCard buyer={buyer} key={buyer.id} variant="row" />
+              ))
+            )}
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
@@ -312,6 +273,12 @@ function sellerSearchHrefWithout(params: SellerSearchParams, remove: string[]) {
   }
   const query = nextParams.toString();
   return query ? `/seller/search?${query}` : "/seller/search";
+}
+
+function sellerSearchLocationLabel(params: SellerSearchParams) {
+  if (params.city) return params.city;
+  if (params.area) return params.area.split(",")[0]?.trim() || params.area;
+  return "Matched";
 }
 
 function moneyLabel(value?: string) {

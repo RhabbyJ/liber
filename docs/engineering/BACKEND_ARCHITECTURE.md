@@ -115,6 +115,7 @@ Rules:
 - Private documents are viewed through admin/server-mediated signed URLs only.
 - Storage paths and signed URLs must not become public profile data.
 - Server uploads should validate file type, size, ownership, and purpose.
+- Server action return shapes avoid returning raw private storage paths for private buckets. Return document IDs/status, public URLs for public buckets, or short-lived signed URLs from admin/server-mediated reads only.
 
 ## Badge architecture
 
@@ -154,6 +155,8 @@ Budget filters are treated as range-overlap filters: a buyer matches when the bu
 
 Do not add search filters based on protected-class proxies or unnecessary personal attributes.
 
+Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN` on the buyer search query against realistic data volume. Current v1 indexes are acceptable for local development and CEO demo / private preview, but public launch may need composite or partial indexes for active buyer profiles, city/state, budget overlap, badge status, and sort patterns.
+
 ## Public buyer-demand preview
 
 `apps/web/server/buyer-preview.ts` powers the unauthenticated map-first homepage (V1 public preview rules). The homepage renders a public Zillow-style demand map (`apps/web/components/public-demand-map.tsx`) with budget-band pins plus preview cards and a signup wall.
@@ -162,7 +165,7 @@ Do not add search filters based on protected-class proxies or unnecessary person
 - returns only privacy-safe fields: anonymized buyer-type label, coarse city/state, $50K-banded budget, structured criteria facts, active badge labels,
 - pin coordinates are approximate only: pilot-area centers (or coordinates rounded to ~1 km) plus a deterministic display offset — never raw `desiredLat`/`desiredLng`,
 - never returns ids, names, avatars, exact locations, documents, or storage paths,
-- the public map has no search, no filters, and no buyer profile links; the only action is signup,
+- the public map may let visitors select a known active pilot ZIP/city to pan/draw a coarse area outline, but has no full public search/filter API and no buyer profile links; the only action is signup,
 - is best-effort: failures return an empty list / hide the map and must not break the homepage,
 - must not grow into public search or expose buyer profile URLs.
 
@@ -181,6 +184,8 @@ Abuse-prone actions should be rate-limited:
 - admin-sensitive actions.
 
 Important actions should write `AdminAuditLog` or equivalent operational events where supported.
+
+Current in-app rate limiting is acceptable only as a local development / CEO demo safeguard. Before true production launch, abuse controls for login, signup/resend, buyer search/profile view, invite send, uploads, geocode, and property enrichment must use a shared store such as Redis/Vercel KV/Upstash or a Supabase-backed limiter. In-memory process limits are not sufficient on Vercel/serverless because each instance has its own bucket and limits reset on cold starts/deploys.
 
 ## Maintenance
 
@@ -201,6 +206,7 @@ Do not create unauthenticated maintenance endpoints.
 - No service role in browser code.
 - No private document public URLs.
 - No seller-directory access from role alone.
+- No app authorization from user-editable auth metadata. Signup metadata may bootstrap buyer/seller onboarding only; admin roles and seller-directory approval must come from server-controlled database state.
 - No public buyer profile exposure.
 - No weakening RLS/storage policy to satisfy UI behavior.
 - No production claims for escrow, money movement, or lender approval.

@@ -2021,6 +2021,78 @@ main {
   width: 100%;
 }
 
+.public-map-search-box {
+  display: grid;
+  gap: 4px;
+  max-width: 560px;
+  padding: 0;
+}
+
+.public-map-search-box form {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 10px;
+}
+
+.public-map-search-box svg {
+  color: var(--sage-strong);
+  flex: 0 0 auto;
+}
+
+.public-map-search-box input {
+  background: transparent;
+  border: 0;
+  color: var(--ink-strong);
+  flex: 1;
+  font: inherit;
+  font-weight: 700;
+  min-width: 0;
+  outline: 0;
+}
+
+.public-map-search-box input::placeholder {
+  color: var(--ink-muted);
+}
+
+.public-map-search-submit {
+  background: var(--sage-deep);
+  border: 0;
+  border-radius: var(--r-sm);
+  color: #fff;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 800;
+  min-height: 30px;
+  padding: 0 12px;
+}
+
+.public-map-search-submit:hover {
+  background: var(--sage-strong);
+}
+
+.public-map-search-clear {
+  background: transparent;
+  border: 0;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.public-map-search-clear:hover {
+  color: var(--ink-strong);
+}
+
+.public-map-search-message {
+  color: var(--info);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 0 10px 8px 38px;
+}
+
 .map-search-box:hover,
 .map-search-box:focus-visible {
   border-color: var(--sage-strong);
@@ -2103,6 +2175,21 @@ body:has(.map-landing) .site-footer {
   width: 100%;
 }
 
+.public-map-selected-area-static {
+  background: rgba(22, 131, 76, 0.08);
+  border: 3px dashed rgba(14, 95, 56, 0.78);
+  border-radius: 50%;
+  box-shadow: 0 16px 45px rgba(14, 95, 56, 0.12);
+  height: min(56%, 390px);
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(64%, 520px);
+  z-index: 1;
+}
+
 .public-map-static-grid::before,
 .public-map-static-grid::after {
   background: rgba(255, 255, 255, 0.72);
@@ -2129,7 +2216,7 @@ body:has(.map-landing) .site-footer {
   cursor: default;
   position: absolute;
   transform: translate(-50%, -50%);
-  z-index: 2;
+  z-index: 3;
 }
 
 .public-map-static-empty {
@@ -3529,6 +3616,21 @@ body:has(.map-landing) .site-footer {
   position: relative;
 }
 
+.map-selected-area-static {
+  background: rgba(22, 131, 76, 0.08);
+  border: 3px dashed rgba(14, 95, 56, 0.78);
+  border-radius: 50%;
+  box-shadow: 0 16px 45px rgba(14, 95, 56, 0.12);
+  height: min(58%, 360px);
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  width: min(72%, 460px);
+  z-index: 1;
+}
+
 .map-pin {
   align-items: center;
   background: var(--sage-deep);
@@ -3832,6 +3934,105 @@ body:has(.map-landing) .site-footer {
   color: var(--sage-strong);
   font-size: 13px;
   padding: 0;
+}
+
+/* Seller property reference form */
+.seller-property-reference-page {
+  display: grid;
+  gap: 28px;
+  padding-top: 42px;
+}
+
+.seller-property-reference-head,
+.seller-property-reference-shell {
+  margin: 0 auto;
+  max-width: 960px;
+  width: 100%;
+}
+
+.seller-property-reference-head {
+  display: grid;
+  gap: 10px;
+}
+
+.seller-property-back {
+  align-items: center;
+  color: var(--ink-muted);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+  width: fit-content;
+}
+
+.seller-property-back:hover {
+  color: var(--sage-strong);
+}
+
+.seller-property-reference-head h1 {
+  color: var(--ink-strong);
+  font-size: 22px;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.seller-property-reference-head p {
+  color: var(--ink-muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+.seller-property-title-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.seller-property-reference-shell {
+  background: transparent;
+}
+
+.seller-property-reference-form {
+  gap: 18px 28px;
+}
+
+.seller-property-reference-form .field input,
+.seller-property-reference-form .field select,
+.seller-property-reference-form .field textarea {
+  background: #fff;
+  border-color: var(--line);
+  border-radius: var(--r-sm);
+  min-height: 48px;
+}
+
+.seller-property-reference-form .field textarea {
+  min-height: 128px;
+}
+
+.seller-property-verify-section {
+  margin-bottom: 4px;
+}
+
+.seller-property-file-line input[type="file"] {
+  background: #fff;
+  border-style: solid;
+  min-height: 48px;
+}
+
+.seller-property-image-upload {
+  grid-column: 1 / -1;
+}
+
+.seller-property-image-upload input[type="file"] {
+  background: var(--sage-tint);
+  border: 1px dashed var(--sage-line);
+  min-height: 92px;
+}
+
+.seller-property-reference-form .auth-alert {
+  border-radius: var(--r-sm);
 }
 
 /* ==========================================================================
@@ -4304,23 +4505,8 @@ body:has(.map-landing) .site-footer {
 }
 
 /* ==========================================================================
-   Liber Premium Facelift & Map Split View Toggle Overrides
+   Seller Search Controls
    ========================================================================== */
-
-
-/* Two-column search layout */
-.search-grid-container {
-  display: grid;
-  grid-template-columns: 290px minmax(0, 1fr);
-  gap: 28px;
-  align-items: start;
-}
-
-.search-results-area {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
 
 /* Left-hand Sidebar filters */
 .search-sidebar-filters {
@@ -4647,19 +4833,58 @@ body:has(.map-landing) .site-footer {
   color: var(--ink-strong);
 }
 
-/* Search page results header styling */
-.search-results-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 12px;
+/* Seller profile search */
+.seller-profile-search-page {
+  display: grid;
+  gap: 34px;
+  padding-top: 44px;
 }
 
-.search-results-header h2 {
-  font-size: 18px;
-  font-weight: 800;
+.seller-profile-top-action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.seller-profile-top-action .button {
+  min-width: 220px;
+}
+
+.seller-profile-search-grid {
+  align-items: start;
+  display: grid;
+  gap: 34px;
+  grid-template-columns: minmax(390px, 0.95fr) minmax(0, 1.15fr);
+}
+
+.seller-profile-map-column {
+  display: grid;
+  gap: 10px;
+}
+
+.seller-profile-map-column h1,
+.seller-profile-results-header h2 {
+  color: var(--ink-strong);
+  font-size: 22px;
+  letter-spacing: 0;
   margin: 0;
+}
+
+.seller-profile-results-column {
+  display: grid;
+  gap: 24px;
+}
+
+.seller-profile-results-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.seller-profile-results-header p {
+  color: var(--ink-muted);
+  font-size: 13px;
+  margin: 8px 0 0;
 }
 
 .active-filter-row {
@@ -4689,21 +4914,26 @@ body:has(.map-landing) .site-footer {
 }
 
 .sort-select-wrapper {
-  display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13.5px;
+  background: #fff;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
   color: var(--ink-muted);
+  display: flex;
+  font-size: 13px;
   font-weight: 600;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 12px;
 }
 
 .sort-select-wrapper select {
   background: transparent;
   border: none;
-  color: var(--ink-strong);
-  font-weight: 700;
-  font-size: 13.5px;
+  color: var(--sage-strong);
   cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 700;
   padding: 2px 4px;
   outline: none;
 }
@@ -4712,241 +4942,185 @@ body:has(.map-landing) .site-footer {
   text-decoration: underline;
 }
 
-/* Redesigned Buyer Card Row styles */
 .buyer-cards-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 0;
 }
 
 .buyer-cards-list .buyer-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) 145px 170px minmax(130px, 0.8fr);
-  gap: 16px;
   align-items: center;
-  padding: 20px 24px;
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  box-shadow: var(--shadow-2);
-  transition: all 0.16s ease;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(180px, 1.05fr) minmax(170px, 0.9fr) minmax(190px, 1fr) auto;
+  padding: 24px 0;
+  transition: background 0.16s ease;
 }
 
 .buyer-cards-list .buyer-row + .buyer-row {
-  border-top: 1px solid var(--line);
+  border-top: 0;
 }
 
 .buyer-cards-list .buyer-row:hover {
-  background: #ffffff;
-  border-color: var(--sage-line);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-float);
+  background: transparent;
 }
 
-.buyer-col-info {
-  display: flex;
+.buyer-row-profile {
   align-items: center;
-  gap: 16px;
-}
-
-.buyer-info-details {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  gap: 14px;
+  min-width: 0;
 }
 
-.buyer-info-details h3 {
+.buyer-row-profile h3 {
+  color: var(--ink-strong);
   font-size: 16px;
   font-weight: 800;
-  color: var(--ink-strong);
   margin: 0;
 }
 
-.buyer-location {
-  font-size: 13px;
+.buyer-row-profile p {
   color: var(--ink-muted);
-  margin: 0;
-}
-
-.buyer-fit-summary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  color: var(--ink-soft);
-  margin: 0;
-}
-
-.buyer-fit-summary .home-icon {
-  color: var(--ink-faint);
-}
-
-.buyer-col-budget {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.budget-range-pill {
-  background: var(--sage-tint) !important;
-  border: 1px solid var(--sage-line) !important;
-  color: var(--sage-deep) !important;
-  border-radius: var(--r-pill);
-  padding: 4px 12px;
   font-size: 13.5px;
-  font-weight: 800;
-  width: fit-content;
-  text-align: center;
-  letter-spacing: -0.01em;
+  margin: 0;
 }
 
-.budget-label {
-  font-size: 11px;
-  color: var(--ink-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 700;
-}
-
-.buyer-col-trust {
-  display: flex;
-  flex-direction: column;
-}
-
-.trust-badges-list {
-  display: flex;
-  flex-direction: column;
+.buyer-row-status,
+.buyer-row-fit {
+  display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
-.trust-badge-item {
-  display: flex;
+.buyer-row-status-label {
   align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--sage-deep);
+  color: var(--ink-strong);
+  display: flex;
+  font-size: 15px;
+  gap: 9px;
 }
 
-.trust-badge-item svg {
+.buyer-row-status-icon {
+  align-items: center;
+  background: #7ad18f;
+  border-radius: var(--r-pill);
+  color: #fff;
+  display: inline-flex;
+  height: 22px;
+  justify-content: center;
+  width: 22px;
+}
+
+.buyer-row-status > span,
+.buyer-row-fit > span {
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+.buyer-row-fit strong {
+  color: var(--ink-strong);
+  font-size: 14px;
+}
+
+.buyer-row-see-more {
+  color: #1f6fb2;
+  font-size: 14px;
+  font-weight: 700;
+  justify-self: end;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.buyer-row-see-more:hover {
   color: var(--sage-strong);
 }
 
-.trust-badge-item.disabled {
-  color: var(--ink-muted);
-}
-
-.trust-badge-item.disabled svg {
-  color: var(--ink-faint);
-}
-
-.buyer-col-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-}
-
-.buyer-col-actions .invite-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px !important;
-  padding: 6px 16px !important;
-  font-size: 13px !important;
-  border-radius: var(--r-pill);
-}
-
-.buyer-col-actions .invite-btn svg {
-  margin-left: 2px;
-}
-
-.invite-subtext {
-  font-size: 11px;
-  color: var(--ink-muted);
-  font-weight: 600;
-}
-
-/* Responsive Grid and Stacking Overrides */
 @media (max-width: 1024px) {
-  .search-grid-container {
+  .seller-profile-search-grid {
     grid-template-columns: 1fr;
-    gap: 24px;
   }
 }
 
 @media (max-width: 768px) {
   .buyer-cards-list .buyer-row {
     grid-template-columns: 1fr;
-    gap: 16px;
-    padding: 16px;
-    text-align: center;
+    gap: 12px;
+    padding: 18px 0;
   }
-  
-  .buyer-col-info {
-    flex-direction: column;
-  }
-  
-  .buyer-col-budget,
-  .buyer-col-trust,
-  .buyer-col-actions {
-    align-items: center;
-  }
-  
-  .budget-range-pill {
-    margin: 0 auto;
+
+  .buyer-row-see-more {
+    justify-self: start;
   }
 }
-
-/* ==========================================================================
-   Map Split View Toggle Styling
-   ========================================================================== */
 
 .header-controls {
-  display: flex;
   align-items: center;
-  gap: 16px;
-}
-
-.view-toggle-container {
   display: inline-flex;
-  background: var(--surface-muted);
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
-  padding: 3px;
-  gap: 2px;
+  gap: 14px;
 }
 
-.view-toggle-btn {
-  background: transparent;
-  border: none;
-  border-radius: var(--r-pill);
-  color: var(--ink-muted);
+.seller-inline-filters {
+  position: relative;
+}
+
+.seller-inline-filters summary {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--sage-line);
+  border-radius: var(--r-sm);
+  color: var(--sage-strong);
   cursor: pointer;
-  font-size: 13px;
+  display: inline-flex;
+  font-size: 14px;
   font-weight: 700;
-  padding: 6px 16px;
-  transition: all 0.16s ease;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 14px;
+  white-space: nowrap;
 }
 
-.view-toggle-btn:hover {
-  color: var(--ink-strong);
+.seller-inline-filters summary::-webkit-details-marker {
+  display: none;
 }
 
-.view-toggle-btn.active {
-  background: #ffffff;
-  color: var(--sage-deep);
-  box-shadow: var(--shadow-2);
+.seller-inline-filters summary::after {
+  content: "v";
+  font-size: 14px;
+  line-height: 1;
+}
+
+.seller-inline-filters[open] summary {
+  border-color: var(--sage-strong);
+}
+
+.seller-inline-filters .search-sidebar-filters {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-float);
+  max-height: min(720px, 72vh);
+  overflow: auto;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  width: min(420px, calc(100vw - 32px));
+  z-index: 20;
 }
 
 .interactive-map-container {
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
   box-shadow: var(--shadow-float);
-  overflow: hidden;
-  height: 680px;
-  position: relative;
   background: var(--surface);
+  height: 560px;
+  overflow: hidden;
+  position: relative;
 }
 
 .interactive-map-container .map-shell {
@@ -4964,16 +5138,111 @@ body:has(.map-landing) .site-footer {
   height: 100%;
 }
 
+.seller-map-search {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.seller-map-search form {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.seller-map-search-field {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.seller-map-search-field svg {
+  color: var(--sage-strong);
+  left: 13px;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.seller-map-search-field input {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--ink-strong);
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 42px;
+  padding: 0 34px 0 38px;
+  width: 100%;
+}
+
+.seller-map-search-field input:focus {
+  border-color: var(--sage-strong);
+  box-shadow: var(--focus-ring);
+  outline: 0;
+}
+
+.seller-map-search .button {
+  min-height: 42px;
+  padding-inline: 18px;
+}
+
+.seller-map-search-clear {
+  background: transparent;
+  border: 0;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: 19px;
+  line-height: 1;
+  padding: 4px;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.seller-map-search-clear:hover {
+  color: var(--ink-strong);
+}
+
+.seller-map-search-message {
+  color: var(--info);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 @media (max-width: 640px) {
-  .search-results-header {
+  .seller-profile-search-page {
+    padding-top: 24px;
+  }
+
+  .seller-profile-top-action {
+    justify-content: stretch;
+  }
+
+  .seller-profile-top-action .button {
+    width: 100%;
+  }
+
+  .seller-profile-results-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
-  
+
   .header-controls {
+    flex-wrap: wrap;
     width: 100%;
     justify-content: space-between;
+  }
+
+  .seller-map-search form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .seller-map-search .button {
+    width: 100%;
   }
 }
 

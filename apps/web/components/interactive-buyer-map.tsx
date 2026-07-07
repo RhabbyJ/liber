@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatRange } from "../lib/format";
 import { activePilotAreas, approximateBuyerPoint } from "../lib/launch-market";
+import { selectedAreaBounds, selectedAreaFeature, selectedMapArea, type SelectedMapArea } from "../lib/map-area";
 import { loadMapboxGl } from "../lib/mapbox-gl-loader";
 import type { Buyer } from "../lib/mock-data";
 import { StaticBuyerMap } from "./static-buyer-map";
@@ -27,6 +28,7 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
   const mapRef = useRef<any>(null);
   const markersRef = useRef<Map<string, any>>(new Map());
   const markerNodesRef = useRef<Map<string, HTMLElement>>(new Map());
+  const suppressMoveEndRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isReady, setIsReady] = useState(false);
@@ -42,6 +44,10 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
     [buyers],
   );
   const initialCenter = useMemo(() => mapCenter(buyerPoints, centerLat, centerLng), [buyerPoints, centerLat, centerLng]);
+  const selectedArea = useMemo(
+    () => selectedMapArea(centerLat, centerLng, radiusMiles),
+    [centerLat, centerLng, radiusMiles],
+  );
 
   useEffect(() => {
     let canceled = false;
@@ -63,6 +69,7 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
         const mapboxgl = await loadMapboxGl();
         if (canceled || !containerRef.current) return;
 
+        let loaded = false;
         mapboxgl.accessToken = token;
         mapRef.current = new mapboxgl.Map({
           antialias: true,
@@ -83,12 +90,19 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
           mapRef.current.addControl(new mapboxgl.FullscreenControl(), "top-right");
         }
         mapRef.current.on("load", () => {
+          loaded = true;
           setIsReady(true);
           setStatus("");
         });
-        mapRef.current.on("moveend", () => setShowSearchArea(true));
+        mapRef.current.on("moveend", () => {
+          if (suppressMoveEndRef.current) {
+            suppressMoveEndRef.current = false;
+            return;
+          }
+          setShowSearchArea(true);
+        });
         mapRef.current.on("error", () => {
-          fallBackToStaticMap();
+          if (!loaded) fallBackToStaticMap();
         });
       } catch {
         fallBackToStaticMap();
@@ -113,6 +127,7 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current.clear();
     markerNodesRef.current.clear();
+    syncSelectedAreaLayer(mapRef.current, selectedArea);
 
     for (const point of buyerPoints) {
       const markerNode = document.createElement("button");
@@ -135,16 +150,21 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
       markerNodesRef.current.set(point.buyer.id, markerNode);
     }
 
-    if (buyerPoints.length > 1) {
+    if (selectedArea) {
+      suppressMoveEndRef.current = true;
+      mapRef.current.fitBounds(selectedAreaBounds(selectedArea), { bearing: -8, maxZoom: 12.6, padding: 104, pitch: 38 });
+    } else if (buyerPoints.length > 1) {
       const bounds = new window.mapboxgl.LngLatBounds();
       buyerPoints.forEach((point) => bounds.extend([point.lng, point.lat]));
+      suppressMoveEndRef.current = true;
       mapRef.current.fitBounds(bounds, { bearing: -8, maxZoom: 12.4, padding: 96, pitch: 38 });
     } else {
+      suppressMoveEndRef.current = true;
       mapRef.current.flyTo({ bearing: -8, center: [initialCenter.lng, initialCenter.lat], pitch: 38, zoom: buyerPoints.length === 1 ? 11.5 : 10.4 });
     }
 
     setShowSearchArea(false);
-  }, [buyerPoints, initialCenter.lat, initialCenter.lng, isReady]);
+  }, [buyerPoints, initialCenter.lat, initialCenter.lng, isReady, selectedArea]);
 
   useEffect(() => {
     const cards = Array.from(document.querySelectorAll<HTMLElement>(".buyer-card[data-buyer-id], .buyer-row[data-buyer-id]"));
@@ -279,4 +299,50 @@ function escapeHtml(value: string) {
 function cssEscape(value: string) {
   if (typeof CSS !== "undefined" && CSS.escape) return CSS.escape(value);
   return value.replaceAll('"', '\\"');
+}
+
+const selectedAreaSourceId = "seller-search-selected-area";
+const selectedAreaFillLayerId = "seller-search-selected-area-fill";
+const selectedAreaLineLayerId = "seller-search-selected-area-line";
+
+function syncSelectedAreaLayer(map: any, area: SelectedMapArea | null) {
+  if (!area) {
+    removeSelectedAreaLayer(map);
+    return;
+  }
+
+  const data = selectedAreaFeature(area);
+  const source = map.getSource(selectedAreaSourceId);
+  if (source) {
+    source.setData(data);
+    return;
+  }
+
+  map.addSource(selectedAreaSourceId, { data, type: "geojson" });
+  map.addLayer({
+    id: selectedAreaFillLayerId,
+    paint: {
+      "fill-color": "#16834c",
+      "fill-opacity": 0.08,
+    },
+    source: selectedAreaSourceId,
+    type: "fill",
+  });
+  map.addLayer({
+    id: selectedAreaLineLayerId,
+    paint: {
+      "line-color": "#0e5f38",
+      "line-dasharray": [2, 1],
+      "line-opacity": 0.86,
+      "line-width": 3,
+    },
+    source: selectedAreaSourceId,
+    type: "line",
+  });
+}
+
+function removeSelectedAreaLayer(map: any) {
+  if (map.getLayer(selectedAreaLineLayerId)) map.removeLayer(selectedAreaLineLayerId);
+  if (map.getLayer(selectedAreaFillLayerId)) map.removeLayer(selectedAreaFillLayerId);
+  if (map.getSource(selectedAreaSourceId)) map.removeSource(selectedAreaSourceId);
 }

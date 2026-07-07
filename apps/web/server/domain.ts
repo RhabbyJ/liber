@@ -140,18 +140,27 @@ export function countSellerInvitesToday(sellerId: string, source: Invite[], toda
 
 export function assertRouteAllowed(pathname: string, user: SessionUser | null) {
   const requiredRole = requiredRoleForPath(pathname);
-  if (!requiredRole) return;
+  if (!requiredRole && !requiresAuthenticatedUser(pathname)) return;
   if (!user) throw new Error("Authentication required.");
+  if (!requiredRole) return;
   if (!hasRole(user, requiredRole)) {
     throw new Error(`Missing required role: ${requiredRole}`);
   }
 }
 
+export function requiresAuthenticatedUser(pathname: string) {
+  return isPathSegment(pathname, "/buyers") || requiredRoleForPath(pathname) !== null;
+}
+
 export function requiredRoleForPath(pathname: string): AppRole | null {
-  if (pathname.startsWith("/admin")) return "ADMIN";
-  if (pathname.startsWith("/buyer")) return "BUYER";
-  if (pathname.startsWith("/seller")) return "SELLER";
+  if (isPathSegment(pathname, "/admin")) return "ADMIN";
+  if (isPathSegment(pathname, "/buyer")) return "BUYER";
+  if (isPathSegment(pathname, "/seller")) return "SELLER";
   return null;
+}
+
+function isPathSegment(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
 export function assertInviteAllowed(args: {

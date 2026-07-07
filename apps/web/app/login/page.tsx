@@ -111,6 +111,14 @@ function authNotice(status: string, email: string) {
     };
   }
 
+  if (status === "account-exists") {
+    return {
+      body: "That email already has a Liber account. Log in here and we'll take you to the right place to add seller access.",
+      title: "Use your existing account",
+      tone: "info",
+    };
+  }
+
   return null;
 }
 
@@ -123,6 +131,16 @@ type LoginContext = {
 };
 
 function authContextFromNext(next: string): LoginContext {
+  if (next.startsWith("/buyers")) {
+    return {
+      description: "Continue to a buyer profile. Approved sellers can view buyer profiles, and buyers can preview their own profile.",
+      loginTitle: "Log in to view buyer profile",
+      signupHref: `/signup?role=seller&next=${encodeURIComponent(next)}`,
+      signupLabel: "a seller account",
+      tone: "seller",
+    };
+  }
+
   if (next.startsWith("/seller")) {
     return {
       description: "Continue to seller search, property management, and invite tools.",
@@ -133,7 +151,7 @@ function authContextFromNext(next: string): LoginContext {
     };
   }
 
-  if (next.startsWith("/buyer") || next.startsWith("/buyers")) {
+  if (next.startsWith("/buyer")) {
     return {
       description: "Continue to your buyer profile, verification, and invites.",
       loginTitle: "Log in as a buyer",

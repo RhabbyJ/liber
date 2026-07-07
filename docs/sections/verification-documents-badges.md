@@ -18,6 +18,7 @@ Owns buyer verification evidence, seller ownership evidence, private document st
 
 - Verification documents are private and immutable evidence.
 - Owners must not overwrite/delete verification document objects.
+- Browser-callable upload actions must return document IDs/status, not raw private storage paths.
 - Sensitive badges require approved evidence where supported.
 - Pre-approval expires after 90 days.
 - Badge grants/revokes and document reviews should be audited.

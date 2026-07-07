@@ -30,6 +30,8 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Server-side signup errors should return to the relevant wizard pane instead of restarting the user at the role/name step. Do not put the private signup account name in URLs; same-browser draft recovery is acceptable for error recovery.
 - Logout is a POST-only auth action. Desktop and mobile logout controls must submit successfully under the CSP `form-action` policy, clear Supabase cookies, and land on `/login?status=signed-out`.
 - Buyer-only users opening seller routes such as `/seller/search` or `/seller/properties` must resolve to seller onboarding/access gating, not a buyer-profile redirect, loading hang, or approved seller search bypass.
+- `/buyers/:buyerProfileId` is an authenticated cross-role profile route. Route entry may allow buyers, sellers, or admins, but final profile visibility must stay server-side in `getPublicBuyerProfile`.
+- Existing buyers or sellers following opposite-role signup intent should add the missing role to the current account through role onboarding. Duplicate-email signup attempts must send the user to login, not back into the password wizard loop.
 
 ## Agent notes
 

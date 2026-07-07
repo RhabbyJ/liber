@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Icon } from "../../../../../components/icon";
-import { ModeChip } from "../../../../../components/mode-chip";
-import { PageTitle } from "../../../../../components/page-title";
 import { PropertyAddressLookup } from "../../../../../components/property-address-lookup";
 import { getSellerProperty } from "../../../../../server/contracts";
 import { submitSellerPropertyUpdate } from "../../../../../server/form-actions";
@@ -20,25 +18,33 @@ export default async function EditSellerPropertyPage({
   const verified = property.status.toLowerCase().includes("verified");
 
   return (
-    <div className="page stack loose">
-      <PageTitle
-        eyebrow="Edit property"
-        title={property.title}
-        tone="seller"
-        badge={<ModeChip mode="seller" />}
-        actions={
+    <div className="page wide seller-property-reference-page">
+      <div className="seller-property-reference-head">
+        <Link className="seller-property-back" href="/seller/properties">
+          <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
+          Back to properties
+        </Link>
+        <div className="seller-property-title-row">
+          <h1>Edit Property Details</h1>
           <span className={`status-dot ${verified ? "active" : "warning"}`}>
             <Icon name={verified ? "check-shield" : "info"} size={12} />
             {property.status}
           </span>
-        }
-      >
-        This property stays private and is only shared with buyers you invite. Ownership documents are stored privately.
-      </PageTitle>
+        </div>
+        <p>This property stays private and is only shared with buyers you invite.</p>
+      </div>
 
-      <section className="card stack loose">
-        <form action={submitSellerPropertyUpdate} className="form-grid" encType="multipart/form-data">
+      <section className="seller-property-reference-shell">
+        <form action={submitSellerPropertyUpdate} className="seller-property-reference-form form-grid" encType="multipart/form-data">
           <input name="propertyId" type="hidden" value={property.id} />
+
+          <div className="field full seller-property-verify-section">
+            <label htmlFor="ownership">Verify Ownership</label>
+            <div className="seller-property-file-line">
+              <input id="ownership" name="ownership" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
+            </div>
+            <span className="field-hint">New evidence is added; existing documents cannot be deleted.</span>
+          </div>
 
           <div className="field">
             <label htmlFor="propertyType">Property type</label>
@@ -81,14 +87,9 @@ export default async function EditSellerPropertyPage({
             <textarea id="description" name="description" defaultValue={property.description} />
           </div>
 
-          <div className="field">
+          <div className="field seller-property-image-upload">
             <label htmlFor="images">Add property images</label>
             <input id="images" name="images" type="file" accept="image/png,image/jpeg,image/webp" multiple />
-          </div>
-          <div className="field">
-            <label htmlFor="ownership">Replace/add ownership verification</label>
-            <input id="ownership" name="ownership" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
-            <span className="field-hint">New evidence is added; existing documents cannot be deleted.</span>
           </div>
 
           <div className="actions between" style={{ gridColumn: "1 / -1" }}>
@@ -98,7 +99,7 @@ export default async function EditSellerPropertyPage({
             </Link>
             <button className="button primary" type="submit">
               <Icon name="check" size={14} />
-              Save changes
+              Save
             </button>
           </div>
         </form>

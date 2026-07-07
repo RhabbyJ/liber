@@ -14,7 +14,7 @@ export function SortSelect({ value }: { value: string }) {
 
   return (
     <div className="sort-select-wrapper">
-      <span>Sorted by</span>
+      <span>Sort By</span>
       <select value={value} onChange={handleChange} aria-label="Sort buyers list">
         <option value="recommended">best match</option>
         <option value="recently_active">recently active</option>

@@ -5,8 +5,10 @@ import { Icon } from "../../../../components/icon";
 import { ModeChip } from "../../../../components/mode-chip";
 import { PageTitle } from "../../../../components/page-title";
 import { formatMoney } from "../../../../lib/format";
+import { canViewBuyerDirectory } from "../../../../server/access";
 import { getBuyerProfileForSeller, listSellerProperties } from "../../../../server/contracts";
 import { submitInvite } from "../../../../server/form-actions";
+import { getSessionUser } from "../../../../server/session";
 
 export default async function InviteBuyerPage({
   params,
@@ -14,6 +16,49 @@ export default async function InviteBuyerPage({
   params: Promise<{ buyerProfileId: string }>;
 }) {
   const { buyerProfileId } = await params;
+  const user = await getSessionUser();
+  const canInvite = user ? await canViewBuyerDirectory(user) : false;
+
+  if (!canInvite) {
+    return (
+      <div className="page stack loose">
+        <PageTitle
+          eyebrow="Manual outreach"
+          title="Seller access pending"
+          tone="seller"
+          badge={<ModeChip mode="seller" />}
+        >
+          A Liber admin must approve seller directory access before buyer profile viewing or invites are available.
+        </PageTitle>
+        <section className="card cream stack">
+          <div className="section-head compact">
+            <div className="stack tight">
+              <p className="eyebrow amber">Access review</p>
+              <h2 style={{ fontSize: 22 }}>Buyer invites are locked for now</h2>
+            </div>
+            <span className="status-dot warning">
+              <Icon name="lock" size={12} />
+              Awaiting approval
+            </span>
+          </div>
+          <p>
+            You can keep preparing private property records while seller-directory access is reviewed.
+          </p>
+          <div className="actions">
+            <Link className="button primary" href="/seller/properties">
+              <Icon name="home" size={14} />
+              Manage properties
+            </Link>
+            <Link className="button secondary" href="/seller/search">
+              <Icon name="arrow-right" size={14} />
+              View access status
+            </Link>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   const { data: buyer } = await getBuyerProfileForSeller(buyerProfileId);
   const { data: properties } = await listSellerProperties();
   const property = properties[0];

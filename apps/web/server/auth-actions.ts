@@ -173,7 +173,11 @@ export async function signupWithPassword(formData: FormData) {
   });
 
   if (error) {
-    redirect(signupRedirectPath(formData, signupStatusForError(error.message), email));
+    const status = signupStatusForError(error.message);
+    if (status === "account-exists") {
+      redirect(existingAccountLoginPath(formData, email, next ?? nextForRoles(roles)));
+    }
+    redirect(signupRedirectPath(formData, status, email));
   }
 
   const hasRealSignupIdentity = Boolean(data.session || data.user?.identities?.length);
@@ -214,7 +218,7 @@ export async function signupWithPassword(formData: FormData) {
   }
 
   if (!hasRealSignupIdentity) {
-    redirect(`/signup/verify?next=${encodeURIComponent(next ?? nextForRoles(roles))}`);
+    redirect(existingAccountLoginPath(formData, email, next ?? nextForRoles(roles)));
   }
 
   redirect(next ?? nextForRoles(roles));
@@ -272,10 +276,22 @@ function signupRoleValue(formData: FormData) {
 
 function signupStatusForError(message: string) {
   const value = message.toLowerCase();
+  if (value.includes("already") || value.includes("registered") || value.includes("exists")) return "account-exists";
   if (value.includes("rate limit")) return "rate-limited";
   if (value.includes("password")) return "weak-password";
   if (value.includes("email")) return "invalid-email";
   return "signup-error";
+}
+
+function existingAccountLoginPath(formData: FormData, email: string, next: string) {
+  const params = new URLSearchParams({
+    email,
+    next,
+    status: "account-exists",
+  });
+  const role = signupRoleValue(formData);
+  if (role !== "buyer") params.set("role", role);
+  return `/login?${params.toString()}`;
 }
 
 function isEmailNotConfirmedError(message: string) {
@@ -321,7 +337,12 @@ export async function chooseRole(formData: FormData) {
         await ensureSellerAccessRequested(data.user.id);
       }
       await supabase.auth.refreshSession();
-      redirect(safeNextValue(formData) ?? nextForRoles(roles));
+      redirect(
+        pathForSignedInAuthIntent(
+          { id: data.user.id, roles },
+          { next: safeNextValue(formData) ?? "", role: signupRoleValue(formData) },
+        ),
+      );
     }
   }
 

@@ -2,7 +2,18 @@ import Link from "next/link";
 import type { Buyer } from "../lib/mock-data";
 import { mapPinPosition } from "../lib/mapbox";
 
-export function StaticBuyerMap({ buyers, label = "Approximate pins" }: { buyers: Buyer[]; label?: string }) {
+type Props = {
+  buyers: Buyer[];
+  centerLat?: number;
+  centerLng?: number;
+  label?: string;
+  radiusMiles?: number;
+};
+
+export function StaticBuyerMap({ buyers, centerLat, centerLng, label = "Approximate pins", radiusMiles }: Props) {
+  const hasSelectedArea = Number.isFinite(centerLat) && Number.isFinite(centerLng) && Number.isFinite(radiusMiles);
+  const radiusLabel = hasSelectedArea ? `${radiusMiles} mi area` : label;
+
   return (
     <aside className="map-shell fallback">
       <div className="map-toolbar">
@@ -11,11 +22,12 @@ export function StaticBuyerMap({ buyers, label = "Approximate pins" }: { buyers:
           <span className="muted">{buyers.length} active buyers in the San Fernando Valley pilot</span>
         </div>
         <div className="map-toolbar-pills">
-          <span>{label}</span>
+          <span>{radiusLabel}</span>
           <span>Seller safe view</span>
         </div>
       </div>
       <div className="map-pins">
+        {hasSelectedArea ? <span aria-hidden="true" className="map-selected-area-static" /> : null}
         {buyers.map((buyer) => {
           const position = mapPinPosition(buyer, buyers);
           return (

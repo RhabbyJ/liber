@@ -1,29 +1,49 @@
 import Link from "next/link";
 import { Icon } from "../components/icon";
+import { PublicMapLocationSearch } from "../components/public-map-location-search";
 import { PublicDemandMap } from "../components/public-demand-map";
+import { findPilotArea } from "../lib/launch-market";
+import { selectedMapArea } from "../lib/map-area";
 import { getPublicBuyerPreviews, type PublicBuyerPreview } from "../server/buyer-preview";
 
 // Refresh the privacy-safe buyer-demand teaser periodically without making the page fully dynamic.
 export const revalidate = 300;
 
-export default async function HomePage() {
+type HomeSearchParams = {
+  area?: string;
+};
+
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<HomeSearchParams>;
+}) {
+  const params = await searchParams;
   const buyerPreviews = await getPublicBuyerPreviews();
   const mapboxToken = (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim();
   const sellerSearchHref = "/signup?role=seller&next=/seller/search";
   const buyerProfileHref = "/signup?role=buyer&next=/buyer/profile";
   const activePreviewLabel = `${buyerPreviews.length} active preview${buyerPreviews.length === 1 ? "" : "s"}`;
+  const selectedPilotArea = findPilotArea(params.area || "");
+  const selectedArea = selectedMapArea(
+    selectedPilotArea?.lat,
+    selectedPilotArea?.lng,
+    selectedPilotArea?.radiusMiles,
+  );
 
   return (
     <div className="map-landing">
       <section className="map-search-rail" aria-label="Buyer demand preview controls">
-        <Link className="map-search-box" href={sellerSearchHref}>
-          <span>Los Angeles CA 90027</span>
-          <Icon name="search" size={17} />
-        </Link>
+        <PublicMapLocationSearch defaultArea={params.area || ""} />
       </section>
 
       <section className="map-landing-body" aria-label="Buyer demand preview">
-        <PublicDemandMap previews={buyerPreviews} token={mapboxToken} />
+        <PublicDemandMap
+          previews={buyerPreviews}
+          selectedArea={selectedArea}
+          selectedAreaLabel={selectedPilotArea?.label}
+          token={mapboxToken}
+        />
 
         <aside className="demand-panel">
           <header className="demand-panel-head">

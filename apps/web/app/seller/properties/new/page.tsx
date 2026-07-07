@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { Icon } from "../../../../components/icon";
-import { ModeChip } from "../../../../components/mode-chip";
-import { PageTitle } from "../../../../components/page-title";
 import { PropertyAddressLookup } from "../../../../components/property-address-lookup";
 import { submitSellerProperty } from "../../../../server/form-actions";
 
@@ -14,37 +12,27 @@ export default async function NewSellerPropertyPage({
   const safeNext = typeof next === "string" && next.startsWith("/seller/") ? next : null;
 
   return (
-    <div className="page stack loose">
-      <PageTitle
-        eyebrow="New private property"
-        title="Add property details"
-        tone="seller"
-        badge={<ModeChip mode="seller" />}
-        actions={
-          <Link className="button ghost" href="/seller/properties">
-            <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
-            Back to properties
-          </Link>
-        }
-      >
-        This is a private property record for buyer invites, not a public listing. Ownership documents are private and reviewed by Liber admins before trust status updates.
-      </PageTitle>
+    <div className="page wide seller-property-reference-page">
+      <div className="seller-property-reference-head">
+        <Link className="seller-property-back" href="/seller/properties">
+          <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
+          Back to properties
+        </Link>
+        <h1>Add Details About My Property</h1>
+        <p>Your property stays private and is only shared with buyers you invite.</p>
+      </div>
 
-      <section className="card cream stack tight">
-        <div className="section-head compact">
-          <span className="status-dot amber">
-            <Icon name="lock" size={12} />
-            Invite-only privacy
-          </span>
-          <p className="muted small" style={{ margin: 0 }}>
-            Buyers see this property only when you choose to invite them.
-          </p>
-        </div>
-      </section>
-
-      <section className="card stack loose">
-        <form action={submitSellerProperty} className="form-grid" encType="multipart/form-data">
+      <section className="seller-property-reference-shell">
+        <form action={submitSellerProperty} className="seller-property-reference-form form-grid" encType="multipart/form-data">
           {safeNext ? <input name="next" type="hidden" value={safeNext} /> : null}
+
+          <div className="field full seller-property-verify-section">
+            <label htmlFor="ownership">Verify Ownership</label>
+            <div className="seller-property-file-line">
+              <input id="ownership" name="ownership" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
+            </div>
+            <span className="field-hint">Stored privately. Liber admins review ownership evidence before trust status changes.</span>
+          </div>
 
           <div className="field">
             <label htmlFor="propertyType">Property type</label>
@@ -80,15 +68,10 @@ export default async function NewSellerPropertyPage({
             <textarea id="description" name="description" placeholder="Quiet single-story home with low-maintenance yard." />
           </div>
 
-          <div className="field">
+          <div className="field seller-property-image-upload">
             <label htmlFor="images">Property images</label>
             <input id="images" name="images" type="file" accept="image/png,image/jpeg,image/webp" multiple />
             <span className="field-hint">Shown only inside invites you send.</span>
-          </div>
-          <div className="field">
-            <label htmlFor="ownership">Ownership verification</label>
-            <input id="ownership" name="ownership" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
-            <span className="field-hint">Stored privately. Liber admins review before trust status changes.</span>
           </div>
 
           <div className="auth-alert info field full">
@@ -109,7 +92,7 @@ export default async function NewSellerPropertyPage({
             <Link className="button ghost" href="/seller/properties">Cancel</Link>
             <button className="button primary" type="submit">
               <Icon name="check" size={14} />
-              Save property
+              Save
             </button>
           </div>
         </form>

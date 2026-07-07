@@ -8,7 +8,10 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 
 - `apps/web/components/buyer-map.tsx`
 - `apps/web/components/interactive-buyer-map.tsx`
+- `apps/web/components/public-demand-map.tsx`
+- `apps/web/components/public-map-location-search.tsx`
 - `apps/web/components/static-buyer-map.tsx`
+- `apps/web/lib/map-area.ts`
 - `apps/web/lib/mapbox.ts`
 - `apps/web/lib/launch-market.ts`
 - `apps/web/app/api/geo/geocode/route.ts`
@@ -20,6 +23,7 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - Buyer map markers must preserve privacy and should not expose exact private addresses.
 - Mapbox must be optional; local development should degrade gracefully.
 - Geocoding endpoints need validation and rate limits.
+- Public homepage area selection is limited to known active pilot areas from local config; it draws a coarse outline only and must not become unauthenticated buyer search.
 - Do not claim national coverage unless product docs approve it.
 
 ## Agent notes

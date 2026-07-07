@@ -3,6 +3,7 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { safeInternalPath } from "../../../lib/redirect";
 import { ensureSellerAccessRequested } from "../../../server/access";
+import { pathForSignedInAuthIntent } from "../../../server/auth-intent";
 import type { AppRole } from "../../../server/authz";
 import { createSupabaseServerClient } from "../../../server/supabase";
 
@@ -64,13 +65,11 @@ export async function GET(request: NextRequest) {
   }
 
   if (!user || user.status === "SUSPENDED") {
+    await supabase.auth.signOut();
     return authRedirect(request, "/login?status=account-unavailable");
   }
 
-  if (next) return authRedirect(request, next);
-  if (user.roles.includes("BUYER")) return authRedirect(request, "/buyer/profile");
-  if (user.roles.includes("SELLER")) return authRedirect(request, "/seller/properties");
-  return authRedirect(request, "/onboarding/role");
+  return authRedirect(request, pathForSignedInAuthIntent({ id: data.user.id, roles: user.roles }, { next }));
 }
 
 function authErrorRedirect(request: NextRequest) {

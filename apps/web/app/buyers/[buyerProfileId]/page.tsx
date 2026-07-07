@@ -98,7 +98,7 @@ export default async function PublicBuyerProfilePage({
                   <Icon name="check-shield" size={16} />
                 </span>
                 <div>
-                  <strong>{primaryBadge.label}</strong>
+                  <strong>{badgeDisplayLabel(primaryBadge)}</strong>
                   <span>{badgeHelperText(primaryBadge)}</span>
                 </div>
               </div>
@@ -172,6 +172,11 @@ function ProfileFact({ label, value }: { label: string; value: string }) {
 function displayFirstName(name: string) {
   const trimmed = name.trim();
   return trimmed.split(/[.\s]/).filter(Boolean)[0] || "Buyer";
+}
+
+function badgeDisplayLabel(badge: { label: string; type?: string }) {
+  if (badge.type === "PRE_APPROVED") return "Pre-approved";
+  return badge.label;
 }
 
 function badgeHelperText(badge: { expiresInDays?: number }) {

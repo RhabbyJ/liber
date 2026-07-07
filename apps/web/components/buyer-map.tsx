@@ -27,5 +27,13 @@ export function BuyerMap({
     );
   }
 
-  return <StaticBuyerMap buyers={buyers} label="Fallback map" />;
+  return (
+    <StaticBuyerMap
+      buyers={buyers}
+      centerLat={centerLat}
+      centerLng={centerLng}
+      label="Fallback map"
+      radiusMiles={radiusMiles}
+    />
+  );
 }

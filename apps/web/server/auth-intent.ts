@@ -24,13 +24,13 @@ export function pathForSignedInAuthIntent(
     return intendedNext;
   }
 
-  if (role === "seller" || (role === "both" && !hasRole(user, "SELLER")) || intendedNext.startsWith("/seller")) {
+  if (role === "seller" || (role === "both" && !hasRole(user, "SELLER")) || isPathSegment(intendedNext, "/seller")) {
     return hasRole(user, "SELLER")
       ? intendedNext || "/seller/properties"
       : `/onboarding/role?next=${encodeURIComponent(intendedNext || "/seller/properties")}`;
   }
 
-  if (role === "buyer" || intendedNext.startsWith("/buyer") || intendedNext.startsWith("/buyers")) {
+  if (role === "buyer" || isPathSegment(intendedNext, "/buyer")) {
     return hasRole(user, "BUYER")
       ? intendedNext || "/buyer/profile"
       : `/onboarding/role?next=${encodeURIComponent(intendedNext || "/buyer/profile")}`;
@@ -45,10 +45,15 @@ export function pathForSignedInAuthIntent(
 }
 
 function userCanContinueTo(user: SessionUser, next: string) {
-  if (next.startsWith("/buyer") || next.startsWith("/buyers")) return hasRole(user, "BUYER");
-  if (next.startsWith("/seller")) return hasRole(user, "SELLER");
-  if (next.startsWith("/admin")) return hasRole(user, "ADMIN");
+  if (isPathSegment(next, "/buyers")) return hasRole(user, "BUYER") || hasRole(user, "SELLER") || hasRole(user, "ADMIN");
+  if (isPathSegment(next, "/buyer")) return hasRole(user, "BUYER");
+  if (isPathSegment(next, "/seller")) return hasRole(user, "SELLER");
+  if (isPathSegment(next, "/admin")) return hasRole(user, "ADMIN");
   return true;
+}
+
+function isPathSegment(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
 function isAuthFlowPath(path: string) {

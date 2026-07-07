@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { canViewBuyerDirectory } from "../../../../server/access";
 import { enrichPropertyByAddress } from "../../../../server/attom";
+import { hasRole } from "../../../../server/authz";
 import { checkRateLimit, clientIpFromRequest } from "../../../../server/rate-limit";
 import { getSessionUser } from "../../../../server/session";
 
@@ -15,8 +15,8 @@ const enrichQuerySchema = z.object({
 export async function GET(request: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Authentication required.", property: null }, { status: 401 });
-  if (!(await canViewBuyerDirectory(user))) {
-    return NextResponse.json({ error: "Seller access must be approved.", property: null }, { status: 403 });
+  if (!hasRole(user, "SELLER") && !hasRole(user, "ADMIN")) {
+    return NextResponse.json({ error: "Seller role required.", property: null }, { status: 403 });
   }
 
   const ipLimit = checkRateLimit(`property-enrich:ip:${clientIpFromRequest(request)}`, 30, 60_000);

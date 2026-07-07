@@ -1,11 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { requiredRoleForPath } from "./server/domain";
+import { requiresAuthenticatedUser } from "./server/domain";
 
 export async function proxy(request: NextRequest) {
   const { response, isAuthenticated } = await sessionUserFromRequest(request);
 
-  if (requiredRoleForPath(request.nextUrl.pathname) && !isAuthenticated) {
+  if (requiresAuthenticatedUser(request.nextUrl.pathname) && !isAuthenticated) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", request.nextUrl.pathname);

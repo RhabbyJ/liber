@@ -1075,7 +1075,7 @@ export async function uploadOwnershipDocumentFile(propertyId: string, file: File
     }),
   ]);
 
-  return { ok: true, data: { storagePath } };
+  return { ok: true, data: { documentId, status: "PENDING" as const } };
 }
 
 export async function uploadBuyerVerificationDocumentFile(documentTypeInput: unknown, file: File) {
@@ -1425,7 +1425,6 @@ export async function listPendingDocuments() {
         "Verification document",
       type: document.documentType,
       status: "Pending",
-      storage: document.storagePath,
     })),
   };
 }

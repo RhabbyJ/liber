@@ -20,6 +20,7 @@ Owns Next route handlers and external provider adapters for auth callbacks, geoc
 - Validate request inputs.
 - Return safe errors; do not leak provider responses or secrets.
 - State-changing routes need appropriate origin/session protection.
+- Property enrichment is for private seller property prep. It requires an authenticated seller/admin role and rate limits, but not approved seller-directory access.
 
 ## Agent notes
 

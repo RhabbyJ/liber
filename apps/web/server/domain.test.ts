@@ -129,8 +129,14 @@ describe("route and invite authorization", () => {
 
   it("requires authentication for protected buyer, seller, and admin routes", () => {
     expect(() => assertRouteAllowed("/buyer/profile", null)).toThrow("Authentication required.");
+    expect(() => assertRouteAllowed("/buyers/julie-p", null)).toThrow("Authentication required.");
     expect(() => assertRouteAllowed("/seller/search", null)).toThrow("Authentication required.");
     expect(() => assertRouteAllowed("/admin/users", null)).toThrow("Authentication required.");
+  });
+
+  it("allows authenticated cross-role buyer profile route entry before profile-level checks", () => {
+    expect(() => assertRouteAllowed("/buyers/julie-p", { id: "seller-fixture", roles: ["SELLER"] })).not.toThrow();
+    expect(() => assertRouteAllowed("/buyers/julie-p", { id: "buyer-fixture", roles: ["BUYER"] })).not.toThrow();
   });
 
   it("requires seller-owned property before sending invites", () => {
