@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Avatar } from "../../../../components/avatar";
 import { BadgePill } from "../../../../components/badge-pill";
+import { GeneratedAvatar } from "../../../../components/generated-avatar";
 import { Icon } from "../../../../components/icon";
 import { ModeChip } from "../../../../components/mode-chip";
 import { PageTitle } from "../../../../components/page-title";
@@ -258,7 +258,7 @@ export default async function InviteBuyerPage({
           <article className="card stack invite-recipient-card">
             <p className="eyebrow">Recipient</p>
             <div style={{ alignItems: "center", display: "flex", gap: 12 }}>
-              <Avatar name={buyer.name} size="lg" src={buyer.avatarUrl} />
+              <GeneratedAvatar seed={buyer.userId || buyer.id} size="lg" variant={buyer.avatarVariant} />
               <div>
                 <h3 style={{ margin: 0 }}>{buyer.name}</h3>
                 <p className="muted small" style={{ margin: "4px 0 0" }}>{buyer.type} · {buyer.location}</p>

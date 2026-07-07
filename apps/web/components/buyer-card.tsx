@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { formatRange } from "../lib/format";
 import type { Buyer } from "../lib/mock-data";
-import { Avatar } from "./avatar";
 import { BadgePill } from "./badge-pill";
+import { GeneratedAvatar } from "./generated-avatar";
 import { Icon } from "./icon";
 
 export function BuyerCard({
@@ -18,7 +18,7 @@ export function BuyerCard({
     return (
       <article className="buyer-card" data-buyer-id={buyer.id}>
         <div className="buyer-card-head">
-          <Avatar name={buyer.name} size="lg" src={buyer.avatarUrl} />
+          <GeneratedAvatar seed={buyer.userId || buyer.id} size="lg" variant={buyer.avatarVariant} />
           <div>
             <h3>{buyer.name}</h3>
             <p className="muted small" style={{ marginTop: 2 }}>{buyer.type} - {buyer.location}</p>
@@ -52,18 +52,13 @@ export function BuyerCard({
     );
   }
 
-  const initials = buyer.name
-    .split(" ")
-    .map((namePart) => namePart.trim().slice(0, 1))
-    .join("")
-    .toUpperCase();
   const fitSummary = buyerFitSummary(buyer);
   const preApprovalBadge = activeBadges.find((badge) => badge.type === "PRE_APPROVED");
 
   return (
     <article className="buyer-row" data-buyer-id={buyer.id}>
       <div className="buyer-row-profile">
-        <Avatar name={buyer.name} initials={initials.slice(0, 2)} size="lg" src={buyer.avatarUrl} />
+        <GeneratedAvatar seed={buyer.userId || buyer.id} size="lg" variant={buyer.avatarVariant} />
         <div>
           <h3>{buyer.name}</h3>
           <p>{buyer.type}</p>

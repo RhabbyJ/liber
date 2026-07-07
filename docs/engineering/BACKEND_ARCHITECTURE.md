@@ -67,6 +67,7 @@ Key concepts:
 
 - `User.roles` stores buyer/seller/admin roles.
 - `User.name` is private account identity for owner-only UI; seller/public buyer surfaces must use `BuyerProfile.displayName` or an anonymized preview label.
+- `User.avatarVariant` stores the allowlisted generated buyer-avatar token used by buyer profile surfaces.
 - `User.status` blocks suspended users.
 - `SellerAccess.status` controls buyer-directory/search/profile/invite access.
 - A user self-selecting `SELLER` does not automatically gain directory access.
@@ -104,12 +105,12 @@ Main server files:
 
 Buckets:
 
-- `profile-photos` — public profile photos only.
 - `property-images` — public property images, with write access mediated/validated.
 - `verification-documents` — private documents for buyer evidence and seller ownership evidence.
 
 Rules:
 
+- Buyer profile display uses generated avatar variants from `User.avatarVariant`.
 - Verification documents are immutable user evidence.
 - Document owners must not be able to overwrite/delete evidence after upload.
 - Private documents are viewed through admin/server-mediated signed URLs only.

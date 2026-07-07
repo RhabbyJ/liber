@@ -35,7 +35,7 @@ export type BuyerCriteriaDetail = {
 
 export type Buyer = {
   id: string;
-  avatarUrl?: string;
+  avatarVariant?: string;
   userId?: string;
   name: string;
   location: string;

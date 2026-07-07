@@ -43,7 +43,6 @@ function nextForRoles(roles: AppRole[]) {
 }
 
 async function persistUserRoles(args: {
-  avatarUrl?: string | null;
   email?: string | null;
   name?: string | null;
   roles: AppRole[];
@@ -62,7 +61,6 @@ async function persistUserRoles(args: {
     : null;
   const writableEmail = email && (!emailOwner || emailOwner.id === args.userId) ? email : undefined;
   const userData = {
-    avatarUrl: args.avatarUrl ?? undefined,
     ...(writableEmail ? { email: writableEmail } : {}),
     name: args.name ?? "",
     roles: args.roles,
@@ -85,7 +83,6 @@ async function persistUserRoles(args: {
       id: args.userId,
       email,
       name: args.name ?? "",
-      avatarUrl: args.avatarUrl ?? undefined,
       roles: args.roles,
     },
   });
@@ -321,10 +318,6 @@ export async function chooseRole(formData: FormData) {
       });
       const roles = Array.from(new Set([...(existingUser?.roles ?? []), ...selected]));
       await persistUserRoles({
-        avatarUrl:
-          typeof data.user.user_metadata?.avatarUrl === "string"
-            ? data.user.user_metadata.avatarUrl
-            : null,
         email: data.user.email,
         name:
           typeof data.user.user_metadata?.name === "string"

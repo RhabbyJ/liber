@@ -2605,51 +2605,42 @@ body:has(.map-landing) .site-footer {
   }
 }
 
-/* Avatar */
-.avatar {
+/* Generated avatars */
+.generated-avatar {
   align-items: center;
-  background: linear-gradient(140deg, var(--sage-tint) 0%, var(--surface-cream) 100%);
-  border: 1px solid var(--sage-line);
   border-radius: var(--r-pill);
-  color: var(--sage-deep);
+  color: #fff;
   display: inline-grid;
-  font-size: 18px;
-  font-weight: 800;
   height: 48px;
-  letter-spacing: 0.02em;
   overflow: hidden;
   place-items: center;
   width: 48px;
 }
 
-.avatar.seller {
-  background: linear-gradient(140deg, var(--sage-tint) 0%, var(--surface-cream) 100%);
-  border-color: var(--sage-line);
-  color: var(--sage-strong);
+.generated-avatar.sm {
+  height: 36px;
+  width: 36px;
 }
 
-.avatar.lg {
-  font-size: 28px;
+.generated-avatar.lg {
   height: 72px;
   width: 72px;
 }
 
-.avatar.xl {
-  border-radius: 22px;
-  font-size: 48px;
+.generated-avatar.xl {
   height: 160px;
   width: 160px;
 }
 
-.avatar img {
-  border-radius: inherit;
-  height: 100%;
-  object-fit: cover;
-  width: 100%;
+.generated-avatar svg {
+  display: block;
+  fill: currentColor;
+  height: 70%;
+  width: 70%;
 }
 
-/* Profile photo on profile builder */
-.profile-photo {
+/* Generated avatar mark on profile pages */
+.profile-avatar-mark {
   align-items: center;
   aspect-ratio: 1;
   background: linear-gradient(135deg, var(--sage-tint), var(--surface-cream));
@@ -2662,13 +2653,6 @@ body:has(.map-landing) .site-footer {
   justify-content: center;
   max-width: 280px;
   overflow: hidden;
-  width: 100%;
-}
-
-.profile-photo img {
-  border-radius: inherit;
-  height: 100%;
-  object-fit: cover;
   width: 100%;
 }
 
@@ -2738,7 +2722,7 @@ body:has(.map-landing) .site-footer {
   display: grid;
 }
 
-.buyer-reference-photo .profile-photo {
+.buyer-reference-photo .profile-avatar-mark {
   aspect-ratio: 1;
   border: 0;
   border-radius: 7px;
@@ -3014,6 +2998,17 @@ body:has(.map-landing) .site-footer {
   gap: 18px 28px;
 }
 
+.buyer-generated-avatar-control {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  min-height: 48px;
+}
+
+.buyer-generated-avatar-control .button {
+  width: fit-content;
+}
+
 .range-field {
   gap: 12px;
 }
@@ -3131,7 +3126,7 @@ body:has(.map-landing) .site-footer {
   flex: 0 0 auto;
 }
 
-.buyer-profile-avatar .avatar {
+.buyer-profile-avatar .generated-avatar {
   border: 3px solid #f2f2f2;
   border-radius: var(--r-pill);
   box-shadow: 0 2px 4px rgba(36, 35, 38, 0.16);
@@ -4349,7 +4344,7 @@ body:has(.map-landing) .site-footer {
     gap: 18px;
   }
 
-  .buyer-profile-avatar .avatar {
+  .buyer-profile-avatar .generated-avatar {
     font-size: 34px;
     height: 96px;
     width: 96px;
@@ -4367,6 +4362,11 @@ body:has(.map-landing) .site-footer {
 
   .buyer-form-section-label {
     gap: 4px;
+  }
+
+  .buyer-generated-avatar-control {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .buyer-profile-submit {

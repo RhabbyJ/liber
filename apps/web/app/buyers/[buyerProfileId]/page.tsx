@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Avatar } from "../../../components/avatar";
 import { BadgePill } from "../../../components/badge-pill";
+import { GeneratedAvatar } from "../../../components/generated-avatar";
 import { Icon } from "../../../components/icon";
 import { formatRange } from "../../../lib/format";
 import { getPublicBuyerProfile } from "../../../server/contracts";
@@ -68,8 +68,8 @@ export default async function PublicBuyerProfilePage({
       <section className="public-profile buyer-reference-profile">
         <aside className="public-profile-aside buyer-reference-aside">
           <div className="buyer-reference-photo">
-            <div className="profile-photo">
-              <Avatar name={buyer.name} size="xl" src={buyer.avatarUrl} />
+            <div className="profile-avatar-mark">
+              <GeneratedAvatar seed={buyer.userId || buyer.id} size="xl" variant={buyer.avatarVariant} />
             </div>
           </div>
 

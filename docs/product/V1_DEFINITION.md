@@ -141,7 +141,7 @@ The buyer's account name is private account identity for the buyer portal only. 
 A searchable buyer profile may include:
 
 - display name or privacy-safe display label,
-- avatar/profile image when allowed by privacy policy,
+- generated avatar/profile mark when allowed by privacy policy,
 - buyer type,
 - buying purpose,
 - desired location text/city/state,

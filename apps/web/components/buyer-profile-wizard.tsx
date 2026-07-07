@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { GeneratedAvatar } from "./generated-avatar";
 import { Icon } from "./icon";
 import { LocationLookupFields } from "./location-lookup-fields";
 
@@ -49,6 +50,8 @@ type CriteriaForWizard = {
 };
 
 type BuyerForWizard = {
+  avatarVariant?: string | null;
+  id: string;
   name: string;
   type: string;
   purpose: string;
@@ -62,14 +65,17 @@ type BuyerForWizard = {
   downPaymentMax: number;
   bio: string;
   criteriaDetails?: CriteriaForWizard[];
+  userId?: string;
 };
 
 export function BuyerProfileWizard({
   action,
   buyer,
+  shuffleAction,
 }: {
   action: (formData: FormData) => Promise<void>;
   buyer: BuyerForWizard;
+  shuffleAction: (formData: FormData) => Promise<void>;
 }) {
   const criteria = buyer.criteriaDetails?.[0];
   const selectedAmenities = new Set(
@@ -77,9 +83,10 @@ export function BuyerProfileWizard({
       .map((feature) => feature.trim().toLowerCase())
       .filter((feature) => amenityOptions.some((amenity) => amenity.toLowerCase() === feature)),
   );
+  const avatarSeed = buyer.userId || buyer.id || buyer.name;
 
   return (
-    <form action={action} className="buyer-profile-form profile-reference-form" encType="multipart/form-data">
+    <form action={action} className="buyer-profile-form profile-reference-form">
       <ProfileFormSection eyebrow="Buyer info" title="Profile">
         <div className="form-grid">
           <div className="field">
@@ -87,9 +94,19 @@ export function BuyerProfileWizard({
             <input id="displayName" name="displayName" defaultValue={buyer.name} placeholder="Private buyer" />
             <span className="field-hint">Use an alias or first name + last initial.</span>
           </div>
-          <div className="field">
-            <label htmlFor="avatar">Profile photo</label>
-            <input id="avatar" name="avatar" type="file" accept="image/png,image/jpeg,image/webp" />
+          <div className="field buyer-generated-avatar-field">
+            <label>Avatar</label>
+            <div className="buyer-generated-avatar-control">
+              <GeneratedAvatar
+                alt="Generated buyer avatar"
+                seed={avatarSeed}
+                size="lg"
+                variant={buyer.avatarVariant}
+              />
+              <button className="button secondary sm" formAction={shuffleAction} formNoValidate type="submit">
+                Shuffle avatar
+              </button>
+            </div>
           </div>
           <div className="field">
             <label htmlFor="buyerType">Buyer type</label>

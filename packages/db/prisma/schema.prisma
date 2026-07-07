@@ -97,13 +97,13 @@ enum EmailOutboxStatus {
 }
 
 model User {
-  id        String     @id @db.Uuid
-  email     String     @unique
-  name      String?
-  avatarUrl String?
-  roles     UserRole[] @default([])
-  status    UserStatus @default(ACTIVE)
-  suspendedAt DateTime?
+  id            String     @id @db.Uuid
+  email         String     @unique
+  name          String?
+  avatarVariant String?
+  roles         UserRole[] @default([])
+  status        UserStatus @default(ACTIVE)
+  suspendedAt   DateTime?
 
   buyerProfile BuyerProfile?
   sellerProperties SellerProperty[] @relation("SellerProperties")

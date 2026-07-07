@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { Avatar } from "../../../components/avatar";
 import { BuyerProfileWizard } from "../../../components/buyer-profile-wizard";
+import { GeneratedAvatar } from "../../../components/generated-avatar";
 import { Icon } from "../../../components/icon";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
-import { submitBuyerProfile, submitBuyerVerificationDocument } from "../../../server/form-actions";
+import { shuffleBuyerAvatar, submitBuyerProfile, submitBuyerVerificationDocument } from "../../../server/form-actions";
 
 export default async function BuyerProfileBuilderPage({
   searchParams,
@@ -101,7 +101,7 @@ export default async function BuyerProfileBuilderPage({
       <div className="page wide stack loose buyer-profile-page">
         <div className="buyer-profile-shell">
           <article className="card stack loose wizard-card profile-builder-card">
-            <BuyerProfileWizard action={submitBuyerProfile} buyer={buyer} />
+            <BuyerProfileWizard action={submitBuyerProfile} buyer={buyer} shuffleAction={shuffleBuyerAvatar} />
           </article>
           {verificationCard}
         </div>
@@ -116,7 +116,12 @@ export default async function BuyerProfileBuilderPage({
           <div className="buyer-profile-account-head">
             <div className="buyer-profile-identity">
               <div className="buyer-profile-avatar">
-                <Avatar name={displayName} size="xl" src={buyer.avatarUrl} />
+                <GeneratedAvatar
+                  alt="Generated buyer avatar"
+                  seed={buyer.userId || buyer.id}
+                  size="xl"
+                  variant={buyer.avatarVariant}
+                />
               </div>
               <div>
                 <h1>{displayName}</h1>

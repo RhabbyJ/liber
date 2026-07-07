@@ -11,10 +11,10 @@ import {
   reviewSellerAccess,
   revokeBadge,
   sendInvite,
+  shuffleBuyerAvatarVariant,
   suspendUser,
   updateBuyerProfile,
   updateSellerProperty,
-  uploadBuyerAvatarFile,
   uploadBuyerVerificationDocumentFile,
   uploadOwnershipDocumentFile,
   uploadPropertyImageFile,
@@ -41,11 +41,6 @@ function safeSellerNext(formData: FormData) {
 export async function submitBuyerProfile(formData: FormData) {
   formData.set("visibilityStatus", "ACTIVE");
   const { data: buyer } = await updateBuyerProfile(formData);
-  const avatar = formData.get("avatar");
-
-  if (avatar && isSubmittedFile(avatar)) {
-    await uploadBuyerAvatarFile(avatar);
-  }
 
   // The profile form's home-fit section doubles as the buyer's search criteria.
   formData.set("buyerProfileId", buyer.id);
@@ -57,6 +52,12 @@ export async function submitBuyerProfile(formData: FormData) {
   revalidatePath("/buyer/profile");
   revalidatePath(`/buyers/${buyer.id}`);
   redirect("/buyer/profile");
+}
+
+export async function shuffleBuyerAvatar(_formData: FormData) {
+  const { data } = await shuffleBuyerAvatarVariant();
+  revalidatePath("/buyer/profile");
+  if (data.buyerProfileId) revalidatePath(`/buyers/${data.buyerProfileId}`);
 }
 
 export async function respondToBuyerInvite(formData: FormData) {

@@ -27,6 +27,7 @@ import {
   type Invite,
   type Property,
 } from "../lib/mock-data";
+import { randomAvatarVariant } from "../lib/avatar-variant";
 import { hasRole, type SessionUser } from "./authz";
 import {
   canViewBuyerDirectory,
@@ -213,7 +214,7 @@ function buyerFromDb(profile: {
   id: string;
   lastRefreshedAt: Date | null;
   updatedAt: Date;
-  user?: { avatarUrl: string | null };
+  user?: { avatarVariant: string | null };
   userId: string;
   visibilityStatus: string;
 }): Buyer {
@@ -222,7 +223,7 @@ function buyerFromDb(profile: {
 
   return {
     id: profile.id,
-    avatarUrl: profile.user?.avatarUrl ?? undefined,
+    avatarVariant: profile.user?.avatarVariant ?? undefined,
     userId: profile.userId,
     name: profile.displayName,
     location: profile.desiredLocationText || cityState,
@@ -248,9 +249,10 @@ function buyerFromDb(profile: {
   };
 }
 
-function emptyBuyerForUser(user: SessionUser): Buyer {
+function emptyBuyerForUser(user: SessionUser, avatarVariant?: string | null): Buyer {
   return {
     id: "new-profile",
+    avatarVariant: avatarVariant ?? undefined,
     userId: user.id,
     name: "Private buyer",
     location: "",
@@ -411,13 +413,6 @@ async function uploadToStorage(bucket: string, path: string, file: File, content
   });
 
   if (error) throw new Error(error.message);
-}
-
-function getPublicStorageUrl(bucket: string, path: string) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) throw new Error("Supabase storage is not configured.");
-
-  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
 }
 
 async function createVerificationSignedUrl(storagePath: string) {
@@ -590,12 +585,11 @@ function inviteFromDb(invite: {
 const buyerInclude = {
   badges: true,
   criteria: true,
-  user: { select: { avatarUrl: true } },
+  user: { select: { avatarVariant: true } },
 } as const;
 
 const documentMimeTypes = new Set(["application/pdf", "image/png", "image/jpeg", "image/webp"]);
 const propertyImageMimeTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
-const profilePhotoMimeTypes = propertyImageMimeTypes;
 const buyerVerificationDocumentTypes = new Set(["PRE_APPROVAL", "VERIFIED_FUNDS", "IDENTITY", "OTHER"]);
 const evidenceRequiredBadgeTypes = new Set<Badge["type"]>([
   "PRE_APPROVED",
@@ -821,23 +815,6 @@ export async function setBuyerProfileVisibility(input: unknown) {
   return { ok: true, data: buyerFromDb(profile) };
 }
 
-export async function uploadBuyerAvatarFile(file: File) {
-  const user = await requireCurrentUser("BUYER");
-  const contentType = await assertAllowedFile(file, profilePhotoMimeTypes, "Profile photo", "a PNG, JPG, or WebP file", 5 * 1_048_576);
-
-  assertRateLimit(`upload:avatar:${user.id}`, 10, 60 * 60_000);
-
-  const storagePath = `${user.id}/${crypto.randomUUID()}/${storageFileNameForMime(contentType)}`;
-  await uploadToStorage("profile-photos", storagePath, file, contentType);
-  const publicUrl = getPublicStorageUrl("profile-photos", storagePath);
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { avatarUrl: publicUrl },
-  });
-
-  return { ok: true, data: { publicUrl, storagePath } };
-}
-
 export async function getCurrentBuyerProfile() {
   const user = await requireCurrentUser("BUYER");
   const [profile, account] = await Promise.all([
@@ -847,13 +824,41 @@ export async function getCurrentBuyerProfile() {
     }),
     prisma.user.findUnique({
       where: { id: user.id },
-      select: { name: true },
+      select: { avatarVariant: true, name: true },
     }),
   ]);
   const accountName = privateAccountName(account);
   return {
     ok: true,
-    data: withPrivateAccountName(profile ? buyerFromDb(profile) : emptyBuyerForUser(user), accountName),
+    data: withPrivateAccountName(
+      profile ? buyerFromDb(profile) : emptyBuyerForUser(user, account?.avatarVariant),
+      accountName,
+    ),
+  };
+}
+
+export async function shuffleBuyerAvatarVariant() {
+  const user = await requireCurrentUser("BUYER");
+  const account = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { avatarVariant: true },
+  });
+  const avatarVariant = randomAvatarVariant(account?.avatarVariant);
+  const [updatedUser, profile] = await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: { avatarVariant },
+      select: { avatarVariant: true },
+    }),
+    prisma.buyerProfile.findUnique({
+      where: { userId: user.id },
+      select: { id: true },
+    }),
+  ]);
+
+  return {
+    ok: true,
+    data: { avatarVariant: updatedUser.avatarVariant, buyerProfileId: profile?.id ?? null },
   };
 }
 
