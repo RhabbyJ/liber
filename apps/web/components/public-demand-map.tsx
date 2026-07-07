@@ -57,7 +57,7 @@ export function PublicDemandMap({ previews, token }: Props) {
           attributionControl: true,
           center: [pilotCenter.lng, pilotCenter.lat],
           container: containerRef.current,
-          cooperativeGestures: true,
+          cooperativeGestures: false,
           maxBounds: [[-118.75, 34.08], [-118.3, 34.37]],
           style: "mapbox://styles/mapbox/streets-v12",
           zoom: 10.6,

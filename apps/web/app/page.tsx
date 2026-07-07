@@ -20,31 +20,6 @@ export default async function HomePage() {
           <span>Los Angeles CA 90027</span>
           <Icon name="search" size={17} />
         </Link>
-        <div className="map-filter-set" aria-label="Seller search filters">
-          <Link className="map-filter-chip active" href={sellerSearchHref}>
-            Buyer demand
-            <Icon name="chevron-right" size={13} />
-          </Link>
-          <Link className="map-filter-chip" href={sellerSearchHref}>
-            Budget
-          </Link>
-          <Link className="map-filter-chip" href={sellerSearchHref}>
-            Beds & baths
-          </Link>
-          <Link className="map-filter-chip" href={sellerSearchHref}>
-            Property fit
-          </Link>
-          <Link className="map-filter-chip" href={sellerSearchHref}>
-            Trust badges
-          </Link>
-          <Link className="map-filter-chip" href={sellerSearchHref}>
-            <Icon name="settings" size={14} />
-            Filters
-          </Link>
-        </div>
-        <Link className="map-save-search" href={sellerSearchHref}>
-          Save search
-        </Link>
       </section>
 
       <section className="map-landing-body" aria-label="Buyer demand preview">
