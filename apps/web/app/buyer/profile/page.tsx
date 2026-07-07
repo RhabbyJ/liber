@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Avatar } from "../../../components/avatar";
 import { BadgePill } from "../../../components/badge-pill";
-import { BuyerProfileLivePreview } from "../../../components/buyer-profile-live-preview";
 import { BuyerProfileWizard } from "../../../components/buyer-profile-wizard";
 import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
@@ -186,9 +185,7 @@ export default async function BuyerProfileBuilderPage({
         </div>
 
         <aside className="public-profile-aside buyer-profile-preview-aside">
-          {showProfileWizard ? (
-            <BuyerProfileLivePreview activeBadges={activeBadges} buyer={buyer} />
-          ) : (
+          {showProfileWizard ? verificationCard : (
             <article className="card stack buyer-live-preview">
               <p className="eyebrow">Live preview</p>
               <div style={{ alignItems: "center", display: "flex", flexDirection: "column", gap: 12 }}>
@@ -233,8 +230,6 @@ export default async function BuyerProfileBuilderPage({
               )}
             </article>
           )}
-
-          {showProfileWizard ? verificationCard : null}
         </aside>
       </section>
 

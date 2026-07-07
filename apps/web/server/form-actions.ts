@@ -47,7 +47,7 @@ export async function submitBuyerProfile(formData: FormData) {
     await uploadBuyerAvatarFile(avatar);
   }
 
-  // The wizard's "Home fit" step doubles as the buyer's search criteria.
+  // The profile form's home-fit section doubles as the buyer's search criteria.
   formData.set("buyerProfileId", buyer.id);
   formData.set("propertySubtype", "HOME");
   formData.set("priceMin", String(formData.get("budgetMin") ?? ""));

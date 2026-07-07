@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// v1 buyer setup is one wizard on /buyer/profile (profile + home fit + story).
+// v1 buyer setup is one form on /buyer/profile.
 export default function BuyerCriteriaPage() {
   redirect("/buyer/profile?edit=profile");
 }

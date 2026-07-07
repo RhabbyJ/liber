@@ -99,7 +99,7 @@ export default async function PublicBuyerProfilePage({
                 </span>
                 <div>
                   <strong>{primaryBadge.label}</strong>
-                  <span>Documents stay private</span>
+                  <span>{badgeHelperText(primaryBadge)}</span>
                 </div>
               </div>
             ) : null}
@@ -172,4 +172,12 @@ function ProfileFact({ label, value }: { label: string; value: string }) {
 function displayFirstName(name: string) {
   const trimmed = name.trim();
   return trimmed.split(/[.\s]/).filter(Boolean)[0] || "Buyer";
+}
+
+function badgeHelperText(badge: { expiresInDays?: number }) {
+  if (typeof badge.expiresInDays === "number") {
+    return `Expires in ${badge.expiresInDays} day${badge.expiresInDays === 1 ? "" : "s"}`;
+  }
+
+  return "Documents stay private";
 }
