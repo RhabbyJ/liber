@@ -2009,14 +2009,16 @@ main {
   border-radius: var(--r-sm);
   color: var(--ink-strong);
   display: flex;
-  flex: 1 1 auto;
+  flex: 0 1 520px;
   font-size: 14px;
   font-weight: 700;
   gap: 12px;
   justify-content: space-between;
+  max-width: 520px;
   min-height: 40px;
   padding: 0 12px;
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  width: 100%;
 }
 
 .map-search-box:hover,
@@ -2482,7 +2484,8 @@ body:has(.map-landing) .site-footer {
 
 @media (max-width: 960px) {
   .map-search-box {
-    flex-basis: 100%;
+    flex: 1 1 auto;
+    max-width: none;
   }
 
   .map-landing-body {
