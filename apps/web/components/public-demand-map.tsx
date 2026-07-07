@@ -64,7 +64,7 @@ export function PublicDemandMap({ previews, token }: Props) {
         });
 
         let loaded = false;
-        mapRef.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+        mapRef.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "bottom-right");
         mapRef.current.on("load", () => {
           if (canceled) return;
           loaded = true;
