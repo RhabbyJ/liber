@@ -2845,17 +2845,36 @@ body:has(.map-landing) .site-footer {
 }
 
 .verification-card {
-  border-color: var(--sage-line);
-  box-shadow: var(--shadow-2);
+  border-color: var(--amber-line);
+  box-shadow: 0 18px 40px rgba(12, 107, 168, 0.06);
 }
 
 .verification-card.priority {
   border-color: var(--amber-line);
-  box-shadow: 0 22px 70px rgba(122, 95, 44, 0.16);
+  box-shadow: 0 18px 40px rgba(12, 107, 168, 0.08);
 }
 
-.verification-card.priority .button.primary {
+.verification-card.priority .button.primary,
+.buyer-preapproval-card .button.primary {
   width: 100%;
+}
+
+.buyer-preapproval-card {
+  gap: 18px;
+  padding: 26px;
+}
+
+.buyer-preapproval-card h2 {
+  font-size: 26px;
+  letter-spacing: 0;
+}
+
+.buyer-preapproval-card .section-head {
+  align-items: start;
+}
+
+.buyer-preapproval-card .form-grid {
+  gap: 16px 18px;
 }
 
 /* Buyer profile form */
@@ -2982,96 +3001,155 @@ body:has(.map-landing) .site-footer {
   padding-left: 176px;
 }
 
-.buyer-profile-page .page-title {
-  margin-bottom: 0;
-}
-
-.buyer-account-panel {
-  align-items: start;
-  display: grid;
-  gap: 38px;
-  grid-template-columns: 130px minmax(360px, 520px) minmax(220px, 320px);
-  margin: 0 auto;
-  max-width: 1160px;
-  padding: 8px 0 28px;
-}
-
-.buyer-account-photo {
-  align-items: center;
-  display: grid;
-  gap: 12px;
-  justify-items: center;
-}
-
-.buyer-account-photo .profile-photo {
-  border: 0;
-  border-radius: var(--r-pill);
-  height: 104px;
-  max-width: none;
-  width: 104px;
-}
-
-.buyer-account-details {
-  border-right: 1px solid var(--line);
-  display: grid;
-  gap: 16px;
-  margin: 0;
-  padding: 12px 54px 12px 0;
-}
-
-.buyer-account-details > div {
-  display: grid;
-  gap: 24px;
-  grid-template-columns: 150px minmax(0, 1fr);
-}
-
-.buyer-account-details dt {
-  color: var(--ink-strong);
-  font-weight: 700;
-}
-
-.buyer-account-details dd {
-  color: var(--ink-muted);
-  font-weight: 500;
-  margin: 0;
-}
-
-.buyer-account-actions {
-  align-items: start;
-  display: grid;
-  gap: 14px;
-  justify-items: start;
-  padding-top: 10px;
-}
-
-.buyer-account-actions .button {
-  min-width: 150px;
-}
-
-.buyer-profile-layout.editing {
-  gap: 56px;
-  grid-template-columns: minmax(0, 900px) 320px;
-  justify-content: center;
-}
-
 .profile-builder-card {
   border: 0;
   border-radius: 0;
   box-shadow: none;
 }
 
-.buyer-profile-preview-aside {
-  top: 92px;
+.buyer-profile-shell {
+  display: grid;
+  gap: 24px;
+  margin: 0 auto;
+  max-width: 1080px;
+  width: 100%;
 }
 
-.buyer-live-preview {
-  border-radius: 7px;
+.buyer-profile-account-card,
+.buyer-verified-card {
+  border-color: #cfd9e6;
   box-shadow: none;
 }
 
-.buyer-live-preview .profile-photo {
-  border-radius: 7px;
-  max-width: 220px;
+.buyer-profile-account-card {
+  gap: 28px;
+  padding: 28px 44px 24px;
+}
+
+.buyer-profile-account-head {
+  align-items: center;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+}
+
+.buyer-profile-identity {
+  align-items: center;
+  display: flex;
+  gap: 32px;
+  min-width: 0;
+}
+
+.buyer-profile-avatar {
+  flex: 0 0 auto;
+}
+
+.buyer-profile-avatar .avatar {
+  border: 3px solid #f2f2f2;
+  border-radius: var(--r-pill);
+  box-shadow: 0 2px 4px rgba(36, 35, 38, 0.16);
+  font-size: 42px;
+  height: 120px;
+  width: 120px;
+}
+
+.buyer-profile-identity h1 {
+  font-size: 21px;
+  letter-spacing: 0;
+}
+
+.buyer-profile-identity p {
+  align-items: center;
+  color: var(--ink-strong);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 16px;
+  font-weight: 700;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.buyer-profile-identity p span {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.buyer-profile-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.buyer-profile-actions .button {
+  min-width: 114px;
+}
+
+.buyer-profile-info-block {
+  display: grid;
+  gap: 18px;
+}
+
+.buyer-profile-info-block h2,
+.buyer-verified-card h2 {
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.buyer-profile-info-grid {
+  display: grid;
+  gap: 20px 72px;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  margin: 0;
+  max-width: 740px;
+}
+
+.buyer-profile-info-grid div {
+  display: grid;
+  gap: 8px;
+}
+
+.buyer-profile-info-grid dt {
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+.buyer-profile-info-grid dd {
+  color: var(--ink-strong);
+  font-size: 14.5px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.buyer-verified-card {
+  gap: 22px;
+  padding: 26px 44px;
+}
+
+.buyer-verified-list {
+  display: grid;
+  gap: 21px;
+  list-style: none;
+}
+
+.buyer-verified-list li {
+  align-items: center;
+  color: var(--ink-strong);
+  display: flex;
+  font-size: 15px;
+  font-weight: 700;
+  gap: 18px;
+}
+
+.buyer-verified-check {
+  align-items: center;
+  border: 2px solid var(--sage-strong);
+  border-radius: var(--r-pill);
+  color: var(--sage-strong);
+  display: inline-flex;
+  height: 18px;
+  justify-content: center;
+  width: 18px;
 }
 
 .criteria-type-strip {
@@ -3954,22 +4032,7 @@ body:has(.map-landing) .site-footer {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .buyer-account-panel {
-    grid-template-columns: 120px minmax(0, 1fr);
-  }
-
-  .buyer-account-details {
-    border-right: 0;
-    padding-right: 0;
-  }
-
-  .buyer-account-actions {
-    grid-column: 2;
-    padding-top: 0;
-  }
-
   .buyer-reference-profile,
-  .buyer-profile-layout.editing,
   .invite-compose-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3978,8 +4041,7 @@ body:has(.map-landing) .site-footer {
     position: static;
   }
 
-  .invite-compose-aside,
-  .buyer-profile-preview-aside {
+  .invite-compose-aside {
     position: static;
   }
 
@@ -4051,7 +4113,6 @@ body:has(.map-landing) .site-footer {
   .public-profile,
   .buyer-reference-profile,
   .invite-compose-grid,
-  .buyer-account-panel,
   .grid.two,
   .grid.three,
   .grid.four,
@@ -4066,13 +4127,36 @@ body:has(.map-landing) .site-footer {
     grid-template-columns: 1fr;
   }
 
-  .buyer-account-actions {
-    grid-column: auto;
+  .buyer-profile-info-grid {
+    grid-template-columns: 1fr;
   }
 
-  .buyer-account-details > div {
-    grid-template-columns: 1fr;
-    gap: 4px;
+  .buyer-profile-account-card,
+  .buyer-verified-card,
+  .buyer-preapproval-card {
+    padding: 24px;
+  }
+
+  .buyer-profile-account-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .buyer-profile-identity {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .buyer-profile-avatar .avatar {
+    font-size: 34px;
+    height: 96px;
+    width: 96px;
+  }
+
+  .buyer-profile-actions,
+  .buyer-profile-actions .button {
+    width: 100%;
   }
 
   .buyer-form-section {

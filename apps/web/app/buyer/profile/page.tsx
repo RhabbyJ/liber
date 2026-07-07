@@ -1,16 +1,9 @@
 import Link from "next/link";
 import { Avatar } from "../../../components/avatar";
-import { BadgePill } from "../../../components/badge-pill";
 import { BuyerProfileWizard } from "../../../components/buyer-profile-wizard";
-import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
-import { formatRange } from "../../../lib/format";
-import { getCurrentBuyerProfile, listBuyerInvites } from "../../../server/contracts";
-import {
-  respondToBuyerInvite,
-  submitBuyerProfile,
-  submitBuyerVerificationDocument,
-} from "../../../server/form-actions";
+import { getCurrentBuyerProfile } from "../../../server/contracts";
+import { submitBuyerProfile, submitBuyerVerificationDocument } from "../../../server/form-actions";
 
 export default async function BuyerProfileBuilderPage({
   searchParams,
@@ -18,28 +11,43 @@ export default async function BuyerProfileBuilderPage({
   searchParams?: Promise<{ edit?: string; verification?: string }>;
 }) {
   const { edit = "", verification = "" } = searchParams ? await searchParams : {};
-  const [{ data: buyer }, { data: invites }] = await Promise.all([
-    getCurrentBuyerProfile(),
-    listBuyerInvites(),
-  ]);
+  const { data: buyer } = await getCurrentBuyerProfile();
   const isActive = buyer.visibility === "active";
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
   const hasPreApproval = activeBadges.some((badge) => badge.type === "PRE_APPROVED");
   const hasPendingPreApproval = buyer.badges.some((badge) => badge.type === "PRE_APPROVED" && badge.status === "pending");
-  const pendingInvites = invites.filter((invite) => invite.status === "Sent" || invite.status === "Viewed");
   const showProfileWizard = !isActive || edit === "profile";
   const accountName = buyer.accountName || "buyer";
+  const displayName = buyer.name || accountName;
+  const visibilityLabel = isActive
+    ? "Live to sellers"
+    : buyer.visibility === "hidden"
+      ? "Hidden"
+      : "Draft - not yet visible";
+  const verifiedInformation = [
+    { label: "Identity", verified: activeBadges.some((badge) => badge.type === "VERIFIED_IDENTITY") },
+    { label: "Pre-approval", verified: hasPreApproval },
+    { label: "Verified funds", verified: activeBadges.some((badge) => badge.type === "VERIFIED_FUNDS") },
+    { label: "Cash buyer", verified: activeBadges.some((badge) => badge.type === "CASH_BUYER") },
+    { label: "Non-contingent preference", verified: activeBadges.some((badge) => badge.type === "NON_CONTINGENT") },
+    { label: "Completed transaction", verified: activeBadges.some((badge) => badge.type === "COMPLETED_TRANSACTION") },
+  ].filter((item) => item.verified);
+  const generalInformation = [
+    { label: "Buyer type", value: buyer.type || "Buyer" },
+    { label: "Buying purpose", value: buyer.purpose || "Not set" },
+    { label: "Desired location", value: buyer.location || "Not set" },
+    { label: "Profile status", value: visibilityLabel },
+    { label: "Last updated", value: buyer.refreshedAt || "Not set" },
+  ];
   const verificationCard = (
     <article
-      className={`card stack verification-card ${!showProfileWizard && !hasPreApproval ? "priority" : ""}`}
+      className={`card stack verification-card buyer-preapproval-card ${!hasPreApproval ? "priority" : ""}`}
       id="buyer-verification-card"
     >
       <div className="section-head compact">
         <div>
           <p className="eyebrow">Verification</p>
-          <h2 style={{ fontSize: showProfileWizard ? 20 : 26 }}>
-            {hasPreApproval ? "Verification is active" : "Get pre-approved"}
-          </h2>
+          <h2>Get pre-approved</h2>
         </div>
         <span className={`status-dot ${hasPreApproval ? "active" : hasPendingPreApproval ? "warning" : "info"}`}>
           <Icon name={hasPreApproval ? "check-shield" : "lock"} size={12} />
@@ -71,8 +79,6 @@ export default async function BuyerProfileBuilderPage({
           <select id="documentType" name="documentType">
             <option value="PRE_APPROVAL">Pre-approval letter</option>
             <option value="VERIFIED_FUNDS">Proof of funds</option>
-            <option value="IDENTITY">Identity</option>
-            <option value="OTHER">Other</option>
           </select>
         </div>
         <div className="field">
@@ -87,244 +93,80 @@ export default async function BuyerProfileBuilderPage({
           </button>
         </div>
       </form>
-      {buyer.badges.length > 0 ? (
-        <div className="pill-row">
-          {buyer.badges.map((badge) => (
-            <BadgePill badge={badge} key={badge.label} />
-          ))}
-        </div>
-      ) : null}
     </article>
   );
 
+  if (showProfileWizard) {
+    return (
+      <div className="page wide stack loose buyer-profile-page">
+        <div className="buyer-profile-shell">
+          <article className="card stack loose wizard-card profile-builder-card">
+            <BuyerProfileWizard action={submitBuyerProfile} buyer={buyer} />
+          </article>
+          {verificationCard}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page wide stack loose buyer-profile-page">
-      <section className="buyer-account-panel">
-        <div className="buyer-account-photo">
-          <div className="profile-photo">
-            <Avatar name={buyer.name} size="xl" src={buyer.avatarUrl} />
-          </div>
-          <Link className="link-button" href="/buyer/profile?edit=profile">
-            Update photo
-          </Link>
-        </div>
-
-        <dl className="buyer-account-details">
-          <div>
-            <dt>Name</dt>
-            <dd>{buyer.name || accountName}</dd>
-          </div>
-          <div>
-            <dt>Buyer type</dt>
-            <dd>{buyer.type || "Home Buyer"}</dd>
-          </div>
-          <div>
-            <dt>Location</dt>
-            <dd>{buyer.location || "Not set"}</dd>
-          </div>
-          <div>
-            <dt>Status</dt>
-            <dd>{isActive ? "Live to sellers" : "Draft - not yet visible"}</dd>
-          </div>
-        </dl>
-
-        <div className="buyer-account-actions">
-          <Link className="button primary" href="#buyer-verification-card">
-            {hasPreApproval ? "Verification active" : "Get Pre-approved"}
-          </Link>
-          <Link className="button secondary" href="/buyer/profile?edit=profile">
-            Edit profile
-          </Link>
-        </div>
-      </section>
-
-      <section className={`grid sidebar buyer-profile-layout ${showProfileWizard ? "editing" : "live"}`}>
-        <div className={showProfileWizard ? "card stack loose wizard-card profile-builder-card" : "stack loose"}>
-          {showProfileWizard ? (
-            <BuyerProfileWizard action={submitBuyerProfile} buyer={buyer} />
-          ) : (
-            <>
-              {verificationCard}
-              <article className="card stack">
-                <div className="section-head compact">
-                  <div>
-                    <p className="eyebrow">Profile complete</p>
-                    <h2 style={{ fontSize: 22 }}>Your buyer profile is live</h2>
-                  </div>
-                  <span className="status-dot active">
-                    <Icon name="check" size={12} />
-                    Searchable
-                  </span>
-                </div>
-                <p className="muted small">
-                  Sellers can now find your profile when your location, budget, and home criteria match their private property.
+      <div className="buyer-profile-shell">
+        <article className="card buyer-profile-account-card">
+          <div className="buyer-profile-account-head">
+            <div className="buyer-profile-identity">
+              <div className="buyer-profile-avatar">
+                <Avatar name={displayName} size="xl" src={buyer.avatarUrl} />
+              </div>
+              <div>
+                <h1>{displayName}</h1>
+                <p>
+                  {buyer.location || "Location not set"}
+                  <span>{buyer.type || "Buyer"}</span>
                 </p>
-                <div className="summary-grid">
-                  <div>
-                    <span className="summary-label">Location</span>
-                    <span className="summary-value">{buyer.location || "Not set"}</span>
-                  </div>
-                  <div>
-                    <span className="summary-label">Budget</span>
-                    <span className="summary-value">{formatRange(buyer.budgetMin, buyer.budgetMax)}</span>
-                  </div>
-                  <div>
-                    <span className="summary-label">Buying for</span>
-                    <span className="summary-value">{buyer.purpose || "Not set"}</span>
-                  </div>
-                </div>
-                <div className="actions inline">
-                  <Link className="button secondary" href="/buyer/profile?edit=profile">
-                    <Icon name="list" size={14} />
-                    Edit profile
-                  </Link>
-                </div>
-              </article>
-            </>
-          )}
-        </div>
-
-        <aside className="public-profile-aside buyer-profile-preview-aside">
-          {showProfileWizard ? verificationCard : (
-            <article className="card stack buyer-live-preview">
-              <p className="eyebrow">Live preview</p>
-              <div style={{ alignItems: "center", display: "flex", flexDirection: "column", gap: 12 }}>
-                <div className="profile-photo">
-                  <Avatar name={buyer.name} size="xl" src={buyer.avatarUrl} />
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <h2 style={{ fontSize: 22, margin: 0 }}>{buyer.name}</h2>
-                  <p className="muted small" style={{ marginTop: 4 }}>{buyer.location}</p>
-                </div>
               </div>
-              <div className="summary-grid" style={{ gridTemplateColumns: "1fr" }}>
-                <div>
-                  <span className="summary-label">Budget</span>
-                  <span className="summary-value">{formatRange(buyer.budgetMin, buyer.budgetMax)}</span>
-                </div>
-                <div>
-                  <span className="summary-label">Down payment</span>
-                  <span className="summary-value">{formatRange(buyer.downPaymentMin, buyer.downPaymentMax)}</span>
-                </div>
-                <div>
-                  <span className="summary-label">Buying for</span>
-                  <span className="summary-value">{buyer.purpose}</span>
-                </div>
-              </div>
-              {activeBadges.length > 0 ? (
-                <div className="pill-row">
-                  {activeBadges.map((badge) => (
-                    <BadgePill badge={badge} key={badge.label} />
-                  ))}
-                </div>
-              ) : (
-                <p className="muted small">No trust badges yet. Add one below to stand out.</p>
-              )}
-              {isActive && buyer.id !== "new-profile" ? (
-                <Link className="button secondary" href={`/buyers/${buyer.id}`}>
-                  <Icon name="eye" size={14} />
-                  View as seller
-                </Link>
-              ) : (
-                <p className="muted small">Finish the steps before sharing the seller-facing page.</p>
-              )}
-            </article>
-          )}
-        </aside>
-      </section>
-
-      <section className="stack">
-        <div className="section-head compact">
-          <div>
-            <p className="eyebrow">Invites</p>
-            <h2 style={{ fontSize: 22 }}>
-              Outreach from sellers
-              {pendingInvites.length > 0 ? (
-                <span className="invite-count">{pendingInvites.length}</span>
-              ) : null}
-            </h2>
-          </div>
-          <Link className="button ghost" href="/buyer/notifications">
-            <Icon name="bell" size={14} />
-            Notifications
-          </Link>
-        </div>
-        {invites.length === 0 ? (
-          <EmptyState
-            icon="mail"
-            title="No invites yet"
-            description="Sellers reach out as your profile matches their property. Verification badges help you stand out faster."
-          />
-        ) : (
-          <div className="grid two">
-            {invites.map((invite) => {
-              const verified = invite.propertyStatus?.toLowerCase().includes("verified");
-              return (
-                <article className="card stack" key={invite.id}>
-                  <div className="section-head compact">
-                    <div>
-                      <p className="eyebrow">{invite.property}</p>
-                      <h3 style={{ fontSize: 18, marginTop: 6 }}>{invite.title}</h3>
-                    </div>
-                    <span className={`status-dot ${verified ? "active" : "warning"}`}>
-                      <Icon name={verified ? "check-shield" : "info"} size={12} />
-                      {invite.propertyStatus || "Ownership not submitted"}
-                    </span>
-                  </div>
-                  <p className="muted small">{invite.message}</p>
-                  <div className="actions between">
-                    <span className="status-dot">
-                      <Icon name="calendar" size={12} />
-                      {invite.status}
-                    </span>
-                    <div className="actions inline">
-                      <form action={respondToBuyerInvite}>
-                        <input name="inviteId" type="hidden" value={invite.id} />
-                        <input name="response" type="hidden" value="DECLINED" />
-                        <button className="button ghost" type="submit">Decline</button>
-                      </form>
-                      <form action={respondToBuyerInvite}>
-                        <input name="inviteId" type="hidden" value={invite.id} />
-                        <input name="response" type="hidden" value="ACCEPTED" />
-                        <button className="button primary" type="submit">
-                          <Icon name="check" size={14} />
-                          Accept
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      <section className="stack">
-        <article className="card stack">
-          <div className="section-head compact">
-            <div>
-              <p className="eyebrow">Account</p>
-              <h2 style={{ fontSize: 20 }}>Signed in as {accountName}</h2>
+            </div>
+            <div className="buyer-profile-actions">
+              <Link className="button primary" href="/buyer/profile?edit=profile">
+                <Icon name="pencil" size={14} />
+                Edit Profile
+              </Link>
             </div>
           </div>
-          <p className="muted small">
-            Your account name is private to your buyer portal. Sellers and public previews use your buyer profile display name.
-          </p>
-          <div className="actions inline">
-            <Link className="button secondary" href="/buyer/profile?edit=profile">
-              <Icon name="list" size={14} />
-              Edit profile
-            </Link>
-            <form action="/logout" method="post">
-              <button className="button ghost" type="submit">
-                <Icon name="logout" size={14} />
-                Sign out
-              </button>
-            </form>
+
+          <div className="buyer-profile-info-block">
+            <h2>General Information</h2>
+            <dl className="buyer-profile-info-grid">
+              {generalInformation.map((item) => (
+                <div key={item.label}>
+                  <dt>{item.label}</dt>
+                  <dd>{item.value}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
         </article>
-      </section>
+
+        <article className="card buyer-verified-card">
+          <h2>Your Verified Information</h2>
+          {verifiedInformation.length > 0 ? (
+            <ul className="buyer-verified-list">
+              {verifiedInformation.map((item) => (
+                <li key={item.label}>
+                  <span className="buyer-verified-check">
+                    <Icon name="check" size={13} />
+                  </span>
+                  <span>{item.label}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted small">No verified information yet.</p>
+          )}
+        </article>
+
+        {verificationCard}
+      </div>
     </div>
   );
 }
