@@ -179,8 +179,11 @@ export function PrimaryNav({
           ) : (
             <>
               <Link className="button ghost" href="/login" onClick={close}>Log in</Link>
-              <Link className="button primary" href="/signup" onClick={close}>
-                Get started
+              <Link className="button primary" href="/signup?role=seller&next=/seller/search" onClick={close}>
+                Find buyers
+              </Link>
+              <Link className="button secondary" href="/signup?role=buyer&next=/buyer/profile" onClick={close}>
+                Add buyer demand
               </Link>
             </>
           )}

@@ -16,15 +16,6 @@ export default async function HomePage() {
         <h1>
           Meet <strong>the buyer</strong> before you list.
         </h1>
-        <div className="map-landing-actions">
-          <Link className="button primary" href="/signup?role=seller&next=/seller/search">
-            Find buyers
-            <Icon name="arrow-right" size={14} />
-          </Link>
-          <Link className="button secondary" href="/signup?role=buyer&next=/buyer/profile">
-            Add buyer demand
-          </Link>
-        </div>
       </section>
 
       <section className="map-landing-body" aria-label="Buyer demand preview">

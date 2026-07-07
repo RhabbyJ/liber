@@ -216,12 +216,12 @@ main {
 .topbar {
   align-items: center;
   backdrop-filter: saturate(140%) blur(10px);
-  background: rgba(250, 247, 241, 0.86);
+  background: rgba(255, 255, 255, 0.94);
   border-bottom: 1px solid var(--line);
   display: grid;
-  gap: 28px;
+  gap: 22px;
   grid-template-columns: auto 1fr auto;
-  padding: 14px var(--gutter);
+  padding: 12px var(--gutter);
   position: sticky;
   top: 0;
   z-index: 30;
@@ -342,7 +342,7 @@ main {
 .top-actions {
   align-items: center;
   display: flex;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
 }
 
@@ -356,6 +356,16 @@ main {
 .mobile-nav-actions form,
 .mobile-nav-actions form .button {
   width: 100%;
+}
+
+.top-actions .button {
+  min-height: 38px;
+  padding: 8px 16px;
+}
+
+.top-actions .button.ghost {
+  padding-left: 10px;
+  padding-right: 10px;
 }
 
 .notification-button {
@@ -1971,15 +1981,13 @@ main {
   border-bottom: 1px solid var(--line-soft);
   box-shadow: var(--shadow-1);
   display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  justify-content: space-between;
-  padding: 14px var(--gutter);
+  justify-content: flex-start;
+  padding: 12px var(--gutter);
   width: 100%;
 }
 
 .map-landing-bar h1 {
-  font-size: clamp(19px, 2.2vw, 24px);
+  font-size: clamp(18px, 1.8vw, 22px);
   letter-spacing: -0.01em;
   margin: 0;
 }
@@ -1988,17 +1996,25 @@ main {
   color: var(--sage-deep);
 }
 
-.map-landing-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+@media (min-width: 921px) {
+  body:has(.map-landing) .topbar {
+    grid-template-columns: auto 1fr;
+  }
+
+  body:has(.map-landing) .nav-shell {
+    display: none;
+  }
+
+  body:has(.map-landing) .top-actions {
+    justify-self: end;
+  }
 }
 
 .map-landing-body {
   background: var(--canvas);
   display: grid;
   grid-template-columns: minmax(0, 1fr) 400px;
-  height: calc(100vh - 150px);
+  height: calc(100vh - 124px);
   min-height: 560px;
 }
 
