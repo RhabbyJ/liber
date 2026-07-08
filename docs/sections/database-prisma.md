@@ -25,6 +25,6 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 
 After schema changes, run `npm run db:validate` and regenerate Prisma client when needed.
 
-`User.avatarVariant` is an allowlisted Boring Avatars variant token for buyer profile display; it should stay nullable so existing accounts fall back to deterministic generated avatars.
+`User.avatarVariant` is an allowlisted generated animal-avatar token for buyer profile display; it should stay nullable so existing accounts fall back to deterministic generated avatars.
 
 When adding seed scripts, include a cleanup path and avoid inserting private document records, real contact information, or fake production trust claims.

@@ -1,4 +1,4 @@
-import BoringAvatar from "boring-avatars";
+import { randomAvatar } from "avatarka";
 import { resolveAvatarVariant } from "../lib/avatar-variant";
 
 type Size = "sm" | "md" | "lg" | "xl";
@@ -20,6 +20,8 @@ const sizeClass: Record<Size, string> = {
 
 export function GeneratedAvatar({ alt, className, seed, size = "md", variant }: Props) {
   const resolved = resolveAvatarVariant(variant, seed);
+  const svg = randomAvatar("animals", resolved.seed);
+  const src = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
   const classes = [
     "generated-avatar",
     sizeClass[size],
@@ -30,12 +32,7 @@ export function GeneratedAvatar({ alt, className, seed, size = "md", variant }: 
 
   return (
     <span aria-label={alt || "Generated buyer avatar"} className={classes} role="img">
-      <BoringAvatar
-        name={resolved.name}
-        size="100%"
-        title={false}
-        variant={resolved.variant}
-      />
+      <img alt="" aria-hidden="true" src={src} />
     </span>
   );
 }

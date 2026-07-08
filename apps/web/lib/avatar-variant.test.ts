@@ -7,13 +7,14 @@ import {
 } from "./avatar-variant";
 
 describe("buyer avatar variants", () => {
-  it("accepts only allowlisted Boring Avatars tokens", () => {
-    expect(normalizeAvatarVariant("boring:beam:0")).toBe("boring:beam:0");
+  it("accepts only allowlisted animal avatar tokens", () => {
+    expect(normalizeAvatarVariant("avatarka:animals:0")).toBe("avatarka:animals:0");
     expect(normalizeAvatarVariant("dog:purple:0")).toBeNull();
+    expect(normalizeAvatarVariant("boring:beam:0")).toBeNull();
     expect(normalizeAvatarVariant("boring:beam:liber:0")).toBeNull();
-    expect(normalizeAvatarVariant("boring:https://example.com/avatar.svg:0")).toBeNull();
-    expect(normalizeAvatarVariant("boring:geometric:liber:0")).toBeNull();
-    expect(normalizeAvatarVariant("boring:beam:-1")).toBeNull();
+    expect(normalizeAvatarVariant("avatarka:robots:0")).toBeNull();
+    expect(normalizeAvatarVariant("avatarka:https://example.com/avatar.svg:0")).toBeNull();
+    expect(normalizeAvatarVariant("avatarka:animals:-1")).toBeNull();
   });
 
   it("derives a stable default avatar for accounts without a saved token", () => {
@@ -24,12 +25,13 @@ describe("buyer avatar variants", () => {
     expect(normalizeAvatarVariant(first)).toBe(first);
   });
 
-  it("resolves stale tokens to a Boring Avatars fallback", () => {
+  it("resolves stale tokens to an animal avatar fallback", () => {
     const resolved = resolveAvatarVariant("cat:purple:1", "buyer-user-id");
     const resolvedPaletteToken = resolveAvatarVariant("boring:beam:liber:0", "buyer-user-id");
 
     expect(resolved.value).toBe(avatarVariantFromSeed("buyer-user-id"));
     expect(resolvedPaletteToken.value).toBe(avatarVariantFromSeed("buyer-user-id"));
+    expect(resolved.seed).toBe(`buyer-user-id:${resolved.salt}`);
   });
 
   it("does not return the excluded currently displayed avatar when shuffling", () => {

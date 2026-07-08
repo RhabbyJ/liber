@@ -2631,9 +2631,11 @@ body:has(.map-landing) .site-footer {
   width: 160px;
 }
 
+.generated-avatar img,
 .generated-avatar svg {
   display: block;
   height: 100%;
+  object-fit: cover;
   width: 100%;
 }
 

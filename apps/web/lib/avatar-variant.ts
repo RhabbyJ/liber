@@ -1,59 +1,56 @@
-export const boringAvatarVariants = ["beam", "marble", "ring", "bauhaus", "sunset", "pixel"] as const;
-
-export type BoringAvatarVariant = (typeof boringAvatarVariants)[number];
+export const avatarProvider = "avatarka" as const;
+export const avatarTheme = "animals" as const;
 
 export type AvatarVariantParts = {
-  name: string;
+  seed: string;
   salt: number;
   value: string;
-  variant: BoringAvatarVariant;
 };
 
-const avatarSalts = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const;
+const avatarSalts = [
+  0, 1, 2, 3, 4, 5, 6, 7,
+  8, 9, 10, 11, 12, 13, 14, 15,
+  16, 17, 18, 19, 20, 21, 22, 23,
+  24, 25, 26, 27, 28, 29, 30, 31,
+] as const;
 
 export function normalizeAvatarVariant(value?: string | null) {
   const parts = value?.split(":");
   if (!parts || parts.length !== 3) return null;
 
-  const [namespace, variant, saltValue] = parts;
-  if (namespace !== "boring") return null;
-  if (!boringAvatarVariants.includes(variant as BoringAvatarVariant)) return null;
+  const [provider, theme, saltValue] = parts;
+  if (provider !== avatarProvider) return null;
+  if (theme !== avatarTheme) return null;
   if (!/^\d+$/.test(saltValue)) return null;
 
   const salt = Number(saltValue);
   if (!Number.isInteger(salt) || salt < 0 || salt > 99) return null;
 
-  return `${namespace}:${variant}:${salt}`;
+  return `${provider}:${theme}:${salt}`;
 }
 
 export function avatarVariantFromSeed(seed: string) {
   const hash = hashSeed(seed || "buyer");
-  const variant = boringAvatarVariants[hash % boringAvatarVariants.length];
-  const salt = avatarSalts[Math.floor(hash / boringAvatarVariants.length) % avatarSalts.length];
+  const salt = avatarSalts[hash % avatarSalts.length];
 
-  return `boring:${variant}:${salt}`;
+  return `${avatarProvider}:${avatarTheme}:${salt}`;
 }
 
 export function resolveAvatarVariant(value: string | null | undefined, seed: string): AvatarVariantParts {
   const normalized = normalizeAvatarVariant(value) ?? avatarVariantFromSeed(seed);
-  const [, variant, saltValue] = normalized.split(":") as [
-    "boring",
-    BoringAvatarVariant,
-    string,
-  ];
+  const [, , saltValue] = normalized.split(":") as [typeof avatarProvider, typeof avatarTheme, string];
   const salt = Number(saltValue);
 
   return {
-    name: `${seed || "buyer"}:${salt}`,
+    seed: `${seed || "buyer"}:${salt}`,
     salt,
     value: normalized,
-    variant,
   };
 }
 
 export function randomAvatarVariant(exclude?: string | null) {
   const normalizedExclude = normalizeAvatarVariant(exclude);
-  const options = boringAvatarVariants.flatMap((variant) => avatarSalts.map((salt) => `boring:${variant}:${salt}`));
+  const options = avatarSalts.map((salt) => `${avatarProvider}:${avatarTheme}:${salt}`);
   let index = randomIndex(options.length);
 
   if (normalizedExclude && options[index] === normalizedExclude) {
