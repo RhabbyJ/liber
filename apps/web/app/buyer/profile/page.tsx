@@ -23,6 +23,7 @@ export default async function BuyerProfileBuilderPage({
   const hasPreApproval = activeBadges.some((badge) => badge.type === "PRE_APPROVED");
   const hasPendingPreApproval = buyer.badges.some((badge) => badge.type === "PRE_APPROVED" && badge.status === "pending");
   const showProfileWizard = !isActive || edit === "profile";
+  const canSubmitVerification = buyer.id !== "new-profile" && buyer.visibility !== "draft";
   const accountName = buyer.accountName || "buyer";
   const displayName = buyer.name || accountName;
   const visibilityLabel = isActive
@@ -115,7 +116,7 @@ export default async function BuyerProfileBuilderPage({
               shuffleAction={shuffleBuyerAvatar}
             />
           </article>
-          {verificationCard}
+          {canSubmitVerification ? verificationCard : null}
         </div>
       </div>
     );
