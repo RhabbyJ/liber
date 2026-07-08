@@ -3,12 +3,12 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import {
-  activeServiceAreas,
   findServiceArea,
   serviceAreaDisplayLabel,
   type ServiceArea,
 } from "../lib/service-areas";
 import { Icon } from "./icon";
+import { PilotZipSuggestions } from "./pilot-zip-suggestions";
 
 type Props = {
   defaultArea?: string;
@@ -38,16 +38,19 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
   const [query, setQuery] = useState(defaultArea);
   const [message, setMessage] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
 
   useEffect(() => {
     setQuery(defaultArea);
     setMessage("");
+    setIsSuggestionsOpen(false);
   }, [defaultArea, defaultServiceArea]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const value = query.trim();
     setMessage("");
+    setIsSuggestionsOpen(false);
 
     if (value.length < 3) {
       setMessage("Enter a supported city, neighborhood, or ZIP.");
@@ -91,6 +94,7 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
     nextParams.delete("radiusMiles");
     setQuery(serviceAreaDisplayLabel(area));
     setMessage("");
+    setIsSuggestionsOpen(false);
     router.push(queryPath(nextParams));
   }
 
@@ -105,20 +109,35 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
     nextParams.delete("radiusMiles");
     setQuery("");
     setMessage("");
+    setIsSuggestionsOpen(false);
     router.push(queryPath(nextParams));
   }
 
   return (
-    <div className="seller-map-search" aria-label="Search buyer demand by city, neighborhood, or ZIP">
+    <div
+      aria-label="Search buyer demand by city, neighborhood, or ZIP"
+      className="seller-map-search"
+      onBlurCapture={(event) => {
+        const nextTarget = event.relatedTarget;
+        if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) {
+          setIsSuggestionsOpen(false);
+        }
+      }}
+      onFocusCapture={() => setIsSuggestionsOpen(true)}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") setIsSuggestionsOpen(false);
+      }}
+    >
       <form onSubmit={handleSubmit}>
         <div className="seller-map-search-field">
           <Icon name="search" size={15} />
           <input
             autoComplete="off"
-            list="seller-map-service-areas"
+            onClick={() => setIsSuggestionsOpen(true)}
             onChange={(event) => {
               setQuery(event.target.value);
               setMessage("");
+              setIsSuggestionsOpen(true);
             }}
             placeholder="Search city, neighborhood, or ZIP"
             value={query}
@@ -133,11 +152,7 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
           {isLookingUp ? "Checking" : "Search"}
         </button>
       </form>
-      <datalist id="seller-map-service-areas">
-        {activeServiceAreas.map((area) => (
-          <option key={area.slug} value={serviceAreaDisplayLabel(area)} />
-        ))}
-      </datalist>
+      {isSuggestionsOpen ? <PilotZipSuggestions onSelect={pushArea} /> : null}
       {message ? <span className="seller-map-search-message">{message}</span> : null}
     </div>
   );

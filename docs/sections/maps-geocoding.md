@@ -25,7 +25,7 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - Buyer map markers must preserve privacy and should not expose exact private addresses.
 - Mapbox must be optional; local development should degrade gracefully.
 - Geocoding endpoints need validation and rate limits.
-- Public homepage area selection is limited to known active service areas; it draws approximate Liber-owned polygons only and must not become unauthenticated buyer search.
+- Public homepage area selection is limited to known active service areas; it draws approximate Liber-owned polygons and scopes the limited preview cards only, and must not become unauthenticated buyer search.
 - ZIP/city/neighborhood selection must render service-area polygons from GeoJSON, not radius circles.
 - Mapbox search/geocoding payloads must not become the canonical service-area database.
 - Do not claim national coverage unless product docs approve it.

@@ -1999,6 +1999,8 @@ main {
   flex: 0 0 auto;
   min-height: 56px;
   padding: 8px 14px;
+  position: relative;
+  z-index: 12;
   width: 100%;
 }
 
@@ -2006,7 +2008,7 @@ main {
   align-items: center;
   background: #fff;
   border: 1px solid var(--line-strong);
-  border-radius: var(--r-sm);
+  border-radius: 7px;
   color: var(--ink-strong);
   display: flex;
   flex: 0 1 520px;
@@ -2017,23 +2019,25 @@ main {
   max-width: 520px;
   min-height: 40px;
   padding: 0 12px;
+  position: relative;
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
   width: 100%;
 }
 
 .public-map-search-box {
   display: grid;
+  flex-basis: 620px;
   gap: 4px;
-  max-width: 560px;
+  max-width: 620px;
   padding: 0;
 }
 
 .public-map-search-box form {
   align-items: center;
   display: flex;
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 10px;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 8px 0 14px;
 }
 
 .public-map-search-box svg {
@@ -2046,7 +2050,7 @@ main {
   border: 0;
   color: var(--ink-strong);
   flex: 1;
-  font: inherit;
+  font-size: 15px;
   font-weight: 700;
   min-width: 0;
   outline: 0;
@@ -2059,13 +2063,13 @@ main {
 .public-map-search-submit {
   background: var(--sage-deep);
   border: 0;
-  border-radius: var(--r-sm);
+  border-radius: 7px;
   color: #fff;
   cursor: pointer;
   font-size: 12.5px;
   font-weight: 800;
-  min-height: 30px;
-  padding: 0 12px;
+  min-height: 34px;
+  padding: 0 16px;
 }
 
 .public-map-search-submit:hover {
@@ -2077,9 +2081,9 @@ main {
   border: 0;
   color: var(--ink-muted);
   cursor: pointer;
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1;
-  padding: 2px 4px;
+  padding: 4px 6px;
 }
 
 .public-map-search-clear:hover {
@@ -2091,6 +2095,69 @@ main {
   font-size: 11.5px;
   font-weight: 700;
   padding: 0 10px 8px 38px;
+}
+
+.pilot-zip-suggestions {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  box-shadow: 0 18px 44px rgba(24, 35, 31, 0.16);
+  left: 0;
+  padding: 10px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+}
+
+.pilot-zip-suggestions-head {
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 800;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.pilot-zip-suggestions-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.pilot-zip-suggestion {
+  align-items: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink-strong);
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  min-height: 50px;
+  padding: 8px 9px;
+  text-align: left;
+}
+
+.pilot-zip-suggestion:hover,
+.pilot-zip-suggestion:focus-visible {
+  background: #fff;
+  border-color: var(--sage-strong);
+  box-shadow: 0 0 0 3px rgba(44, 121, 86, 0.12);
+  outline: 0;
+}
+
+.pilot-zip-suggestion strong {
+  font-size: 13.5px;
+}
+
+.pilot-zip-suggestion span {
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
 }
 
 .unsupported-area-state {
@@ -2115,6 +2182,7 @@ main {
 }
 
 .map-search-box:hover,
+.map-search-box:focus-within,
 .map-search-box:focus-visible {
   border-color: var(--sage-strong);
   box-shadow: var(--focus-ring);
@@ -2372,6 +2440,26 @@ body:has(.map-landing) .site-footer {
   min-height: 265px;
 }
 
+.demand-empty-card {
+  gap: 8px;
+  grid-column: 1 / -1;
+  min-height: 132px;
+  padding: 18px;
+}
+
+.demand-empty-card h3 {
+  color: var(--ink-strong);
+  font-size: 18px;
+  margin: 0;
+}
+
+.demand-empty-card p {
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
 .demand-card-media {
   background:
     radial-gradient(circle at 67% 28%, rgba(22, 131, 76, 0.18) 0 18%, transparent 19%),
@@ -2594,6 +2682,10 @@ body:has(.map-landing) .site-footer {
   .map-search-box {
     flex: 1 1 auto;
     max-width: none;
+  }
+
+  .pilot-zip-suggestions-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .map-landing-body {
@@ -5188,6 +5280,8 @@ body:has(.map-landing) .site-footer {
   display: grid;
   gap: 6px;
   margin: 0 0 12px;
+  position: relative;
+  z-index: 8;
 }
 
 .seller-map-search form {
@@ -5258,6 +5352,24 @@ body:has(.map-landing) .site-footer {
 }
 
 @media (max-width: 640px) {
+  .map-search-rail {
+    padding: 8px;
+  }
+
+  .public-map-search-box form {
+    gap: 6px;
+    min-height: 46px;
+    padding-left: 10px;
+  }
+
+  .public-map-search-submit {
+    padding: 0 12px;
+  }
+
+  .pilot-zip-suggestions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .seller-profile-search-page {
     padding-top: 24px;
   }

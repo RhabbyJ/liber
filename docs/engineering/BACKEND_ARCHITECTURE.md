@@ -176,7 +176,7 @@ Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN
 - returns only privacy-safe fields: anonymized buyer-type label, coarse city/state, $50K-banded budget, structured criteria facts, active badge labels,
 - pin coordinates are approximate only: pilot-area centers (or coordinates rounded to ~1 km) plus a deterministic display offset — never raw `desiredLat`/`desiredLng`,
 - never returns ids, names, avatars, exact locations, documents, or storage paths,
-- the public map may let visitors select a known active pilot ZIP/city/neighborhood service area to pan/draw an approximate area polygon, but has no full public search/filter API and no buyer profile links; the only action is signup,
+- the public map may let visitors select a known active pilot ZIP/city/neighborhood service area to pan/draw an approximate area polygon and scope the limited preview cards to that area, but has no full public search/filter API and no buyer profile links; the only action is signup,
 - is best-effort: failures return an empty list / hide the map and must not break the homepage,
 - must not grow into public search or expose buyer profile URLs.
 

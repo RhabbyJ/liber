@@ -19,14 +19,14 @@ export default async function HomePage({
   searchParams: Promise<HomeSearchParams>;
 }) {
   const params = await searchParams;
-  const buyerPreviews = await getPublicBuyerPreviews();
+  const selectedServiceArea = params.area ? findServiceAreaBySlug(params.area) ?? findServiceArea(params.area) : null;
+  const selectedArea = selectedMapArea(selectedServiceArea);
+  const selectedAreaLabel = selectedServiceArea ? serviceAreaDisplayLabel(selectedServiceArea) : "";
+  const buyerPreviews = await getPublicBuyerPreviews(selectedServiceArea);
   const mapboxToken = (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim();
   const sellerSearchHref = "/signup?role=seller&next=/seller/search";
   const buyerProfileHref = "/signup?role=buyer&next=/buyer/profile";
   const activePreviewLabel = `${buyerPreviews.length} active preview${buyerPreviews.length === 1 ? "" : "s"}`;
-  const selectedServiceArea = params.area ? findServiceAreaBySlug(params.area) ?? findServiceArea(params.area) : null;
-  const selectedArea = selectedMapArea(selectedServiceArea);
-  const selectedAreaLabel = selectedServiceArea ? serviceAreaDisplayLabel(selectedServiceArea) : "";
 
   return (
     <div className="map-landing">
@@ -45,8 +45,8 @@ export default async function HomePage({
         <aside className="demand-panel">
           <header className="demand-panel-head">
             <div>
-              <h1>Los Angeles Buyer Demand</h1>
-              <p>{selectedArea ? "Liber is active in this area" : activePreviewLabel}</p>
+              <h1>{selectedAreaLabel ? `${selectedAreaLabel} Buyer Demand` : "Los Angeles Buyer Demand"}</h1>
+              <p>{selectedArea ? "Preview cards in this selected area" : activePreviewLabel}</p>
             </div>
             <Link className="demand-sort-link" href={sellerSearchHref}>
               Sort: Best match
@@ -55,9 +55,16 @@ export default async function HomePage({
           </header>
 
           <div className="demand-card-grid">
-            {buyerPreviews.map((preview, index) => (
-              <BuyerPreviewCard key={index} preview={preview} />
-            ))}
+            {buyerPreviews.length > 0 ? (
+              buyerPreviews.map((preview, index) => (
+                <BuyerPreviewCard key={index} preview={preview} />
+              ))
+            ) : selectedArea ? (
+              <article className="demand-card demand-empty-card">
+                <h3>No preview cards here yet</h3>
+                <p>Sign in as a verified seller to search the full buyer workspace.</p>
+              </article>
+            ) : null}
 
             <article className="demand-card signup-wall">
               <span className="demand-lock" aria-hidden="true">

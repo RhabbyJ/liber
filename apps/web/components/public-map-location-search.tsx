@@ -3,12 +3,12 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import {
-  activeServiceAreas,
   findServiceArea,
   serviceAreaDisplayLabel,
   type ServiceArea,
 } from "../lib/service-areas";
 import { Icon } from "./icon";
+import { PilotZipSuggestions } from "./pilot-zip-suggestions";
 import { UnsupportedAreaState } from "./unsupported-area-state";
 
 type Props = {
@@ -39,6 +39,7 @@ export function PublicMapLocationSearch({ defaultArea = "" }: Props) {
   const [query, setQuery] = useState(unsupportedArea || defaultArea);
   const [message, setMessage] = useState("");
   const [isUnsupported, setIsUnsupported] = useState(Boolean(unsupportedArea));
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
 
   useEffect(() => {
     if (unsupportedArea) {
@@ -51,6 +52,7 @@ export function PublicMapLocationSearch({ defaultArea = "" }: Props) {
     setQuery(defaultArea);
     setMessage("");
     setIsUnsupported(false);
+    setIsSuggestionsOpen(false);
   }, [defaultArea, unsupportedArea]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -94,6 +96,7 @@ export function PublicMapLocationSearch({ defaultArea = "" }: Props) {
     setQuery(serviceAreaDisplayLabel(area));
     setMessage("");
     setIsUnsupported(false);
+    setIsSuggestionsOpen(false);
     router.push(queryPath(nextParams));
   }
 
@@ -104,6 +107,7 @@ export function PublicMapLocationSearch({ defaultArea = "" }: Props) {
     setQuery("");
     setMessage("");
     setIsUnsupported(false);
+    setIsSuggestionsOpen(false);
     router.push(queryPath(nextParams));
   }
 
@@ -114,21 +118,35 @@ export function PublicMapLocationSearch({ defaultArea = "" }: Props) {
     setQuery(value);
     setMessage("");
     setIsUnsupported(true);
+    setIsSuggestionsOpen(false);
     router.replace(queryPath(nextParams));
   }
 
   return (
-    <div className="map-search-box public-map-search-box">
+    <div
+      className="map-search-box public-map-search-box"
+      onBlurCapture={(event) => {
+        const nextTarget = event.relatedTarget;
+        if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) {
+          setIsSuggestionsOpen(false);
+        }
+      }}
+      onFocusCapture={() => setIsSuggestionsOpen(true)}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") setIsSuggestionsOpen(false);
+      }}
+    >
       <form onSubmit={handleSubmit}>
         <Icon name="search" size={17} />
         <input
           aria-label="Search preview area by city, neighborhood, or ZIP"
           autoComplete="off"
-          list="public-map-service-areas"
+          onClick={() => setIsSuggestionsOpen(true)}
           onChange={(event) => {
             setQuery(event.target.value);
             setMessage("");
             setIsUnsupported(false);
+            setIsSuggestionsOpen(true);
           }}
           placeholder="Search city, neighborhood, or ZIP"
           value={query}
@@ -142,11 +160,7 @@ export function PublicMapLocationSearch({ defaultArea = "" }: Props) {
           Search
         </button>
       </form>
-      <datalist id="public-map-service-areas">
-        {activeServiceAreas.map((area) => (
-          <option key={area.slug} value={serviceAreaDisplayLabel(area)} />
-        ))}
-      </datalist>
+      {isSuggestionsOpen ? <PilotZipSuggestions onSelect={pushArea} /> : null}
       {message ? <span className="public-map-search-message">{message}</span> : null}
       {isUnsupported ? <UnsupportedAreaState onSearchAnother={clearArea} /> : null}
     </div>

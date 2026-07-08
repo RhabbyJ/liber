@@ -1,5 +1,6 @@
-import { prisma } from "@liber/db";
+import { Prisma, prisma } from "@liber/db";
 import { findPilotArea } from "../lib/launch-market";
+import type { ServiceArea } from "../lib/service-areas";
 
 // Short, display-safe badge labels for the compact public preview UI.
 const previewBadgeLabels: Record<string, string> = {
@@ -36,10 +37,13 @@ export type PublicBuyerPreview = {
   squareFeetMin?: number;
 };
 
-export async function getPublicBuyerPreviews(): Promise<PublicBuyerPreview[]> {
+export async function getPublicBuyerPreviews(serviceArea?: ServiceArea | null): Promise<PublicBuyerPreview[]> {
   try {
     const profiles = await prisma.buyerProfile.findMany({
-      where: { visibilityStatus: "ACTIVE" },
+      where: {
+        visibilityStatus: "ACTIVE",
+        ...(serviceArea ? serviceAreaPreviewWhere(serviceArea) : {}),
+      },
       orderBy: { lastRefreshedAt: "desc" },
       take: PUBLIC_PREVIEW_LIMIT,
       select: {
@@ -101,6 +105,47 @@ export async function getPublicBuyerPreviews(): Promise<PublicBuyerPreview[]> {
     // The public preview is best-effort marketing; never block the homepage on it.
     return [];
   }
+}
+
+function serviceAreaPreviewWhere(area: ServiceArea): Prisma.BuyerProfileWhereInput {
+  const [west, south, east, north] = area.bbox;
+  const pointWithinBbox: Prisma.BuyerProfileWhereInput = {
+    desiredLat: { gte: new Prisma.Decimal(south), lte: new Prisma.Decimal(north) },
+    desiredLng: { gte: new Prisma.Decimal(west), lte: new Prisma.Decimal(east) },
+  };
+
+  if (area.type === "zip" && area.postalCode) {
+    return {
+      OR: [
+        ...(area.city ? [{ desiredCity: { equals: area.city, mode: "insensitive" as const } }] : []),
+        { desiredLocationText: { contains: area.postalCode, mode: "insensitive" } },
+        pointWithinBbox,
+      ],
+    };
+  }
+
+  if (area.type === "neighborhood") {
+    return {
+      OR: [
+        { desiredCity: { equals: area.label, mode: "insensitive" } },
+        { desiredLocationText: { contains: area.label, mode: "insensitive" } },
+        pointWithinBbox,
+      ],
+    };
+  }
+
+  if (area.type === "city") {
+    const city = area.city ?? area.label;
+    return {
+      OR: [
+        { desiredCity: { equals: city, mode: "insensitive" } },
+        { desiredLocationText: { contains: area.label, mode: "insensitive" } },
+        pointWithinBbox,
+      ],
+    };
+  }
+
+  return pointWithinBbox;
 }
 
 function toNumber(value: unknown) {
