@@ -6,11 +6,13 @@ import {
   createBuyerProfileSchema,
   createSellerPropertySchema,
   grantBadgeSchema,
+  purchaseTypeSchema,
   profileVisibilitySchema,
   respondToInviteSchema,
   reviewDocumentSchema,
   revokeBadgeSchema,
   searchBuyersSchema,
+  seekingPropertyTypeSchema,
   sendInviteSchema,
   sellerAccessReviewSchema,
   updateBuyerProfileSchema,
@@ -106,6 +108,24 @@ function propertyStatusLabel(value: string) {
 // V1 is residential-only; expand when commercial/land categories return.
 function categoryForSubtype(_subtype: Property["propertyType"]): "HOME" {
   return "HOME";
+}
+
+function displayPurchaseType(value?: string | null) {
+  const trimmed = value?.trim();
+  if (!trimmed) return "";
+  const parsed = purchaseTypeSchema.safeParse(trimmed);
+  if (parsed.success) return parsed.data;
+  if (trimmed === "Cash Buyer") return "Cash";
+  return "";
+}
+
+function displaySeekingPropertyType(value?: string | null) {
+  const trimmed = value?.trim();
+  if (!trimmed) return "";
+  const parsed = seekingPropertyTypeSchema.safeParse(trimmed);
+  if (parsed.success) return parsed.data;
+  if (/home|residential|owner occupy|primary residence|downsizing|fix and flip/i.test(trimmed)) return "House";
+  return "";
 }
 
 function badgeFromDb(badge: {
@@ -245,8 +265,8 @@ function buyerFromDb(profile: {
     neighborhood: profile.desiredNeighborhood ?? undefined,
     postalCode: profile.desiredPostalCode ?? undefined,
     state: profile.desiredState || "",
-    type: profile.buyerType || "Buyer",
-    purpose: profile.buyingPurpose || "",
+    type: displayPurchaseType(profile.buyerType),
+    purpose: displaySeekingPropertyType(profile.buyingPurpose),
     visibility: visibilityFromDb(profile.visibilityStatus),
     budgetMin: toNumber(profile.budgetMin),
     budgetMax: toNumber(profile.budgetMax),

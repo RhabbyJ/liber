@@ -88,7 +88,7 @@ export default async function PublicBuyerProfilePage({
                   {buyer.location}
                 </span>
               </div>
-              <p className="buyer-reference-type">{buyer.type}</p>
+              <p className="buyer-reference-type">{buyer.type || "Purchase type not set"}</p>
             </div>
 
             {primaryBadge ? (
@@ -104,7 +104,7 @@ export default async function PublicBuyerProfilePage({
             ) : null}
 
             <div className="buyer-reference-facts">
-              <ProfileFact label="Buying for" value={buyer.purpose} />
+              <ProfileFact label="Seeking property type" value={buyer.purpose} />
               <ProfileFact label="Down payment" value={formatRange(buyer.downPaymentMin, buyer.downPaymentMax)} />
               <ProfileFact label="Budget" value={formatRange(buyer.budgetMin, buyer.budgetMax)} />
             </div>

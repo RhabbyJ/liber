@@ -13,6 +13,8 @@ export function BuyerCard({
   variant?: "home" | "row";
 }) {
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
+  const profileSummary = [buyer.type, buyer.purpose].filter(Boolean).join(" - ") || "Buyer";
+  const profileLocationSummary = [profileSummary, buyer.location].filter(Boolean).join(" - ");
 
   if (variant === "home") {
     return (
@@ -21,7 +23,9 @@ export function BuyerCard({
           <GeneratedAvatar seed={buyer.userId || buyer.id} size="lg" variant={buyer.avatarVariant} />
           <div>
             <h3>{buyer.name}</h3>
-            <p className="muted small" style={{ marginTop: 2 }}>{buyer.type} - {buyer.location}</p>
+            <p className="muted small" style={{ marginTop: 2 }}>
+              {profileLocationSummary}
+            </p>
           </div>
         </div>
         <p className="muted">{buyer.bio}</p>
@@ -61,7 +65,7 @@ export function BuyerCard({
         <GeneratedAvatar seed={buyer.userId || buyer.id} size="lg" variant={buyer.avatarVariant} />
         <div>
           <h3>{buyer.name}</h3>
-          <p>{buyer.type}</p>
+          <p>{profileSummary}</p>
         </div>
       </div>
 

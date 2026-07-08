@@ -23,7 +23,11 @@ export const propertyCategorySchema = z.enum(["HOME"]);
 
 export const propertySubtypeSchema = z.enum(["HOME"]);
 
-export const buyingPurposeSchema = z.enum(["Owner occupy", "Fix and flip", "Other"]);
+export const purchaseTypeSchema = z.enum(["Cash", "Conventional financing", "Other"]);
+
+export const seekingPropertyTypeSchema = z.enum(["House", "Condo", "Townhouse", "Manufactured", "Land"]);
+
+export const buyingPurposeSchema = seekingPropertyTypeSchema;
 
 export const badgeTypeSchema = z.enum([
   "PRE_APPROVED",
@@ -48,7 +52,7 @@ const optionalMoney = z.coerce.number().min(0).optional();
 const optionalInteger = z.coerce.number().int().min(0).optional();
 
 const buyerProfileShape = {
-  buyerType: z.string().trim().max(80).optional(),
+  buyerType: purchaseTypeSchema.optional(),
   bio: z.string().trim().max(1200).optional(),
   buyingPurpose: buyingPurposeSchema.optional(),
   desiredLocationText: z.string().trim().max(160).optional(),

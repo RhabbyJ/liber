@@ -142,8 +142,8 @@ A searchable buyer profile may include:
 
 - generated public buyer alias,
 - generated avatar,
-- buyer type,
-- buying purpose,
+- purchase type: cash, conventional financing, or other,
+- seeking property type: house, condo, townhouse, manufactured, or land,
 - desired location text/city/state,
 - budget range,
 - down payment range,

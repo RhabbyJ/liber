@@ -18,8 +18,17 @@ export default async function BuyerBadgesPage() {
         tone="buyer"
         badge={<ModeChip mode="buyer" />}
       >
-        Upload a pre-approval or proof of funds. Liber reviews privately — sellers only see the badge.
+        Upload a pre-approval or proof of funds. Liber reviews privately - sellers only see the badge.
       </PageTitle>
+
+      <section className="stack tight verification-benefit">
+        <h2>Why get verified?</h2>
+        <p>
+          Getting verified shows sellers you're serious and approved to purchase. Serious sellers look for the
+          verified badge on your profile and can filter by verified buyers, which can help increase the invites
+          you receive from sellers.
+        </p>
+      </section>
 
       <section className="card stack">
         <div className="section-head compact">
@@ -45,7 +54,7 @@ export default async function BuyerBadgesPage() {
           <div className="field">
             <label htmlFor="document">File</label>
             <input id="document" name="document" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
-            <span className="field-hint">PDF, PNG, JPEG, WebP · 25 MB max</span>
+            <span className="field-hint">PDF, PNG, JPEG, WebP - 25 MB max</span>
           </div>
           <div className="field full">
             <button className="button primary" type="submit">
@@ -73,8 +82,8 @@ export default async function BuyerBadgesPage() {
                 <strong style={{ textTransform: "capitalize" }}>{badge.status}</strong>
                 {badge.expiresInDays !== undefined
                   ? badge.expiresInDays >= 0
-                    ? ` · ${badge.expiresInDays} days left`
-                    : " · Expired"
+                    ? ` - ${badge.expiresInDays} days left`
+                    : " - Expired"
                   : ""}
               </p>
             </article>

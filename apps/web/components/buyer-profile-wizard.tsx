@@ -5,8 +5,8 @@ import { GeneratedAvatar } from "./generated-avatar";
 import { Icon } from "./icon";
 import { LocationLookupFields } from "./location-lookup-fields";
 
-const buyerTypeOptions = ["Home Buyer", "Investor", "Cash Buyer", "Move-up Buyer", "Downsizing Buyer"];
-const buyingPurposeOptions = ["Owner occupy", "Fix and flip", "Other"];
+const purchaseTypeOptions = ["Cash", "Conventional financing", "Other"];
+const seekingPropertyTypeOptions = ["House", "Condo", "Townhouse", "Manufactured", "Land"];
 
 const bedroomsOptions = [
   { label: "Any bedrooms", value: "" },
@@ -90,6 +90,8 @@ export function BuyerProfileWizard({
       .filter((feature) => amenityOptions.some((amenity) => amenity.toLowerCase() === feature)),
   );
   const avatarSeed = buyer.userId || buyer.id || buyer.name;
+  const selectedPurchaseType = purchaseTypeOptions.includes(buyer.type) ? buyer.type : "Conventional financing";
+  const selectedSeekingPropertyType = seekingPropertyTypeOptions.includes(buyer.purpose) ? buyer.purpose : "House";
 
   return (
     <form action={action} className="buyer-profile-form profile-reference-form">
@@ -130,17 +132,17 @@ export function BuyerProfileWizard({
             </div>
           </div>
           <div className="field">
-            <label htmlFor="buyerType">Buyer type</label>
-            <select id="buyerType" name="buyerType" defaultValue={buyer.type || "Home Buyer"}>
-              {buyerTypeOptions.map((option) => (
+            <label htmlFor="buyerType">Purchase type</label>
+            <select id="buyerType" name="buyerType" defaultValue={selectedPurchaseType}>
+              {purchaseTypeOptions.map((option) => (
                 <option key={option} value={option}>{option}</option>
               ))}
             </select>
           </div>
           <div className="field">
-            <label htmlFor="purpose">Buying purpose</label>
-            <select id="purpose" name="buyingPurpose" defaultValue={buyer.purpose || "Owner occupy"}>
-              {buyingPurposeOptions.map((option) => (
+            <label htmlFor="purpose">Seeking property type</label>
+            <select id="purpose" name="buyingPurpose" defaultValue={selectedSeekingPropertyType}>
+              {seekingPropertyTypeOptions.map((option) => (
                 <option key={option} value={option}>{option}</option>
               ))}
             </select>
@@ -153,14 +155,7 @@ export function BuyerProfileWizard({
         </div>
       </ProfileFormSection>
 
-      <ProfileFormSection eyebrow="Select property type" title="Criteria">
-        <div className="criteria-type-strip" aria-label="Supported property type">
-          <span className="criteria-type-tab active">Home</span>
-          <span className="criteria-type-pill active">
-            <Icon name="home" size={14} />
-            Residential home
-          </span>
-        </div>
+      <ProfileFormSection eyebrow="Property criteria" title="Criteria">
         <div className="form-grid">
           <NumberRangeField
             defaultMax={String(buyer.budgetMax || "1000000")}

@@ -1,4 +1,5 @@
 import { Prisma, prisma } from "@liber/db";
+import { seekingPropertyTypeSchema } from "@liber/validators";
 import { findPilotArea } from "../lib/launch-market";
 import type { ServiceArea } from "../lib/service-areas";
 
@@ -56,7 +57,7 @@ export async function getPublicBuyerPreviews(serviceArea?: ServiceArea | null): 
         },
         budgetMax: true,
         budgetMin: true,
-        buyerType: true,
+        buyingPurpose: true,
         criteria: {
           select: {
             bathroomsMin: true,
@@ -95,7 +96,7 @@ export async function getPublicBuyerPreviews(serviceArea?: ServiceArea | null): 
         bedroomsMin: criteria?.bedroomsMin ?? undefined,
         budgetLabel: budgetBandLabel(toNumber(profile.budgetMin), toNumber(profile.budgetMax)),
         condition: criteria?.condition ?? undefined,
-        label: profile.buyerType?.trim() || "Buyer",
+        label: previewPropertyTypeLabel(profile.buyingPurpose),
         lat: point?.lat,
         lng: point?.lng,
         squareFeetMin: criteria?.squareFeetMin ?? undefined,
@@ -105,6 +106,15 @@ export async function getPublicBuyerPreviews(serviceArea?: ServiceArea | null): 
     // The public preview is best-effort marketing; never block the homepage on it.
     return [];
   }
+}
+
+function previewPropertyTypeLabel(value?: string | null) {
+  const trimmed = value?.trim();
+  if (!trimmed) return "Buyer";
+  const parsed = seekingPropertyTypeSchema.safeParse(trimmed);
+  if (parsed.success) return parsed.data;
+  if (/home|residential|owner occupy|primary residence|downsizing|fix and flip/i.test(trimmed)) return "House";
+  return "Buyer";
 }
 
 function serviceAreaPreviewWhere(area: ServiceArea): Prisma.BuyerProfileWhereInput {

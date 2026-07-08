@@ -95,6 +95,7 @@ export default async function InviteBuyerPage({
   const property = properties[0];
 
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
+  const buyerSummary = [buyer.type, buyer.purpose, buyer.location].filter(Boolean).join(" - ") || "Buyer";
 
   if (!property) {
     return (
@@ -292,7 +293,7 @@ export default async function InviteBuyerPage({
               <GeneratedAvatar seed={buyer.userId || buyer.id} size="lg" variant={buyer.avatarVariant} />
               <div>
                 <h3 style={{ margin: 0 }}>{buyer.name}</h3>
-                <p className="muted small" style={{ margin: "4px 0 0" }}>{buyer.type} · {buyer.location}</p>
+                <p className="muted small" style={{ margin: "4px 0 0" }}>{buyerSummary}</p>
               </div>
             </div>
             {activeBadges.length > 0 ? (

@@ -40,8 +40,8 @@ export default async function BuyerProfileBuilderPage({
     { label: "Completed transaction", verified: activeBadges.some((badge) => badge.type === "COMPLETED_TRANSACTION") },
   ].filter((item) => item.verified);
   const generalInformation = [
-    { label: "Buyer type", value: buyer.type || "Buyer" },
-    { label: "Buying purpose", value: buyer.purpose || "Not set" },
+    { label: "Purchase type", value: buyer.type || "Not set" },
+    { label: "Seeking property type", value: buyer.purpose || "Not set" },
     { label: "Desired location", value: buyer.location || "Not set" },
     { label: "Profile status", value: visibilityLabel },
     { label: "Last updated", value: buyer.refreshedAt || "Not set" },
@@ -140,7 +140,7 @@ export default async function BuyerProfileBuilderPage({
                 <h1>{displayName}</h1>
                 <p>
                   {buyer.location || "Location not set"}
-                  <span>{buyer.type || "Buyer"}</span>
+                  <span>{buyer.type || "Purchase type not set"}</span>
                 </p>
               </div>
             </div>

@@ -29,14 +29,24 @@ describe("Liber validators", () => {
     ).toThrow();
   });
 
-  it("keeps buyer profile purpose purchase-only", () => {
+  it("keeps buyer profile property intent allowlisted", () => {
     expect(createBuyerProfileSchema.parse({
-      buyingPurpose: "Owner occupy",
-    }).buyingPurpose).toBe("Owner occupy");
+      buyerType: "Conventional financing",
+      buyingPurpose: "Townhouse",
+    })).toMatchObject({
+      buyerType: "Conventional financing",
+      buyingPurpose: "Townhouse",
+    });
 
     expect(() =>
       createBuyerProfileSchema.parse({
         buyingPurpose: "Rental",
+      }),
+    ).toThrow();
+
+    expect(() =>
+      createBuyerProfileSchema.parse({
+        buyerType: "Investor",
       }),
     ).toThrow();
   });
@@ -47,7 +57,7 @@ describe("Liber validators", () => {
   });
 
   it("keeps omitted buyer update visibility unchanged", () => {
-    expect(updateBuyerProfileSchema.parse({ buyerType: "Home Buyer" })).not.toHaveProperty("visibilityStatus");
+    expect(updateBuyerProfileSchema.parse({ buyerType: "Cash" })).not.toHaveProperty("visibilityStatus");
     expect(() =>
       updateBuyerProfileSchema.parse({
         budgetMin: 960000,

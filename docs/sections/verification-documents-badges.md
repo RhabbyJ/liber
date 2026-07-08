@@ -22,6 +22,7 @@ Owns buyer verification evidence, seller ownership evidence, private document st
 - Sensitive badges require approved evidence where supported.
 - Pre-approval expires after 90 days.
 - Badge grants/revokes and document reviews should be audited.
+- Buyer-facing verification copy may explain that approved badges help sellers identify verified buyers, but it must not imply guaranteed invites, financing, or closing.
 
 ## Agent notes
 
