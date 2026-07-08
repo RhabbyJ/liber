@@ -24,6 +24,7 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - Criteria should describe property fit, not protected-class attributes.
 - Amenity needs use canonical feature tokens (Pool, Parking, ADU, Yard, Garage) so seller amenity filters can match; condition uses Move-in ready / Mild fixer / Fixer.
 - Buyer setup is one form on `/buyer/profile`: buyer info, criteria, size, details, and location. Criteria save in the same submit as the profile.
+- Budget and down payment ranges accept custom numeric dollar amounts; the UI must not force fixed increments before submit.
 - Buyer profile purpose is purchase-only; do not add rental/tenant intent to signup, profile, criteria, or seller-search surfaces.
 - Buyer account names are private to the buyer portal. Seller/public surfaces must use the generated `BuyerProfile.displayName` alias, not `User.name`, and buyers must not be able to type arbitrary public names.
 - Buyer profile create/update input schemas must not expose `displayName`; alias changes go through the dedicated regenerate server action.

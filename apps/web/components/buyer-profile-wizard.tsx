@@ -171,7 +171,7 @@ export function BuyerProfileWizard({
             minId="budgetMin"
             minName="budgetMin"
             prefix="$"
-            step={25_000}
+            step="any"
           />
           <NumberRangeField
             defaultMax={String(buyer.downPaymentMax || "200000")}
@@ -184,7 +184,7 @@ export function BuyerProfileWizard({
             minId="downPaymentMin"
             minName="downPaymentMin"
             prefix="$"
-            step={10_000}
+            step="any"
           />
           <div className="field">
             <label htmlFor="bedroomsMin">Bedrooms</label>
@@ -341,7 +341,7 @@ type NumberRangeFieldProps = {
   minId: string;
   minName: string;
   prefix?: string;
-  step: number;
+  step: number | "any";
   suffix?: string;
 };
 

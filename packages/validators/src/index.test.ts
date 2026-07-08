@@ -56,6 +56,20 @@ describe("Liber validators", () => {
     ).toThrow("Budget minimum cannot exceed budget maximum.");
   });
 
+  it("allows custom buyer budget and down payment amounts", () => {
+    expect(updateBuyerProfileSchema.parse({
+      budgetMax: "987654",
+      budgetMin: "731249",
+      downPaymentMax: "223457",
+      downPaymentMin: "123456",
+    })).toMatchObject({
+      budgetMax: 987654,
+      budgetMin: 731249,
+      downPaymentMax: 223457,
+      downPaymentMin: 123456,
+    });
+  });
+
   it("requires accepted terms for invite sending", () => {
     expect(() =>
       sendInviteSchema.parse({
