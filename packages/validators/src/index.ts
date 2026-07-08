@@ -74,6 +74,7 @@ function minDoesNotExceedMax<T extends Record<string, unknown>>(input: T, minKey
 
 export const createBuyerProfileSchema = z.object({
   ...buyerProfileShape,
+  displayName: buyerProfileShape.displayName.optional(),
   visibilityStatus: buyerSelfVisibilityStatusSchema.default("DRAFT"),
 }).refine(
   (input) =>

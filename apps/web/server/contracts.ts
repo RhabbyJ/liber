@@ -33,6 +33,12 @@ import {
   previousAvatarVariant,
   randomAvatarVariant,
 } from "../lib/avatar-variant";
+import {
+  buyerAliasForDisplay,
+  buyerAliasFromSeed,
+  normalizeBuyerAlias,
+  randomBuyerAlias,
+} from "../lib/buyer-alias";
 import { hasRole, type SessionUser } from "./authz";
 import {
   canViewBuyerDirectory,
@@ -230,7 +236,7 @@ function buyerFromDb(profile: {
     id: profile.id,
     avatarVariant: profile.user?.avatarVariant ?? undefined,
     userId: profile.userId,
-    name: profile.displayName,
+    name: buyerAliasForDisplay(profile.displayName, profile.userId),
     location: profile.desiredLocationText || cityState,
     city: profile.desiredCity || "",
     state: profile.desiredState || "",
@@ -259,7 +265,7 @@ function emptyBuyerForUser(user: SessionUser, avatarVariant?: string | null): Bu
     id: "new-profile",
     avatarVariant: avatarVariant ?? undefined,
     userId: user.id,
-    name: "Private buyer",
+    name: buyerAliasFromSeed(user.id),
     location: "",
     city: "",
     state: "",
@@ -555,7 +561,7 @@ function propertyFitCriteriaWhere(filters: SearchBuyersInput) {
 }
 
 function inviteFromDb(invite: {
-  buyerProfile: { displayName: string };
+  buyerProfile: { displayName: string; userId?: string };
   buyerProfileId: string;
   id: string;
   message: string;
@@ -576,7 +582,7 @@ function inviteFromDb(invite: {
     sellerId: invite.sellerId,
     buyerProfileId: invite.buyerProfileId,
     propertyId: invite.propertyId,
-    buyer: invite.buyerProfile.displayName,
+    buyer: buyerAliasForDisplay(invite.buyerProfile.displayName, invite.buyerProfile.userId ?? invite.buyerProfileId),
     property: invite.property.addressLine1 || `${invite.property.city || "Property"} ${invite.property.propertyType.toLowerCase()}`,
     propertyStatus: propertyStatusLabel(invite.property.ownershipVerificationStatus),
     status: titleFromStatus(invite.status),
@@ -681,11 +687,11 @@ function buyerVerificationDocumentType(value: unknown): BuyerVerificationDocumen
 }
 
 async function upsertDbBuyerProfile(user: SessionUser, data: Partial<CreateBuyerProfileInput>) {
-  const displayName = data.displayName?.trim() || "New buyer";
   const existing = await prisma.buyerProfile.findUnique({
     where: { userId: user.id },
-    select: { visibilityStatus: true },
+    select: { displayName: true, visibilityStatus: true },
   });
+  const displayName = normalizeBuyerAlias(existing?.displayName) ?? buyerAliasFromSeed(user.id);
   const visibilityUpdate =
     data.visibilityStatus === undefined || !buyerCanUpdateVisibility(existing?.visibilityStatus)
       ? {}
@@ -743,6 +749,35 @@ export async function updateBuyerProfile(input: unknown) {
   const user = await requireCurrentUser("BUYER");
   const data = updateBuyerProfileSchema.parse(normalizeInput(input));
   return { ok: true, data: await upsertDbBuyerProfile(user, data) };
+}
+
+export async function regenerateBuyerAlias() {
+  const user = await requireCurrentUser("BUYER");
+  const existing = await prisma.buyerProfile.findUnique({
+    where: { userId: user.id },
+    select: { displayName: true },
+  });
+  const displayedAlias = normalizeBuyerAlias(existing?.displayName) ?? buyerAliasFromSeed(user.id);
+  const displayName = randomBuyerAlias(displayedAlias);
+  const profile = await prisma.buyerProfile.upsert({
+    where: { userId: user.id },
+    update: {
+      displayName,
+      lastRefreshedAt: new Date(),
+    },
+    create: {
+      displayName,
+      lastRefreshedAt: new Date(),
+      userId: user.id,
+      visibilityStatus: "DRAFT",
+    },
+    select: { id: true },
+  });
+
+  return {
+    ok: true,
+    data: { buyerProfileId: profile.id, displayName },
+  };
 }
 
 export async function upsertBuyerCriteria(input: unknown) {
@@ -901,7 +936,7 @@ export async function listBuyerInvites() {
   const invites = await prisma.invite.findMany({
     where: { buyerProfileId: buyer.id },
     include: {
-      buyerProfile: { select: { displayName: true } },
+      buyerProfile: { select: { displayName: true, userId: true } },
       property: { select: { addressLine1: true, city: true, ownershipVerificationStatus: true, propertyType: true } },
     },
     orderBy: { sentAt: "desc" },
@@ -1255,7 +1290,7 @@ export async function sendInvite(input: unknown) {
       [created.property.city, created.property.state].filter(Boolean).join(", ") ||
       `${created.property.propertyType.toLowerCase()} property`;
     const emailPayload = {
-      buyerName: created.buyerProfile.displayName,
+      buyerName: buyerAliasForDisplay(created.buyerProfile.displayName, created.buyerProfile.userId),
       message: data.message,
       propertyTitle,
       title: data.title,
@@ -1295,7 +1330,7 @@ export async function listSellerInvites() {
   const invites = await prisma.invite.findMany({
     where: { sellerId: seller.id },
     include: {
-      buyerProfile: { select: { displayName: true } },
+      buyerProfile: { select: { displayName: true, userId: true } },
       property: { select: { addressLine1: true, city: true, ownershipVerificationStatus: true, propertyType: true } },
     },
     orderBy: { sentAt: "desc" },
@@ -1424,7 +1459,7 @@ export async function listAdminInvites() {
   await requireCurrentUser("ADMIN");
   const invites = await prisma.invite.findMany({
     include: {
-      buyerProfile: { select: { displayName: true } },
+      buyerProfile: { select: { displayName: true, userId: true } },
       property: { select: { addressLine1: true, city: true, ownershipVerificationStatus: true, propertyType: true } },
     },
     orderBy: { sentAt: "desc" },
@@ -1437,7 +1472,7 @@ export async function listPendingDocuments() {
   const documents = await prisma.verificationDocument.findMany({
     where: { reviewStatus: "PENDING" },
     include: {
-      buyerProfile: { select: { displayName: true } },
+      buyerProfile: { select: { displayName: true, userId: true } },
       property: { select: { addressLine1: true, city: true, propertyType: true } },
       user: { select: { email: true, name: true } },
     },
@@ -1457,7 +1492,9 @@ export async function listPendingDocuments() {
       signedUrl,
       subject:
         document.property?.addressLine1 ||
-        document.buyerProfile?.displayName ||
+        (document.buyerProfile
+          ? buyerAliasForDisplay(document.buyerProfile.displayName, document.buyerProfile.userId)
+          : null) ||
         document.property?.city ||
         "Verification document",
       type: document.documentType,

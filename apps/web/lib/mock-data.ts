@@ -64,7 +64,7 @@ export const buyers: Buyer[] = [
   {
     id: "julie-p",
     userId: "fixture-user-julie",
-    name: "Julie P.",
+    name: "Maple Haven",
     location: "Northridge, CA",
     city: "Northridge",
     state: "CA",
@@ -93,7 +93,7 @@ export const buyers: Buyer[] = [
   {
     id: "marcus-r",
     userId: "user-marcus",
-    name: "Marcus R.",
+    name: "Cedar Key",
     location: "Sherman Oaks, CA",
     city: "Sherman Oaks",
     state: "CA",
@@ -122,7 +122,7 @@ export const buyers: Buyer[] = [
   {
     id: "asha-k",
     userId: "user-asha",
-    name: "Asha K.",
+    name: "Willow Nest",
     location: "Los Angeles, CA",
     city: "Los Angeles",
     state: "CA",
@@ -150,7 +150,7 @@ export const buyers: Buyer[] = [
   {
     id: "draft-buyer",
     userId: "user-draft",
-    name: "Draft Buyer",
+    name: "Quiet Courtyard",
     location: "Pasadena, CA",
     city: "Pasadena",
     state: "CA",
@@ -207,7 +207,7 @@ export const properties: Property[] = [
     propertyType: "HOME",
     condition: "Well maintained",
     features: ["Single story", "No pool", "Attached garage", "Low-maintenance yard"],
-    description: "A quiet single-story home that fits Julie's stated criteria.",
+    description: "A quiet single-story home that fits Maple Haven's stated criteria.",
     status: "Ownership pending",
   },
 ];
@@ -234,7 +234,7 @@ export const invites: Invite[] = [
     sellerId: "seller-fixture",
     buyerProfileId: "julie-p",
     propertyId: "northridge-garden-home",
-    buyer: "Julie P.",
+    buyer: "Maple Haven",
     property: "Northridge garden home",
     status: "Sent",
     sentAt: "Today",
@@ -276,7 +276,7 @@ export const adminDocuments = [
   },
   {
     id: "doc-2",
-    owner: "Julie P.",
+    owner: "Maple Haven",
     subject: "Pre-approval badge",
     type: "Pre-approval",
     status: "Approved",
@@ -289,7 +289,7 @@ export const auditLogs = [
     id: "audit-1",
     actor: "Admin Fixture",
     action: "grant_badge",
-    target: "Julie P.",
+    target: "Maple Haven",
     createdAt: "Today",
   },
   {

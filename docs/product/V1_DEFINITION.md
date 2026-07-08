@@ -136,11 +136,11 @@ Admin role assignment is not self-service.
 
 Buyer profiles are the marketplace asset.
 
-The buyer's account name is private account identity for the buyer portal only. It may personalize owner-only dashboard copy, but it must not be used as the default seller/public buyer identity unless the buyer explicitly chooses it as their profile display name.
+The buyer's account name is private account identity for the buyer portal only. It may personalize owner-only dashboard copy, but it must not be used as the seller/public buyer identity. Seller-facing buyer identity uses a generated neutral alias plus a generated avatar.
 
 A searchable buyer profile may include:
 
-- display name or privacy-safe display label,
+- generated public buyer alias,
 - generated avatar,
 - buyer type,
 - buying purpose,

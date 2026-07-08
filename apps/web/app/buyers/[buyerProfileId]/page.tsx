@@ -47,7 +47,6 @@ export default async function PublicBuyerProfilePage({
     ? user ? invitePath : `/login?next=${encodeURIComponent(invitePath)}`
     : null;
   const isOwner = buyer.viewerIsOwner;
-  const firstName = displayFirstName(buyer.name);
   const primaryBadge = activeBadges[0];
 
   return (
@@ -138,7 +137,7 @@ export default async function PublicBuyerProfilePage({
           </section>
 
           <section className="buyer-reference-detail">
-            <h2>{firstName}&apos;s wants and needs</h2>
+            <h2>Needs and wants</h2>
             <div className="buyer-reference-needs-grid">
               <div>
                 <h3>Need:</h3>
@@ -167,11 +166,6 @@ function ProfileFact({ label, value }: { label: string; value: string }) {
       <strong>{value || "Not set"}</strong>
     </div>
   );
-}
-
-function displayFirstName(name: string) {
-  const trimmed = name.trim();
-  return trimmed.split(/[.\s]/).filter(Boolean)[0] || "Buyer";
 }
 
 function badgeDisplayLabel(badge: { label: string; type?: string }) {

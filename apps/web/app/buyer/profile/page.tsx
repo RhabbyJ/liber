@@ -5,6 +5,7 @@ import { Icon } from "../../../components/icon";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
 import {
   previousBuyerAvatar,
+  regenerateBuyerPublicAlias,
   shuffleBuyerAvatar,
   submitBuyerProfile,
   submitBuyerVerificationDocument,
@@ -110,6 +111,7 @@ export default async function BuyerProfileBuilderPage({
               action={submitBuyerProfile}
               buyer={buyer}
               previousAvatarAction={previousBuyerAvatar}
+              regenerateAliasAction={regenerateBuyerPublicAlias}
               shuffleAction={shuffleBuyerAvatar}
             />
           </article>

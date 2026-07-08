@@ -66,7 +66,8 @@ Runtime authorization must read server-controlled state from the database, not b
 Key concepts:
 
 - `User.roles` stores buyer/seller/admin roles.
-- `User.name` is private account identity for owner-only UI; seller/public buyer surfaces must use `BuyerProfile.displayName` or an anonymized preview label.
+- `User.name` is private account identity for owner-only UI; seller/public buyer surfaces must use the generated `BuyerProfile.displayName` alias or an anonymized preview label.
+- `BuyerProfile.displayName` is a generated public buyer alias from a server allowlist, such as `Maple Haven`; profile submits ignore arbitrary posted display-name text.
 - `User.avatarVariant` stores the allowlisted generated animal-avatar token used by buyer profile surfaces. Avatar image files are not stored.
 - `User.status` blocks suspended users.
 - `SellerAccess.status` controls buyer-directory/search/profile/invite access.
@@ -110,6 +111,7 @@ Buckets:
 
 Rules:
 
+- Buyer public display names are generated locally from an allowlisted neutral alias list; there is no alias API, free-text public-name field, or separate alias storage object.
 - Buyer profile display uses generated 2D animal avatars from `User.avatarVariant` plus the user id.
 - Avatar SVGs are generated locally in the app from the `avatarka` animals theme and rendered as data images; there is no avatar API, Supabase avatar bucket, storage path, or saved image file.
 - Verification documents are immutable user evidence.

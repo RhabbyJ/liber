@@ -27,4 +27,6 @@ After schema changes, run `npm run db:validate` and regenerate Prisma client whe
 
 `User.avatarVariant` is an allowlisted generated animal-avatar token for buyer profile display; it should stay nullable so existing accounts fall back to deterministic generated avatars. It is not an image URL or storage path.
 
+`BuyerProfile.displayName` stores a generated neutral public alias, not a buyer-entered name. Application code must normalize old/stale values through the alias allowlist and fall back to a deterministic alias from the buyer id.
+
 When adding seed scripts, include a cleanup path and avoid inserting private document records, real contact information, or fake production trust claims.

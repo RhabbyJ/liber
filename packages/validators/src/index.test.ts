@@ -15,7 +15,7 @@ describe("Liber validators", () => {
   it("rejects reversed buyer budget ranges", () => {
     expect(() =>
       createBuyerProfileSchema.parse({
-        displayName: "Julie P.",
+        displayName: "Maple Haven",
         budgetMin: 960000,
         budgetMax: 780000,
       }),
@@ -25,7 +25,7 @@ describe("Liber validators", () => {
   it("does not allow buyers to self-assign admin-controlled visibility states", () => {
     expect(() =>
       createBuyerProfileSchema.parse({
-        displayName: "Julie P.",
+        displayName: "Maple Haven",
         visibilityStatus: "HIDDEN",
       }),
     ).toThrow();
@@ -33,23 +33,21 @@ describe("Liber validators", () => {
 
   it("keeps buyer profile purpose purchase-only", () => {
     expect(createBuyerProfileSchema.parse({
-      displayName: "Julie P.",
       buyingPurpose: "Owner occupy",
     }).buyingPurpose).toBe("Owner occupy");
 
     expect(() =>
       createBuyerProfileSchema.parse({
-        displayName: "Julie P.",
         buyingPurpose: "Rental",
       }),
     ).toThrow();
   });
 
   it("keeps omitted buyer update visibility unchanged", () => {
-    expect(updateBuyerProfileSchema.parse({ displayName: "Julie P." })).not.toHaveProperty("visibilityStatus");
+    expect(updateBuyerProfileSchema.parse({ displayName: "Maple Haven" })).not.toHaveProperty("visibilityStatus");
     expect(() =>
       updateBuyerProfileSchema.parse({
-        displayName: "Julie P.",
+        displayName: "Maple Haven",
         budgetMin: 960000,
         budgetMax: 780000,
       }),

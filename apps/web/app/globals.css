@@ -2998,6 +2998,25 @@ body:has(.map-landing) .site-footer {
   gap: 18px 28px;
 }
 
+.buyer-alias-control {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.buyer-alias-value {
+  align-items: center;
+  background: var(--surface-cream);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink-strong);
+  display: inline-flex;
+  font-weight: 800;
+  min-height: 41px;
+  padding: 0 13px;
+}
+
 .buyer-generated-avatar-control {
   align-items: center;
   display: flex;

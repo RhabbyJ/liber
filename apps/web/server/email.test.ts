@@ -9,11 +9,11 @@ describe("invite email adapter", () => {
     delete process.env.RESEND_FROM_EMAIL;
 
     const result = await sendInviteEmail({
-      buyerName: "Julie",
+      buyerName: "Maple Haven",
       message: "This property matches your criteria.",
       propertyTitle: "Northridge garden home",
       title: "Property invite",
-      to: "julie@example.test",
+      to: "maple-haven@example.test",
     });
 
     if (previousApiKey === undefined) delete process.env.RESEND_API_KEY;

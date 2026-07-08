@@ -88,7 +88,7 @@ export default async function InviteBuyerPage({
             </span>
           </div>
           <p>
-            Liber needs a private property record so {buyer.name.split(".")[0]} knows what you're inviting them to review.
+            Liber needs a private property record so {buyer.name} knows what you're inviting them to review.
             Your property is not listed publicly.
           </p>
           <div className="actions">
@@ -159,7 +159,7 @@ export default async function InviteBuyerPage({
                 name="message"
                 defaultValue={`Hi ${buyer.name}, I'm inviting you to review my property because it appears to fit your preferred location, budget, and home needs.`}
               />
-              <span className="field-hint">Keep it short. {buyer.name.split(".")[0]} will see this in their invite inbox.</span>
+              <span className="field-hint">Keep it short. {buyer.name} will see this in their invite inbox.</span>
             </div>
           </div>
 
@@ -168,7 +168,7 @@ export default async function InviteBuyerPage({
           <div className="reference-form-section">
             <div className="section-stack">
               <h3>Details of Your Home</h3>
-              <p className="muted small">These are shown to {buyer.name.split(".")[0]} inside the invite. Update them if anything changed.</p>
+              <p className="muted small">These are shown to {buyer.name} inside the invite. Update them if anything changed.</p>
             </div>
             <div className="reference-map-strip" aria-hidden="true">
               <Icon name="map-pin" size={28} />
@@ -308,7 +308,7 @@ export default async function InviteBuyerPage({
               Private outreach
             </span>
             <p className="muted small" style={{ margin: 0 }}>
-              {buyer.name.split(".")[0]} can accept or decline. No offer or escrow is created.
+              {buyer.name} can accept or decline. No offer or escrow is created.
             </p>
           </article>
         </aside>

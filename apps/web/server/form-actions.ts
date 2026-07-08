@@ -7,6 +7,7 @@ import {
   grantBadge,
   hideBuyerProfile,
   previousBuyerAvatarVariant,
+  regenerateBuyerAlias,
   respondToInvite,
   reviewDocument,
   reviewSellerAccess,
@@ -66,6 +67,13 @@ export async function previousBuyerAvatar(_formData: FormData) {
   const { data } = await previousBuyerAvatarVariant();
   revalidatePath("/buyer/profile");
   if (data.buyerProfileId) revalidatePath(`/buyers/${data.buyerProfileId}`);
+  redirect("/buyer/profile?edit=profile");
+}
+
+export async function regenerateBuyerPublicAlias(_formData: FormData) {
+  const { data } = await regenerateBuyerAlias();
+  revalidatePath("/buyer/profile");
+  revalidatePath(`/buyers/${data.buyerProfileId}`);
   redirect("/buyer/profile?edit=profile");
 }
 
