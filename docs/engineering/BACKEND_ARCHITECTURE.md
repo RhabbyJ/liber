@@ -37,6 +37,7 @@ Primary models:
 - `BuyerProfile`
 - `BuyerCriteria`
 - `BuyerBadge`
+- `ServiceArea`
 - `SellerProperty`
 - `PropertyImage`
 - `VerificationDocument`
@@ -155,6 +156,12 @@ Seller search should query persisted buyer profiles/criteria and use PostGIS whe
 
 List and map views must use the same result set. Approved sellers land on the map view by default; map pins show coarse budget labels, never identities or exact buyer locations.
 
+Supported ZIP/city/neighborhood selection is modeled as Liber service areas. `public.service_areas` stores active service-area metadata, bbox, centers, source/version, and static GeoJSON paths. Static files under `apps/web/public/geo/service-areas/**` hold the v1 polygon geometry. Mapbox may help render/search, but Mapbox result payloads are not stored as Liber's canonical area database.
+
+Seller search accepts a service-area slug and filters active buyer profiles by the best available persisted buyer geography fields: exact `desiredPostalCode` for ZIPs when available, exact `desiredNeighborhood` for neighborhoods when available, city text for cities, and bbox/desired-point fallback for older profiles. The database service-area lookup is authoritative for active areas; static metadata is only a fallback when the database is unavailable. The v1 service-area filter does not expose exact buyer addresses and does not use radius circles for selected ZIP/city/neighborhood areas.
+
+The service-area migration includes partial active-profile indexes for ZIP, neighborhood, and city/state geography predicates. Before broad production launch, replace bbox/text fallback with PostGIS point-in-polygon search if geographic volume or precision demands it.
+
 Budget filters are treated as range-overlap filters: a buyer matches when the buyer's max budget is at or above the seller's minimum and the buyer's min budget is at or below the seller's maximum. Property-fit filters (beds/baths/sqft/condition/amenities) are validated by `searchBuyersSchema` and applied in `apps/web/server/domain.ts` against active buyer criteria. Amenity filters match the canonical criteria feature tokens (Pool, Parking, ADU, Yard, Garage).
 
 Do not add search filters based on protected-class proxies or unnecessary personal attributes.
@@ -169,7 +176,7 @@ Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN
 - returns only privacy-safe fields: anonymized buyer-type label, coarse city/state, $50K-banded budget, structured criteria facts, active badge labels,
 - pin coordinates are approximate only: pilot-area centers (or coordinates rounded to ~1 km) plus a deterministic display offset — never raw `desiredLat`/`desiredLng`,
 - never returns ids, names, avatars, exact locations, documents, or storage paths,
-- the public map may let visitors select a known active pilot ZIP/city to pan/draw a coarse area outline, but has no full public search/filter API and no buyer profile links; the only action is signup,
+- the public map may let visitors select a known active pilot ZIP/city/neighborhood service area to pan/draw an approximate area polygon, but has no full public search/filter API and no buyer profile links; the only action is signup,
 - is best-effort: failures return an empty list / hide the map and must not break the homepage,
 - must not grow into public search or expose buyer profile URLs.
 

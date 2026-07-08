@@ -2093,6 +2093,27 @@ main {
   padding: 0 10px 8px 38px;
 }
 
+.unsupported-area-state {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--ink-soft);
+  display: grid;
+  gap: 4px;
+  margin: 0 10px 10px 38px;
+  padding: 10px 12px;
+}
+
+.unsupported-area-state strong {
+  color: var(--ink-strong);
+  font-size: 13px;
+}
+
+.unsupported-area-state span,
+.unsupported-area-state .link-button {
+  font-size: 12px;
+}
+
 .map-search-box:hover,
 .map-search-box:focus-visible {
   border-color: var(--sage-strong);
@@ -2178,8 +2199,8 @@ body:has(.map-landing) .site-footer {
 .public-map-selected-area-static {
   background: rgba(22, 131, 76, 0.08);
   border: 3px dashed rgba(14, 95, 56, 0.78);
-  border-radius: 50%;
   box-shadow: 0 16px 45px rgba(14, 95, 56, 0.12);
+  clip-path: polygon(15% 18%, 58% 9%, 86% 29%, 82% 69%, 54% 91%, 18% 78%, 6% 42%);
   height: min(56%, 390px);
   left: 50%;
   pointer-events: none;
@@ -3639,8 +3660,8 @@ body:has(.map-landing) .site-footer {
 .map-selected-area-static {
   background: rgba(22, 131, 76, 0.08);
   border: 3px dashed rgba(14, 95, 56, 0.78);
-  border-radius: 50%;
   box-shadow: 0 16px 45px rgba(14, 95, 56, 0.12);
+  clip-path: polygon(15% 18%, 58% 9%, 86% 29%, 82% 69%, 54% 91%, 18% 78%, 6% 42%);
   height: min(58%, 360px);
   left: 50%;
   pointer-events: none;

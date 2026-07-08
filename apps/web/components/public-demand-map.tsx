@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadMapboxGl } from "../lib/mapbox-gl-loader";
 import { activePilotAreas } from "../lib/launch-market";
-import { selectedAreaBounds, selectedAreaFeature, type SelectedMapArea } from "../lib/map-area";
+import { selectedAreaBounds, type SelectedMapArea } from "../lib/map-area";
 import type { PublicBuyerPreview } from "../server/buyer-preview";
 
 type Props = {
@@ -33,6 +33,7 @@ export function PublicDemandMap({ previews, selectedArea = null, selectedAreaLab
   const [didFail, setDidFail] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [hasLiveMarkers, setHasLiveMarkers] = useState(false);
+  const [selectedAreaGeojson, setSelectedAreaGeojson] = useState<Record<string, unknown> | null>(null);
 
   const points = useMemo<PreviewPoint[]>(
     () =>
@@ -61,7 +62,7 @@ export function PublicDemandMap({ previews, selectedArea = null, selectedAreaLab
           center: [pilotCenter.lng, pilotCenter.lat],
           container: containerRef.current,
           cooperativeGestures: false,
-          maxBounds: [[-118.75, 34.08], [-118.3, 34.37]],
+          maxBounds: [[-118.75, 34.08], [-118.15, 34.37]],
           style: "mapbox://styles/mapbox/streets-v12",
           zoom: 10.6,
         });
@@ -100,7 +101,7 @@ export function PublicDemandMap({ previews, selectedArea = null, selectedAreaLab
 
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
-    syncSelectedAreaLayer(mapRef.current, selectedArea);
+    syncSelectedAreaLayer(mapRef.current, selectedAreaGeojson);
     setHasLiveMarkers(false);
 
     for (const point of points) {
@@ -127,7 +128,32 @@ export function PublicDemandMap({ previews, selectedArea = null, selectedAreaLab
       points.forEach((point) => bounds.extend([point.lng, point.lat]));
       mapRef.current.fitBounds(bounds, { maxZoom: 12, padding: 90 });
     }
-  }, [isReady, points, selectedArea]);
+  }, [isReady, points, selectedArea, selectedAreaGeojson]);
+
+  useEffect(() => {
+    let canceled = false;
+
+    async function loadSelectedArea() {
+      if (!selectedArea) {
+        setSelectedAreaGeojson(null);
+        return;
+      }
+
+      try {
+        const response = await fetch(selectedArea.geojsonPath, { cache: "force-cache" });
+        if (!response.ok) throw new Error("Unable to load service area.");
+        const geojson = await response.json();
+        if (!canceled) setSelectedAreaGeojson(geojson);
+      } catch {
+        if (!canceled) setSelectedAreaGeojson(null);
+      }
+    }
+
+    void loadSelectedArea();
+    return () => {
+      canceled = true;
+    };
+  }, [selectedArea]);
 
   if (!shouldUseMapbox || didFail) {
     return <PublicStaticDemandMap points={points} selectedArea={selectedArea} />;
@@ -141,7 +167,7 @@ export function PublicDemandMap({ previews, selectedArea = null, selectedAreaLab
       {hasLiveMarkers ? null : <StaticDemandLayer points={points} selectedArea={selectedArea} />}
       <div className="map-canvas" ref={containerRef} />
       {status ? <div className="map-status">{status}</div> : null}
-      <div className="public-map-note">Approximate areas · anonymized preview</div>
+      <div className="public-map-note">Approximate service area - anonymized preview</div>
     </div>
   );
 }
@@ -150,7 +176,7 @@ function PublicStaticDemandMap({ points, selectedArea }: { points: PreviewPoint[
   return (
     <div className="public-map-shell fallback" aria-label="Buyer demand preview map">
       <StaticDemandLayer points={points} selectedArea={selectedArea} />
-      <div className="public-map-note">Approximate areas - privacy-safe preview</div>
+      <div className="public-map-note">Approximate service area - privacy-safe preview</div>
     </div>
   );
 }
@@ -198,8 +224,8 @@ function previewPopupHtml(preview: PublicBuyerPreview) {
 
   return `
     <div class="buyer-map-popup">
-      ${facts.length > 0 ? `<span>${escapeHtml(facts.join(" · "))}</span>` : ""}
-      <span>${escapeHtml(preview.label)} · ${escapeHtml(preview.area)}</span>
+      ${facts.length > 0 ? `<span>${escapeHtml(facts.join(" - "))}</span>` : ""}
+      <span>${escapeHtml(preview.label)} - ${escapeHtml(preview.area)}</span>
       <div>
         <a href="/signup?role=seller&next=/seller/search">Sign up to view buyers</a>
       </div>
@@ -249,17 +275,16 @@ function clamp(value: number) {
   return Math.max(24, Math.min(76, value));
 }
 
-const selectedAreaSourceId = "public-preview-selected-area";
-const selectedAreaFillLayerId = "public-preview-selected-area-fill";
-const selectedAreaLineLayerId = "public-preview-selected-area-line";
+const selectedAreaSourceId = "liber-selected-service-area-source";
+const selectedAreaFillLayerId = "liber-selected-service-area-fill";
+const selectedAreaLineLayerId = "liber-selected-service-area-outline";
 
-function syncSelectedAreaLayer(map: any, area: SelectedMapArea | null) {
-  if (!area) {
+function syncSelectedAreaLayer(map: any, data: Record<string, unknown> | null) {
+  if (!data) {
     removeSelectedAreaLayer(map);
     return;
   }
 
-  const data = selectedAreaFeature(area);
   const source = map.getSource(selectedAreaSourceId);
   if (source) {
     source.setData(data);

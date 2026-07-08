@@ -6,9 +6,12 @@ import { Icon } from "../../../components/icon";
 import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
 import { SearchFiltersSidebar } from "../../../components/search-filters-sidebar";
+import { SellerMapLocationSearch } from "../../../components/seller-map-location-search";
 import { SortSelect } from "../../../components/sort-select";
+import { selectedMapArea } from "../../../lib/map-area";
 import { canViewBuyerDirectory } from "../../../server/access";
 import { getCurrentSellerAccess, searchBuyers } from "../../../server/contracts";
+import { getActiveServiceAreaBySlug } from "../../../server/service-areas";
 import { getSessionUser } from "../../../server/session";
 
 type SellerSearchParams = {
@@ -24,6 +27,7 @@ type SellerSearchParams = {
   city?: string;
   condition?: string;
   radiusMiles?: string;
+  serviceArea?: string;
   sort?: string;
   squareFeet?: string;
   state?: string;
@@ -79,14 +83,10 @@ export default async function SellerSearchPage({
 
   const badges = Array.isArray(params.badges) ? params.badges : params.badges ? [params.badges] : [];
   const amenities = Array.isArray(params.amenities) ? params.amenities : params.amenities ? [params.amenities] : [];
-  const centerLat = numberParam(params.centerLat);
-  const centerLng = numberParam(params.centerLng);
-  const radiusMiles = numberParam(params.radiusMiles);
-  const hasRadiusCoordinates = centerLat !== undefined && centerLng !== undefined;
-  const searchCenterLat = hasRadiusCoordinates ? String(centerLat) : undefined;
-  const searchCenterLng = hasRadiusCoordinates ? String(centerLng) : undefined;
-  const searchRadiusMiles = hasRadiusCoordinates && radiusMiles !== undefined ? String(radiusMiles) : undefined;
   const sort = sellerSortParam(params.sort);
+  const requestedServiceArea = serviceAreaParam(params.serviceArea);
+  const selectedServiceArea = requestedServiceArea ? await getActiveServiceAreaBySlug(requestedServiceArea) : null;
+  const selectedMapServiceArea = selectedMapArea(selectedServiceArea);
   const { data: results } = await searchBuyers({
     amenities,
     badges,
@@ -94,11 +94,9 @@ export default async function SellerSearchPage({
     bedrooms: params.bedrooms || undefined,
     budgetMin: params.budgetMin || undefined,
     budgetMax: params.budgetMax || undefined,
-    centerLat: searchCenterLat,
-    centerLng: searchCenterLng,
     city: params.city || undefined,
     condition: params.condition || undefined,
-    radiusMiles: searchRadiusMiles,
+    serviceArea: requestedServiceArea,
     sort,
     squareFeet: params.squareFeet || undefined,
     state: params.state || undefined,
@@ -118,12 +116,14 @@ export default async function SellerSearchPage({
       <section className="seller-profile-search-grid">
         <div className="seller-profile-map-column">
           <h1>Showing {results.length} buyers</h1>
+          <SellerMapLocationSearch
+            defaultArea={params.area || selectedServiceArea?.label || ""}
+            defaultServiceArea={requestedServiceArea || ""}
+          />
           <div className="interactive-map-container seller-profile-map-frame">
             <BuyerMap
               buyers={results}
-              centerLat={centerLat}
-              centerLng={centerLng}
-              radiusMiles={hasRadiusCoordinates ? radiusMiles : undefined}
+              selectedServiceArea={selectedMapServiceArea}
             />
           </div>
         </div>
@@ -141,10 +141,8 @@ export default async function SellerSearchPage({
                 <SearchFiltersSidebar
                   defaultArea={params.area || ""}
                   defaultCity={params.city || ""}
+                  defaultServiceArea={requestedServiceArea || ""}
                   defaultState={params.state || "CA"}
-                  defaultLat={params.centerLat || ""}
-                  defaultLng={params.centerLng || ""}
-                  defaultRadiusMiles={params.radiusMiles || 8}
                   defaultBudgetMin={params.budgetMin || ""}
                   defaultBudgetMax={params.budgetMax || ""}
                   defaultBadges={badges}
@@ -176,7 +174,7 @@ export default async function SellerSearchPage({
                 <EmptyState
                   icon="search"
                   title="No buyers match these filters"
-                  description="Try widening your radius, raising the budget ceiling, or removing badge filters."
+                  description="Try another supported area, raising the budget ceiling, or removing badge filters."
                 />
               </div>
             ) : (
@@ -191,12 +189,6 @@ export default async function SellerSearchPage({
   );
 }
 
-function numberParam(value?: string) {
-  if (!value) return undefined;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
 function sellerSortParam(value?: string) {
   if (
     value === "recently_active" ||
@@ -208,12 +200,17 @@ function sellerSortParam(value?: string) {
   return "recommended";
 }
 
+function serviceAreaParam(value?: string) {
+  if (!value) return undefined;
+  return /^[a-z0-9-]+$/.test(value) ? value : undefined;
+}
+
 function buildActiveFilters(params: SellerSearchParams, badges: string[], amenities: string[]) {
   const filters: Array<{ href: string; label: string }> = [];
 
-  if (params.area || params.city || (params.centerLat && params.centerLng)) {
+  if (params.serviceArea || params.area || params.city || (params.centerLat && params.centerLng)) {
     filters.push({
-      href: sellerSearchHrefWithout(params, ["area", "city", "state", "centerLat", "centerLng", "radiusMiles"]),
+      href: sellerSearchHrefWithout(params, ["area", "serviceArea", "city", "state", "centerLat", "centerLng", "radiusMiles"]),
       label: `Location: ${params.area || params.city || "map area"}`,
     });
   }

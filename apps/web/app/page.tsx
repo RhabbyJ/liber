@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Icon } from "../components/icon";
 import { PublicMapLocationSearch } from "../components/public-map-location-search";
 import { PublicDemandMap } from "../components/public-demand-map";
-import { findPilotArea } from "../lib/launch-market";
+import { findServiceArea, findServiceAreaBySlug, serviceAreaDisplayLabel } from "../lib/service-areas";
 import { selectedMapArea } from "../lib/map-area";
 import { getPublicBuyerPreviews, type PublicBuyerPreview } from "../server/buyer-preview";
 
@@ -24,24 +24,21 @@ export default async function HomePage({
   const sellerSearchHref = "/signup?role=seller&next=/seller/search";
   const buyerProfileHref = "/signup?role=buyer&next=/buyer/profile";
   const activePreviewLabel = `${buyerPreviews.length} active preview${buyerPreviews.length === 1 ? "" : "s"}`;
-  const selectedPilotArea = findPilotArea(params.area || "");
-  const selectedArea = selectedMapArea(
-    selectedPilotArea?.lat,
-    selectedPilotArea?.lng,
-    selectedPilotArea?.radiusMiles,
-  );
+  const selectedServiceArea = params.area ? findServiceAreaBySlug(params.area) ?? findServiceArea(params.area) : null;
+  const selectedArea = selectedMapArea(selectedServiceArea);
+  const selectedAreaLabel = selectedServiceArea ? serviceAreaDisplayLabel(selectedServiceArea) : "";
 
   return (
     <div className="map-landing">
       <section className="map-search-rail" aria-label="Buyer demand preview controls">
-        <PublicMapLocationSearch defaultArea={params.area || ""} />
+        <PublicMapLocationSearch defaultArea={selectedAreaLabel} />
       </section>
 
       <section className="map-landing-body" aria-label="Buyer demand preview">
         <PublicDemandMap
           previews={buyerPreviews}
           selectedArea={selectedArea}
-          selectedAreaLabel={selectedPilotArea?.label}
+          selectedAreaLabel={selectedAreaLabel}
           token={mapboxToken}
         />
 
@@ -49,7 +46,7 @@ export default async function HomePage({
           <header className="demand-panel-head">
             <div>
               <h1>Los Angeles Buyer Demand</h1>
-              <p>{activePreviewLabel}</p>
+              <p>{selectedArea ? "Liber is active in this area" : activePreviewLabel}</p>
             </div>
             <Link className="demand-sort-link" href={sellerSearchHref}>
               Sort: Best match

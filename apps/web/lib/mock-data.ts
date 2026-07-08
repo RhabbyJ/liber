@@ -40,6 +40,8 @@ export type Buyer = {
   name: string;
   location: string;
   city: string;
+  neighborhood?: string;
+  postalCode?: string;
   state: string;
   type: string;
   purpose: string;
@@ -67,6 +69,8 @@ export const buyers: Buyer[] = [
     name: "Maple Haven",
     location: "Northridge, CA",
     city: "Northridge",
+    neighborhood: "Northridge",
+    postalCode: "91325",
     state: "CA",
     type: "Home Buyer",
     purpose: "Downsizing home",
@@ -96,6 +100,7 @@ export const buyers: Buyer[] = [
     name: "Cedar Key",
     location: "Sherman Oaks, CA",
     city: "Sherman Oaks",
+    postalCode: "91423",
     state: "CA",
     type: "Investor",
     purpose: "Light rehab residential",

@@ -14,6 +14,7 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - `apps/web/components/interactive-buyer-map.tsx`
 - `apps/web/components/static-buyer-map.tsx`
 - `apps/web/server/contracts.ts`
+- `apps/web/server/service-areas.ts`
 
 ## Invariants
 
@@ -21,6 +22,7 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - Approved sellers land on the map view by default (`view=list` opts out); buyer cards render below the map from the same result set.
 - List and map use the same result set.
 - Map pins show coarse budget labels for buyer demand signals, not seller listings, identities, or exact buyer locations.
+- Location filtering uses supported service-area slugs for ZIP/city/neighborhood selection; the selected area polygon and buyer list must reflect the same filter.
 - Budget min/max filters match overlapping buyer budget ranges, not exact prices.
 - Property-fit filters (beds/baths/sqft/condition/amenities Pool/Parking/ADU/Yard/Garage) stay fit-and-trust oriented; no protected-class proxies.
 - Public pre-signup previews may show only limited privacy-safe buyer cards; they are not full seller search.

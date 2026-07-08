@@ -2,23 +2,37 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import { activePilotAreas, findPilotArea } from "../lib/launch-market";
+import {
+  activeServiceAreas,
+  findServiceArea,
+  serviceAreaDisplayLabel,
+  type ServiceArea,
+} from "../lib/service-areas";
 import { Icon } from "./icon";
 
 type Props = {
   defaultArea?: string;
+  defaultServiceArea?: string;
 };
 
-type SearchArea = {
-  city: string;
+type ServiceAreaApiResult = {
+  bbox: [number, number, number, number];
+  center: [number, number];
+  city: string | null;
+  county: string | null;
+  disclaimer: string;
+  geojson_path: string;
+  is_pilot: boolean;
   label: string;
-  lat: number;
-  lng: number;
-  radiusMiles: number;
+  postal_code: string | null;
+  slug: string;
+  source: string;
+  source_version: string;
   state: "CA";
+  type: ServiceArea["type"];
 };
 
-export function SellerMapLocationSearch({ defaultArea = "" }: Props) {
+export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea = "" }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(defaultArea);
@@ -28,7 +42,7 @@ export function SellerMapLocationSearch({ defaultArea = "" }: Props) {
   useEffect(() => {
     setQuery(defaultArea);
     setMessage("");
-  }, [defaultArea]);
+  }, [defaultArea, defaultServiceArea]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,35 +50,29 @@ export function SellerMapLocationSearch({ defaultArea = "" }: Props) {
     setMessage("");
 
     if (value.length < 3) {
-      setMessage("Enter a supported city or ZIP.");
+      setMessage("Enter a supported city, neighborhood, or ZIP.");
       return;
     }
 
-    const localArea = findPilotArea(value);
+    const localArea = findServiceArea(value);
     if (localArea) {
       pushArea(localArea);
       return;
     }
 
-    const nextArea = findPilotArea(value, { includeNext: true });
-    if (nextArea) {
-      setMessage(`${nextArea.label} is next pilot ZIP, not active yet.`);
-      return;
-    }
-
     setIsLookingUp(true);
     try {
-      const params = new URLSearchParams({ intent: "search", kind: "place", query: value });
-      const response = await fetch(`/api/geo/geocode?${params}`, { cache: "no-store" });
-      const payload = await response.json();
-      const result = payload.results?.[0] as SearchArea | undefined;
+      const params = new URLSearchParams({ q: value });
+      const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
+      const results = await response.json() as ServiceAreaApiResult[];
+      const result = results[0];
 
       if (!response.ok || !result) {
-        setMessage(payload.error || "That area is outside the active pilot.");
+        setMessage("We're not active there yet.");
         return;
       }
 
-      pushArea(result);
+      pushArea(apiResultToServiceArea(result));
     } catch {
       setMessage("Location lookup failed.");
     } finally {
@@ -72,15 +80,16 @@ export function SellerMapLocationSearch({ defaultArea = "" }: Props) {
     }
   }
 
-  function pushArea(area: SearchArea) {
+  function pushArea(area: ServiceArea) {
     const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.set("area", area.label);
-    nextParams.set("city", area.city);
+    nextParams.set("area", serviceAreaDisplayLabel(area));
+    nextParams.set("serviceArea", area.slug);
+    nextParams.set("city", area.type === "neighborhood" ? area.label : area.city ?? area.label);
     nextParams.set("state", area.state);
-    nextParams.set("centerLat", String(area.lat));
-    nextParams.set("centerLng", String(area.lng));
-    nextParams.set("radiusMiles", String(area.radiusMiles || 8));
-    setQuery(area.label);
+    nextParams.delete("centerLat");
+    nextParams.delete("centerLng");
+    nextParams.delete("radiusMiles");
+    setQuery(serviceAreaDisplayLabel(area));
     setMessage("");
     router.push(queryPath(nextParams));
   }
@@ -88,6 +97,7 @@ export function SellerMapLocationSearch({ defaultArea = "" }: Props) {
   function clearArea() {
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("area");
+    nextParams.delete("serviceArea");
     nextParams.delete("city");
     nextParams.delete("state");
     nextParams.delete("centerLat");
@@ -99,18 +109,18 @@ export function SellerMapLocationSearch({ defaultArea = "" }: Props) {
   }
 
   return (
-    <div className="seller-map-search" aria-label="Search buyer demand by ZIP">
+    <div className="seller-map-search" aria-label="Search buyer demand by city, neighborhood, or ZIP">
       <form onSubmit={handleSubmit}>
         <div className="seller-map-search-field">
           <Icon name="search" size={15} />
           <input
             autoComplete="off"
-            list="seller-map-pilot-areas"
+            list="seller-map-service-areas"
             onChange={(event) => {
               setQuery(event.target.value);
               setMessage("");
             }}
-            placeholder="Enter ZIP or city"
+            placeholder="Search city, neighborhood, or ZIP"
             value={query}
           />
           {query ? (
@@ -123,14 +133,37 @@ export function SellerMapLocationSearch({ defaultArea = "" }: Props) {
           {isLookingUp ? "Checking" : "Search"}
         </button>
       </form>
-      <datalist id="seller-map-pilot-areas">
-        {activePilotAreas.map((area) => (
-          <option key={area.zip} value={area.label} />
+      <datalist id="seller-map-service-areas">
+        {activeServiceAreas.map((area) => (
+          <option key={area.slug} value={serviceAreaDisplayLabel(area)} />
         ))}
       </datalist>
       {message ? <span className="seller-map-search-message">{message}</span> : null}
     </div>
   );
+}
+
+function apiResultToServiceArea(result: ServiceAreaApiResult): ServiceArea {
+  return {
+    active: true,
+    bbox: result.bbox,
+    center: {
+      lat: result.center[1],
+      lng: result.center[0],
+    },
+    city: result.city,
+    county: result.county,
+    disclaimer: result.disclaimer,
+    geojsonPath: result.geojson_path,
+    isPilot: result.is_pilot,
+    label: result.label,
+    postalCode: result.postal_code,
+    slug: result.slug,
+    source: result.source,
+    sourceVersion: result.source_version,
+    state: result.state,
+    type: result.type,
+  };
 }
 
 function queryPath(params: URLSearchParams) {

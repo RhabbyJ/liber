@@ -57,6 +57,8 @@ type BuyerForWizard = {
   purpose: string;
   location: string;
   city: string;
+  neighborhood?: string;
+  postalCode?: string;
   lat: string | number;
   lng: string | number;
   budgetMin: number;
@@ -291,11 +293,15 @@ export function BuyerProfileWizard({
             defaultLat={String(buyer.lat || "")}
             defaultLng={String(buyer.lng || "")}
             defaultLocation={buyer.location}
+            defaultNeighborhood={buyer.neighborhood}
+            defaultPostalCode={buyer.postalCode}
             inputName="desiredLocationText"
             intent="store"
-            label="Desired pilot area or ZIP"
+            label="Search city, neighborhood, or ZIP"
             latName="desiredLat"
             lngName="desiredLng"
+            neighborhoodName="desiredNeighborhood"
+            postalCodeName="desiredPostalCode"
             stateName="desiredState"
           />
         </div>

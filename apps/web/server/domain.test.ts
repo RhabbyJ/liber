@@ -37,6 +37,16 @@ describe("seller buyer search", () => {
     expect(results[0]?.id).toBe("julie-p");
   });
 
+  it("filters by supported service area slug", () => {
+    expect(searchBuyerDirectory({ serviceArea: "91325" }).map((buyer) => buyer.id)).toContain("julie-p");
+    expect(searchBuyerDirectory({ serviceArea: "northridge" }).map((buyer) => buyer.id)).toContain("julie-p");
+    expect(searchBuyerDirectory({ serviceArea: "glendale" }).map((buyer) => buyer.id)).not.toContain("julie-p");
+  });
+
+  it("returns no buyers for unsupported service area slugs", () => {
+    expect(searchBuyerDirectory({ serviceArea: "san-diego" })).toEqual([]);
+  });
+
   it("filters by structured property fit criteria", () => {
     expect(searchBuyerDirectory({ bedrooms: 3 }).map((buyer) => buyer.id)).not.toContain("julie-p");
     expect(searchBuyerDirectory({ bedrooms: 4 }).map((buyer) => buyer.id)).toContain("julie-p");

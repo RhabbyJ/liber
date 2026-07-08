@@ -51,6 +51,7 @@ import type { EmailResult } from "./email";
 import { inviteExpiresAt } from "./maintenance";
 import { assertRateLimit } from "./rate-limit";
 import { getSessionUser } from "./session";
+import { getActiveServiceAreaBySlug, type ServiceAreaResult } from "./service-areas";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
 import { redirect } from "next/navigation";
 
@@ -218,6 +219,8 @@ function buyerFromDb(profile: {
   desiredLat: unknown;
   desiredLng: unknown;
   desiredLocationText: string | null;
+  desiredNeighborhood: string | null;
+  desiredPostalCode: string | null;
   desiredState: string | null;
   displayName: string;
   downPaymentMax: unknown;
@@ -239,6 +242,8 @@ function buyerFromDb(profile: {
     name: buyerAliasForDisplay(profile.displayName, profile.userId),
     location: profile.desiredLocationText || cityState,
     city: profile.desiredCity || "",
+    neighborhood: profile.desiredNeighborhood ?? undefined,
+    postalCode: profile.desiredPostalCode ?? undefined,
     state: profile.desiredState || "",
     type: profile.buyerType || "Buyer",
     purpose: profile.buyingPurpose || "",
@@ -268,6 +273,8 @@ function emptyBuyerForUser(user: SessionUser, avatarVariant?: string | null): Bu
     name: buyerAliasFromSeed(user.id),
     location: "",
     city: "",
+    neighborhood: undefined,
+    postalCode: undefined,
     state: "",
     type: "Buyer",
     purpose: "",
@@ -472,7 +479,10 @@ async function buyerProfileIdsWithinRadius(filters: SearchBuyersInput) {
 }
 
 async function searchDbBuyerProfiles(filters: SearchBuyersInput, excludeUserId?: string) {
-  const radiusIds = await buyerProfileIdsWithinRadius(filters);
+  const serviceArea = filters.serviceArea ? await getActiveServiceAreaBySlug(filters.serviceArea) : null;
+  if (filters.serviceArea && !serviceArea) return [];
+
+  const radiusIds = serviceArea ? null : await buyerProfileIdsWithinRadius(filters);
   if (radiusIds && radiusIds.length === 0) return [];
 
   const where: Prisma.BuyerProfileWhereInput = {
@@ -482,9 +492,10 @@ async function searchDbBuyerProfiles(filters: SearchBuyersInput, excludeUserId?:
   const hasRadiusFilter = radiusIds !== null;
 
   if (excludeUserId) where.userId = { not: excludeUserId };
+  if (serviceArea) and.push(serviceAreaBuyerWhere(serviceArea));
   if (radiusIds) and.push({ id: { in: radiusIds } });
-  if (!hasRadiusFilter && filters.city) where.desiredCity = { equals: filters.city, mode: "insensitive" };
-  if (!hasRadiusFilter && filters.state) where.desiredState = filters.state.toUpperCase();
+  if (!serviceArea && !hasRadiusFilter && filters.city) where.desiredCity = { equals: filters.city, mode: "insensitive" };
+  if (!serviceArea && !hasRadiusFilter && filters.state) where.desiredState = filters.state.toUpperCase();
   if (filters.budgetMin !== undefined) {
     and.push({
       budgetMax: { gte: new Prisma.Decimal(filters.budgetMin) },
@@ -529,7 +540,81 @@ async function searchDbBuyerProfiles(filters: SearchBuyersInput, excludeUserId?:
     take: 100,
   });
 
-  return searchBuyerDirectory(filters, profiles.map((profile: DbBuyerProfile) => buyerFromDb(profile)), { excludeUserId });
+  const directoryFilters = serviceArea ? withoutGeographyFilters(filters) : filters;
+  return searchBuyerDirectory(directoryFilters, profiles.map((profile: DbBuyerProfile) => buyerFromDb(profile)), { excludeUserId });
+}
+
+function serviceAreaBuyerWhere(area: ServiceAreaResult): Prisma.BuyerProfileWhereInput {
+  const [west, south, east, north] = area.bbox;
+  const pointWithinBbox: Prisma.BuyerProfileWhereInput = {
+    desiredLat: { gte: new Prisma.Decimal(south), lte: new Prisma.Decimal(north) },
+    desiredLng: { gte: new Prisma.Decimal(west), lte: new Prisma.Decimal(east) },
+  };
+
+  if (area.type === "zip" && area.postalCode) {
+    return {
+      OR: [
+        { desiredPostalCode: area.postalCode },
+        {
+          AND: [
+            { desiredPostalCode: null },
+            {
+              OR: [
+                { desiredLocationText: { contains: area.postalCode, mode: "insensitive" } },
+                pointWithinBbox,
+              ],
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  if (area.type === "neighborhood") {
+    return {
+      OR: [
+        { desiredNeighborhood: { equals: area.label, mode: "insensitive" } },
+        {
+          AND: [
+            { desiredNeighborhood: null },
+            {
+              OR: [
+                { desiredCity: { equals: area.label, mode: "insensitive" } },
+                { desiredLocationText: { contains: area.label, mode: "insensitive" } },
+                pointWithinBbox,
+              ],
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  if (area.type === "city") {
+    const city = area.city ?? area.label;
+    return {
+      OR: [
+        { desiredCity: { equals: city, mode: "insensitive" } },
+        { desiredLocationText: { contains: area.label, mode: "insensitive" } },
+        pointWithinBbox,
+      ],
+    };
+  }
+
+  return pointWithinBbox;
+}
+
+function withoutGeographyFilters(filters: SearchBuyersInput): SearchBuyersInput {
+  const {
+    centerLat: _centerLat,
+    centerLng: _centerLng,
+    city: _city,
+    radiusMiles: _radiusMiles,
+    serviceArea: _serviceArea,
+    state: _state,
+    ...rest
+  } = filters;
+  return rest;
 }
 
 function propertyFitCriteriaWhere(filters: SearchBuyersInput) {
@@ -708,6 +793,8 @@ async function upsertDbBuyerProfile(user: SessionUser, data: Partial<CreateBuyer
       desiredLat: data.desiredLat,
       desiredLng: data.desiredLng,
       desiredLocationText: data.desiredLocationText,
+      desiredNeighborhood: data.desiredNeighborhood,
+      desiredPostalCode: data.desiredPostalCode,
       desiredState: data.desiredState,
       displayName,
       downPaymentMax: data.downPaymentMax,
@@ -725,6 +812,8 @@ async function upsertDbBuyerProfile(user: SessionUser, data: Partial<CreateBuyer
       desiredLat: data.desiredLat,
       desiredLng: data.desiredLng,
       desiredLocationText: data.desiredLocationText,
+      desiredNeighborhood: data.desiredNeighborhood,
+      desiredPostalCode: data.desiredPostalCode,
       desiredState: data.desiredState,
       displayName,
       downPaymentMax: data.downPaymentMax,
@@ -967,6 +1056,7 @@ export async function searchBuyers(input: unknown) {
   const results = await searchDbBuyerProfiles(data, seller.id);
   await auditSecurityEvent(seller, "buyer_search", "buyer_directory", "search", {
     resultCount: results.length,
+    ...(data.serviceArea ? { serviceArea: data.serviceArea } : {}),
   });
   return { ok: true, data: results };
 }

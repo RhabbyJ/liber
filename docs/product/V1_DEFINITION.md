@@ -38,7 +38,7 @@ The public or unauthenticated experience can:
 - use active, non-hidden, non-suspended buyer demand records whose preview fields are approved or derived from preview-safe criteria,
 - place pins only at approximate locations (pilot-area centers or similarly coarse coordinates with a display offset), never at precise buyer locations,
 - show coarse buyer-demand context in preview cards, such as broad geography, budget band, property type, size needs, room needs, amenities, condition preference, and display-safe trust signals,
-- let visitors select an active pilot ZIP/city to pan the public map and draw a coarse selected-area outline, without expanding the preview record set or exposing full search,
+- let visitors select an active pilot ZIP/city/neighborhood service area to pan the public map and draw an approximate selected-area polygon, without expanding the preview record set or exposing full search,
 - use anonymized or privacy-safe buyer labels,
 - invite the visitor to sign up or request seller access before viewing full search results or profiles.
 
@@ -46,7 +46,7 @@ The public or unauthenticated experience must not:
 
 - expose full buyer profiles,
 - expose exact buyer locations, precise pin coordinates, home addresses, private documents, lender documents, financial files, contact information, or storage paths,
-- expose a fully searchable buyer directory or public search filters beyond the limited active-pilot area selector,
+- expose a fully searchable buyer directory or public search filters beyond the limited active-pilot service-area selector,
 - expose real buyer profile URLs as public SEO/crawlable pages,
 - allow unauthenticated users to message, invite, contact, save, export, or otherwise act on a buyer,
 - use fake production buyers or fake trust signals outside the CEO demo / private preview data policy below,
@@ -174,7 +174,7 @@ Seller search must:
 - show only active buyer profiles,
 - default approved sellers into a map-first buyer-demand workspace,
 - use the same result set for list and map views,
-- support location/geography filtering,
+- support location/geography filtering by Liber-supported service areas,
 - support structured property-fit filters,
 - support active trust-badge filters,
 - rate-limit abuse-prone usage,

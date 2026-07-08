@@ -10,6 +10,7 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - `packages/db/prisma/migrations/**`
 - `packages/db/src/**`
 - `prisma.config.ts`
+- `apps/web/public/geo/service-areas/**`
 
 ## Invariants
 
@@ -18,6 +19,9 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - RLS/storage policies are security boundaries.
 - Do not weaken constraints to bypass application bugs.
 - Keep indexes aligned with search and ownership checks.
+- Service-area metadata lives in `public.service_areas`; active rows must have matching static GeoJSON files and RLS enabled for public read of active metadata only.
+- Service-area seed rows belong in the Prisma migration that creates/updates the metadata unless a future explicit, guarded seed workflow is approved.
+- Seller service-area search should use active-profile indexes for exact ZIP/neighborhood/city predicates and graduate to PostGIS when bbox fallback is no longer enough.
 - Demo seed data is allowed only for local development and CEO demo / private preview environments, never true public production.
 - Demo seed scripts must be explicit, guarded by an opt-in env flag, deterministic enough to clean up, and use obvious non-real users/data.
 

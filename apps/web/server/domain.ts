@@ -1,6 +1,7 @@
 import type { Buyer, Invite, Property } from "../lib/mock-data";
 import { buyers } from "../lib/mock-data";
 import { formatBadgeType } from "../lib/format";
+import { findServiceAreaBySlug, type ServiceArea } from "../lib/service-areas";
 import type { AppRole, SessionUser } from "./authz";
 import { hasRole, requireOwnedResource, requireRole } from "./authz";
 import { searchBuyersSchema, type SearchBuyersInput } from "@liber/validators";
@@ -31,15 +32,20 @@ export function searchBuyerDirectory(input: unknown, source: Buyer[] = buyers, o
 }
 
 function matchesBuyerFilters(buyer: Buyer, filters: SearchBuyersInput) {
+  const serviceArea = filters.serviceArea ? findServiceAreaBySlug(filters.serviceArea) : null;
+  if (filters.serviceArea && !serviceArea) return false;
+  if (serviceArea && !matchesBuyerServiceArea(buyer, serviceArea)) return false;
+
   const centerLat = filters.centerLat;
   const centerLng = filters.centerLng;
   const radiusMiles = filters.radiusMiles;
   const hasRadiusFilter =
+    !serviceArea &&
     centerLat !== undefined &&
     centerLng !== undefined &&
     radiusMiles !== undefined;
-  if (!hasRadiusFilter && filters.city && buyer.city.toLowerCase() !== filters.city.toLowerCase()) return false;
-  if (!hasRadiusFilter && filters.state && buyer.state !== filters.state.toUpperCase()) return false;
+  if (!serviceArea && !hasRadiusFilter && filters.city && buyer.city.toLowerCase() !== filters.city.toLowerCase()) return false;
+  if (!serviceArea && !hasRadiusFilter && filters.state && buyer.state !== filters.state.toUpperCase()) return false;
   if (
     hasRadiusFilter &&
     distanceMiles(centerLat, centerLng, buyer.lat, buyer.lng) > radiusMiles
@@ -57,6 +63,34 @@ function matchesBuyerFilters(buyer: Buyer, filters: SearchBuyersInput) {
   if (filters.amenities.length > 0 && !matchesAmenityNeeds(buyer, filters.amenities)) return false;
 
   return true;
+}
+
+function matchesBuyerServiceArea(buyer: Buyer, area: ServiceArea) {
+  const locationText = `${buyer.location} ${buyer.city} ${buyer.neighborhood ?? ""} ${buyer.postalCode ?? ""}`.toLowerCase();
+  const areaLabel = area.label.toLowerCase();
+
+  if (area.type === "zip" && area.postalCode) {
+    if (buyer.postalCode) return buyer.postalCode === area.postalCode;
+    return locationText.includes(area.postalCode) || pointWithinBbox(buyer.lat, buyer.lng, area.bbox);
+  }
+
+  if (area.type === "neighborhood") {
+    if (buyer.neighborhood) return buyer.neighborhood.toLowerCase() === areaLabel;
+    return buyer.city.toLowerCase() === areaLabel ||
+      locationText.includes(areaLabel) ||
+      pointWithinBbox(buyer.lat, buyer.lng, area.bbox);
+  }
+
+  if (area.type === "city") {
+    const city = (area.city ?? area.label).toLowerCase();
+    return buyer.city.toLowerCase() === city || pointWithinBbox(buyer.lat, buyer.lng, area.bbox);
+  }
+
+  return pointWithinBbox(buyer.lat, buyer.lng, area.bbox);
+}
+
+function pointWithinBbox(lat: number, lng: number, [west, south, east, north]: ServiceArea["bbox"]) {
+  return Number.isFinite(lat) && Number.isFinite(lng) && lng >= west && lng <= east && lat >= south && lat <= north;
 }
 
 function matchesConditionPreference(buyer: Buyer, condition: string) {

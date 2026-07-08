@@ -1,19 +1,16 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatRange } from "../lib/format";
 import { activePilotAreas, approximateBuyerPoint } from "../lib/launch-market";
-import { selectedAreaBounds, selectedAreaFeature, selectedMapArea, type SelectedMapArea } from "../lib/map-area";
+import { selectedAreaBounds, type SelectedMapArea } from "../lib/map-area";
 import { loadMapboxGl } from "../lib/mapbox-gl-loader";
 import type { Buyer } from "../lib/mock-data";
 import { StaticBuyerMap } from "./static-buyer-map";
 
 type Props = {
   buyers: Buyer[];
-  centerLat?: number;
-  centerLng?: number;
-  radiusMiles?: number;
+  selectedServiceArea?: SelectedMapArea | null;
   token: string;
 };
 
@@ -23,18 +20,16 @@ type BuyerPoint = {
   lng: number;
 };
 
-export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles = 8, token }: Props) {
+export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<Map<string, any>>(new Map());
   const markerNodesRef = useRef<Map<string, HTMLElement>>(new Map());
   const suppressMoveEndRef = useRef(false);
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const [isReady, setIsReady] = useState(false);
   const [status, setStatus] = useState("Loading interactive map");
   const [didFail, setDidFail] = useState(false);
-  const [showSearchArea, setShowSearchArea] = useState(false);
+  const [selectedAreaGeojson, setSelectedAreaGeojson] = useState<Record<string, unknown> | null>(null);
 
   const buyerPoints = useMemo(
     () =>
@@ -43,11 +38,8 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
         .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng)),
     [buyers],
   );
-  const initialCenter = useMemo(() => mapCenter(buyerPoints, centerLat, centerLng), [buyerPoints, centerLat, centerLng]);
-  const selectedArea = useMemo(
-    () => selectedMapArea(centerLat, centerLng, radiusMiles),
-    [centerLat, centerLng, radiusMiles],
-  );
+  const selectedArea = selectedServiceArea;
+  const initialCenter = useMemo(() => mapCenter(buyerPoints, selectedArea), [buyerPoints, selectedArea]);
 
   useEffect(() => {
     let canceled = false;
@@ -78,7 +70,7 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
           center: [initialCenter.lng, initialCenter.lat],
           cooperativeGestures: true,
           container: containerRef.current,
-          maxBounds: [[-118.75, 34.08], [-118.3, 34.37]],
+          maxBounds: [[-118.75, 34.08], [-118.15, 34.37]],
           pitch: 38,
           style: "mapbox://styles/mapbox/streets-v12",
           zoom: buyerPoints.length > 1 ? 10.4 : 11.4,
@@ -99,7 +91,6 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
             suppressMoveEndRef.current = false;
             return;
           }
-          setShowSearchArea(true);
         });
         mapRef.current.on("error", () => {
           if (!loaded) fallBackToStaticMap();
@@ -127,7 +118,7 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current.clear();
     markerNodesRef.current.clear();
-    syncSelectedAreaLayer(mapRef.current, selectedArea);
+    syncSelectedAreaLayer(mapRef.current, selectedAreaGeojson);
 
     for (const point of buyerPoints) {
       const markerNode = document.createElement("button");
@@ -163,8 +154,32 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
       mapRef.current.flyTo({ bearing: -8, center: [initialCenter.lng, initialCenter.lat], pitch: 38, zoom: buyerPoints.length === 1 ? 11.5 : 10.4 });
     }
 
-    setShowSearchArea(false);
-  }, [buyerPoints, initialCenter.lat, initialCenter.lng, isReady, selectedArea]);
+  }, [buyerPoints, initialCenter.lat, initialCenter.lng, isReady, selectedArea, selectedAreaGeojson]);
+
+  useEffect(() => {
+    let canceled = false;
+
+    async function loadSelectedArea() {
+      if (!selectedArea) {
+        setSelectedAreaGeojson(null);
+        return;
+      }
+
+      try {
+        const response = await fetch(selectedArea.geojsonPath, { cache: "force-cache" });
+        if (!response.ok) throw new Error("Unable to load service area.");
+        const geojson = await response.json();
+        if (!canceled) setSelectedAreaGeojson(geojson);
+      } catch {
+        if (!canceled) setSelectedAreaGeojson(null);
+      }
+    }
+
+    void loadSelectedArea();
+    return () => {
+      canceled = true;
+    };
+  }, [selectedArea]);
 
   useEffect(() => {
     const cards = Array.from(document.querySelectorAll<HTMLElement>(".buyer-card[data-buyer-id], .buyer-row[data-buyer-id]"));
@@ -197,21 +212,8 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
       ?.classList.toggle("active", active);
   }
 
-  function searchCurrentArea() {
-    if (!mapRef.current) return;
-    const center = mapRef.current.getCenter();
-    const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.delete("area");
-    nextParams.delete("city");
-    nextParams.delete("state");
-    nextParams.set("centerLat", center.lat.toFixed(5));
-    nextParams.set("centerLng", center.lng.toFixed(5));
-    nextParams.set("radiusMiles", String(radiusMiles));
-    router.push(`/seller/search?${nextParams.toString()}`);
-  }
-
   if (didFail) {
-    return <StaticBuyerMap buyers={buyers} label="Mapbox unavailable" />;
+    return <StaticBuyerMap buyers={buyers} label="Mapbox unavailable" selectedServiceArea={selectedArea} />;
   }
 
   return (
@@ -222,7 +224,8 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
           <span className="muted">{buyers.length} active buyers in the San Fernando Valley pilot</span>
         </div>
         <div className="map-toolbar-pills">
-          <span>{radiusMiles} mi radius</span>
+          <span>{selectedArea ? selectedArea.label : "All service areas"}</span>
+          <span>Approximate service area</span>
           <span>Approximate pins</span>
         </div>
         <a className="button secondary map-filter-button" href="#search-filters">
@@ -236,18 +239,13 @@ export function InteractiveBuyerMap({ buyers, centerLat, centerLng, radiusMiles 
       </div>
       {status ? <div className="map-status">{status}</div> : null}
       {buyers.length === 0 ? <div className="map-empty">No active buyers match this area yet.</div> : null}
-      {showSearchArea ? (
-        <button className="button map-search-area" onClick={searchCurrentArea} type="button">
-          Search this area
-        </button>
-      ) : null}
     </aside>
   );
 }
 
-function mapCenter(points: BuyerPoint[], centerLat?: number, centerLng?: number) {
-  if (Number.isFinite(centerLat) && Number.isFinite(centerLng)) {
-    return { lat: centerLat as number, lng: centerLng as number };
+function mapCenter(points: BuyerPoint[], selectedArea: SelectedMapArea | null) {
+  if (selectedArea) {
+    return selectedArea.center;
   }
 
   if (points.length > 0) {
@@ -301,17 +299,16 @@ function cssEscape(value: string) {
   return value.replaceAll('"', '\\"');
 }
 
-const selectedAreaSourceId = "seller-search-selected-area";
-const selectedAreaFillLayerId = "seller-search-selected-area-fill";
-const selectedAreaLineLayerId = "seller-search-selected-area-line";
+const selectedAreaSourceId = "liber-selected-service-area-source";
+const selectedAreaFillLayerId = "liber-selected-service-area-fill";
+const selectedAreaLineLayerId = "liber-selected-service-area-outline";
 
-function syncSelectedAreaLayer(map: any, area: SelectedMapArea | null) {
-  if (!area) {
+function syncSelectedAreaLayer(map: any, data: Record<string, unknown> | null) {
+  if (!data) {
     removeSelectedAreaLayer(map);
     return;
   }
 
-  const data = selectedAreaFeature(area);
   const source = map.getSource(selectedAreaSourceId);
   if (source) {
     source.setData(data);

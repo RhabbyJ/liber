@@ -60,11 +60,15 @@ describe("Liber validators", () => {
     expect(updateBuyerProfileSchema.parse({
       budgetMax: "987654",
       budgetMin: "731249",
+      desiredNeighborhood: "Northridge",
+      desiredPostalCode: "91325",
       downPaymentMax: "223457",
       downPaymentMin: "123456",
     })).toMatchObject({
       budgetMax: 987654,
       budgetMin: 731249,
+      desiredNeighborhood: "Northridge",
+      desiredPostalCode: "91325",
       downPaymentMax: 223457,
       downPaymentMin: 123456,
     });
@@ -145,6 +149,8 @@ describe("Liber validators", () => {
     ]);
     expect(() => searchBuyersSchema.parse({ radiusMiles: 10 })).toThrow("Radius search requires latitude and longitude.");
     expect(searchBuyersSchema.parse({ centerLat: 34.2381, centerLng: -118.5301, radiusMiles: 10 }).radiusMiles).toBe(10);
+    expect(searchBuyersSchema.parse({ serviceArea: "northridge" }).serviceArea).toBe("northridge");
+    expect(() => searchBuyersSchema.parse({ serviceArea: "../northridge" })).toThrow();
     expect(searchBuyersSchema.parse({ bedrooms: "4", bathrooms: "2" })).toMatchObject({
       bathrooms: 2,
       bedrooms: 4,

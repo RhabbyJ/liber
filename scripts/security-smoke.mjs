@@ -108,6 +108,7 @@ try {
 
   await expectStatus("/api/property/enrich?addressLine1=1%20Main&zip=91423", 401);
   await expectStatus("/api/geo/geocode?query=Sherman", 401);
+  await expectStatus("/api/seller/buyers?service_area=northridge", 401);
 
   const badOrigin = await fetch(`${baseUrl}/api/auth/login`, {
     body: new URLSearchParams({ email: "", password: "", next: "/" }),
