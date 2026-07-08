@@ -12,6 +12,7 @@ type Props = {
   buyers: Buyer[];
   selectedServiceArea?: SelectedMapArea | null;
   token: string;
+  viewerUserId?: string;
 };
 
 type BuyerPoint = {
@@ -24,7 +25,7 @@ type MarkerBuyerPoint = BuyerPoint & {
   markerOffset: [number, number];
 };
 
-export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token }: Props) {
+export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token, viewerUserId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<Map<string, any>>(new Map());
@@ -130,7 +131,7 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token 
       markerNode.addEventListener("mouseenter", () => highlightBuyer(point.buyer.id, true));
       markerNode.addEventListener("mouseleave", () => highlightBuyer(point.buyer.id, false));
 
-      const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(popupHtml(point.buyer));
+      const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(popupHtml(point.buyer, viewerUserId));
       const marker = new window.mapboxgl.Marker({ element: markerNode, offset: point.markerOffset })
         .setLngLat([point.lng, point.lat])
         .setPopup(popup)
@@ -153,7 +154,7 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token 
       mapRef.current.flyTo({ center: [initialCenter.lng, initialCenter.lat], zoom: buyerPoints.length === 1 ? 11.5 : 10.4 });
     }
 
-  }, [buyerPoints, initialCenter.lat, initialCenter.lng, isReady, markerPoints, selectedArea, selectedAreaGeojson]);
+  }, [buyerPoints, initialCenter.lat, initialCenter.lng, isReady, markerPoints, selectedArea, selectedAreaGeojson, viewerUserId]);
 
   useEffect(() => {
     let canceled = false;
@@ -291,8 +292,9 @@ function budgetPinLabel(buyer: Buyer) {
   return `$${Math.round(budget / 1000)}K`;
 }
 
-function popupHtml(buyer: Buyer) {
+function popupHtml(buyer: Buyer, viewerUserId?: string) {
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active").map((badge) => badge.label).slice(0, 2);
+  const canInvite = buyer.userId !== viewerUserId;
 
   return `
     <div class="buyer-map-popup">
@@ -303,7 +305,7 @@ function popupHtml(buyer: Buyer) {
       ${activeBadges.length > 0 ? `<span>${escapeHtml(activeBadges.join(", "))}</span>` : ""}
       <div>
         <a href="/buyers/${encodeURIComponent(buyer.id)}">View profile</a>
-        <a href="/seller/invite/${encodeURIComponent(buyer.id)}">Send invite</a>
+        ${canInvite ? `<a href="/seller/invite/${encodeURIComponent(buyer.id)}">Send invite</a>` : ""}
       </div>
     </div>
   `;

@@ -1053,7 +1053,7 @@ export async function searchBuyers(input: unknown) {
   const seller = await requireApprovedSellerAccess();
   await assertAuditRateLimit(seller, "buyer_search", 60, 60_000);
   const data = searchBuyersSchema.parse(input);
-  const results = await searchDbBuyerProfiles(data, seller.id);
+  const results = await searchDbBuyerProfiles(data);
   await auditSecurityEvent(seller, "buyer_search", "buyer_directory", "search", {
     resultCount: results.length,
     ...(data.serviceArea ? { serviceArea: data.serviceArea } : {}),
@@ -1092,7 +1092,7 @@ export async function getPublicBuyerProfile(buyerProfileId: string) {
       ok: true,
       data: {
         ...buyerFromDb(buyer),
-        viewerCanInvite: await canViewBuyerDirectory(user),
+        viewerCanInvite: user.id !== buyer.userId && (await canViewBuyerDirectory(user)),
         viewerIsOwner: user.id === buyer.userId,
       },
     };
@@ -1319,6 +1319,7 @@ export async function sendInvite(input: unknown) {
 
   if (!buyer) throw new Error("Buyer profile must be active before receiving invites.");
   if (!property) throw new Error("Seller must own property before sending invites.");
+  if (buyer.userId === seller.id) throw new Error("Sellers cannot invite their own buyer profile.");
   if (property.flaggedForReviewAt) throw new Error("Property is under review and cannot send invites.");
   if (activeDuplicate) throw new Error("An active invite already exists for this buyer and property.");
 

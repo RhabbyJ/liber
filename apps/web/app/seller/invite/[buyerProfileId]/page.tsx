@@ -60,6 +60,37 @@ export default async function InviteBuyerPage({
   }
 
   const { data: buyer } = await getBuyerProfileForSeller(buyerProfileId);
+
+  if (buyer.userId === user?.id) {
+    return (
+      <div className="page stack loose">
+        <PageTitle
+          eyebrow="Manual outreach"
+          title="This is your buyer profile"
+          tone="seller"
+          badge={<ModeChip mode="seller" />}
+        >
+          You can view your buyer demand in seller search, but invites are only for outreach to other buyers.
+        </PageTitle>
+        <section className="card cream stack">
+          <p>
+            Use the buyer profile preview to see what approved sellers can see, or return to buyer search.
+          </p>
+          <div className="actions">
+            <Link className="button primary" href={`/buyers/${buyer.id}`}>
+              <Icon name="user" size={14} />
+              View profile
+            </Link>
+            <Link className="button secondary" href="/seller/search">
+              <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
+              Back to buyers
+            </Link>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   const { data: properties } = await listSellerProperties();
   const property = properties[0];
 

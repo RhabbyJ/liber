@@ -185,6 +185,20 @@ describe("route and invite authorization", () => {
     ).toThrow("Buyer profile must be active");
   });
 
+  it("blocks sellers from inviting their own buyer profile", () => {
+    const property = properties[0];
+    const ownBuyer = { ...buyers[0], userId: "seller-fixture" };
+
+    expect(() =>
+      assertInviteAllowed({
+        seller: { id: "seller-fixture", roles: ["SELLER"] },
+        buyer: ownBuyer,
+        property,
+        sentInviteCountToday: 0,
+      }),
+    ).toThrow("Sellers cannot invite their own buyer profile.");
+  });
+
   it("counts seller invite volume by seller and day", () => {
     const today = new Date("2026-05-20T12:00:00.000Z");
 

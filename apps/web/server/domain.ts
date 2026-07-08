@@ -210,6 +210,10 @@ export function assertInviteAllowed(args: {
     throw new Error("Buyer profile must be active before receiving invites.");
   }
 
+  if (args.buyer.userId === args.seller.id) {
+    throw new Error("Sellers cannot invite their own buyer profile.");
+  }
+
   const inviteLimit = sellerInviteLimitForProperty(args.property);
 
   if (args.sentInviteCountToday >= inviteLimit) {

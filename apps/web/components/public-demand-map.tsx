@@ -7,7 +7,11 @@ import { selectedAreaBounds, type SelectedMapArea } from "../lib/map-area";
 import type { PublicBuyerPreview } from "../server/buyer-preview";
 
 type Props = {
+  primaryCtaHref: string;
+  primaryCtaLabel: string;
   previews: PublicBuyerPreview[];
+  secondaryCtaHref?: string;
+  secondaryCtaLabel?: string;
   selectedArea?: SelectedMapArea | null;
   selectedAreaLabel?: string;
   token?: string;
@@ -23,9 +27,18 @@ type PreviewPoint = {
 /**
  * Public Zillow-style buyer-demand map. Pins show anonymized demand at
  * approximate locations only. There are no buyer ids, names, budget labels, or profile
- * links here — the only action is signing up.
+ * links here. Calls to action route users into the authenticated seller workflow.
  */
-export function PublicDemandMap({ previews, selectedArea = null, selectedAreaLabel, token }: Props) {
+export function PublicDemandMap({
+  previews,
+  primaryCtaHref,
+  primaryCtaLabel,
+  secondaryCtaHref,
+  secondaryCtaLabel,
+  selectedArea = null,
+  selectedAreaLabel,
+  token,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -111,7 +124,14 @@ export function PublicDemandMap({ previews, selectedArea = null, selectedAreaLab
       markerNode.setAttribute("aria-label", `Buyer demand around ${point.preview.area}`);
       markerNode.innerHTML = `<span aria-hidden="true"></span>`;
 
-      const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(previewPopupHtml(point.preview));
+      const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(
+        previewPopupHtml(point.preview, {
+          primaryHref: primaryCtaHref,
+          primaryLabel: primaryCtaLabel,
+          secondaryHref: secondaryCtaHref,
+          secondaryLabel: secondaryCtaLabel,
+        }),
+      );
       const marker = new window.mapboxgl.Marker({ element: markerNode })
         .setLngLat([point.lng, point.lat])
         .setPopup(popup)
@@ -128,7 +148,16 @@ export function PublicDemandMap({ previews, selectedArea = null, selectedAreaLab
       points.forEach((point) => bounds.extend([point.lng, point.lat]));
       mapRef.current.fitBounds(bounds, { maxZoom: 12, padding: 90 });
     }
-  }, [isReady, points, selectedArea, selectedAreaGeojson]);
+  }, [
+    isReady,
+    points,
+    primaryCtaHref,
+    primaryCtaLabel,
+    secondaryCtaHref,
+    secondaryCtaLabel,
+    selectedArea,
+    selectedAreaGeojson,
+  ]);
 
   useEffect(() => {
     let canceled = false;
@@ -214,7 +243,15 @@ const pilotCenter = activePilotAreas.reduce(
   { lat: 0, lng: 0 },
 );
 
-function previewPopupHtml(preview: PublicBuyerPreview) {
+function previewPopupHtml(
+  preview: PublicBuyerPreview,
+  cta: {
+    primaryHref: string;
+    primaryLabel: string;
+    secondaryHref?: string;
+    secondaryLabel?: string;
+  },
+) {
   const facts = [
     preview.bedroomsMin ? `${preview.bedroomsMin}+ bed` : null,
     preview.bathroomsMin ? `${preview.bathroomsMin}+ bath` : null,
@@ -227,7 +264,8 @@ function previewPopupHtml(preview: PublicBuyerPreview) {
       ${facts.length > 0 ? `<span>${escapeHtml(facts.join(" - "))}</span>` : ""}
       <span>${escapeHtml(preview.label)} - ${escapeHtml(preview.area)}</span>
       <div>
-        <a href="/signup?role=seller&next=/seller/search">Sign up to view buyers</a>
+        <a href="${escapeHtml(cta.primaryHref)}">${escapeHtml(cta.primaryLabel)}</a>
+        ${cta.secondaryHref && cta.secondaryLabel ? `<a href="${escapeHtml(cta.secondaryHref)}">${escapeHtml(cta.secondaryLabel)}</a>` : ""}
       </div>
     </div>
   `;

@@ -28,6 +28,7 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - Public pre-signup previews may show only limited privacy-safe buyer cards; they are not full seller search.
 - Search should explain why a buyer matches where possible.
 - Search/profile-view usage should remain rate-limited/auditable.
+- A seller who also owns an active buyer profile may see that buyer demand in search; self-invite actions stay blocked elsewhere.
 
 ## Agent notes
 

@@ -6,9 +6,11 @@ import { StaticBuyerMap } from "./static-buyer-map";
 export function BuyerMap({
   buyers,
   selectedServiceArea,
+  viewerUserId,
 }: {
   buyers: Buyer[];
   selectedServiceArea?: SelectedMapArea | null;
+  viewerUserId?: string;
 }) {
   const token = (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim();
 
@@ -18,6 +20,7 @@ export function BuyerMap({
         buyers={buyers}
         selectedServiceArea={selectedServiceArea}
         token={token}
+        viewerUserId={viewerUserId}
       />
     );
   }

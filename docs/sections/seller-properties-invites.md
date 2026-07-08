@@ -21,6 +21,7 @@ Owns private seller property records, property images, ownership evidence upload
 - Seller properties are private invite context, not public listings.
 - Property creation requires `ownershipConfirmed` (validated in `createSellerPropertySchema`); the confirmation is audited but is not a substitute for admin-reviewed ownership evidence.
 - Seller can invite only from owned properties.
+- Seller cannot invite their own buyer profile.
 - Invite is manual outreach only.
 - Invite response does not create an offer, escrow, or transaction.
 

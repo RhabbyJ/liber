@@ -145,6 +145,7 @@ Invite creation must check:
 - seller directory access is approved,
 - property belongs to seller,
 - buyer profile is active,
+- buyer profile is not the seller's own buyer profile,
 - duplicate active invite rules,
 - rate limits / DB trigger constraints.
 
@@ -154,7 +155,7 @@ Invite email should be queued through `EmailOutbox`, not sent inline as the sour
 
 Seller search should query persisted buyer profiles/criteria and use PostGIS when coordinates are supplied.
 
-List and map views must use the same result set. Approved sellers land on the map view by default; map pins show coarse budget labels, never identities or exact buyer locations.
+List and map views must use the same result set. Approved sellers land on the map view by default; map pins show coarse budget labels, never identities or exact buyer locations. A seller who also has an active buyer profile may see that buyer demand in the directory, but invite actions must still block self-invites.
 
 Supported ZIP/city/neighborhood selection is modeled as Liber service areas. `public.service_areas` stores active service-area metadata, bbox, centers, source/version, and static GeoJSON paths. Static files under `apps/web/public/geo/service-areas/**` hold the v1 polygon geometry. Mapbox may help render/search, but Mapbox result payloads are not stored as Liber's canonical area database.
 

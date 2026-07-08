@@ -5,9 +5,7 @@ import { PublicDemandMap } from "../components/public-demand-map";
 import { findServiceArea, findServiceAreaBySlug, serviceAreaDisplayLabel } from "../lib/service-areas";
 import { selectedMapArea } from "../lib/map-area";
 import { getPublicBuyerPreviews, type PublicBuyerPreview } from "../server/buyer-preview";
-
-// Refresh the privacy-safe buyer-demand teaser periodically without making the page fully dynamic.
-export const revalidate = 300;
+import { getSessionUser } from "../server/session";
 
 type HomeSearchParams = {
   area?: string;
@@ -19,13 +17,20 @@ export default async function HomePage({
   searchParams: Promise<HomeSearchParams>;
 }) {
   const params = await searchParams;
+  const user = await getSessionUser();
   const selectedServiceArea = params.area ? findServiceAreaBySlug(params.area) ?? findServiceArea(params.area) : null;
   const selectedArea = selectedMapArea(selectedServiceArea);
   const selectedAreaLabel = selectedServiceArea ? serviceAreaDisplayLabel(selectedServiceArea) : "";
   const buyerPreviews = await getPublicBuyerPreviews(selectedServiceArea);
   const mapboxToken = (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim();
-  const sellerSearchHref = "/signup?role=seller&next=/seller/search";
-  const buyerProfileHref = "/signup?role=buyer&next=/buyer/profile";
+  const sellerSearchPath = selectedServiceArea
+    ? `/seller/search?serviceArea=${encodeURIComponent(selectedServiceArea.slug)}&area=${encodeURIComponent(selectedAreaLabel)}`
+    : "/seller/search";
+  const sellerSearchHref = user
+    ? sellerSearchPath
+    : `/signup?role=seller&next=${encodeURIComponent(sellerSearchPath)}`;
+  const sellerLoginHref = `/login?next=${encodeURIComponent(sellerSearchPath)}`;
+  const buyerProfileHref = user ? "/buyer/profile" : "/signup?role=buyer&next=/buyer/profile";
   const activePreviewLabel = `${buyerPreviews.length} active preview${buyerPreviews.length === 1 ? "" : "s"}`;
 
   return (
@@ -37,6 +42,10 @@ export default async function HomePage({
       <section className="map-landing-body" aria-label="Buyer demand preview">
         <PublicDemandMap
           previews={buyerPreviews}
+          primaryCtaHref={sellerSearchHref}
+          primaryCtaLabel={user ? "View buyers" : "Sign up to view buyers"}
+          secondaryCtaHref={user ? undefined : sellerLoginHref}
+          secondaryCtaLabel={user ? undefined : "Log in"}
           selectedArea={selectedArea}
           selectedAreaLabel={selectedAreaLabel}
           token={mapboxToken}
@@ -49,7 +58,7 @@ export default async function HomePage({
               <p>{selectedArea ? "Preview cards in this selected area" : activePreviewLabel}</p>
             </div>
             <Link className="demand-sort-link" href={sellerSearchHref}>
-              Sort: Best match
+              {user ? "View: Best match" : "Sort: Best match"}
               <Icon name="chevron-right" size={13} />
             </Link>
           </header>
@@ -72,9 +81,14 @@ export default async function HomePage({
               </span>
               <h3>See every matching buyer</h3>
               <Link className="button primary" href={sellerSearchHref}>
-                Sign up to search
+                {user ? "View buyer search" : "Sign up to search"}
                 <Icon name="arrow-right" size={14} />
               </Link>
+              {user ? null : (
+                <Link className="demand-buyer-link" href={sellerLoginHref}>
+                  Log in
+                </Link>
+              )}
               <Link className="demand-buyer-link" href={buyerProfileHref}>
                 Add my buyer demand
               </Link>
