@@ -25,6 +25,7 @@ export function normalizeAvatarVariant(value?: string | null) {
 
   const salt = Number(saltValue);
   if (!Number.isInteger(salt) || salt < 0 || salt > 99) return null;
+  if (!avatarSalts.includes(salt as (typeof avatarSalts)[number])) return null;
 
   return `${provider}:${theme}:${salt}`;
 }
@@ -58,6 +59,18 @@ export function randomAvatarVariant(exclude?: string | null) {
   }
 
   return options[index];
+}
+
+export function previousAvatarVariant(current: string) {
+  const normalizedCurrent = normalizeAvatarVariant(current);
+  if (!normalizedCurrent) return avatarVariantFromSeed("buyer");
+
+  const [, , saltValue] = normalizedCurrent.split(":") as [typeof avatarProvider, typeof avatarTheme, string];
+  const currentSalt = Number(saltValue);
+  const currentIndex = avatarSalts.indexOf(currentSalt as (typeof avatarSalts)[number]);
+  const previousIndex = currentIndex <= 0 ? avatarSalts.length - 1 : currentIndex - 1;
+
+  return `${avatarProvider}:${avatarTheme}:${avatarSalts[previousIndex]}`;
 }
 
 function hashSeed(seed: string) {

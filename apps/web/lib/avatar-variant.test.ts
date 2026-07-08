@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   avatarVariantFromSeed,
   normalizeAvatarVariant,
+  previousAvatarVariant,
   randomAvatarVariant,
   resolveAvatarVariant,
 } from "./avatar-variant";
@@ -15,6 +16,7 @@ describe("buyer avatar variants", () => {
     expect(normalizeAvatarVariant("avatarka:robots:0")).toBeNull();
     expect(normalizeAvatarVariant("avatarka:https://example.com/avatar.svg:0")).toBeNull();
     expect(normalizeAvatarVariant("avatarka:animals:-1")).toBeNull();
+    expect(normalizeAvatarVariant("avatarka:animals:99")).toBeNull();
   });
 
   it("derives a stable default avatar for accounts without a saved token", () => {
@@ -40,5 +42,10 @@ describe("buyer avatar variants", () => {
 
     expect(shuffled).not.toBe(current);
     expect(normalizeAvatarVariant(shuffled)).toBe(shuffled);
+  });
+
+  it("steps backward through allowed animal avatars", () => {
+    expect(previousAvatarVariant("avatarka:animals:4")).toBe("avatarka:animals:3");
+    expect(previousAvatarVariant("avatarka:animals:0")).toBe("avatarka:animals:31");
   });
 });

@@ -3009,6 +3009,12 @@ body:has(.map-landing) .site-footer {
   width: fit-content;
 }
 
+.buyer-generated-avatar-control .avatar-arrow-button {
+  aspect-ratio: 1;
+  padding: 0;
+  width: 36px;
+}
+
 .range-field {
   gap: 12px;
 }

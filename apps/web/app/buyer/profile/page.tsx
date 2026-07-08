@@ -3,7 +3,12 @@ import { BuyerProfileWizard } from "../../../components/buyer-profile-wizard";
 import { GeneratedAvatar } from "../../../components/generated-avatar";
 import { Icon } from "../../../components/icon";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
-import { shuffleBuyerAvatar, submitBuyerProfile, submitBuyerVerificationDocument } from "../../../server/form-actions";
+import {
+  previousBuyerAvatar,
+  shuffleBuyerAvatar,
+  submitBuyerProfile,
+  submitBuyerVerificationDocument,
+} from "../../../server/form-actions";
 
 export default async function BuyerProfileBuilderPage({
   searchParams,
@@ -101,7 +106,12 @@ export default async function BuyerProfileBuilderPage({
       <div className="page wide stack loose buyer-profile-page">
         <div className="buyer-profile-shell">
           <article className="card stack loose wizard-card profile-builder-card">
-            <BuyerProfileWizard action={submitBuyerProfile} buyer={buyer} shuffleAction={shuffleBuyerAvatar} />
+            <BuyerProfileWizard
+              action={submitBuyerProfile}
+              buyer={buyer}
+              previousAvatarAction={previousBuyerAvatar}
+              shuffleAction={shuffleBuyerAvatar}
+            />
           </article>
           {verificationCard}
         </div>

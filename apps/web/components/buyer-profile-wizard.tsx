@@ -71,10 +71,12 @@ type BuyerForWizard = {
 export function BuyerProfileWizard({
   action,
   buyer,
+  previousAvatarAction,
   shuffleAction,
 }: {
   action: (formData: FormData) => Promise<void>;
   buyer: BuyerForWizard;
+  previousAvatarAction: (formData: FormData) => Promise<void>;
   shuffleAction: (formData: FormData) => Promise<void>;
 }) {
   const criteria = buyer.criteriaDetails?.[0];
@@ -103,6 +105,16 @@ export function BuyerProfileWizard({
                 size="lg"
                 variant={buyer.avatarVariant}
               />
+              <button
+                aria-label="Previous avatar"
+                className="button secondary sm avatar-arrow-button"
+                formAction={previousAvatarAction}
+                formNoValidate
+                title="Previous avatar"
+                type="submit"
+              >
+                <Icon name="arrow-left" size={14} />
+              </button>
               <button className="button secondary sm" formAction={shuffleAction} formNoValidate type="submit">
                 Shuffle avatar
               </button>
