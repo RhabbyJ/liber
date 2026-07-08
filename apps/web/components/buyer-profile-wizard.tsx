@@ -242,7 +242,7 @@ export function BuyerProfileWizard({
             min={0}
             minId="squareFeetMin"
             minName="squareFeetMin"
-            step={100}
+            step={1}
             suffix="sqft"
           />
           <NumberRangeField
@@ -255,7 +255,7 @@ export function BuyerProfileWizard({
             min={0}
             minId="lotSizeMin"
             minName="lotSizeMin"
-            step={500}
+            step={1}
             suffix="sqft"
           />
         </div>

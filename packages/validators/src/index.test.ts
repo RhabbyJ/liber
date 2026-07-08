@@ -123,6 +123,22 @@ describe("Liber validators", () => {
     ).toThrow();
   });
 
+  it("allows custom square footage and lot size amounts", () => {
+    expect(upsertBuyerCriteriaSchema.parse({
+      buyerProfileId: "buyer-1",
+      lotSizeMax: "8765",
+      lotSizeMin: "7654",
+      propertySubtype: "HOME",
+      squareFeetMax: "2345",
+      squareFeetMin: "1234",
+    })).toMatchObject({
+      lotSizeMax: 8765,
+      lotSizeMin: 7654,
+      squareFeetMax: 2345,
+      squareFeetMin: 1234,
+    });
+  });
+
   it("validates search, document review, and badge admin inputs", () => {
     expect(searchBuyersSchema.parse({ badges: ["PRE_APPROVED"], sort: "most_verified" }).badges).toEqual([
       "PRE_APPROVED",
