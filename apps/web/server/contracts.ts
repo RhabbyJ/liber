@@ -561,7 +561,7 @@ function propertyFitCriteriaWhere(filters: SearchBuyersInput) {
 }
 
 function inviteFromDb(invite: {
-  buyerProfile: { displayName: string; userId?: string };
+  buyerProfile: { displayName: string; userId: string };
   buyerProfileId: string;
   id: string;
   message: string;
@@ -582,7 +582,7 @@ function inviteFromDb(invite: {
     sellerId: invite.sellerId,
     buyerProfileId: invite.buyerProfileId,
     propertyId: invite.propertyId,
-    buyer: buyerAliasForDisplay(invite.buyerProfile.displayName, invite.buyerProfile.userId ?? invite.buyerProfileId),
+    buyer: buyerAliasForDisplay(invite.buyerProfile.displayName, invite.buyerProfile.userId),
     property: invite.property.addressLine1 || `${invite.property.city || "Property"} ${invite.property.propertyType.toLowerCase()}`,
     propertyStatus: propertyStatusLabel(invite.property.ownershipVerificationStatus),
     status: titleFromStatus(invite.status),
@@ -1253,7 +1253,7 @@ export async function sendInvite(input: unknown) {
         buyerProfile: {
           select: {
             displayName: true,
-            user: { select: { email: true, name: true } },
+            user: { select: { email: true } },
             userId: true,
           },
         },

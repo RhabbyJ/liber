@@ -67,7 +67,7 @@ Key concepts:
 
 - `User.roles` stores buyer/seller/admin roles.
 - `User.name` is private account identity for owner-only UI; seller/public buyer surfaces must use the generated `BuyerProfile.displayName` alias or an anonymized preview label.
-- `BuyerProfile.displayName` is a generated public buyer alias from a server allowlist, such as `Maple Haven`; profile submits ignore arbitrary posted display-name text.
+- `BuyerProfile.displayName` is a generated public buyer alias from a server allowlist, such as `Maple Haven`; profile input schemas do not expose public name editing.
 - `User.avatarVariant` stores the allowlisted generated animal-avatar token used by buyer profile surfaces. Avatar image files are not stored.
 - `User.status` blocks suspended users.
 - `SellerAccess.status` controls buyer-directory/search/profile/invite access.

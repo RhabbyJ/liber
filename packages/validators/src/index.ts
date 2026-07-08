@@ -48,7 +48,6 @@ const optionalMoney = z.coerce.number().min(0).optional();
 const optionalInteger = z.coerce.number().int().min(0).optional();
 
 const buyerProfileShape = {
-  displayName: z.string().trim().min(1).max(120),
   buyerType: z.string().trim().max(80).optional(),
   bio: z.string().trim().max(1200).optional(),
   buyingPurpose: buyingPurposeSchema.optional(),
@@ -74,7 +73,6 @@ function minDoesNotExceedMax<T extends Record<string, unknown>>(input: T, minKey
 
 export const createBuyerProfileSchema = z.object({
   ...buyerProfileShape,
-  displayName: buyerProfileShape.displayName.optional(),
   visibilityStatus: buyerSelfVisibilityStatusSchema.default("DRAFT"),
 }).refine(
   (input) =>
@@ -98,7 +96,6 @@ export const createBuyerProfileSchema = z.object({
 
 export const updateBuyerProfileSchema = z.object({
   ...buyerProfileShape,
-  displayName: buyerProfileShape.displayName.optional(),
 }).refine(
   (input) =>
     input.budgetMin === undefined ||
