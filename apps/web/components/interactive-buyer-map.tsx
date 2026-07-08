@@ -20,6 +20,10 @@ type BuyerPoint = {
   lng: number;
 };
 
+type MarkerBuyerPoint = BuyerPoint & {
+  markerOffset: [number, number];
+};
+
 export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -38,6 +42,7 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token 
         .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng)),
     [buyers],
   );
+  const markerPoints = useMemo(() => withMarkerOffsets(buyerPoints), [buyerPoints]);
   const selectedArea = selectedServiceArea;
   const initialCenter = useMemo(() => mapCenter(buyerPoints, selectedArea), [buyerPoints, selectedArea]);
 
@@ -66,21 +71,15 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token 
         mapRef.current = new mapboxgl.Map({
           antialias: true,
           attributionControl: true,
-          bearing: -8,
           center: [initialCenter.lng, initialCenter.lat],
           cooperativeGestures: true,
           container: containerRef.current,
           maxBounds: [[-118.75, 34.08], [-118.15, 34.37]],
-          pitch: 38,
           style: "mapbox://styles/mapbox/streets-v12",
           zoom: buyerPoints.length > 1 ? 10.4 : 11.4,
         });
 
-        mapRef.current.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "top-right");
-        mapRef.current.addControl(new mapboxgl.ScaleControl({ maxWidth: 120, unit: "imperial" }), "bottom-left");
-        if (mapboxgl.FullscreenControl) {
-          mapRef.current.addControl(new mapboxgl.FullscreenControl(), "top-right");
-        }
+        mapRef.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "bottom-right");
         mapRef.current.on("load", () => {
           loaded = true;
           setIsReady(true);
@@ -120,7 +119,7 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token 
     markerNodesRef.current.clear();
     syncSelectedAreaLayer(mapRef.current, selectedAreaGeojson);
 
-    for (const point of buyerPoints) {
+    for (const point of markerPoints) {
       const markerNode = document.createElement("button");
       markerNode.type = "button";
       markerNode.className = "buyer-map-marker";
@@ -132,7 +131,7 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token 
       markerNode.addEventListener("mouseleave", () => highlightBuyer(point.buyer.id, false));
 
       const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(popupHtml(point.buyer));
-      const marker = new window.mapboxgl.Marker({ element: markerNode })
+      const marker = new window.mapboxgl.Marker({ element: markerNode, offset: point.markerOffset })
         .setLngLat([point.lng, point.lat])
         .setPopup(popup)
         .addTo(mapRef.current);
@@ -143,18 +142,18 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token 
 
     if (selectedArea) {
       suppressMoveEndRef.current = true;
-      mapRef.current.fitBounds(selectedAreaBounds(selectedArea), { bearing: -8, maxZoom: 12.6, padding: 104, pitch: 38 });
+      mapRef.current.fitBounds(selectedAreaBounds(selectedArea), { maxZoom: 12.6, padding: 104 });
     } else if (buyerPoints.length > 1) {
       const bounds = new window.mapboxgl.LngLatBounds();
       buyerPoints.forEach((point) => bounds.extend([point.lng, point.lat]));
       suppressMoveEndRef.current = true;
-      mapRef.current.fitBounds(bounds, { bearing: -8, maxZoom: 12.4, padding: 96, pitch: 38 });
+      mapRef.current.fitBounds(bounds, { maxZoom: 12.4, padding: 96 });
     } else {
       suppressMoveEndRef.current = true;
-      mapRef.current.flyTo({ bearing: -8, center: [initialCenter.lng, initialCenter.lat], pitch: 38, zoom: buyerPoints.length === 1 ? 11.5 : 10.4 });
+      mapRef.current.flyTo({ center: [initialCenter.lng, initialCenter.lat], zoom: buyerPoints.length === 1 ? 11.5 : 10.4 });
     }
 
-  }, [buyerPoints, initialCenter.lat, initialCenter.lng, isReady, selectedArea, selectedAreaGeojson]);
+  }, [buyerPoints, initialCenter.lat, initialCenter.lng, isReady, markerPoints, selectedArea, selectedAreaGeojson]);
 
   useEffect(() => {
     let canceled = false;
@@ -255,6 +254,31 @@ function mapCenter(points: BuyerPoint[], selectedArea: SelectedMapArea | null) {
 
   const total = activePilotAreas.reduce((sum, area) => ({ lat: sum.lat + area.lat, lng: sum.lng + area.lng }), { lat: 0, lng: 0 });
   return { lat: total.lat / activePilotAreas.length, lng: total.lng / activePilotAreas.length };
+}
+
+function withMarkerOffsets(points: BuyerPoint[]): MarkerBuyerPoint[] {
+  const groups = new Map<string, BuyerPoint[]>();
+  for (const point of points) {
+    const key = `${point.lat.toFixed(5)},${point.lng.toFixed(5)}`;
+    groups.set(key, [...(groups.get(key) ?? []), point]);
+  }
+
+  return points.map((point) => {
+    const group = groups.get(`${point.lat.toFixed(5)},${point.lng.toFixed(5)}`) ?? [point];
+    const index = group.findIndex((item) => item.buyer.id === point.buyer.id);
+    return {
+      ...point,
+      markerOffset: markerOffset(index, group.length),
+    };
+  });
+}
+
+function markerOffset(index: number, count: number): [number, number] {
+  if (count <= 1) return [0, 0];
+
+  const angle = (Math.PI * 2 * index) / count - Math.PI / 2;
+  const radius = count <= 2 ? 32 : count <= 4 ? 42 : 52;
+  return [Math.round(Math.cos(angle) * radius), Math.round(Math.sin(angle) * radius)];
 }
 
 function budgetPinLabel(buyer: Buyer) {
