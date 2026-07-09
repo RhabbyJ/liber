@@ -11,6 +11,7 @@ Owns buyer verification evidence, seller ownership evidence, private document st
 - `apps/web/app/admin/badges/page.tsx`
 - `apps/web/components/badge-pill.tsx`
 - `apps/web/server/contracts.ts`
+- `apps/web/server/ownership-evidence.ts`
 - `packages/db/prisma/schema.prisma`
 - `packages/db/prisma/migrations/**`
 
@@ -19,6 +20,8 @@ Owns buyer verification evidence, seller ownership evidence, private document st
 - Verification documents are private and immutable evidence.
 - Owners must not overwrite/delete verification document objects.
 - Browser-callable upload actions must return document IDs/status, not raw private storage paths.
+- Seller ownership evidence remains `DocumentType.OWNERSHIP`; use `OwnershipEvidenceKind` for government ID versus property address proof.
+- Seller ownership verification can be marked approved only after both required ownership evidence kinds are approved.
 - Sensitive badges require approved evidence where supported.
 - Pre-approval expires after 90 days.
 - Badge grants/revokes and document reviews should be audited.

@@ -228,7 +228,7 @@ A property may include:
 
 - address/location,
 - provider-enriched or auto-populated property facts when available,
-- property subtype,
+- property type/subtype: house, condo, townhouse, manufactured, or land,
 - property facts,
 - price/asking context,
 - description,
@@ -239,6 +239,11 @@ A property may include:
 A property must not be treated as a public MLS-style listing in v1.
 
 Seller property creation may start from an address lookup. When property facts are auto-populated, the seller must still confirm they own the property or are authorized to represent it before using that property for invites. Ownership/authority claims must not be accepted as a substitute for admin-reviewed ownership evidence where evidence is required.
+
+Seller ownership verification requires private admin review of both:
+
+- a government-issued photo ID matching the exact name on the title record, or the decision maker for an owning entity,
+- a utility bill, tax bill, or mortgage bill matching the owner/entity name and property address.
 
 The whiteboard notes include deeper owner/buyer verification flow ideas around proof of funds, lender connections, IDs, and multi-day verification. Those purple-board verification workflow details are not part of this immediate v1 UI update unless separately approved and specified.
 

@@ -15,11 +15,14 @@ Owns private seller property records, property images, ownership evidence upload
 - `apps/web/components/property-address-lookup.tsx`
 - `apps/web/server/contracts.ts`
 - `apps/web/server/form-actions.ts`
+- `apps/web/server/ownership-evidence.ts`
 
 ## Invariants
 
 - Seller properties are private invite context, not public listings.
 - Property creation requires `ownershipConfirmed` (validated in `createSellerPropertySchema`); the confirmation is audited but is not a substitute for admin-reviewed ownership evidence.
+- Seller property type choices are the v1 buyer-demand choices: house (`HOME` legacy enum value), condo, townhouse, manufactured, and land.
+- Seller ownership verification requires two private evidence uploads before admin approval: government-issued photo ID and utility/tax/mortgage proof matching the property address.
 - Seller can invite only from owned properties.
 - Seller cannot invite their own buyer profile.
 - Invite is manual outreach only.

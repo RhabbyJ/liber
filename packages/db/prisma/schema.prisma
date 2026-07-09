@@ -32,13 +32,17 @@ enum BuyerVisibilityStatus {
   SUSPENDED
 }
 
-// V1 is residential-only. Re-add values with ALTER TYPE when commercial/land returns.
+// V1 uses one broad property category with allowlisted property subtypes.
 enum PropertyCategory {
   HOME
 }
 
 enum PropertySubtype {
   HOME
+  CONDO
+  TOWNHOUSE
+  MANUFACTURED
+  LAND
 }
 
 enum BadgeType {
@@ -80,6 +84,11 @@ enum DocumentStatus {
   REJECTED
 }
 
+enum OwnershipEvidenceKind {
+  GOVERNMENT_ID
+  PROPERTY_ADDRESS_PROOF
+}
+
 enum InviteStatus {
   SENT
   VIEWED
@@ -105,17 +114,17 @@ model User {
   status        UserStatus @default(ACTIVE)
   suspendedAt   DateTime?
 
-  buyerProfile BuyerProfile?
-  sellerProperties SellerProperty[] @relation("SellerProperties")
-  sellerInvites Invite[] @relation("SellerInvites")
-  sellerAccess SellerAccess? @relation("SellerAccessUser")
-  sellerAccessReviews SellerAccess[] @relation("SellerAccessReviewer")
-  notifications Notification[]
-  documents VerificationDocument[] @relation("UserDocuments")
-  documentsUploaded VerificationDocument[] @relation("DocumentUploader")
-  badgesGranted BuyerBadge[] @relation("BadgeGranter")
-  documentsReviewed VerificationDocument[] @relation("DocumentReviewer")
-  auditLogs AdminAuditLog[] @relation("AuditActor")
+  buyerProfile        BuyerProfile?
+  sellerProperties    SellerProperty[]       @relation("SellerProperties")
+  sellerInvites       Invite[]               @relation("SellerInvites")
+  sellerAccess        SellerAccess?          @relation("SellerAccessUser")
+  sellerAccessReviews SellerAccess[]         @relation("SellerAccessReviewer")
+  notifications       Notification[]
+  documents           VerificationDocument[] @relation("UserDocuments")
+  documentsUploaded   VerificationDocument[] @relation("DocumentUploader")
+  badgesGranted       BuyerBadge[]           @relation("BadgeGranter")
+  documentsReviewed   VerificationDocument[] @relation("DocumentReviewer")
+  auditLogs           AdminAuditLog[]        @relation("AuditActor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -124,13 +133,13 @@ model User {
 }
 
 model SellerAccess {
-  id String @id @default(cuid())
-  userId String @unique @db.Uuid
-  user User @relation("SellerAccessUser", fields: [userId], references: [id], onDelete: Cascade)
-  status SellerAccessStatus @default(PENDING)
-  reviewedByUserId String? @db.Uuid
-  reviewedBy User? @relation("SellerAccessReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
-  reviewedAt DateTime?
+  id               String             @id @default(cuid())
+  userId           String             @unique @db.Uuid
+  user             User               @relation("SellerAccessUser", fields: [userId], references: [id], onDelete: Cascade)
+  status           SellerAccessStatus @default(PENDING)
+  reviewedByUserId String?            @db.Uuid
+  reviewedBy       User?              @relation("SellerAccessReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt       DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -140,9 +149,9 @@ model SellerAccess {
 }
 
 model BuyerProfile {
-  id      String @id @default(cuid())
-  userId  String @unique @db.Uuid
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   displayName         String
   buyerType           String?
@@ -153,14 +162,14 @@ model BuyerProfile {
   desiredNeighborhood String?
   desiredPostalCode   String?
   desiredState        String?
-  desiredLat          Decimal? @db.Decimal(10, 7)
-  desiredLng          Decimal? @db.Decimal(10, 7)
-  budgetMin           Decimal? @db.Decimal(12, 2)
-  budgetMax           Decimal? @db.Decimal(12, 2)
-  downPaymentMin      Decimal? @db.Decimal(12, 2)
-  downPaymentMax      Decimal? @db.Decimal(12, 2)
+  desiredLat          Decimal?              @db.Decimal(10, 7)
+  desiredLng          Decimal?              @db.Decimal(10, 7)
+  budgetMin           Decimal?              @db.Decimal(12, 2)
+  budgetMax           Decimal?              @db.Decimal(12, 2)
+  downPaymentMin      Decimal?              @db.Decimal(12, 2)
+  downPaymentMax      Decimal?              @db.Decimal(12, 2)
   visibilityStatus    BuyerVisibilityStatus @default(DRAFT)
-  profileCompleteness Int @default(0)
+  profileCompleteness Int                   @default(0)
   lastRefreshedAt     DateTime?
 
   criteria  BuyerCriteria[]
@@ -207,14 +216,14 @@ model ServiceArea {
 }
 
 model BuyerCriteria {
-  id             String @id @default(cuid())
+  id             String       @id @default(cuid())
   buyerProfileId String
   buyerProfile   BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
 
   propertyCategory PropertyCategory
   propertySubtype  PropertySubtype
-  priceMin         Decimal? @db.Decimal(12, 2)
-  priceMax         Decimal? @db.Decimal(12, 2)
+  priceMin         Decimal?         @db.Decimal(12, 2)
+  priceMax         Decimal?         @db.Decimal(12, 2)
   squareFeetMin    Int?
   squareFeetMax    Int?
   lotSizeMin       Int?
@@ -223,7 +232,7 @@ model BuyerCriteria {
   bathroomsMin     Int?
   yearBuiltMin     Int?
   condition        String?
-  features         String[] @default([])
+  features         String[]         @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -234,57 +243,57 @@ model BuyerCriteria {
 }
 
 model BuyerBadge {
-  id             String @id @default(cuid())
+  id             String       @id @default(cuid())
   buyerProfileId String
   buyerProfile   BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
 
-  badgeType        BadgeType
-  status           BadgeStatus @default(PENDING)
-  issuedAt         DateTime?
-  expiresAt        DateTime?
-  grantedByUserId  String? @db.Uuid
-  grantedBy        User? @relation("BadgeGranter", fields: [grantedByUserId], references: [id], onDelete: SetNull)
-  grantedAt        DateTime?
+  badgeType          BadgeType
+  status             BadgeStatus           @default(PENDING)
+  issuedAt           DateTime?
+  expiresAt          DateTime?
+  grantedByUserId    String?               @db.Uuid
+  grantedBy          User?                 @relation("BadgeGranter", fields: [grantedByUserId], references: [id], onDelete: SetNull)
+  grantedAt          DateTime?
   evidenceDocumentId String?
-  evidenceDocument VerificationDocument? @relation("BadgeEvidence", fields: [evidenceDocumentId], references: [id], onDelete: SetNull)
-  source           String?
-  notes            String?
+  evidenceDocument   VerificationDocument? @relation("BadgeEvidence", fields: [evidenceDocumentId], references: [id], onDelete: SetNull)
+  source             String?
+  notes              String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([buyerProfileId, badgeType])
   @@index([buyerProfileId])
   @@index([badgeType, status])
   @@index([expiresAt])
   @@index([grantedByUserId])
   @@index([evidenceDocumentId])
-  @@unique([buyerProfileId, badgeType])
 }
 
 model SellerProperty {
   id          String @id @default(cuid())
   ownerUserId String @db.Uuid
-  owner       User @relation("SellerProperties", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  owner       User   @relation("SellerProperties", fields: [ownerUserId], references: [id], onDelete: Cascade)
 
-  addressLine1 String?
-  addressLine2 String?
-  city         String?
-  state        String?
-  zip          String?
-  lat          Decimal? @db.Decimal(10, 7)
-  lng          Decimal? @db.Decimal(10, 7)
-  propertyType PropertySubtype
-  bedrooms     Int?
-  bathrooms    Int?
-  garageArea   Int?
-  squareFeet   Int?
-  lotSize      Int?
-  condition    String?
-  features     String[] @default([])
-  description  String?
-  price        Decimal? @db.Decimal(12, 2)
+  addressLine1                String?
+  addressLine2                String?
+  city                        String?
+  state                       String?
+  zip                         String?
+  lat                         Decimal?                   @db.Decimal(10, 7)
+  lng                         Decimal?                   @db.Decimal(10, 7)
+  propertyType                PropertySubtype
+  bedrooms                    Int?
+  bathrooms                   Int?
+  garageArea                  Int?
+  squareFeet                  Int?
+  lotSize                     Int?
+  condition                   String?
+  features                    String[]                   @default([])
+  description                 String?
+  price                       Decimal?                   @db.Decimal(12, 2)
   ownershipVerificationStatus PropertyVerificationStatus @default(NOT_SUBMITTED)
-  flaggedForReviewAt DateTime?
+  flaggedForReviewAt          DateTime?
 
   images    PropertyImage[]
   invites   Invite[]
@@ -299,70 +308,72 @@ model SellerProperty {
 }
 
 model PropertyImage {
-  id         String @id @default(cuid())
-  propertyId String
-  property   SellerProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  id          String         @id @default(cuid())
+  propertyId  String
+  property    SellerProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   storagePath String
   altText     String?
-  sortOrder   Int @default(0)
-  createdAt   DateTime @default(now())
+  sortOrder   Int            @default(0)
+  createdAt   DateTime       @default(now())
 
   @@index([propertyId])
 }
 
 model VerificationDocument {
-  id             String @id @default(cuid())
-  userId         String @db.Uuid
-  user           User @relation("UserDocuments", fields: [userId], references: [id], onDelete: Cascade)
-  uploadedByUserId String? @db.Uuid
-  uploadedBy     User? @relation("DocumentUploader", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
-  buyerProfileId String?
-  buyerProfile   BuyerProfile? @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
-  propertyId     String?
-  property       SellerProperty? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  id               String          @id @default(cuid())
+  userId           String          @db.Uuid
+  user             User            @relation("UserDocuments", fields: [userId], references: [id], onDelete: Cascade)
+  uploadedByUserId String?         @db.Uuid
+  uploadedBy       User?           @relation("DocumentUploader", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  buyerProfileId   String?
+  buyerProfile     BuyerProfile?   @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
+  propertyId       String?
+  property         SellerProperty? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  documentType     DocumentType
-  fileSha256       String?
-  fileSizeBytes    Int?
-  mimeType         String?
-  storageBucket    String @default("verification-documents")
-  storagePath      String
-  originalFilename String?
-  uploadedAt       DateTime @default(now())
-  reviewStatus     DocumentStatus @default(PENDING)
-  reviewedByUserId String? @db.Uuid
-  reviewedBy       User? @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
-  reviewedAt       DateTime?
-  reviewNotes      String?
-  rejectionReason  String?
+  documentType          DocumentType
+  fileSha256            String?
+  fileSizeBytes         Int?
+  mimeType              String?
+  storageBucket         String                 @default("verification-documents")
+  storagePath           String
+  originalFilename      String?
+  uploadedAt            DateTime               @default(now())
+  reviewStatus          DocumentStatus         @default(PENDING)
+  reviewedByUserId      String?                @db.Uuid
+  reviewedBy            User?                  @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt            DateTime?
+  reviewNotes           String?
+  rejectionReason       String?
+  ownershipEvidenceKind OwnershipEvidenceKind?
 
   badgeEvidence BuyerBadge[] @relation("BadgeEvidence")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([storageBucket, storagePath])
   @@index([userId])
   @@index([uploadedByUserId])
   @@index([buyerProfileId])
   @@index([propertyId])
+  @@index([propertyId, ownershipEvidenceKind])
   @@index([reviewedByUserId])
   @@index([reviewStatus])
-  @@unique([storageBucket, storagePath])
 }
 
 model Invite {
-  id             String @id @default(cuid())
-  sellerId       String @db.Uuid
-  seller         User @relation("SellerInvites", fields: [sellerId], references: [id], onDelete: Cascade)
+  id             String         @id @default(cuid())
+  sellerId       String         @db.Uuid
+  seller         User           @relation("SellerInvites", fields: [sellerId], references: [id], onDelete: Cascade)
   buyerProfileId String
-  buyerProfile   BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
+  buyerProfile   BuyerProfile   @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
   propertyId     String
   property       SellerProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   title       String
   message     String
   status      InviteStatus @default(SENT)
-  sentAt      DateTime @default(now())
+  sentAt      DateTime     @default(now())
   viewedAt    DateTime?
   respondedAt DateTime?
   expiresAt   DateTime?
@@ -377,9 +388,9 @@ model Invite {
 }
 
 model Notification {
-  id       String @id @default(cuid())
-  userId   String @db.Uuid
-  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id       String    @id @default(cuid())
+  userId   String    @db.Uuid
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   type     String
   title    String
   body     String
@@ -392,9 +403,9 @@ model Notification {
 }
 
 model AdminAuditLog {
-  id          String @id @default(cuid())
-  actorUserId String? @db.Uuid
-  actor       User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  id          String   @id @default(cuid())
+  actorUserId String?  @db.Uuid
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
   action      String
   targetType  String
   targetId    String
@@ -407,17 +418,17 @@ model AdminAuditLog {
 }
 
 model EmailOutbox {
-  id String @id @default(cuid())
-  type String
-  to String
-  subject String?
-  templateName String?
-  payload Json
-  status EmailOutboxStatus @default(PENDING)
-  attempts Int @default(0)
-  lastError String?
+  id            String            @id @default(cuid())
+  type          String
+  to            String
+  subject       String?
+  templateName  String?
+  payload       Json
+  status        EmailOutboxStatus @default(PENDING)
+  attempts      Int               @default(0)
+  lastError     String?
   nextAttemptAt DateTime?
-  sentAt DateTime?
+  sentAt        DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

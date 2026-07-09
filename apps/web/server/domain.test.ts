@@ -37,6 +37,25 @@ describe("seller buyer search", () => {
     expect(results[0]?.id).toBe("julie-p");
   });
 
+  it("filters by the expanded v1 property subtype choices", () => {
+    const condoBuyer: Buyer = {
+      ...buyers[0],
+      criteria: ["Condo", "Northridge"],
+      criteriaDetails: [{
+        propertyCategory: "HOME",
+        propertySubtype: "CONDO",
+      }],
+      id: "condo-buyer",
+      propertySubtypes: ["CONDO"],
+      purpose: "Condo",
+    };
+
+    expect(searchBuyerDirectory({ propertySubtype: "CONDO" }, [condoBuyer]).map((buyer) => buyer.id)).toEqual([
+      "condo-buyer",
+    ]);
+    expect(searchBuyerDirectory({ propertySubtype: "LAND" }, [condoBuyer])).toEqual([]);
+  });
+
   it("filters by supported service area slug", () => {
     expect(searchBuyerDirectory({ serviceArea: "91325" }).map((buyer) => buyer.id)).toContain("julie-p");
     expect(searchBuyerDirectory({ serviceArea: "northridge" }).map((buyer) => buyer.id)).toContain("julie-p");

@@ -4,6 +4,7 @@ import { Icon } from "../../../components/icon";
 import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
 import { formatMoney } from "../../../lib/format";
+import { propertySubtypeLabel } from "../../../lib/property-types";
 import { listSellerProperties } from "../../../server/contracts";
 
 export default async function SellerPropertiesPage() {
@@ -70,7 +71,7 @@ export default async function SellerPropertiesPage() {
                 <div className="property-card-body">
                   <div className="section-head compact">
                     <div className="stack tight">
-                      <p className="eyebrow">{property.propertyType}</p>
+                      <p className="eyebrow">{propertySubtypeLabel(property.propertyType)}</p>
                       <h3>{property.title}</h3>
                     </div>
                     <span className={`status-dot ${verified ? "active" : "warning"}`}>

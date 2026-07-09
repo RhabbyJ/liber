@@ -18,10 +18,12 @@ export const buyerVisibilityStatusSchema = z.enum([
 
 export const buyerSelfVisibilityStatusSchema = z.enum(["DRAFT", "ACTIVE"]);
 
-// V1 is residential-only; expand alongside the Prisma enums when commercial/land returns.
+// V1 keeps a broad HOME category while subtypes mirror buyer/seller property choices.
 export const propertyCategorySchema = z.enum(["HOME"]);
 
-export const propertySubtypeSchema = z.enum(["HOME"]);
+export const propertySubtypeValues = ["HOME", "CONDO", "TOWNHOUSE", "MANUFACTURED", "LAND"] as const;
+
+export const propertySubtypeSchema = z.enum(propertySubtypeValues);
 
 export const purchaseTypeSchema = z.enum(["Cash", "Conventional financing", "Other"]);
 

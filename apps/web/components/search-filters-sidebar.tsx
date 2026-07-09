@@ -7,6 +7,7 @@ import {
   serviceAreaDisplayLabel,
   type ServiceArea,
 } from "../lib/service-areas";
+import { propertyTypeOptions } from "../lib/property-types";
 import { Icon } from "./icon";
 
 type Props = {
@@ -19,6 +20,7 @@ type Props = {
   defaultBudgetMin?: string | number;
   defaultCity?: string;
   defaultCondition?: string;
+  defaultPropertySubtype?: string;
   defaultServiceArea?: string;
   defaultSort?: string;
   defaultSquareFeet?: string;
@@ -85,6 +87,7 @@ export function SearchFiltersSidebar({
   defaultBudgetMin = "",
   defaultCity = "",
   defaultCondition = "",
+  defaultPropertySubtype = "",
   defaultServiceArea = "",
   defaultSort = "recommended",
   defaultSquareFeet = "",
@@ -104,6 +107,7 @@ export function SearchFiltersSidebar({
   const [bathrooms, setBathrooms] = useState(defaultBathrooms);
   const [squareFeet, setSquareFeet] = useState(defaultSquareFeet);
   const [condition, setCondition] = useState(defaultCondition);
+  const [propertySubtype, setPropertySubtype] = useState(defaultPropertySubtype);
   const [amenities, setAmenities] = useState<string[]>(defaultAmenities);
 
   function handleLocationChange(value: string) {
@@ -208,6 +212,7 @@ export function SearchFiltersSidebar({
     if (bathrooms) nextParams.set("bathrooms", bathrooms);
     if (squareFeet) nextParams.set("squareFeet", squareFeet);
     if (condition) nextParams.set("condition", condition);
+    if (propertySubtype) nextParams.set("propertySubtype", propertySubtype);
     if (defaultSort !== "recommended") nextParams.set("sort", defaultSort);
 
     amenities.forEach((amenity) => nextParams.append("amenities", amenity));
@@ -281,6 +286,16 @@ export function SearchFiltersSidebar({
         <div className="filter-section">
           <h4 className="filter-section-title">Home fit</h4>
           <div className="form-grid filter-form-grid">
+            <div className="select-wrapper">
+              <select aria-label="Property type" onChange={(event) => setPropertySubtype(event.target.value)} value={propertySubtype}>
+                <option value="">Any type</option>
+                {propertyTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="select-wrapper">
               <select aria-label="Bedrooms" onChange={(event) => setBedrooms(event.target.value)} value={bedrooms}>
                 <option value="">Any beds</option>

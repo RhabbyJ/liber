@@ -5,6 +5,7 @@ import { Icon } from "../../../../components/icon";
 import { ModeChip } from "../../../../components/mode-chip";
 import { PageTitle } from "../../../../components/page-title";
 import { formatMoney } from "../../../../lib/format";
+import { propertySubtypeLabel } from "../../../../lib/property-types";
 import { canViewBuyerDirectory } from "../../../../server/access";
 import { getBuyerProfileForSeller, listSellerProperties } from "../../../../server/contracts";
 import { submitInvite } from "../../../../server/form-actions";
@@ -310,7 +311,7 @@ export default async function InviteBuyerPage({
             <div className="media-preview">
               <span className="media-hint">
                 <Icon name="home" size={12} />
-                {property.propertyType}
+                {propertySubtypeLabel(property.propertyType)}
               </span>
             </div>
             <div className="property-card-body">

@@ -9,6 +9,7 @@ import { SearchFiltersSidebar } from "../../../components/search-filters-sidebar
 import { SellerMapLocationSearch } from "../../../components/seller-map-location-search";
 import { SortSelect } from "../../../components/sort-select";
 import { selectedMapArea } from "../../../lib/map-area";
+import { propertySubtypeLabel } from "../../../lib/property-types";
 import { canViewBuyerDirectory } from "../../../server/access";
 import { getCurrentSellerAccess, searchBuyers } from "../../../server/contracts";
 import { getActiveServiceAreaBySlug } from "../../../server/service-areas";
@@ -26,6 +27,7 @@ type SellerSearchParams = {
   centerLng?: string;
   city?: string;
   condition?: string;
+  propertySubtype?: string;
   radiusMiles?: string;
   serviceArea?: string;
   sort?: string;
@@ -96,6 +98,7 @@ export default async function SellerSearchPage({
     budgetMax: params.budgetMax || undefined,
     city: params.city || undefined,
     condition: params.condition || undefined,
+    propertySubtype: params.propertySubtype || undefined,
     serviceArea: requestedServiceArea,
     sort,
     squareFeet: params.squareFeet || undefined,
@@ -152,6 +155,7 @@ export default async function SellerSearchPage({
                   defaultBathrooms={params.bathrooms || ""}
                   defaultSquareFeet={params.squareFeet || ""}
                   defaultCondition={params.condition || ""}
+                  defaultPropertySubtype={params.propertySubtype || ""}
                   defaultAmenities={amenities}
                 />
               </details>
@@ -240,6 +244,13 @@ function buildActiveFilters(params: SellerSearchParams, badges: string[], amenit
 
   if (params.condition) {
     filters.push({ href: sellerSearchHrefWithout(params, ["condition"]), label: params.condition });
+  }
+
+  if (params.propertySubtype) {
+    filters.push({
+      href: sellerSearchHrefWithout(params, ["propertySubtype"]),
+      label: `Type: ${propertySubtypeLabel(params.propertySubtype)}`,
+    });
   }
 
   if (amenities.length > 0) {

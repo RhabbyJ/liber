@@ -16,6 +16,7 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 
 - `product/V1_DEFINITION.md` — exact v1 product boundary. Read before changing customer workflows.
 - `product/CEO_ROADMAP.md` — CEO/product roadmap. Read before planning features.
+- `product/production-decisions.md` — launch readiness decisions, environment blockers, and advisor follow-ups.
 - `engineering/BACKEND_ARCHITECTURE.md` — backend, auth, Supabase, Prisma, storage, email, and security architecture.
 
 ## Section micro-docs

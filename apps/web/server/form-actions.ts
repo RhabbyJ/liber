@@ -23,6 +23,7 @@ import {
   upsertBuyerCriteria,
 } from "./contracts";
 import { requireApprovedSellerAccess } from "./access";
+import { propertySubtypeFromSeekingPropertyType } from "../lib/property-types";
 
 function isSubmittedFile(value: FormDataEntryValue): value is File {
   return (
@@ -46,7 +47,7 @@ export async function submitBuyerProfile(formData: FormData) {
 
   // The profile form's home-fit section doubles as the buyer's search criteria.
   formData.set("buyerProfileId", buyer.id);
-  formData.set("propertySubtype", "HOME");
+  formData.set("propertySubtype", propertySubtypeFromSeekingPropertyType(formData.get("buyingPurpose")));
   formData.set("priceMin", String(formData.get("budgetMin") ?? ""));
   formData.set("priceMax", String(formData.get("budgetMax") ?? ""));
   await upsertBuyerCriteria(formData);
@@ -100,13 +101,18 @@ export async function submitBuyerVerificationDocument(formData: FormData) {
 export async function submitSellerProperty(formData: FormData) {
   const { data: property } = await createSellerProperty(formData);
   const images = formData.getAll("images").filter(isSubmittedFile);
-  const ownershipDocument = formData.get("ownership");
+  const ownershipIdentityDocument = formData.get("ownershipIdentity");
+  const ownershipProofDocument = formData.get("ownershipProof");
   const next = safeSellerNext(formData);
 
   await Promise.all(images.map((image) => uploadPropertyImageFile(property.id, image)));
 
-  if (ownershipDocument && isSubmittedFile(ownershipDocument)) {
-    await uploadOwnershipDocumentFile(property.id, ownershipDocument);
+  if (ownershipIdentityDocument && isSubmittedFile(ownershipIdentityDocument)) {
+    await uploadOwnershipDocumentFile(property.id, ownershipIdentityDocument, "GOVERNMENT_ID");
+  }
+
+  if (ownershipProofDocument && isSubmittedFile(ownershipProofDocument)) {
+    await uploadOwnershipDocumentFile(property.id, ownershipProofDocument, "PROPERTY_ADDRESS_PROOF");
   }
 
   revalidatePath("/seller/properties");
@@ -118,7 +124,8 @@ export async function submitSellerPropertyUpdate(formData: FormData) {
   await updateSellerProperty(formData);
   const propertyId = formData.get("propertyId");
   const images = formData.getAll("images").filter(isSubmittedFile);
-  const ownershipDocument = formData.get("ownership");
+  const ownershipIdentityDocument = formData.get("ownershipIdentity");
+  const ownershipProofDocument = formData.get("ownershipProof");
 
   if (typeof propertyId !== "string") {
     throw new Error("Property is required.");
@@ -126,8 +133,12 @@ export async function submitSellerPropertyUpdate(formData: FormData) {
 
   await Promise.all(images.map((image) => uploadPropertyImageFile(propertyId, image)));
 
-  if (ownershipDocument && isSubmittedFile(ownershipDocument)) {
-    await uploadOwnershipDocumentFile(propertyId, ownershipDocument);
+  if (ownershipIdentityDocument && isSubmittedFile(ownershipIdentityDocument)) {
+    await uploadOwnershipDocumentFile(propertyId, ownershipIdentityDocument, "GOVERNMENT_ID");
+  }
+
+  if (ownershipProofDocument && isSubmittedFile(ownershipProofDocument)) {
+    await uploadOwnershipDocumentFile(propertyId, ownershipProofDocument, "PROPERTY_ADDRESS_PROOF");
   }
 
   revalidatePath("/seller/properties");

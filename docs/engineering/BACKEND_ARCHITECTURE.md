@@ -48,7 +48,7 @@ Primary models:
 
 User IDs mirror Supabase Auth UUIDs.
 
-The schema is intentionally trimmed to the v1 flow: residential-only (`PropertyCategory`/`PropertySubtype` contain only `HOME`; re-add values with `ALTER TYPE ... ADD VALUE` when commercial/land returns), no review/rating system, no commercial criteria fields (cap rate, units, zoning). Do not re-add speculative tables or columns without a v1-approved feature behind them.
+The schema is intentionally trimmed to the v1 flow: one broad `PropertyCategory.HOME` bucket with allowlisted `PropertySubtype` values for house (`HOME` legacy value), condo, townhouse, manufactured, and land; no review/rating system; no commercial criteria fields (cap rate, units, zoning). Do not re-add speculative tables or columns without a v1-approved feature behind them.
 
 ## Environment classes
 
@@ -122,6 +122,7 @@ Rules:
 - Storage paths and signed URLs must not become public profile data.
 - Server uploads should validate file type, size, ownership, and purpose.
 - Server action return shapes avoid returning raw private storage paths for private buckets. Return document IDs/status, public URLs for public buckets, or short-lived signed URLs from admin/server-mediated reads only.
+- Seller ownership verification documents keep `DocumentType.OWNERSHIP` and use `OwnershipEvidenceKind` to distinguish government ID from property address proof. Ownership status can become approved only after both required evidence kinds are approved by an admin.
 
 ## Badge architecture
 

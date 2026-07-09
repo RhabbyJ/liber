@@ -29,6 +29,7 @@ import {
   type Invite,
   type Property,
 } from "../lib/mock-data";
+import { propertySubtypeLabel } from "../lib/property-types";
 import {
   avatarVariantFromSeed,
   normalizeAvatarVariant,
@@ -51,6 +52,12 @@ import {
 import { assertInviteAllowed, searchBuyerDirectory } from "./domain";
 import type { EmailResult } from "./email";
 import { inviteExpiresAt } from "./maintenance";
+import {
+  nextOwnershipVerificationStatus,
+  ownershipEvidenceKindForInput,
+  ownershipEvidenceKindLabel,
+  verificationDocumentTypeLabel,
+} from "./ownership-evidence";
 import { assertRateLimit } from "./rate-limit";
 import { getSessionUser } from "./session";
 import { getActiveServiceAreaBySlug, type ServiceAreaResult } from "./service-areas";
@@ -105,7 +112,7 @@ function propertyStatusLabel(value: string) {
   return "Ownership not submitted";
 }
 
-// V1 is residential-only; expand when commercial/land categories return.
+// V1 keeps one broad category while property subtype captures House/Condo/etc.
 function categoryForSubtype(_subtype: Property["propertyType"]): "HOME" {
   return "HOME";
 }
@@ -163,7 +170,7 @@ function criteriaLabels(criteria: Array<{
   squareFeetMin: number | null;
 }>) {
   return criteria.flatMap((item) => [
-    item.propertySubtype,
+    propertySubtypeLabel(item.propertySubtype),
     item.condition ?? undefined,
     item.squareFeetMin ? `${item.squareFeetMin}+ sqft` : undefined,
     item.lotSizeMin ? `${item.lotSizeMin}+ lot` : undefined,
@@ -351,7 +358,7 @@ function propertyFromDb(property: {
   return {
     id: property.id,
     ownerUserId: property.ownerUserId,
-    title: property.addressLine1 || `${property.city || "Property"} ${property.propertyType.toLowerCase()}`,
+    title: property.addressLine1 || `${property.city || "Property"} ${propertySubtypeLabel(property.propertyType).toLowerCase()}`,
     location,
     price: toNumber(property.price),
     beds: property.bedrooms ?? undefined,
@@ -688,7 +695,7 @@ function inviteFromDb(invite: {
     buyerProfileId: invite.buyerProfileId,
     propertyId: invite.propertyId,
     buyer: buyerAliasForDisplay(invite.buyerProfile.displayName, invite.buyerProfile.userId),
-    property: invite.property.addressLine1 || `${invite.property.city || "Property"} ${invite.property.propertyType.toLowerCase()}`,
+    property: invite.property.addressLine1 || `${invite.property.city || "Property"} ${propertySubtypeLabel(invite.property.propertyType).toLowerCase()}`,
     propertyStatus: propertyStatusLabel(invite.property.ownershipVerificationStatus),
     status: titleFromStatus(invite.status),
     sentAt: dateKey(invite.sentAt) || "Now",
@@ -1209,9 +1216,20 @@ export async function uploadPropertyImageFile(propertyId: string, file: File) {
   return { ok: true, data: { storagePath } };
 }
 
-export async function uploadOwnershipDocumentFile(propertyId: string, file: File) {
+export async function uploadOwnershipDocumentFile(
+  propertyId: string,
+  file: File,
+  ownershipEvidenceKindInput: unknown,
+) {
   const seller = await requireCurrentUser("SELLER");
-  const contentType = await assertAllowedFile(file, documentMimeTypes, "Ownership document", "a PDF, PNG, JPG, or WebP file", 20 * 1_048_576);
+  const ownershipEvidenceKind = ownershipEvidenceKindForInput(ownershipEvidenceKindInput);
+  const contentType = await assertAllowedFile(
+    file,
+    documentMimeTypes,
+    `Ownership ${ownershipEvidenceKindLabel(ownershipEvidenceKind)}`,
+    "a PDF, PNG, JPG, or WebP file",
+    20 * 1_048_576,
+  );
   const sha256 = await fileSha256(file);
 
   assertRateLimit(`upload:verification:${seller.id}`, 20, 60 * 60_000);
@@ -1238,6 +1256,7 @@ export async function uploadOwnershipDocumentFile(propertyId: string, file: File
         id: documentId,
         mimeType: contentType,
         originalFilename: file.name,
+        ownershipEvidenceKind,
         propertyId: property.id,
         reviewStatus: "PENDING",
         storageBucket: "verification-documents",
@@ -1250,7 +1269,7 @@ export async function uploadOwnershipDocumentFile(propertyId: string, file: File
       data: {
         action: "document_upload",
         actorUserId: seller.id,
-        metadata: { documentType: "OWNERSHIP", propertyId: property.id },
+        metadata: { documentType: "OWNERSHIP", ownershipEvidenceKind, propertyId: property.id },
         targetId: documentId,
         targetType: "document",
       },
@@ -1305,7 +1324,7 @@ export async function uploadBuyerVerificationDocumentFile(documentTypeInput: unk
     }),
   ]);
 
-  return { ok: true, data: { storagePath } };
+  return { ok: true, data: { documentId, status: "PENDING" as const } };
 }
 
 export async function sendInvite(input: unknown) {
@@ -1399,7 +1418,7 @@ export async function sendInvite(input: unknown) {
     const propertyTitle =
       created.property.addressLine1 ||
       [created.property.city, created.property.state].filter(Boolean).join(", ") ||
-      `${created.property.propertyType.toLowerCase()} property`;
+      `${propertySubtypeLabel(created.property.propertyType).toLowerCase()} property`;
     const emailPayload = {
       buyerName: buyerAliasForDisplay(created.buyerProfile.displayName, created.buyerProfile.userId),
       message: data.message,
@@ -1608,7 +1627,7 @@ export async function listPendingDocuments() {
           : null) ||
         document.property?.city ||
         "Verification document",
-      type: document.documentType,
+      type: verificationDocumentTypeLabel(document.documentType, document.ownershipEvidenceKind),
       status: "Pending",
     })),
   };
@@ -1637,9 +1656,21 @@ export async function reviewDocument(input: unknown) {
     });
 
     if (reviewedDocument.documentType === "OWNERSHIP" && reviewedDocument.propertyId) {
+      const ownershipDocuments = await tx.verificationDocument.findMany({
+        where: {
+          documentType: "OWNERSHIP",
+          propertyId: reviewedDocument.propertyId,
+        },
+        select: {
+          ownershipEvidenceKind: true,
+          reviewStatus: true,
+        },
+      });
+      const nextOwnershipStatus = nextOwnershipVerificationStatus(ownershipDocuments, data.decision);
+
       await tx.sellerProperty.update({
         where: { id: reviewedDocument.propertyId },
-        data: { ownershipVerificationStatus: data.decision },
+        data: { ownershipVerificationStatus: nextOwnershipStatus },
       });
     }
 

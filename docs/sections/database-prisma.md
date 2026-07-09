@@ -19,6 +19,8 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - RLS/storage policies are security boundaries.
 - Do not weaken constraints to bypass application bugs.
 - Keep indexes aligned with search and ownership checks.
+- `PropertySubtype` values are `HOME` (displayed as House), `CONDO`, `TOWNHOUSE`, `MANUFACTURED`, and `LAND`.
+- `VerificationDocument.ownershipEvidenceKind` is nullable for legacy/non-ownership documents and typed for new seller ownership evidence.
 - Service-area metadata lives in `public.service_areas`; active rows must have matching static GeoJSON files and RLS enabled for public read of active metadata only.
 - Service-area seed rows belong in the Prisma migration that creates/updates the metadata unless a future explicit, guarded seed workflow is approved.
 - Seller service-area search should use active-profile indexes for exact ZIP/neighborhood/city predicates and graduate to PostGIS when bbox fallback is no longer enough.

@@ -98,7 +98,7 @@ describe("Liber validators", () => {
 
   it("keeps seller property input structured", () => {
     const property = createSellerPropertySchema.parse({
-      propertyType: "HOME",
+      propertyType: "CONDO",
       price: "925000",
       bedrooms: "4",
       features: ["Garage"],
@@ -107,6 +107,7 @@ describe("Liber validators", () => {
 
     expect(property.price).toBe(925000);
     expect(property.bedrooms).toBe(4);
+    expect(property.propertyType).toBe("CONDO");
   });
 
   it("rejects property creation without ownership confirmation", () => {
@@ -142,12 +143,13 @@ describe("Liber validators", () => {
       buyerProfileId: "buyer-1",
       lotSizeMax: "8765",
       lotSizeMin: "7654",
-      propertySubtype: "HOME",
+      propertySubtype: "TOWNHOUSE",
       squareFeetMax: "2345",
       squareFeetMin: "1234",
     })).toMatchObject({
       lotSizeMax: 8765,
       lotSizeMin: 7654,
+      propertySubtype: "TOWNHOUSE",
       squareFeetMax: 2345,
       squareFeetMin: 1234,
     });

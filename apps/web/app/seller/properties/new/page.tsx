@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Icon } from "../../../../components/icon";
 import { PropertyAddressLookup } from "../../../../components/property-address-lookup";
+import { propertyTypeOptions } from "../../../../lib/property-types";
 import { submitSellerProperty } from "../../../../server/form-actions";
 
 export default async function NewSellerPropertyPage({
@@ -27,19 +28,37 @@ export default async function NewSellerPropertyPage({
           {safeNext ? <input name="next" type="hidden" value={safeNext} /> : null}
 
           <div className="field full seller-property-verify-section">
-            <label htmlFor="ownership">Verify Ownership</label>
+            <label>Verify Ownership</label>
+            <span className="field-hint">
+              To verify ownership, submit a government-issued photo ID matching the exact title name or entity decision maker,
+              plus a utility, tax, or mortgage bill matching the property name and address.
+            </span>
+          </div>
+
+          <div className="field seller-property-verify-section">
+            <label htmlFor="ownershipIdentity">Government-issued photo ID</label>
             <div className="seller-property-file-line">
-              <input id="ownership" name="ownership" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
+              <input id="ownershipIdentity" name="ownershipIdentity" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
             </div>
-            <span className="field-hint">Stored privately. Liber admins review ownership evidence before trust status changes.</span>
+            <span className="field-hint">Stored privately for Liber admin review only.</span>
+          </div>
+
+          <div className="field seller-property-verify-section">
+            <label htmlFor="ownershipProof">Utility, tax, or mortgage bill</label>
+            <div className="seller-property-file-line">
+              <input id="ownershipProof" name="ownershipProof" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
+            </div>
+            <span className="field-hint">Must match the property address and owner or authorized entity name.</span>
           </div>
 
           <div className="field">
             <label htmlFor="propertyType">Property type</label>
             <select id="propertyType" name="propertyType" defaultValue="HOME">
-              <option value="HOME">Residential home</option>
+              {propertyTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </select>
-            <span className="field-hint">Commercial property types return in a later release.</span>
+            <span className="field-hint">Used for matching against buyer seeking type.</span>
           </div>
           <div className="field">
             <label htmlFor="price">Asking price</label>

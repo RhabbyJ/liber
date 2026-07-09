@@ -1,3 +1,5 @@
+import type { PropertySubtype } from "./property-types";
+
 export type Badge = {
   id: string;
   type:
@@ -12,9 +14,6 @@ export type Badge = {
   status: "active" | "pending" | "expired";
   expiresInDays?: number;
 };
-
-// V1 is residential-only; expand alongside the Prisma enums when commercial/land returns.
-export type PropertySubtype = "HOME";
 
 export type BuyerCriteriaDetail = {
   id?: string;
