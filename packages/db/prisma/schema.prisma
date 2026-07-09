@@ -105,6 +105,19 @@ enum EmailOutboxStatus {
   FAILED
 }
 
+enum BuyerDesiredServiceAreaSource {
+  SELECTED
+  DERIVED
+  MIGRATED
+}
+
+enum ServiceAreaRelationType {
+  CONTAINS
+  OVERLAPS
+  DISPLAY_PARENT
+  SEARCH_ROLLUP
+}
+
 model User {
   id            String     @id @db.Uuid
   email         String     @unique
@@ -172,30 +185,52 @@ model BuyerProfile {
   profileCompleteness Int                   @default(0)
   lastRefreshedAt     DateTime?
 
-  criteria  BuyerCriteria[]
-  badges    BuyerBadge[]
-  invites   Invite[]
-  documents VerificationDocument[]
+  criteria            BuyerCriteria[]
+  badges              BuyerBadge[]
+  invites             Invite[]
+  documents           VerificationDocument[]
+  desiredServiceAreas BuyerDesiredServiceArea[]
+  geographyQuarantine ServiceAreaMigrationQuarantine?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([visibilityStatus])
-  @@index([desiredPostalCode])
-  @@index([desiredNeighborhood])
-  @@index([desiredCity, desiredState])
   @@index([budgetMin, budgetMax])
+}
+
+model Market {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug      String   @unique
+  label     String
+  state     String
+  country   String
+  centerLat Float    @map("center_lat")
+  centerLng Float    @map("center_lng")
+  bboxWest  Float    @map("bbox_west")
+  bboxSouth Float    @map("bbox_south")
+  bboxEast  Float    @map("bbox_east")
+  bboxNorth Float    @map("bbox_north")
+  active    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  serviceAreas ServiceArea[]
+
+  @@map("markets")
 }
 
 model ServiceArea {
   id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug          String   @unique
+  marketId      String   @map("market_id") @db.Uuid
+  market        Market   @relation(fields: [marketId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  slug          String
   label         String
   type          String
   postalCode    String?  @map("postal_code")
   city          String?
   county        String?
-  state         String   @default("CA")
+  state         String
   centerLat     Float    @map("center_lat")
   centerLng     Float    @map("center_lng")
   bboxWest      Float    @map("bbox_west")
@@ -205,14 +240,76 @@ model ServiceArea {
   geojsonPath   String   @map("geojson_path")
   source        String
   sourceVersion String   @map("source_version")
-  active        Boolean  @default(true)
-  isPilot       Boolean  @default(true) @map("is_pilot")
+  sourceLicense String?  @map("source_license")
+  sourceUrl     String?  @map("source_url")
+  geojsonSha256 String?  @map("geojson_sha256")
+  searchTerms   String[] @default([]) @map("search_terms")
+  active        Boolean  @default(false)
+  isPilot       Boolean  @default(false) @map("is_pilot")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
+  buyerDesiredAreas   BuyerDesiredServiceArea[]
+  childRelationships  ServiceAreaRelationship[] @relation("ServiceAreaRelationshipChild")
+  parentRelationships ServiceAreaRelationship[] @relation("ServiceAreaRelationshipParent")
+
+  @@unique([marketId, slug])
+  @@unique([marketId, postalCode])
+  @@index([marketId, active, type])
   @@index([active, type])
   @@index([postalCode])
   @@map("service_areas")
+}
+
+model ServiceAreaRelationship {
+  parentServiceAreaId String                  @map("parent_service_area_id") @db.Uuid
+  childServiceAreaId  String                  @map("child_service_area_id") @db.Uuid
+  relationType        ServiceAreaRelationType @default(DISPLAY_PARENT) @map("relation_type")
+  source              String
+  reviewedAt          DateTime?               @map("reviewed_at")
+  createdAt           DateTime                @default(now()) @map("created_at")
+  updatedAt           DateTime                @default(now()) @updatedAt @map("updated_at")
+
+  parentServiceArea ServiceArea @relation("ServiceAreaRelationshipParent", fields: [parentServiceAreaId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  childServiceArea  ServiceArea @relation("ServiceAreaRelationshipChild", fields: [childServiceAreaId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@id([parentServiceAreaId, childServiceAreaId, relationType])
+  @@index([childServiceAreaId, relationType, reviewedAt])
+  @@index([parentServiceAreaId, relationType, reviewedAt])
+  @@map("service_area_relationships")
+}
+
+model BuyerDesiredServiceArea {
+  buyerProfileId String                        @map("buyer_profile_id")
+  serviceAreaId  String                        @map("service_area_id") @db.Uuid
+  source         BuyerDesiredServiceAreaSource @default(SELECTED)
+  isPrimary      Boolean                       @default(true) @map("is_primary")
+  createdAt      DateTime                      @default(now()) @map("created_at")
+  updatedAt      DateTime                      @default(now()) @updatedAt @map("updated_at")
+
+  buyerProfile BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  serviceArea  ServiceArea  @relation(fields: [serviceAreaId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@id([buyerProfileId, serviceAreaId])
+  @@unique([buyerProfileId])
+  @@index([serviceAreaId, buyerProfileId])
+  @@map("buyer_desired_service_areas")
+}
+
+model ServiceAreaMigrationQuarantine {
+  id                      String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  buyerProfileId          String       @unique @map("buyer_profile_id")
+  buyerProfile            BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  reason                  String
+  candidateServiceAreaIds Json         @default("[]") @map("candidate_service_area_ids")
+  legacyLocation          Json         @default("{}") @map("legacy_location")
+  resolution              Json?
+  resolvedAt              DateTime?    @map("resolved_at")
+  createdAt               DateTime     @default(now()) @map("created_at")
+  updatedAt               DateTime     @default(now()) @updatedAt @map("updated_at")
+
+  @@index([reason, resolvedAt])
+  @@map("service_area_migration_quarantine")
 }
 
 model BuyerCriteria {

@@ -1,15 +1,16 @@
 import Link from "next/link";
-import type { SelectedMapArea } from "../lib/map-area";
+import type { MarketMapContext, SelectedMapArea } from "../lib/map-area";
 import type { Buyer } from "../lib/mock-data";
 import { mapPinPosition } from "../lib/mapbox";
 
 type Props = {
   buyers: Buyer[];
   label?: string;
+  market: MarketMapContext;
   selectedServiceArea?: SelectedMapArea | null;
 };
 
-export function StaticBuyerMap({ buyers, label = "Approximate pins", selectedServiceArea = null }: Props) {
+export function StaticBuyerMap({ buyers, label = "Approximate pins", market, selectedServiceArea = null }: Props) {
   const hasSelectedArea = Boolean(selectedServiceArea);
   const areaLabel = selectedServiceArea ? selectedServiceArea.label : label;
 
@@ -18,7 +19,7 @@ export function StaticBuyerMap({ buyers, label = "Approximate pins", selectedSer
       <div className="map-toolbar">
         <div>
           <strong>Buyer demand map</strong>
-          <span className="muted">{buyers.length} active buyers in the San Fernando Valley pilot</span>
+          <span className="muted">{buyers.length} active buyers in {market.label} service areas</span>
         </div>
         <div className="map-toolbar-pills">
           <span>{areaLabel}</span>

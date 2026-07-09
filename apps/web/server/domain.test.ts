@@ -30,11 +30,17 @@ describe("seller buyer search", () => {
     ]);
   });
 
-  it("filters by city and property subtype", () => {
-    const results = searchBuyerDirectory({ city: "Northridge", propertySubtype: "HOME" });
+  it("does not use legacy city, coordinate, or radius query keys", () => {
+    const baseline = searchBuyerDirectory({}).map((buyer) => buyer.id);
+    const results = searchBuyerDirectory({
+      centerLat: 33.5387,
+      centerLng: -112.186,
+      city: "Glendale",
+      radiusMiles: 1,
+      state: "AZ",
+    });
 
-    expect(results).toHaveLength(1);
-    expect(results[0]?.id).toBe("julie-p");
+    expect(results.map((buyer) => buyer.id)).toEqual(baseline);
   });
 
   it("filters by the expanded v1 property subtype choices", () => {
@@ -60,6 +66,22 @@ describe("seller buyer search", () => {
     expect(searchBuyerDirectory({ serviceArea: "91325" }).map((buyer) => buyer.id)).toContain("julie-p");
     expect(searchBuyerDirectory({ serviceArea: "northridge" }).map((buyer) => buyer.id)).toContain("julie-p");
     expect(searchBuyerDirectory({ serviceArea: "glendale" }).map((buyer) => buyer.id)).not.toContain("julie-p");
+  });
+
+  it("uses persisted service-area slugs before legacy location text", () => {
+    const studioCityBuyer: Buyer = {
+      ...buyers[0],
+      city: "Burbank",
+      id: "studio-city-selected",
+      location: "Burbank, CA",
+      postalCode: "91502",
+      serviceAreaSlugs: ["91604"],
+    };
+
+    expect(searchBuyerDirectory({ serviceArea: "91604" }, [studioCityBuyer]).map((buyer) => buyer.id)).toEqual([
+      "studio-city-selected",
+    ]);
+    expect(searchBuyerDirectory({ serviceArea: "burbank" }, [studioCityBuyer])).toEqual([]);
   });
 
   it("returns no buyers for unsupported service area slugs", () => {
@@ -110,29 +132,6 @@ describe("seller buyer search", () => {
     expect(searchBuyerDirectory({ budgetMin: 1_000_000, budgetMax: 1_500_000 }).map((buyer) => buyer.id)).toEqual([
       "marcus-r",
     ]);
-  });
-
-  it("filters by radius when a coordinate center is supplied", () => {
-    const results = searchBuyerDirectory({
-      centerLat: 34.2381,
-      centerLng: -118.5301,
-      radiusMiles: 10,
-    });
-
-    expect(results.map((buyer) => buyer.id)).toContain("julie-p");
-    expect(results.map((buyer) => buyer.id)).not.toContain("asha-k");
-  });
-
-  it("uses radius instead of exact city when both are supplied", () => {
-    const results = searchBuyerDirectory({
-      centerLat: 34.1486,
-      centerLng: -118.4484,
-      city: "Sherman Oaks",
-      radiusMiles: 8,
-    });
-
-    expect(results.map((buyer) => buyer.id)).toContain("marcus-r");
-    expect(results.map((buyer) => buyer.id)).toContain("julie-p");
   });
 
   it("excludes the current seller's own buyer profile", () => {

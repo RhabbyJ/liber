@@ -151,6 +151,8 @@ A searchable buyer profile may include:
 - active trust badges,
 - rating/review count if supported by real eligible interactions.
 
+A buyer profile may become or remain searchable only when it has exactly one primary, buyer-confirmed service-area selection in an active market. The server derives location display fields and approximate coordinates from that canonical service-area row. Clearing the selection, selecting an unsupported/out-of-market area, or deactivating its market keeps the profile out of seller search and public previews.
+
 Buyer profile intent is purchase-only in v1. Rental/tenant demand is out of scope and must not be offered as a buyer signup or profile purpose.
 
 A buyer profile must not expose:
@@ -175,6 +177,7 @@ Seller search must:
 - default approved sellers into a map-first buyer-demand workspace,
 - use the same result set for list and map views,
 - support location/geography filtering by Liber-supported service areas,
+- scope geography by an explicit active market and canonical service-area selection,
 - support structured property-fit filters,
 - support active trust-badge filters,
 - rate-limit abuse-prone usage,

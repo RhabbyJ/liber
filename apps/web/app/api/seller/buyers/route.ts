@@ -18,12 +18,11 @@ export async function GET(request: Request) {
     bedrooms: searchParams.get("bedrooms") || undefined,
     budgetMax: searchParams.get("budgetMax") || undefined,
     budgetMin: searchParams.get("budgetMin") || undefined,
-    city: searchParams.get("city") || undefined,
     condition: searchParams.get("condition") || undefined,
+    market: searchParams.get("market") || undefined,
     serviceArea: searchParams.get("service_area") || searchParams.get("serviceArea") || undefined,
     sort: searchParams.get("sort") || undefined,
     squareFeet: searchParams.get("squareFeet") || undefined,
-    state: searchParams.get("state") || undefined,
   };
 
   try {

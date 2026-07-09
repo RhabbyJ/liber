@@ -42,6 +42,7 @@ import {
   normalizeBuyerAlias,
   randomBuyerAlias,
 } from "../lib/buyer-alias";
+import { buyerLocationFromSelectedServiceArea } from "./canonical-buyer-location";
 import { hasRole, type SessionUser } from "./authz";
 import {
   canViewBuyerDirectory,
@@ -60,7 +61,12 @@ import {
 } from "./ownership-evidence";
 import { assertRateLimit } from "./rate-limit";
 import { getSessionUser } from "./session";
-import { getActiveServiceAreaBySlug, type ServiceAreaResult } from "./service-areas";
+import {
+  getActiveServiceAreaBySlug,
+  getSearchCoverageServiceAreaIds,
+} from "./service-areas";
+import { normalizeInput } from "./normalize-input";
+import { activePrimaryServiceAreaWhere } from "./service-area-matching";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
 import { redirect } from "next/navigation";
 
@@ -242,13 +248,23 @@ function buyerFromDb(profile: {
     squareFeetMin: number | null;
     yearBuiltMin: number | null;
   }>;
-  desiredCity: string | null;
-  desiredLat: unknown;
-  desiredLng: unknown;
-  desiredLocationText: string | null;
-  desiredNeighborhood: string | null;
-  desiredPostalCode: string | null;
-  desiredState: string | null;
+  desiredServiceAreas?: Array<{
+    isPrimary: boolean;
+    serviceArea: {
+      active: boolean;
+      centerLat: number;
+      centerLng: number;
+      city: string | null;
+      id: string;
+      label: string;
+      market: { active: boolean; slug: string };
+      postalCode: string | null;
+      slug: string;
+      state: string;
+      type: string;
+    };
+    source: string;
+  }>;
   displayName: string;
   downPaymentMax: unknown;
   downPaymentMin: unknown;
@@ -260,18 +276,21 @@ function buyerFromDb(profile: {
   visibilityStatus: string;
 }): Buyer {
   const criteria = criteriaLabels(profile.criteria);
-  const cityState = [profile.desiredCity, profile.desiredState].filter(Boolean).join(", ");
+  const primaryServiceArea = profile.desiredServiceAreas?.find(
+    (area) => area.isPrimary && area.source === "SELECTED",
+  )?.serviceArea;
+  const canonicalLocation = buyerLocationFromSelectedServiceArea(primaryServiceArea);
 
   return {
     id: profile.id,
     avatarVariant: profile.user?.avatarVariant ?? undefined,
     userId: profile.userId,
     name: buyerAliasForDisplay(profile.displayName, profile.userId),
-    location: profile.desiredLocationText || cityState,
-    city: profile.desiredCity || "",
-    neighborhood: profile.desiredNeighborhood ?? undefined,
-    postalCode: profile.desiredPostalCode ?? undefined,
-    state: profile.desiredState || "",
+    location: canonicalLocation.location,
+    city: canonicalLocation.city,
+    neighborhood: canonicalLocation.neighborhood,
+    postalCode: canonicalLocation.postalCode,
+    state: canonicalLocation.state,
     type: displayPurchaseType(profile.buyerType),
     purpose: displaySeekingPropertyType(profile.buyingPurpose),
     visibility: visibilityFromDb(profile.visibilityStatus),
@@ -287,8 +306,20 @@ function buyerFromDb(profile: {
     criteriaDetails: criteriaDetails(profile.criteria),
     propertySubtypes: Array.from(new Set(profile.criteria.map((item) => item.propertySubtype))),
     refreshedAt: dateKey(profile.lastRefreshedAt ?? profile.updatedAt),
-    lat: toNumber(profile.desiredLat),
-    lng: toNumber(profile.desiredLng),
+    primaryServiceArea: primaryServiceArea
+      ? {
+          active: canonicalLocation.active,
+          center: { lat: primaryServiceArea.centerLat, lng: primaryServiceArea.centerLng },
+          id: primaryServiceArea.id,
+          marketSlug: primaryServiceArea.market.slug,
+          slug: primaryServiceArea.slug,
+        }
+      : undefined,
+    serviceAreaSlugs: (profile.desiredServiceAreas ?? [])
+      .filter((area) => area.source === "SELECTED" && area.isPrimary)
+      .map((area) => area.serviceArea.slug),
+    lat: canonicalLocation.lat,
+    lng: canonicalLocation.lng,
   };
 }
 
@@ -318,6 +349,7 @@ function emptyBuyerForUser(user: SessionUser, avatarVariant?: string | null): Bu
     criteriaDetails: [],
     propertySubtypes: [],
     refreshedAt: "",
+    serviceAreaSlugs: [],
     lat: 0,
     lng: 0,
   };
@@ -472,57 +504,24 @@ async function createVerificationSignedUrl(storagePath: string) {
   return data.signedUrl;
 }
 
-async function buyerProfileIdsWithinRadius(filters: SearchBuyersInput) {
-  if (
-    filters.centerLat === undefined ||
-    filters.centerLng === undefined ||
-    filters.radiusMiles === undefined
-  ) {
-    return null;
-  }
-
-  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
-    SELECT bp.id
-    FROM public."BuyerProfile" bp
-    WHERE bp."visibilityStatus" = 'ACTIVE'
-      AND bp."desiredLng" IS NOT NULL
-      AND bp."desiredLat" IS NOT NULL
-      AND ST_DWithin(
-        geography(
-          ST_SetSRID(
-            ST_MakePoint(
-              CAST(bp."desiredLng" AS double precision),
-              CAST(bp."desiredLat" AS double precision)
-            ),
-            4326
-          )
-        ),
-        geography(ST_SetSRID(ST_MakePoint(${filters.centerLng}, ${filters.centerLat}), 4326)),
-        ${filters.radiusMiles} * 1609.344
-      )
-  `;
-
-  return rows.map((row) => row.id);
-}
-
 async function searchDbBuyerProfiles(filters: SearchBuyersInput, excludeUserId?: string) {
-  const serviceArea = filters.serviceArea ? await getActiveServiceAreaBySlug(filters.serviceArea) : null;
+  const serviceArea = filters.serviceArea
+    ? await getActiveServiceAreaBySlug(filters.serviceArea, filters.market)
+    : null;
   if (filters.serviceArea && !serviceArea) return [];
-
-  const radiusIds = serviceArea ? null : await buyerProfileIdsWithinRadius(filters);
-  if (radiusIds && radiusIds.length === 0) return [];
+  const coverageAreaIds = serviceArea
+    ? await getSearchCoverageServiceAreaIds(serviceArea.id, filters.market)
+    : [];
 
   const where: Prisma.BuyerProfileWhereInput = {
     visibilityStatus: "ACTIVE",
+    ...activePrimaryServiceAreaWhere(filters.market),
   };
   const and: Prisma.BuyerProfileWhereInput[] = [];
-  const hasRadiusFilter = radiusIds !== null;
-
   if (excludeUserId) where.userId = { not: excludeUserId };
-  if (serviceArea) and.push(serviceAreaBuyerWhere(serviceArea));
-  if (radiusIds) and.push({ id: { in: radiusIds } });
-  if (!serviceArea && !hasRadiusFilter && filters.city) where.desiredCity = { equals: filters.city, mode: "insensitive" };
-  if (!serviceArea && !hasRadiusFilter && filters.state) where.desiredState = filters.state.toUpperCase();
+  if (serviceArea) {
+    and.push(activePrimaryServiceAreaWhere(filters.market, coverageAreaIds));
+  }
   if (filters.budgetMin !== undefined) {
     and.push({
       budgetMax: { gte: new Prisma.Decimal(filters.budgetMin) },
@@ -567,80 +566,16 @@ async function searchDbBuyerProfiles(filters: SearchBuyersInput, excludeUserId?:
     take: 100,
   });
 
-  const directoryFilters = serviceArea ? withoutGeographyFilters(filters) : filters;
-  return searchBuyerDirectory(directoryFilters, profiles.map((profile: DbBuyerProfile) => buyerFromDb(profile)), { excludeUserId });
+  const directoryFilters = serviceArea ? withoutServiceAreaFilter(filters) : filters;
+  return searchBuyerDirectory(
+    directoryFilters,
+    profiles.map((profile: DbBuyerProfile) => buyerFromDb(profile)),
+    { excludeUserId },
+  );
 }
 
-function serviceAreaBuyerWhere(area: ServiceAreaResult): Prisma.BuyerProfileWhereInput {
-  const [west, south, east, north] = area.bbox;
-  const pointWithinBbox: Prisma.BuyerProfileWhereInput = {
-    desiredLat: { gte: new Prisma.Decimal(south), lte: new Prisma.Decimal(north) },
-    desiredLng: { gte: new Prisma.Decimal(west), lte: new Prisma.Decimal(east) },
-  };
-
-  if (area.type === "zip" && area.postalCode) {
-    return {
-      OR: [
-        { desiredPostalCode: area.postalCode },
-        {
-          AND: [
-            { desiredPostalCode: null },
-            {
-              OR: [
-                { desiredLocationText: { contains: area.postalCode, mode: "insensitive" } },
-                pointWithinBbox,
-              ],
-            },
-          ],
-        },
-      ],
-    };
-  }
-
-  if (area.type === "neighborhood") {
-    return {
-      OR: [
-        { desiredNeighborhood: { equals: area.label, mode: "insensitive" } },
-        {
-          AND: [
-            { desiredNeighborhood: null },
-            {
-              OR: [
-                { desiredCity: { equals: area.label, mode: "insensitive" } },
-                { desiredLocationText: { contains: area.label, mode: "insensitive" } },
-                pointWithinBbox,
-              ],
-            },
-          ],
-        },
-      ],
-    };
-  }
-
-  if (area.type === "city") {
-    const city = area.city ?? area.label;
-    return {
-      OR: [
-        { desiredCity: { equals: city, mode: "insensitive" } },
-        { desiredLocationText: { contains: area.label, mode: "insensitive" } },
-        pointWithinBbox,
-      ],
-    };
-  }
-
-  return pointWithinBbox;
-}
-
-function withoutGeographyFilters(filters: SearchBuyersInput): SearchBuyersInput {
-  const {
-    centerLat: _centerLat,
-    centerLng: _centerLng,
-    city: _city,
-    radiusMiles: _radiusMiles,
-    serviceArea: _serviceArea,
-    state: _state,
-    ...rest
-  } = filters;
+function withoutServiceAreaFilter(filters: SearchBuyersInput): SearchBuyersInput {
+  const { serviceArea: _serviceArea, ...rest } = filters;
   return rest;
 }
 
@@ -708,6 +643,27 @@ function inviteFromDb(invite: {
 const buyerInclude = {
   badges: true,
   criteria: true,
+  desiredServiceAreas: {
+    select: {
+      isPrimary: true,
+      source: true,
+      serviceArea: {
+        select: {
+          centerLat: true,
+          centerLng: true,
+          active: true,
+          city: true,
+          id: true,
+          label: true,
+          market: { select: { active: true, slug: true } },
+          postalCode: true,
+          slug: true,
+          state: true,
+          type: true,
+        },
+      },
+    },
+  },
   user: { select: { avatarVariant: true } },
 } as const;
 
@@ -757,40 +713,6 @@ async function auditSecurityEvent(
   });
 }
 
-function normalizeInput(input: unknown) {
-  if (!(input instanceof FormData)) return input;
-
-  const output: Record<string, unknown> = {};
-
-  for (const key of Array.from(input.keys())) {
-    const values = input.getAll(key).filter((value) => value !== "");
-    if (values.length === 0) continue;
-
-    output[key] = values.length > 1 ? values : values[0];
-  }
-
-  if (typeof output.features === "string" || Array.isArray(output.features)) {
-    const rawFeatures = Array.isArray(output.features) ? output.features : [output.features];
-    output.features = Array.from(new Set(
-      rawFeatures
-        .filter((value): value is string => typeof value === "string")
-        .flatMap((value) => value.split(","))
-        .map((value) => value.trim())
-        .filter(Boolean),
-    ));
-  }
-
-  if (typeof output.termsAccepted === "string") {
-    output.termsAccepted = output.termsAccepted === "true" || output.termsAccepted === "on";
-  }
-
-  if (typeof output.ownershipConfirmed === "string") {
-    output.ownershipConfirmed = output.ownershipConfirmed === "true" || output.ownershipConfirmed === "on";
-  }
-
-  return output;
-}
-
 function buyerVerificationDocumentType(value: unknown): BuyerVerificationDocumentType {
   if (typeof value === "string" && buyerVerificationDocumentTypes.has(value)) {
     return value as BuyerVerificationDocumentType;
@@ -801,58 +723,190 @@ function buyerVerificationDocumentType(value: unknown): BuyerVerificationDocumen
 async function upsertDbBuyerProfile(user: SessionUser, data: Partial<CreateBuyerProfileInput>) {
   const existing = await prisma.buyerProfile.findUnique({
     where: { userId: user.id },
-    select: { displayName: true, visibilityStatus: true },
+    select: { displayName: true, id: true, visibilityStatus: true },
   });
   const displayName = normalizeBuyerAlias(existing?.displayName) ?? buyerAliasFromSeed(user.id);
-  const visibilityUpdate =
-    data.visibilityStatus === undefined || !buyerCanUpdateVisibility(existing?.visibilityStatus)
-      ? {}
-      : { visibilityStatus: editableBuyerVisibilityStatus(data.visibilityStatus) };
-  const profile = await prisma.buyerProfile.upsert({
-    where: { userId: user.id },
-    update: {
-      bio: data.bio,
-      budgetMax: data.budgetMax,
-      budgetMin: data.budgetMin,
-      buyerType: data.buyerType,
-      buyingPurpose: data.buyingPurpose,
-      desiredCity: data.desiredCity,
-      desiredLat: data.desiredLat,
-      desiredLng: data.desiredLng,
-      desiredLocationText: data.desiredLocationText,
-      desiredNeighborhood: data.desiredNeighborhood,
-      desiredPostalCode: data.desiredPostalCode,
-      desiredState: data.desiredState,
-      displayName,
-      downPaymentMax: data.downPaymentMax,
-      downPaymentMin: data.downPaymentMin,
-      lastRefreshedAt: new Date(),
-      ...visibilityUpdate,
-    },
-    create: {
-      bio: data.bio,
-      budgetMax: data.budgetMax,
-      budgetMin: data.budgetMin,
-      buyerType: data.buyerType,
-      buyingPurpose: data.buyingPurpose,
-      desiredCity: data.desiredCity,
-      desiredLat: data.desiredLat,
-      desiredLng: data.desiredLng,
-      desiredLocationText: data.desiredLocationText,
-      desiredNeighborhood: data.desiredNeighborhood,
-      desiredPostalCode: data.desiredPostalCode,
-      desiredState: data.desiredState,
-      displayName,
-      downPaymentMax: data.downPaymentMax,
-      downPaymentMin: data.downPaymentMin,
-      lastRefreshedAt: new Date(),
-      userId: user.id,
-      visibilityStatus: editableBuyerVisibilityStatus(data.visibilityStatus),
-    },
-    include: buyerInclude,
+  const selectionChanged = data.desiredServiceAreaSlug !== undefined;
+  const profile = await prisma.$transaction(async (tx) => {
+    const canonicalArea = selectionChanged
+      ? await resolveCanonicalBuyerServiceArea(tx, data.desiredServiceAreaSlug, data.desiredMarketSlug)
+      : await currentCanonicalBuyerServiceArea(tx, existing?.id);
+    const requestedVisibility = data.visibilityStatus === undefined
+      ? editableBuyerVisibilityStatus(existing?.visibilityStatus)
+      : editableBuyerVisibilityStatus(data.visibilityStatus);
+    const editableVisibility = buyerCanUpdateVisibility(existing?.visibilityStatus)
+      ? requestedVisibility === "ACTIVE" && !canonicalArea ? "DRAFT" : requestedVisibility
+      : existing?.visibilityStatus;
+    const canonicalLocationUpdate = selectionChanged ? canonicalBuyerLocationData(canonicalArea) : {};
+
+    const savedProfile = await tx.buyerProfile.upsert({
+      where: { userId: user.id },
+      update: {
+        bio: data.bio,
+        budgetMax: data.budgetMax,
+        budgetMin: data.budgetMin,
+        buyerType: data.buyerType,
+        buyingPurpose: data.buyingPurpose,
+        ...canonicalLocationUpdate,
+        displayName,
+        downPaymentMax: data.downPaymentMax,
+        downPaymentMin: data.downPaymentMin,
+        lastRefreshedAt: new Date(),
+        ...(editableVisibility ? { visibilityStatus: editableVisibility } : {}),
+      },
+      create: {
+        bio: data.bio,
+        budgetMax: data.budgetMax,
+        budgetMin: data.budgetMin,
+        buyerType: data.buyerType,
+        buyingPurpose: data.buyingPurpose,
+        ...canonicalBuyerLocationData(canonicalArea),
+        displayName,
+        downPaymentMax: data.downPaymentMax,
+        downPaymentMin: data.downPaymentMin,
+        lastRefreshedAt: new Date(),
+        userId: user.id,
+        visibilityStatus: editableVisibility === "ACTIVE" ? "ACTIVE" : "DRAFT",
+      },
+      include: buyerInclude,
+    });
+
+    if (selectionChanged) {
+      await syncBuyerDesiredServiceArea(tx, savedProfile.id, canonicalArea, user.id);
+    }
+
+    return tx.buyerProfile.findUniqueOrThrow({
+      where: { id: savedProfile.id },
+      include: buyerInclude,
+    });
   });
 
   return buyerFromDb(profile);
+}
+
+async function syncBuyerDesiredServiceArea(
+  tx: Prisma.TransactionClient,
+  buyerProfileId: string,
+  serviceArea: CanonicalBuyerServiceArea | null,
+  resolvedByUserId: string,
+) {
+  await tx.buyerDesiredServiceArea.deleteMany({ where: { buyerProfileId } });
+  if (!serviceArea) return;
+  await tx.buyerDesiredServiceArea.create({
+    data: {
+      buyerProfileId,
+      isPrimary: true,
+      serviceAreaId: serviceArea.id,
+      source: "SELECTED",
+    },
+  });
+  await tx.serviceAreaMigrationQuarantine.updateMany({
+    where: { buyerProfileId, resolvedAt: null },
+    data: {
+      resolution: {
+        actorUserId: resolvedByUserId,
+        serviceAreaId: serviceArea.id,
+        source: "BUYER_CONFIRMED",
+      },
+      resolvedAt: new Date(),
+    },
+  });
+}
+
+type CanonicalBuyerServiceArea = {
+  centerLat: number;
+  centerLng: number;
+  city: string | null;
+  id: string;
+  label: string;
+  market: { slug: string };
+  postalCode: string | null;
+  slug: string;
+  state: string;
+  type: string;
+};
+
+const canonicalBuyerServiceAreaSelect = {
+  centerLat: true,
+  centerLng: true,
+  city: true,
+  id: true,
+  label: true,
+  market: { select: { slug: true } },
+  postalCode: true,
+  slug: true,
+  state: true,
+  type: true,
+} as const;
+
+async function resolveCanonicalBuyerServiceArea(
+  tx: Prisma.TransactionClient,
+  serviceAreaSlug: string | null | undefined,
+  marketSlug: string | null | undefined,
+): Promise<CanonicalBuyerServiceArea | null> {
+  const normalizedSlug = serviceAreaSlug?.trim().toLowerCase();
+  if (!normalizedSlug) return null;
+  const normalizedMarket = marketSlug?.trim().toLowerCase();
+  if (!normalizedMarket) throw new Error("A market is required for the selected service area.");
+
+  const serviceArea = await tx.serviceArea.findFirst({
+    where: {
+      active: true,
+      slug: normalizedSlug,
+      market: { active: true, slug: normalizedMarket },
+    },
+    select: canonicalBuyerServiceAreaSelect,
+  });
+  if (!serviceArea) throw new Error("Unsupported service area for this market.");
+  return serviceArea;
+}
+
+async function currentCanonicalBuyerServiceArea(
+  tx: Prisma.TransactionClient,
+  buyerProfileId?: string,
+): Promise<CanonicalBuyerServiceArea | null> {
+  if (!buyerProfileId) return null;
+  const selected = await tx.buyerDesiredServiceArea.findFirst({
+    where: {
+      buyerProfileId,
+      isPrimary: true,
+      source: "SELECTED",
+      serviceArea: { active: true, market: { active: true } },
+    },
+    select: {
+      serviceArea: {
+        select: canonicalBuyerServiceAreaSelect,
+      },
+    },
+  });
+  return selected?.serviceArea ?? null;
+}
+
+function canonicalBuyerLocationData(serviceArea: CanonicalBuyerServiceArea | null) {
+  if (!serviceArea) {
+    return {
+      desiredCity: null,
+      desiredLat: null,
+      desiredLng: null,
+      desiredLocationText: null,
+      desiredNeighborhood: null,
+      desiredPostalCode: null,
+      desiredState: null,
+    };
+  }
+
+  const city = serviceArea.type === "neighborhood" ? serviceArea.label : serviceArea.city ?? serviceArea.label;
+  return {
+    desiredCity: city,
+    desiredLat: serviceArea.centerLat,
+    desiredLng: serviceArea.centerLng,
+    desiredLocationText: serviceArea.type === "zip" && serviceArea.postalCode
+      ? `${city}, ${serviceArea.state} ${serviceArea.postalCode}`
+      : `${serviceArea.label}, ${serviceArea.state}`,
+    desiredNeighborhood: serviceArea.type === "neighborhood" ? serviceArea.label : null,
+    desiredPostalCode: serviceArea.postalCode,
+    desiredState: serviceArea.state,
+  };
 }
 
 export async function createBuyerProfile(input: unknown) {
@@ -962,6 +1016,19 @@ export async function setBuyerProfileVisibility(input: unknown) {
   });
   if (!buyerCanUpdateVisibility(existing?.visibilityStatus)) {
     throw new Error("This profile visibility is controlled by admin review.");
+  }
+  if (data.visibilityStatus === "ACTIVE") {
+    const selectedCount = await prisma.buyerDesiredServiceArea.count({
+      where: {
+        buyerProfile: { userId: user.id },
+        isPrimary: true,
+        source: "SELECTED",
+        serviceArea: { active: true, market: { active: true } },
+      },
+    });
+    if (selectedCount !== 1) {
+      throw new Error("Choose an active Liber service area before publishing your profile.");
+    }
   }
   const profile = await prisma.buyerProfile.update({
     where: { userId: user.id },
@@ -1092,7 +1159,7 @@ export async function getBuyerProfileForSeller(buyerProfileId: string) {
   const seller = await requireApprovedSellerAccess();
   await assertAuditRateLimit(seller, "buyer_profile_view", 120, 60 * 60_000);
   const buyer = await prisma.buyerProfile.findFirst({
-    where: { id: buyerProfileId, visibilityStatus: "ACTIVE" },
+    where: { id: buyerProfileId, visibilityStatus: "ACTIVE", ...activePrimaryServiceAreaWhere() },
     include: buyerInclude,
   });
   if (!buyer) throw new Error("Buyer profile not found.");
@@ -1104,7 +1171,7 @@ export async function getPublicBuyerProfile(buyerProfileId: string) {
   const user = await requireAuthenticatedUser();
   await assertAuditRateLimit(user, "buyer_profile_view", 120, 60 * 60_000);
   const buyer = await prisma.buyerProfile.findFirst({
-    where: { id: buyerProfileId, visibilityStatus: "ACTIVE" },
+    where: { id: buyerProfileId, visibilityStatus: "ACTIVE", ...activePrimaryServiceAreaWhere() },
     include: buyerInclude,
   });
 
@@ -1333,7 +1400,7 @@ export async function sendInvite(input: unknown) {
   const data = sendInviteSchema.parse(normalizeInput(input));
   const [buyer, property, sentInviteCountToday, activeDuplicate] = await Promise.all([
     prisma.buyerProfile.findFirst({
-      where: { id: data.buyerProfileId, visibilityStatus: "ACTIVE" },
+      where: { id: data.buyerProfileId, visibilityStatus: "ACTIVE", ...activePrimaryServiceAreaWhere() },
       include: buyerInclude,
     }),
     prisma.sellerProperty.findFirst({

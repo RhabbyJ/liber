@@ -57,6 +57,14 @@ export type Buyer = {
   criteriaDetails: BuyerCriteriaDetail[];
   propertySubtypes: PropertySubtype[];
   refreshedAt: string;
+  primaryServiceArea?: {
+    active?: boolean;
+    center: { lat: number; lng: number };
+    id: string;
+    marketSlug: string;
+    slug: string;
+  };
+  serviceAreaSlugs?: string[];
   lat: number;
   lng: number;
 };
@@ -85,6 +93,13 @@ export const buyers: Buyer[] = [
     criteriaDetails: [{ propertyCategory: "HOME", propertySubtype: "HOME", bedroomsMin: 4, bathroomsMin: 2 }],
     propertySubtypes: ["HOME"],
     refreshedAt: "2026-05-18",
+    primaryServiceArea: {
+      center: { lat: 34.233923, lng: -118.519279 },
+      id: "fixture-91325",
+      marketSlug: "los-angeles",
+      slug: "91325",
+    },
+    serviceAreaSlugs: ["91325", "northridge"],
     lat: 34.2381,
     lng: -118.5301,
     badges: [
@@ -115,6 +130,13 @@ export const buyers: Buyer[] = [
     criteriaDetails: [{ propertyCategory: "HOME", propertySubtype: "HOME" }],
     propertySubtypes: ["HOME"],
     refreshedAt: "2026-05-17",
+    primaryServiceArea: {
+      center: { lat: 34.1467, lng: -118.433314 },
+      id: "fixture-91423",
+      marketSlug: "los-angeles",
+      slug: "91423",
+    },
+    serviceAreaSlugs: ["91423"],
     lat: 34.1486,
     lng: -118.4484,
     badges: [

@@ -10,29 +10,25 @@ import { SellerMapLocationSearch } from "../../../components/seller-map-location
 import { SortSelect } from "../../../components/sort-select";
 import { selectedMapArea } from "../../../lib/map-area";
 import { propertySubtypeLabel } from "../../../lib/property-types";
+import { DEFAULT_MARKET_SLUG, serviceAreaDisplayLabel } from "../../../lib/service-areas";
 import { canViewBuyerDirectory } from "../../../server/access";
 import { getCurrentSellerAccess, searchBuyers } from "../../../server/contracts";
-import { getActiveServiceAreaBySlug } from "../../../server/service-areas";
+import { getActiveMarketBySlug, getActiveServiceAreaBySlug } from "../../../server/service-areas";
 import { getSessionUser } from "../../../server/session";
 
 type SellerSearchParams = {
   amenities?: string | string[];
-  area?: string;
   badges?: string | string[];
   bathrooms?: string;
   bedrooms?: string;
   budgetMin?: string;
   budgetMax?: string;
-  centerLat?: string;
-  centerLng?: string;
-  city?: string;
   condition?: string;
+  market?: string;
   propertySubtype?: string;
-  radiusMiles?: string;
   serviceArea?: string;
   sort?: string;
   squareFeet?: string;
-  state?: string;
   view?: string;
 };
 
@@ -86,8 +82,12 @@ export default async function SellerSearchPage({
   const badges = Array.isArray(params.badges) ? params.badges : params.badges ? [params.badges] : [];
   const amenities = Array.isArray(params.amenities) ? params.amenities : params.amenities ? [params.amenities] : [];
   const sort = sellerSortParam(params.sort);
+  const marketSlug = serviceAreaParam(params.market) ?? DEFAULT_MARKET_SLUG;
+  const market = await getActiveMarketBySlug(marketSlug);
   const requestedServiceArea = serviceAreaParam(params.serviceArea);
-  const selectedServiceArea = requestedServiceArea ? await getActiveServiceAreaBySlug(requestedServiceArea) : null;
+  const selectedServiceArea = requestedServiceArea
+    ? await getActiveServiceAreaBySlug(requestedServiceArea, market.slug)
+    : null;
   const selectedMapServiceArea = selectedMapArea(selectedServiceArea);
   const { data: results } = await searchBuyers({
     amenities,
@@ -96,17 +96,22 @@ export default async function SellerSearchPage({
     bedrooms: params.bedrooms || undefined,
     budgetMin: params.budgetMin || undefined,
     budgetMax: params.budgetMax || undefined,
-    city: params.city || undefined,
     condition: params.condition || undefined,
+    market: market.slug,
     propertySubtype: params.propertySubtype || undefined,
     serviceArea: requestedServiceArea,
     sort,
     squareFeet: params.squareFeet || undefined,
-    state: params.state || undefined,
   });
 
-  const activeFilters = buildActiveFilters(params, badges, amenities);
-  const locationLabel = sellerSearchLocationLabel(params);
+  const selectedServiceAreaLabel = selectedServiceArea ? serviceAreaDisplayLabel(selectedServiceArea) : "";
+  const activeFilters = buildActiveFilters(
+    { ...params, market: market.slug },
+    badges,
+    amenities,
+    selectedServiceAreaLabel,
+  );
+  const locationLabel = selectedServiceArea?.label ?? "Matched";
 
   return (
     <div className="page wide seller-profile-search-page">
@@ -120,12 +125,14 @@ export default async function SellerSearchPage({
         <div className="seller-profile-map-column">
           <h1>Showing {results.length} buyers</h1>
           <SellerMapLocationSearch
-            defaultArea={params.area || selectedServiceArea?.label || ""}
+            defaultArea={selectedServiceAreaLabel}
             defaultServiceArea={requestedServiceArea || ""}
+            marketSlug={market.slug}
           />
           <div className="interactive-map-container seller-profile-map-frame">
             <BuyerMap
               buyers={results}
+              market={market}
               selectedServiceArea={selectedMapServiceArea}
               viewerUserId={user?.id}
             />
@@ -143,10 +150,8 @@ export default async function SellerSearchPage({
               <details className="seller-inline-filters">
                 <summary>All Filters</summary>
                 <SearchFiltersSidebar
-                  defaultArea={params.area || ""}
-                  defaultCity={params.city || ""}
+                  defaultArea={selectedServiceAreaLabel}
                   defaultServiceArea={requestedServiceArea || ""}
-                  defaultState={params.state || "CA"}
                   defaultBudgetMin={params.budgetMin || ""}
                   defaultBudgetMax={params.budgetMax || ""}
                   defaultBadges={badges}
@@ -157,6 +162,7 @@ export default async function SellerSearchPage({
                   defaultCondition={params.condition || ""}
                   defaultPropertySubtype={params.propertySubtype || ""}
                   defaultAmenities={amenities}
+                  marketSlug={market.slug}
                 />
               </details>
             </div>
@@ -210,13 +216,18 @@ function serviceAreaParam(value?: string) {
   return /^[a-z0-9-]+$/.test(value) ? value : undefined;
 }
 
-function buildActiveFilters(params: SellerSearchParams, badges: string[], amenities: string[]) {
+function buildActiveFilters(
+  params: SellerSearchParams,
+  badges: string[],
+  amenities: string[],
+  selectedServiceAreaLabel: string,
+) {
   const filters: Array<{ href: string; label: string }> = [];
 
-  if (params.serviceArea || params.area || params.city || (params.centerLat && params.centerLng)) {
+  if (params.serviceArea && selectedServiceAreaLabel) {
     filters.push({
-      href: sellerSearchHrefWithout(params, ["area", "serviceArea", "city", "state", "centerLat", "centerLng", "radiusMiles"]),
-      label: `Location: ${params.area || params.city || "map area"}`,
+      href: sellerSearchHrefWithout(params, ["serviceArea"]),
+      label: `Location: ${selectedServiceAreaLabel}`,
     });
   }
 
@@ -272,7 +283,8 @@ function buildActiveFilters(params: SellerSearchParams, badges: string[], amenit
 
 function sellerSearchHrefWithout(params: SellerSearchParams, remove: string[]) {
   const nextParams = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
+  for (const key of sellerSearchParamKeys) {
+    const value = params[key];
     if (remove.includes(key) || value === undefined || value === "") continue;
     if (Array.isArray(value)) {
       value.forEach((item) => nextParams.append(key, item));
@@ -284,11 +296,21 @@ function sellerSearchHrefWithout(params: SellerSearchParams, remove: string[]) {
   return query ? `/seller/search?${query}` : "/seller/search";
 }
 
-function sellerSearchLocationLabel(params: SellerSearchParams) {
-  if (params.city) return params.city;
-  if (params.area) return params.area.split(",")[0]?.trim() || params.area;
-  return "Matched";
-}
+const sellerSearchParamKeys = [
+  "amenities",
+  "badges",
+  "bathrooms",
+  "bedrooms",
+  "budgetMax",
+  "budgetMin",
+  "condition",
+  "market",
+  "propertySubtype",
+  "serviceArea",
+  "sort",
+  "squareFeet",
+  "view",
+] as const satisfies readonly (keyof SellerSearchParams)[];
 
 function moneyLabel(value?: string) {
   const amount = Number(value);

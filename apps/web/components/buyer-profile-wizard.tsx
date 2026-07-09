@@ -59,6 +59,7 @@ type BuyerForWizard = {
   city: string;
   neighborhood?: string;
   postalCode?: string;
+  state: string;
   lat: string | number;
   lng: string | number;
   budgetMin: number;
@@ -67,18 +68,21 @@ type BuyerForWizard = {
   downPaymentMax: number;
   bio: string;
   criteriaDetails?: CriteriaForWizard[];
+  serviceAreaSlugs?: string[];
   userId?: string;
 };
 
 export function BuyerProfileWizard({
   action,
   buyer,
+  marketSlug,
   previousAvatarAction,
   regenerateAliasAction,
   shuffleAction,
 }: {
   action: (formData: FormData) => Promise<void>;
   buyer: BuyerForWizard;
+  marketSlug: string;
   previousAvatarAction: (formData: FormData) => Promise<void>;
   regenerateAliasAction: (formData: FormData) => Promise<void>;
   shuffleAction: (formData: FormData) => Promise<void>;
@@ -283,21 +287,11 @@ export function BuyerProfileWizard({
       <ProfileFormSection eyebrow="Location" title="Location">
         <div className="form-grid">
           <LocationLookupFields
-            cityName="desiredCity"
-            defaultCity={buyer.city}
-            defaultLat={String(buyer.lat || "")}
-            defaultLng={String(buyer.lng || "")}
             defaultLocation={buyer.location}
-            defaultNeighborhood={buyer.neighborhood}
-            defaultPostalCode={buyer.postalCode}
-            inputName="desiredLocationText"
-            intent="store"
+            defaultServiceAreaSlug={buyer.serviceAreaSlugs?.[0] ?? ""}
+            inputId="desiredServiceAreaSearch"
             label="Search city, neighborhood, or ZIP"
-            latName="desiredLat"
-            lngName="desiredLng"
-            neighborhoodName="desiredNeighborhood"
-            postalCodeName="desiredPostalCode"
-            stateName="desiredState"
+            marketSlug={marketSlug}
           />
         </div>
       </ProfileFormSection>

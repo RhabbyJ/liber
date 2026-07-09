@@ -1,4 +1,3 @@
-import type { Buyer } from "./mock-data";
 import {
   activeServiceAreas,
   findServiceArea,
@@ -18,7 +17,7 @@ export type PilotArea = {
   lng: number;
   radiusMiles: number;
   slug: string;
-  state: "CA";
+  state: string;
   status: "active" | "next";
   type: ServiceArea["type"];
   zip: string;
@@ -26,9 +25,10 @@ export type PilotArea = {
 
 export const pilotAreas: PilotArea[] = activeServiceAreas.map(areaToPilotArea);
 export const activePilotAreas = pilotAreas.filter((area) => area.status === "active" && area.zip);
-export const sfvBoundingBox = "-118.72,34.10,-118.18,34.34";
+export const activeZipAreas = activePilotAreas;
 
 export { normalizeZip, supportedZipText };
+export { approximateBuyerPoint } from "./buyer-map-point";
 
 export function findPilotArea(value: string, _options: { includeNext?: boolean } = {}) {
   const area = findServiceArea(value, serviceAreas);
@@ -36,18 +36,12 @@ export function findPilotArea(value: string, _options: { includeNext?: boolean }
 }
 
 export function isActivePilotZip(zip: string) {
-  const normalizedZip = normalizeZip(zip);
-  return activeServiceAreas.some((area) => area.type === "zip" && area.postalCode === normalizedZip);
+  return isActiveServiceAreaZip(zip);
 }
 
-export function approximateBuyerPoint(buyer: Buyer) {
-  const area = findServiceArea(`${buyer.city} ${buyer.location}`, serviceAreas);
-  if (area) return { lat: area.center.lat, lng: area.center.lng };
-
-  return {
-    lat: roundCoordinate(buyer.lat),
-    lng: roundCoordinate(buyer.lng),
-  };
+export function isActiveServiceAreaZip(zip: string) {
+  const normalizedZip = normalizeZip(zip);
+  return activeServiceAreas.some((area) => area.type === "zip" && area.postalCode === normalizedZip);
 }
 
 function areaToPilotArea(area: ServiceArea): PilotArea {
@@ -65,8 +59,4 @@ function areaToPilotArea(area: ServiceArea): PilotArea {
     type: area.type,
     zip: area.postalCode ?? "",
   };
-}
-
-function roundCoordinate(value: number) {
-  return Number(value.toFixed(2));
 }

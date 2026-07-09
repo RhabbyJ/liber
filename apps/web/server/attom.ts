@@ -1,4 +1,4 @@
-import { isActivePilotZip, normalizeZip, supportedZipText } from "../lib/launch-market";
+import { normalizeZip } from "../lib/service-areas";
 
 export type PropertyFacts = {
   addressLine1?: string;
@@ -16,15 +16,18 @@ export type PropertyFacts = {
 type PropertyLookupInput = {
   addressLine1: string;
   city?: string;
+  market: string;
   state?: string;
   zip: string;
 };
 
 export async function enrichPropertyByAddress(input: PropertyLookupInput) {
   const zip = normalizeZip(input.zip);
-  if (!isActivePilotZip(zip)) {
+  const { getActiveServiceAreaBySlug } = await import("./service-areas");
+  const serviceArea = zip ? await getActiveServiceAreaBySlug(zip, input.market) : null;
+  if (!serviceArea || serviceArea.type !== "zip") {
     return {
-      error: `Property lookup is limited to active pilot ZIPs: ${supportedZipText()}.`,
+      error: "Property lookup is limited to active service-area ZIPs.",
       property: null,
       status: 422,
     };

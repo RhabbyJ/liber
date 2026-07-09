@@ -21,9 +21,15 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - Keep indexes aligned with search and ownership checks.
 - `PropertySubtype` values are `HOME` (displayed as House), `CONDO`, `TOWNHOUSE`, `MANUFACTURED`, and `LAND`.
 - `VerificationDocument.ownershipEvidenceKind` is nullable for legacy/non-ownership documents and typed for new seller ownership evidence.
-- Service-area metadata lives in `public.service_areas`; active rows must have matching static GeoJSON files and RLS enabled for public read of active metadata only.
-- Service-area seed rows belong in the Prisma migration that creates/updates the metadata unless a future explicit, guarded seed workflow is approved.
-- Seller service-area search should use active-profile indexes for exact ZIP/neighborhood/city predicates and graduate to PostGIS when bbox fallback is no longer enough.
+- Market and service-area records use immutable UUID primary keys. Service-area slugs are unique within `market_id`, not globally.
+- Active service-area metadata is public only when its parent market is active. RLS must preserve that rule.
+- Buyer and relationship joins reference service-area UUIDs. Buyers store one primary selection; no copied `DERIVED` rows are allowed.
+- Only reviewed `SEARCH_ROLLUP` relationships affect matching, recursively at query time. Reviewed rollup graph writes serialize per market before cycle validation. Spatial/display relationship types do not affect buyer matches.
+- Buyer profile/selection writes may commit `ACTIVE` only with one primary `SELECTED` area in an active market. Inferred, ambiguous, multiple-selection, and unresolved legacy profiles belong in `service_area_migration_quarantine` and draft status. Deactivating a market or area automatically drafts affected active profiles.
+- Resolving a geography quarantine row preserves the legacy/candidate snapshot and records the selected area, actor, source, and resolution time. Resolution does not delete the row; profile-deletion retention is defined separately with the identity lifecycle.
+- Market state/country, canonical UUIDs, and service-area market membership are immutable. The canonical cutover locks buyer profiles and selections before snapshot/backfill work and revalidates every `ACTIVE` profile before commit.
+- Service-area TS metadata, DB seed rows, and GeoJSON properties/bboxes must stay aligned; add or update validation when touching any of them.
+- Bulk geography import remains disabled until Geography PR2 provides reviewed provenance, deploy-independent geometry, relationship import, inactive staging, and atomic market-bounds recomputation.
 - Demo seed data is allowed only for local development and CEO demo / private preview environments, never true public production.
 - Demo seed scripts must be explicit, guarded by an opt-in env flag, deterministic enough to clean up, and use obvious non-real users/data.
 

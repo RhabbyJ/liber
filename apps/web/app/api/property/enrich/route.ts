@@ -8,6 +8,7 @@ import { getSessionUser } from "../../../../server/session";
 const enrichQuerySchema = z.object({
   addressLine1: z.string().trim().min(1).max(160),
   city: z.string().trim().max(80).optional(),
+  market: z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/),
   state: z.string().trim().length(2).optional(),
   zip: z.string().trim().min(5).max(16),
 });
@@ -33,12 +34,13 @@ export async function GET(request: Request) {
   const parsed = enrichQuerySchema.safeParse({
     addressLine1: searchParams.get("addressLine1"),
     city: searchParams.get("city") || undefined,
+    market: searchParams.get("market"),
     state: searchParams.get("state")?.trim().toUpperCase() || undefined,
     zip: searchParams.get("zip"),
   });
 
   if (!parsed.success) {
-    return NextResponse.json({ error: "Address and active pilot ZIP are required.", property: null }, { status: 400 });
+    return NextResponse.json({ error: "Address and active service-area ZIP are required.", property: null }, { status: 400 });
   }
 
   const result = await enrichPropertyByAddress(parsed.data);

@@ -19,6 +19,9 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `product/production-decisions.md` — launch readiness decisions, environment blockers, and advisor follow-ups.
 - `engineering/BACKEND_ARCHITECTURE.md` — backend, auth, Supabase, Prisma, storage, email, and security architecture.
 
+- `engineering/GEOGRAPHY_CANONICAL_CUTOVER_RUNBOOK.md` — migration history, fresh/upgrade proof, reconciliation, and rollback for geography migrations 13-15.
+- `engineering/GEOGRAPHY_CANONICAL_CUTOVER_EVIDENCE_2026-07-09.md` — disposable-branch counts, per-row quarantine review, database assertions, and the open fresh-install gate.
+
 ## Section micro-docs
 
 - `sections/auth-access.md`

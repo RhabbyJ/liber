@@ -19,7 +19,9 @@
     "readiness:env": "node scripts/readiness-check.mjs",
     "readiness:production": "node scripts/readiness-check.mjs --production",
     "db:generate": "prisma generate --schema packages/db/prisma/schema.prisma",
-    "db:validate": "prisma validate --schema packages/db/prisma/schema.prisma"
+    "db:validate": "prisma validate --schema packages/db/prisma/schema.prisma",
+    "db:test-geography:fresh": "node scripts/test-geography-migration-fresh.mjs",
+    "db:test-geography:upgrade": "node scripts/test-geography-migration-upgrade.mjs"
   },
   "devDependencies": {
     "prisma": "7.8.0",

@@ -1,7 +1,8 @@
 import { Prisma, prisma } from "@liber/db";
 import { seekingPropertyTypeSchema } from "@liber/validators";
-import { findPilotArea } from "../lib/launch-market";
-import type { ServiceArea } from "../lib/service-areas";
+import type { ServiceAreaResult } from "./service-areas";
+import { getSearchCoverageServiceAreaIds } from "./service-areas";
+import { activePrimaryServiceAreaWhere } from "./service-area-matching";
 
 // Short, display-safe badge labels for the compact public preview UI.
 const previewBadgeLabels: Record<string, string> = {
@@ -21,7 +22,7 @@ const previewAmenities = ["Pool", "Parking", "ADU", "Yard", "Garage"];
 /**
  * Privacy-safe public teaser of buyer demand (V1 public preview rules).
  * No ids, names, avatars, documents, exact locations, or profile links.
- * Coordinates are approximate only: pilot-area centers (or coarse-rounded
+ * Coordinates are approximate only: service-area centers (or coarse-rounded
  * desired-area coordinates) with a deterministic display offset.
  */
 export type PublicBuyerPreview = {
@@ -38,12 +39,18 @@ export type PublicBuyerPreview = {
   squareFeetMin?: number;
 };
 
-export async function getPublicBuyerPreviews(serviceArea?: ServiceArea | null): Promise<PublicBuyerPreview[]> {
+export async function getPublicBuyerPreviews(
+  marketSlug: string,
+  serviceArea?: ServiceAreaResult | null,
+): Promise<PublicBuyerPreview[]> {
   try {
+    const coverageAreaIds = serviceArea
+      ? await getSearchCoverageServiceAreaIds(serviceArea.id, marketSlug)
+      : [];
     const profiles = await prisma.buyerProfile.findMany({
       where: {
         visibilityStatus: "ACTIVE",
-        ...(serviceArea ? serviceAreaPreviewWhere(serviceArea) : {}),
+        ...activePrimaryServiceAreaWhere(marketSlug, serviceArea ? coverageAreaIds : undefined),
       },
       orderBy: { lastRefreshedAt: "desc" },
       take: PUBLIC_PREVIEW_LIMIT,
@@ -67,10 +74,22 @@ export async function getPublicBuyerPreviews(serviceArea?: ServiceArea | null): 
             squareFeetMin: true,
           },
         },
-        desiredCity: true,
-        desiredLat: true,
-        desiredLng: true,
-        desiredState: true,
+        desiredServiceAreas: {
+          where: { isPrimary: true, source: "SELECTED" },
+          take: 1,
+          select: {
+            serviceArea: {
+              select: {
+                centerLat: true,
+                centerLng: true,
+                city: true,
+                label: true,
+                state: true,
+                type: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -79,16 +98,20 @@ export async function getPublicBuyerPreviews(serviceArea?: ServiceArea | null): 
       const amenitySet = new Set(
         profile.criteria.flatMap((item) => item.features).map((feature) => feature.trim().toLowerCase()),
       );
+      const primaryArea = profile.desiredServiceAreas[0]?.serviceArea;
       const point = approximatePreviewPoint(
-        profile.desiredCity,
-        toNumber(profile.desiredLat),
-        toNumber(profile.desiredLng),
+        serviceArea?.center ?? (primaryArea ? { lat: primaryArea.centerLat, lng: primaryArea.centerLng } : null),
         index,
       );
+      const areaLabel = primaryArea
+        ? [primaryArea.type === "neighborhood" ? primaryArea.label : primaryArea.city ?? primaryArea.label, primaryArea.state]
+            .filter(Boolean)
+            .join(", ")
+        : "Liber service area";
 
       return {
         amenities: previewAmenities.filter((amenity) => amenitySet.has(amenity.toLowerCase())),
-        area: [profile.desiredCity, profile.desiredState].filter(Boolean).join(", ") || "San Fernando Valley pilot",
+        area: areaLabel,
         badges: profile.badges
           .map((badge) => previewBadgeLabels[badge.badgeType] ?? "Verified")
           .slice(0, 3),
@@ -102,8 +125,9 @@ export async function getPublicBuyerPreviews(serviceArea?: ServiceArea | null): 
         squareFeetMin: criteria?.squareFeetMin ?? undefined,
       };
     });
-  } catch {
+  } catch (error) {
     // The public preview is best-effort marketing; never block the homepage on it.
+    console.error("[public-preview] buyer preview query failed", error instanceof Error ? error.message : "Unknown error");
     return [];
   }
 }
@@ -117,45 +141,11 @@ function previewPropertyTypeLabel(value?: string | null) {
   return "Buyer";
 }
 
-function serviceAreaPreviewWhere(area: ServiceArea): Prisma.BuyerProfileWhereInput {
-  const [west, south, east, north] = area.bbox;
-  const pointWithinBbox: Prisma.BuyerProfileWhereInput = {
-    desiredLat: { gte: new Prisma.Decimal(south), lte: new Prisma.Decimal(north) },
-    desiredLng: { gte: new Prisma.Decimal(west), lte: new Prisma.Decimal(east) },
-  };
-
-  if (area.type === "zip" && area.postalCode) {
-    return {
-      OR: [
-        ...(area.city ? [{ desiredCity: { equals: area.city, mode: "insensitive" as const } }] : []),
-        { desiredLocationText: { contains: area.postalCode, mode: "insensitive" } },
-        pointWithinBbox,
-      ],
-    };
-  }
-
-  if (area.type === "neighborhood") {
-    return {
-      OR: [
-        { desiredCity: { equals: area.label, mode: "insensitive" } },
-        { desiredLocationText: { contains: area.label, mode: "insensitive" } },
-        pointWithinBbox,
-      ],
-    };
-  }
-
-  if (area.type === "city") {
-    const city = area.city ?? area.label;
-    return {
-      OR: [
-        { desiredCity: { equals: city, mode: "insensitive" } },
-        { desiredLocationText: { contains: area.label, mode: "insensitive" } },
-        pointWithinBbox,
-      ],
-    };
-  }
-
-  return pointWithinBbox;
+export function serviceAreaPreviewWhere(
+  serviceAreaIds: string[],
+  marketSlug: string,
+): Prisma.BuyerProfileWhereInput {
+  return activePrimaryServiceAreaWhere(marketSlug, serviceAreaIds);
 }
 
 function toNumber(value: unknown) {
@@ -165,14 +155,13 @@ function toNumber(value: unknown) {
 }
 
 /**
- * Public pins must never reveal a precise buyer location: snap to the pilot
+ * Public pins must never reveal a precise buyer location: snap to the service
  * area center when possible, otherwise round to ~1 km, then spread stacked
  * pins with a small deterministic offset so they stay readable.
  */
-function approximatePreviewPoint(city: string | null, lat: number, lng: number, index: number) {
-  const area = city ? findPilotArea(city) : null;
-  const baseLat = area ? area.lat : lat ? Number(lat.toFixed(2)) : 0;
-  const baseLng = area ? area.lng : lng ? Number(lng.toFixed(2)) : 0;
+export function approximatePreviewPoint(center: { lat: number; lng: number } | null, index: number) {
+  const baseLat = center?.lat ?? 0;
+  const baseLng = center?.lng ?? 0;
   if (!baseLat || !baseLng) return null;
 
   const angle = (index * 2 * Math.PI) / PUBLIC_PREVIEW_LIMIT;

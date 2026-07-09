@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadMapboxGl } from "../lib/mapbox-gl-loader";
-import { activePilotAreas } from "../lib/launch-market";
-import { selectedAreaBounds, type SelectedMapArea } from "../lib/map-area";
+import { marketMapBounds, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
 import type { PublicBuyerPreview } from "../server/buyer-preview";
 
 type Props = {
+  market: MarketMapContext;
   primaryCtaHref: string;
   primaryCtaLabel: string;
   previews: PublicBuyerPreview[];
@@ -30,6 +30,7 @@ type PreviewPoint = {
  * links here. Calls to action route users into the authenticated seller workflow.
  */
 export function PublicDemandMap({
+  market,
   previews,
   primaryCtaHref,
   primaryCtaLabel,
@@ -72,10 +73,10 @@ export function PublicDemandMap({
         mapRef.current = new mapboxgl.Map({
           antialias: true,
           attributionControl: true,
-          center: [pilotCenter.lng, pilotCenter.lat],
+          center: [market.center.lng, market.center.lat],
           container: containerRef.current,
           cooperativeGestures: false,
-          maxBounds: [[-118.75, 34.08], [-118.15, 34.37]],
+          maxBounds: marketMapBounds(market),
           style: "mapbox://styles/mapbox/streets-v12",
           zoom: 10.6,
         });
@@ -107,7 +108,7 @@ export function PublicDemandMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [mapboxToken, shouldUseMapbox]);
+  }, [mapboxToken, market, shouldUseMapbox]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current || !window.mapboxgl) return;
@@ -237,11 +238,6 @@ function StaticDemandLayer({ points, selectedArea }: { points: PreviewPoint[]; s
     </div>
   );
 }
-
-const pilotCenter = activePilotAreas.reduce(
-  (sum, area, _, list) => ({ lat: sum.lat + area.lat / list.length, lng: sum.lng + area.lng / list.length }),
-  { lat: 0, lng: 0 },
-);
 
 function previewPopupHtml(
   preview: PublicBuyerPreview,

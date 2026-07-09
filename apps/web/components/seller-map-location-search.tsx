@@ -3,36 +3,24 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import {
-  findServiceArea,
   serviceAreaDisplayLabel,
   type ServiceArea,
 } from "../lib/service-areas";
+import {
+  hasSearchSuggestions,
+  resolvedAreaFromSearchPayload,
+  type ServiceAreaSearchResponse,
+} from "../lib/service-area-api";
 import { Icon } from "./icon";
 import { PilotZipSuggestions } from "./pilot-zip-suggestions";
 
 type Props = {
   defaultArea?: string;
   defaultServiceArea?: string;
+  marketSlug: string;
 };
 
-type ServiceAreaApiResult = {
-  bbox: [number, number, number, number];
-  center: [number, number];
-  city: string | null;
-  county: string | null;
-  disclaimer: string;
-  geojson_path: string;
-  is_pilot: boolean;
-  label: string;
-  postal_code: string | null;
-  slug: string;
-  source: string;
-  source_version: string;
-  state: "CA";
-  type: ServiceArea["type"];
-};
-
-export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea = "" }: Props) {
+export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea = "", marketSlug }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(defaultArea);
@@ -57,25 +45,28 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
       return;
     }
 
-    const localArea = findServiceArea(value);
-    if (localArea) {
-      pushArea(localArea);
-      return;
-    }
-
     setIsLookingUp(true);
     try {
-      const params = new URLSearchParams({ q: value });
+      const params = new URLSearchParams({ market: marketSlug, q: value });
       const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
-      const results = await response.json() as ServiceAreaApiResult[];
-      const result = results[0];
+      const payload = await response.json() as ServiceAreaSearchResponse;
 
-      if (!response.ok || !result) {
+      if (!response.ok) {
         setMessage("We're not active there yet.");
         return;
       }
+      const resolvedArea = resolvedAreaFromSearchPayload(payload);
+      if (resolvedArea) {
+        pushArea(resolvedArea);
+        return;
+      }
+      if (hasSearchSuggestions(payload)) {
+        setMessage("Choose a specific supported city, neighborhood, or ZIP.");
+        setIsSuggestionsOpen(true);
+        return;
+      }
 
-      pushArea(apiResultToServiceArea(result));
+      setMessage("We're not active there yet.");
     } catch {
       setMessage("Location lookup failed.");
     } finally {
@@ -85,13 +76,9 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
 
   function pushArea(area: ServiceArea) {
     const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.set("area", serviceAreaDisplayLabel(area));
+    nextParams.set("market", marketSlug);
     nextParams.set("serviceArea", area.slug);
-    nextParams.set("city", area.type === "neighborhood" ? area.label : area.city ?? area.label);
-    nextParams.set("state", area.state);
-    nextParams.delete("centerLat");
-    nextParams.delete("centerLng");
-    nextParams.delete("radiusMiles");
+    removeLegacyGeographyParams(nextParams);
     setQuery(serviceAreaDisplayLabel(area));
     setMessage("");
     setIsSuggestionsOpen(false);
@@ -100,13 +87,9 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
 
   function clearArea() {
     const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.delete("area");
+    nextParams.set("market", marketSlug);
     nextParams.delete("serviceArea");
-    nextParams.delete("city");
-    nextParams.delete("state");
-    nextParams.delete("centerLat");
-    nextParams.delete("centerLng");
-    nextParams.delete("radiusMiles");
+    removeLegacyGeographyParams(nextParams);
     setQuery("");
     setMessage("");
     setIsSuggestionsOpen(false);
@@ -152,36 +135,19 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
           {isLookingUp ? "Checking" : "Search"}
         </button>
       </form>
-      {isSuggestionsOpen ? <PilotZipSuggestions onSelect={pushArea} /> : null}
+      {isSuggestionsOpen ? <PilotZipSuggestions marketSlug={marketSlug} onSelect={pushArea} query={query} /> : null}
       {message ? <span className="seller-map-search-message">{message}</span> : null}
     </div>
   );
 }
 
-function apiResultToServiceArea(result: ServiceAreaApiResult): ServiceArea {
-  return {
-    active: true,
-    bbox: result.bbox,
-    center: {
-      lat: result.center[1],
-      lng: result.center[0],
-    },
-    city: result.city,
-    county: result.county,
-    disclaimer: result.disclaimer,
-    geojsonPath: result.geojson_path,
-    isPilot: result.is_pilot,
-    label: result.label,
-    postalCode: result.postal_code,
-    slug: result.slug,
-    source: result.source,
-    sourceVersion: result.source_version,
-    state: result.state,
-    type: result.type,
-  };
-}
-
 function queryPath(params: URLSearchParams) {
   const query = params.toString();
   return query ? `/seller/search?${query}` : "/seller/search";
+}
+
+function removeLegacyGeographyParams(params: URLSearchParams) {
+  for (const key of ["area", "centerLat", "centerLng", "city", "radiusMiles", "state"]) {
+    params.delete(key);
+  }
 }

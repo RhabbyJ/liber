@@ -35,9 +35,12 @@ Primary models:
 - `User`
 - `SellerAccess`
 - `BuyerProfile`
+- `BuyerDesiredServiceArea`
 - `BuyerCriteria`
 - `BuyerBadge`
+- `Market`
 - `ServiceArea`
+- `ServiceAreaRelationship`
 - `SellerProperty`
 - `PropertyImage`
 - `VerificationDocument`
@@ -155,21 +158,25 @@ Invite email should be queued through `EmailOutbox`, not sent inline as the sour
 
 ## Search architecture
 
-Seller search should query persisted buyer profiles/criteria and use PostGIS when coordinates are supplied.
+Seller search queries persisted buyer profiles/criteria through canonical market and service-area relations. Free-form city/state and coordinate/radius inputs are not seller-search geography.
 
 List and map views must use the same result set. Approved sellers land on the map view by default; map pins show coarse budget labels, never identities or exact buyer locations. A seller who also has an active buyer profile may see that buyer demand in the directory, but invite actions must still block self-invites.
 
-Supported ZIP/city/neighborhood selection is modeled as Liber service areas. `public.service_areas` stores active service-area metadata, bbox, centers, source/version, and static GeoJSON paths. Static files under `apps/web/public/geo/service-areas/**` hold the v1 polygon geometry. Mapbox may help render/search, but Mapbox result payloads are not stored as Liber's canonical area database.
+Supported ZIP/city/neighborhood selection is modeled as Liber service areas grouped by market. `public.markets` and `public.service_areas` have immutable UUID primary keys; market state/country and service-area market membership are also immutable. Service-area slugs are routing keys unique within a market. `public.service_areas` stores bbox, center, source/version/license/checksum metadata, reviewed search terms, and static GeoJSON paths. Buyer selections and service-area relationships reference UUIDs, not slugs. Static files under `apps/web/public/geo/service-areas/**` are development fixtures and deployed polygon assets, not a production metadata fallback. Mapbox may render or geocode, but its payloads are never canonical geography.
 
-Seller search accepts a service-area slug and filters active buyer profiles by the best available persisted buyer geography fields: exact `desiredPostalCode` for ZIPs when available, exact `desiredNeighborhood` for neighborhoods when available, city text for cities, and bbox/desired-point fallback for older profiles. The database service-area lookup is authoritative for active areas; static metadata is only a fallback when the database is unavailable. The v1 service-area filter does not expose exact buyer addresses and does not use radius circles for selected ZIP/city/neighborhood areas.
+Service-area selection must resolve through canonical slugs or explicit per-area search terms. Broad metadata such as county, state, or generic type words must not select a service area, because selected polygons, preview cards, seller search filters, and map pins must all derive from the same canonical area. Resolution is stricter than search suggestions: exact slugs, postal codes, labels, and explicit search terms may resolve directly, but prefixes and ambiguous place terms must remain suggestions until the user chooses a specific supported service area. Service-area search API responses carry both `resolution` and `suggestions`; submit flows may auto-select only `resolution.status === "resolved"`.
 
-The service-area migration includes partial active-profile indexes for ZIP, neighborhood, and city/state geography predicates. Before broad production launch, replace bbox/text fallback with PostGIS point-in-polygon search if geographic volume or precision demands it.
+Seller search requires a market slug plus an optional market-scoped service-area slug. `buyer_desired_service_areas` stores at most one primary selection per buyer. When a buyer profile or selection transaction commits, an active profile requires exactly one `SELECTED` row whose service area and market are active; a deferred database trigger enforces that write path. Runtime queries also require the area and market to remain active, so they fail closed. Deactivating a market or service area automatically drafts affected active buyers; reactivation never republishes them without an explicit buyer action. Client-provided city, ZIP, neighborhood, text, and coordinates are not trusted independently: profile saves resolve the selected area first and derive all compatibility/display fields from that row. Ordinary seller/public runtime queries do not use legacy text or bbox matching.
+
+Only reviewed `SEARCH_ROLLUP` relationships affect matching. `CONTAINS`, `OVERLAPS`, and `DISPLAY_PARENT` remain spatial/display metadata. Reviewed rollup ancestors are evaluated recursively at query time, so relationship changes take effect without rewriting buyer rows. Reviewed rollup mutations serialize on their market row before cycle validation. The corrective migration write-locks buyer profiles and selections before taking legacy snapshots, removes stale `DERIVED`/`MIGRATED` rows, audits state-scoped legacy candidates in ZIP -> neighborhood -> city order, stores inferred, ambiguous, multiple-selection, and unresolved cases in quarantine for confirmation, and drafts profiles without a confirmed selection.
+
+Bulk service-area import and activation remain disabled until Geography PR2 delivers the reviewed LA County dataset, deploy-independent versioned geometry, provenance/checksum enforcement, relationship import, and atomic bounds recomputation. Do not activate broad LA from a bbox or edit an already-applied migration.
 
 Budget filters are treated as range-overlap filters: a buyer matches when the buyer's max budget is at or above the seller's minimum and the buyer's min budget is at or below the seller's maximum. Property-fit filters (beds/baths/sqft/condition/amenities) are validated by `searchBuyersSchema` and applied in `apps/web/server/domain.ts` against active buyer criteria. Amenity filters match the canonical criteria feature tokens (Pool, Parking, ADU, Yard, Garage).
 
 Do not add search filters based on protected-class proxies or unnecessary personal attributes.
 
-Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN` on the buyer search query against realistic data volume. Current v1 indexes are acceptable for local development and CEO demo / private preview, but public launch may need composite or partial indexes for active buyer profiles, city/state, budget overlap, badge status, and sort patterns.
+Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN` on the buyer search query against realistic data volume. Legacy city/state/ZIP lookup indexes are removed by the canonical cutover. Public launch requires measured indexes for the active canonical-area join, budget overlap, badge status, criteria filters, and sort/cursor patterns.
 
 ## Public buyer-demand preview
 
@@ -177,9 +184,12 @@ Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN
 
 - reads at most 6 `ACTIVE` buyer profiles,
 - returns only privacy-safe fields: anonymized buyer-type label, coarse city/state, $50K-banded budget, structured criteria facts, active badge labels,
-- pin coordinates are approximate only: pilot-area centers (or coordinates rounded to ~1 km) plus a deterministic display offset — never raw `desiredLat`/`desiredLng`,
+- pin coordinates are approximate only: canonical service-area centers plus a deterministic display offset — never raw `desiredLat`/`desiredLng`,
 - never returns ids, names, avatars, exact locations, documents, or storage paths,
-- the public map may let visitors select a known active pilot ZIP/city/neighborhood service area to pan/draw an approximate area polygon and scope the limited preview cards to that area, but has no full public search/filter API and no buyer profile links; the only action is signup,
+- the public map may let visitors select a known active ZIP/city/neighborhood service area to pan/draw an approximate area polygon and scope the limited preview cards to that area,
+- selected-area preview filtering uses the same canonical selected-area UUID and reviewed query-time rollups as seller search,
+- when a service area is selected, preview pins anchor to that selected service-area center plus the deterministic privacy offset instead of re-parsing buyer city text,
+- has no full public search/filter API and no buyer profile links; the only action is signup,
 - is best-effort: failures return an empty list / hide the map and must not break the homepage,
 - must not grow into public search or expose buyer profile URLs.
 
@@ -209,7 +219,7 @@ Do not create unauthenticated maintenance endpoints.
 
 ## External integrations
 
-- Mapbox is optional and should degrade to local/fallback map behavior.
+- Mapbox is optional and should degrade to the non-interactive map presentation. Canonical service-area metadata is not optional in production; database failures must log and fail closed instead of loading the static pilot catalog.
 - ATTOM/property enrichment must require auth and rate limits.
 - Resend transactional email is used only when configured.
 - Missing external keys should not break local development.

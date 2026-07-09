@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { marketSlugSchema } from "@liber/validators";
 import { BuyerProfileWizard } from "../../../components/buyer-profile-wizard";
 import { GeneratedAvatar } from "../../../components/generated-avatar";
 import { Icon } from "../../../components/icon";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
+import { DEFAULT_MARKET_SLUG } from "../../../lib/service-areas";
+import { getActiveMarketOrFallback } from "../../../server/service-areas";
 import {
   previousBuyerAvatar,
   regenerateBuyerPublicAlias,
@@ -14,15 +17,36 @@ import {
 export default async function BuyerProfileBuilderPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ edit?: string; verification?: string }>;
+  searchParams?: Promise<{ edit?: string; market?: string; verification?: string }>;
 }) {
-  const { edit = "", verification = "" } = searchParams ? await searchParams : {};
+  const { edit = "", market: requestedMarket = "", verification = "" } = searchParams ? await searchParams : {};
   const { data: buyer } = await getCurrentBuyerProfile();
+  const parsedRequestedMarket = marketSlugSchema.safeParse(requestedMarket);
+  const preferredMarketSlug = (buyer.primaryServiceArea?.active ? buyer.primaryServiceArea.marketSlug : undefined) ??
+    (parsedRequestedMarket.success ? parsedRequestedMarket.data : DEFAULT_MARKET_SLUG);
+  const market = await getActiveMarketOrFallback(preferredMarketSlug);
+  const canReusePrimaryArea = Boolean(
+    buyer.primaryServiceArea?.active && buyer.primaryServiceArea.marketSlug === market.slug,
+  );
+  const wizardBuyer = buyer.primaryServiceArea && !canReusePrimaryArea
+    ? {
+        ...buyer,
+        city: "",
+        lat: 0,
+        lng: 0,
+        location: "",
+        neighborhood: undefined,
+        postalCode: undefined,
+        primaryServiceArea: undefined,
+        serviceAreaSlugs: [],
+        state: "",
+      }
+    : buyer;
   const isActive = buyer.visibility === "active";
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
   const hasPreApproval = activeBadges.some((badge) => badge.type === "PRE_APPROVED");
   const hasPendingPreApproval = buyer.badges.some((badge) => badge.type === "PRE_APPROVED" && badge.status === "pending");
-  const showProfileWizard = !isActive || edit === "profile";
+  const showProfileWizard = !isActive || edit === "profile" || buyer.primaryServiceArea?.active === false;
   const canSubmitVerification = buyer.id !== "new-profile" && buyer.visibility !== "draft";
   const accountName = buyer.accountName || "buyer";
   const displayName = buyer.name || accountName;
@@ -110,7 +134,8 @@ export default async function BuyerProfileBuilderPage({
           <article className="card stack loose wizard-card profile-builder-card">
             <BuyerProfileWizard
               action={submitBuyerProfile}
-              buyer={buyer}
+              buyer={wizardBuyer}
+              marketSlug={market.slug}
               previousAvatarAction={previousBuyerAvatar}
               regenerateAliasAction={regenerateBuyerPublicAlias}
               shuffleAction={shuffleBuyerAvatar}

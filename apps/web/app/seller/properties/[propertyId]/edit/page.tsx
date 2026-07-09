@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { Icon } from "../../../../../components/icon";
 import { PropertyAddressLookup } from "../../../../../components/property-address-lookup";
 import { propertyTypeOptions } from "../../../../../lib/property-types";
+import { DEFAULT_MARKET_SLUG } from "../../../../../lib/service-areas";
 import { getSellerProperty } from "../../../../../server/contracts";
 import { submitSellerPropertyUpdate } from "../../../../../server/form-actions";
+import { getActiveMarketBySlug } from "../../../../../server/service-areas";
 
 export default async function EditSellerPropertyPage({
   params,
@@ -12,6 +14,7 @@ export default async function EditSellerPropertyPage({
   params: Promise<{ propertyId: string }>;
 }) {
   const { propertyId } = await params;
+  const market = await getActiveMarketBySlug(DEFAULT_MARKET_SLUG);
   const { data: property } = await getSellerProperty(propertyId).catch(() => ({ data: null }));
 
   if (!property) notFound();
@@ -86,6 +89,8 @@ export default async function EditSellerPropertyPage({
               squareFeet: property.area,
               state: property.location.split(",")[1]?.trim().slice(0, 2),
             }}
+            marketSlug={market.slug}
+            marketState={market.state}
           />
 
           <div className="field">

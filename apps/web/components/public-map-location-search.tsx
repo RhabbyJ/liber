@@ -3,36 +3,24 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import {
-  findServiceArea,
   serviceAreaDisplayLabel,
   type ServiceArea,
 } from "../lib/service-areas";
+import {
+  hasSearchSuggestions,
+  resolvedAreaFromSearchPayload,
+  type ServiceAreaSearchResponse,
+} from "../lib/service-area-api";
 import { Icon } from "./icon";
 import { PilotZipSuggestions } from "./pilot-zip-suggestions";
 import { UnsupportedAreaState } from "./unsupported-area-state";
 
 type Props = {
   defaultArea?: string;
+  marketSlug: string;
 };
 
-type ServiceAreaApiResult = {
-  bbox: [number, number, number, number];
-  center: [number, number];
-  city: string | null;
-  county: string | null;
-  disclaimer: string;
-  geojson_path: string;
-  is_pilot: boolean;
-  label: string;
-  postal_code: string | null;
-  slug: string;
-  source: string;
-  source_version: string;
-  state: "CA";
-  type: ServiceArea["type"];
-};
-
-export function PublicMapLocationSearch({ defaultArea = "" }: Props) {
+export function PublicMapLocationSearch({ defaultArea = "", marketSlug }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const unsupportedArea = searchParams.get("unsupported") ?? "";
@@ -66,24 +54,27 @@ export function PublicMapLocationSearch({ defaultArea = "" }: Props) {
       return;
     }
 
-    const localArea = findServiceArea(value);
-    if (localArea) {
-      pushArea(localArea);
-      return;
-    }
-
     try {
-      const params = new URLSearchParams({ q: value });
+      const params = new URLSearchParams({ market: marketSlug, q: value });
       const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
-      const results = await response.json() as ServiceAreaApiResult[];
-      const result = results[0];
+      const payload = await response.json() as ServiceAreaSearchResponse;
 
-      if (!response.ok || !result) {
+      if (!response.ok) {
         pushUnsupportedArea(value);
         return;
       }
+      const resolvedArea = resolvedAreaFromSearchPayload(payload);
+      if (resolvedArea) {
+        pushArea(resolvedArea);
+        return;
+      }
+      if (hasSearchSuggestions(payload)) {
+        setMessage("Choose a specific supported city, neighborhood, or ZIP.");
+        setIsSuggestionsOpen(true);
+        return;
+      }
 
-      pushArea(apiResultToServiceArea(result));
+      pushUnsupportedArea(value);
     } catch {
       setMessage("Location lookup failed.");
     }
@@ -91,6 +82,7 @@ export function PublicMapLocationSearch({ defaultArea = "" }: Props) {
 
   function pushArea(area: ServiceArea) {
     const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set("market", marketSlug);
     nextParams.set("area", area.slug);
     nextParams.delete("unsupported");
     setQuery(serviceAreaDisplayLabel(area));
@@ -102,6 +94,7 @@ export function PublicMapLocationSearch({ defaultArea = "" }: Props) {
 
   function clearArea() {
     const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set("market", marketSlug);
     nextParams.delete("area");
     nextParams.delete("unsupported");
     setQuery("");
@@ -113,6 +106,7 @@ export function PublicMapLocationSearch({ defaultArea = "" }: Props) {
 
   function pushUnsupportedArea(value: string) {
     const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set("market", marketSlug);
     nextParams.delete("area");
     nextParams.set("unsupported", value);
     setQuery(value);
@@ -160,34 +154,11 @@ export function PublicMapLocationSearch({ defaultArea = "" }: Props) {
           Search
         </button>
       </form>
-      {isSuggestionsOpen ? <PilotZipSuggestions onSelect={pushArea} /> : null}
+      {isSuggestionsOpen ? <PilotZipSuggestions marketSlug={marketSlug} onSelect={pushArea} query={query} /> : null}
       {message ? <span className="public-map-search-message">{message}</span> : null}
       {isUnsupported ? <UnsupportedAreaState onSearchAnother={clearArea} /> : null}
     </div>
   );
-}
-
-function apiResultToServiceArea(result: ServiceAreaApiResult): ServiceArea {
-  return {
-    active: true,
-    bbox: result.bbox,
-    center: {
-      lat: result.center[1],
-      lng: result.center[0],
-    },
-    city: result.city,
-    county: result.county,
-    disclaimer: result.disclaimer,
-    geojsonPath: result.geojson_path,
-    isPilot: result.is_pilot,
-    label: result.label,
-    postalCode: result.postal_code,
-    slug: result.slug,
-    source: result.source,
-    sourceVersion: result.source_version,
-    state: result.state,
-    type: result.type,
-  };
 }
 
 function queryPath(params: URLSearchParams) {

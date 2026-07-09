@@ -70,17 +70,39 @@ describe("Liber validators", () => {
     expect(updateBuyerProfileSchema.parse({
       budgetMax: "987654",
       budgetMin: "731249",
+      desiredMarketSlug: "los-angeles",
       desiredNeighborhood: "Northridge",
       desiredPostalCode: "91325",
+      desiredServiceAreaSlug: "91325",
       downPaymentMax: "223457",
       downPaymentMin: "123456",
     })).toMatchObject({
       budgetMax: 987654,
       budgetMin: 731249,
-      desiredNeighborhood: "Northridge",
-      desiredPostalCode: "91325",
+      desiredMarketSlug: "los-angeles",
+      desiredServiceAreaSlug: "91325",
       downPaymentMax: 223457,
       downPaymentMin: 123456,
+    });
+
+    expect(() =>
+      updateBuyerProfileSchema.parse({ desiredServiceAreaSlug: "../91325" }),
+    ).toThrow();
+  });
+
+  it("allows buyer geography fields to be explicitly cleared", () => {
+    const parsed = updateBuyerProfileSchema.parse({
+      desiredCity: null,
+      desiredLat: null,
+      desiredLng: null,
+      desiredLocationText: null,
+      desiredNeighborhood: null,
+      desiredPostalCode: null,
+      desiredServiceAreaSlug: null,
+      desiredState: null,
+    });
+    expect(parsed).toEqual({
+      desiredServiceAreaSlug: null,
     });
   });
 
@@ -156,26 +178,38 @@ describe("Liber validators", () => {
   });
 
   it("validates search, document review, and badge admin inputs", () => {
-    expect(searchBuyersSchema.parse({ badges: ["PRE_APPROVED"], sort: "most_verified" }).badges).toEqual([
+    const market = { market: "los-angeles" };
+    expect(searchBuyersSchema.parse({ ...market, badges: ["PRE_APPROVED"], sort: "most_verified" }).badges).toEqual([
       "PRE_APPROVED",
     ]);
-    expect(() => searchBuyersSchema.parse({ radiusMiles: 10 })).toThrow("Radius search requires latitude and longitude.");
-    expect(searchBuyersSchema.parse({ centerLat: 34.2381, centerLng: -118.5301, radiusMiles: 10 }).radiusMiles).toBe(10);
-    expect(searchBuyersSchema.parse({ serviceArea: "northridge" }).serviceArea).toBe("northridge");
-    expect(() => searchBuyersSchema.parse({ serviceArea: "../northridge" })).toThrow();
-    expect(searchBuyersSchema.parse({ bedrooms: "4", bathrooms: "2" })).toMatchObject({
+    expect(searchBuyersSchema.parse({
+      ...market,
+      centerLat: 34.2381,
+      centerLng: -118.5301,
+      city: "Glendale",
+      radiusMiles: 10,
+      state: "AZ",
+    })).toEqual({
+      amenities: [],
+      badges: [],
+      market: "los-angeles",
+      sort: "recommended",
+    });
+    expect(searchBuyersSchema.parse({ ...market, serviceArea: "northridge" }).serviceArea).toBe("northridge");
+    expect(() => searchBuyersSchema.parse({ ...market, serviceArea: "../northridge" })).toThrow();
+    expect(searchBuyersSchema.parse({ ...market, bedrooms: "4", bathrooms: "2" })).toMatchObject({
       bathrooms: 2,
       bedrooms: 4,
     });
-    expect(searchBuyersSchema.parse({ amenities: ["Pool", "ADU"], condition: "Fixer" })).toMatchObject({
+    expect(searchBuyersSchema.parse({ ...market, amenities: ["Pool", "ADU"], condition: "Fixer" })).toMatchObject({
       amenities: ["Pool", "ADU"],
       condition: "Fixer",
     });
-    expect(searchBuyersSchema.parse({ budgetMin: "900000", budgetMax: "1200000" })).toMatchObject({
+    expect(searchBuyersSchema.parse({ ...market, budgetMin: "900000", budgetMax: "1200000" })).toMatchObject({
       budgetMax: 1200000,
       budgetMin: 900000,
     });
-    expect(() => searchBuyersSchema.parse({ budgetMin: "1200000", budgetMax: "900000" })).toThrow(
+    expect(() => searchBuyersSchema.parse({ ...market, budgetMin: "1200000", budgetMax: "900000" })).toThrow(
       "Budget minimum cannot exceed budget maximum.",
     );
     expect(reviewDocumentSchema.parse({ documentId: "doc-1", decision: "APPROVED" }).decision).toBe("APPROVED");

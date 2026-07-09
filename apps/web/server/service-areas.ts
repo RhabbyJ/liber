@@ -1,10 +1,29 @@
-import { prisma } from "@liber/db";
+import { Prisma, prisma } from "@liber/db";
 import {
+  DEFAULT_MARKET_SLUG,
   activeServiceAreas,
-  findServiceAreaBySlug,
-  searchServiceAreas as searchStaticServiceAreas,
+  defaultMarket,
+  marketBboxString,
+  resolveServiceArea,
+  searchServiceAreas,
+  type Market,
   type ServiceArea,
 } from "../lib/service-areas";
+
+type DbMarket = {
+  active: boolean;
+  bboxEast: number;
+  bboxNorth: number;
+  bboxSouth: number;
+  bboxWest: number;
+  centerLat: number;
+  centerLng: number;
+  country: string;
+  id: string;
+  label: string;
+  slug: string;
+  state: string;
+};
 
 type DbServiceArea = {
   active: boolean;
@@ -17,54 +36,192 @@ type DbServiceArea = {
   city: string | null;
   county: string | null;
   geojsonPath: string;
+  geojsonSha256: string | null;
   id: string;
   isPilot: boolean;
   label: string;
+  market: { slug: string };
   postalCode: string | null;
+  searchTerms: string[];
   slug: string;
   source: string;
+  sourceLicense: string | null;
+  sourceUrl: string | null;
   sourceVersion: string;
   state: string;
   type: string;
 };
 
 export type ServiceAreaResult = ServiceArea & {
-  id?: string;
+  id: string;
+  marketSlug: string;
+  sourceLicense?: string | null;
+  sourceUrl?: string | null;
+  geojsonSha256?: string | null;
 };
 
-export async function listActiveServiceAreas(): Promise<ServiceAreaResult[]> {
+export type ServiceAreaResultResolution =
+  | { status: "none" }
+  | { status: "resolved"; area: ServiceAreaResult }
+  | { status: "ambiguous"; areas: ServiceAreaResult[] };
+
+export class GeographyUnavailableError extends Error {
+  constructor(message = "Liber service-area data is temporarily unavailable.", options?: ErrorOptions) {
+    super(message, options);
+    this.name = "GeographyUnavailableError";
+  }
+}
+
+function fixtureFallbackEnabled() {
+  if (process.env.NODE_ENV === "production") return false;
+  return process.env.NODE_ENV === "test" || process.env.LIBER_USE_SERVICE_AREA_FIXTURES === "true";
+}
+
+function logGeographyFailure(operation: string, error: unknown) {
+  console.error(`[geography] ${operation} failed`, error instanceof Error ? error.message : "Unknown database error");
+}
+
+export async function getActiveMarketBySlug(slug: string): Promise<Market> {
+  try {
+    const row = await prisma.market.findFirst({ where: { active: true, slug } });
+    if (row) return dbMarketToResult(row);
+    if (fixtureFallbackEnabled() && slug === DEFAULT_MARKET_SLUG) return defaultMarket;
+    throw new GeographyUnavailableError("That Liber market is not active.");
+  } catch (error) {
+    if (error instanceof GeographyUnavailableError) throw error;
+    logGeographyFailure("get active market", error);
+    if (fixtureFallbackEnabled() && slug === DEFAULT_MARKET_SLUG) return defaultMarket;
+    throw new GeographyUnavailableError(undefined, { cause: error });
+  }
+}
+
+export async function getActiveMarketOrFallback(preferredSlug?: string): Promise<Market> {
+  try {
+    const rows = await prisma.market.findMany({
+      where: { active: true },
+      orderBy: { slug: "asc" },
+    });
+    const row = rows.find((market) => market.slug === preferredSlug) ?? rows[0];
+    if (row) return dbMarketToResult(row);
+    if (fixtureFallbackEnabled()) return defaultMarket;
+    throw new GeographyUnavailableError("Liber has no active market available.");
+  } catch (error) {
+    if (error instanceof GeographyUnavailableError) throw error;
+    logGeographyFailure("get active market fallback", error);
+    if (fixtureFallbackEnabled()) return defaultMarket;
+    throw new GeographyUnavailableError(undefined, { cause: error });
+  }
+}
+
+export function marketApiShape(market: Market) {
+  return {
+    slug: market.slug,
+    label: market.label,
+    state: market.state,
+    country: market.country,
+    center: [market.center.lng, market.center.lat] as [number, number],
+    bbox: market.bbox,
+  };
+}
+
+export function marketBboxParam(market: Market) {
+  return marketBboxString(market);
+}
+
+export async function listActiveServiceAreas(marketSlug: string): Promise<ServiceAreaResult[]> {
   try {
     const rows = await prisma.serviceArea.findMany({
-      where: { active: true },
+      where: { active: true, market: { active: true, slug: marketSlug } },
+      include: { market: { select: { slug: true } } },
       orderBy: [{ type: "asc" }, { slug: "asc" }],
     });
-
     return rows.map(dbServiceAreaToResult);
-  } catch {
-    return activeServiceAreas;
+  } catch (error) {
+    logGeographyFailure("list active service areas", error);
+    if (fixtureFallbackEnabled() && marketSlug === DEFAULT_MARKET_SLUG) return fixtureServiceAreas();
+    throw new GeographyUnavailableError(undefined, { cause: error });
   }
 }
 
-export async function getActiveServiceAreaBySlug(slug: string) {
+export async function getActiveServiceAreaBySlug(slug: string, marketSlug: string) {
   try {
     const row = await prisma.serviceArea.findFirst({
-      where: { active: true, slug },
+      where: { active: true, slug, market: { active: true, slug: marketSlug } },
+      include: { market: { select: { slug: true } } },
     });
-
-    return row ? dbServiceAreaToResult(row) : null;
-  } catch {
-    return findServiceAreaBySlug(slug);
+    if (row) return dbServiceAreaToResult(row);
+    if (fixtureFallbackEnabled() && marketSlug === DEFAULT_MARKET_SLUG) {
+      return fixtureServiceAreas().find((area) => area.slug === slug) ?? null;
+    }
+    return null;
+  } catch (error) {
+    logGeographyFailure("get active service area", error);
+    if (fixtureFallbackEnabled() && marketSlug === DEFAULT_MARKET_SLUG) {
+      return fixtureServiceAreas().find((area) => area.slug === slug) ?? null;
+    }
+    throw new GeographyUnavailableError(undefined, { cause: error });
   }
 }
 
-export async function searchActiveServiceAreas(query: string, limit = 8) {
-  const areas = await listActiveServiceAreas();
-  return searchStaticServiceAreas(query, areas, limit);
+export async function getSearchCoverageServiceAreaIds(serviceAreaId: string, marketSlug: string) {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      WITH RECURSIVE coverage(id) AS (
+        SELECT service_area.id
+        FROM public.service_areas service_area
+        JOIN public.markets market ON market.id = service_area.market_id
+        WHERE service_area.id = ${serviceAreaId}::uuid
+          AND service_area.active = true
+          AND market.active = true
+          AND market.slug = ${marketSlug}
+        UNION
+        SELECT relationship.child_service_area_id
+        FROM public.service_area_relationships relationship
+        JOIN coverage parent ON parent.id = relationship.parent_service_area_id
+        JOIN public.service_areas child ON child.id = relationship.child_service_area_id
+        JOIN public.markets market ON market.id = child.market_id
+        WHERE relationship.relation_type = 'SEARCH_ROLLUP'
+          AND relationship.reviewed_at IS NOT NULL
+          AND child.active = true
+          AND market.active = true
+          AND market.slug = ${marketSlug}
+      )
+      SELECT id FROM coverage
+    `);
+    return rows.map((row) => row.id);
+  } catch (error) {
+    logGeographyFailure("resolve service-area search rollups", error);
+    throw new GeographyUnavailableError(undefined, { cause: error });
+  }
+}
+
+export async function searchActiveServiceAreas(query: string, limit: number, marketSlug: string) {
+  const areas = await listActiveServiceAreas(marketSlug);
+  return searchServiceAreas(query, areas, limit);
+}
+
+export async function resolveActiveServiceArea(query: string, marketSlug: string): Promise<ServiceAreaResultResolution> {
+  const areas = await listActiveServiceAreas(marketSlug);
+  return resolveServiceArea(query, areas) as ServiceAreaResultResolution;
+}
+
+export async function searchAndResolveActiveServiceAreas(query: string, limit: number, marketSlug: string) {
+  const areas = await listActiveServiceAreas(marketSlug);
+  if (!query.trim()) {
+    return {
+      resolution: { status: "none" } as ServiceAreaResultResolution,
+      suggestions: areas.filter((area) => area.type === "zip").slice(0, limit),
+    };
+  }
+  return {
+    resolution: resolveServiceArea(query, areas) as ServiceAreaResultResolution,
+    suggestions: searchServiceAreas(query, areas, limit) as ServiceAreaResult[],
+  };
 }
 
 export function serviceAreaApiShape(area: ServiceAreaResult) {
   return {
-    id: area.id ?? null,
+    id: area.id,
     slug: area.slug,
     label: area.label,
     type: area.type,
@@ -75,35 +232,71 @@ export function serviceAreaApiShape(area: ServiceAreaResult) {
     center: [area.center.lng, area.center.lat] as [number, number],
     bbox: area.bbox,
     geojson_path: area.geojsonPath,
+    geojson_sha256: area.geojsonSha256 ?? null,
     source: area.source,
     source_version: area.sourceVersion,
+    source_license: area.sourceLicense ?? null,
+    source_url: area.sourceUrl ?? null,
     disclaimer: area.disclaimer,
     is_pilot: area.isPilot,
+    market_slug: area.marketSlug,
   };
+}
+
+export function serviceAreaResolutionApiShape(resolution: ServiceAreaResultResolution) {
+  if (resolution.status === "resolved") {
+    return { status: resolution.status, area: serviceAreaApiShape(resolution.area) };
+  }
+  if (resolution.status === "ambiguous") {
+    return { status: resolution.status, areas: resolution.areas.map(serviceAreaApiShape) };
+  }
+  return { status: resolution.status };
 }
 
 function dbServiceAreaToResult(row: DbServiceArea): ServiceAreaResult {
   return {
     active: row.active,
     bbox: [row.bboxWest, row.bboxSouth, row.bboxEast, row.bboxNorth],
-    center: {
-      lat: row.centerLat,
-      lng: row.centerLng,
-    },
+    center: { lat: row.centerLat, lng: row.centerLng },
     city: row.city,
     county: row.county,
     disclaimer: serviceAreaDisclaimer(row),
     geojsonPath: row.geojsonPath,
+    geojsonSha256: row.geojsonSha256,
     id: row.id,
     isPilot: row.isPilot,
     label: row.label,
+    marketSlug: row.market.slug,
     postalCode: row.postalCode,
+    searchTerms: row.searchTerms.length > 0 ? row.searchTerms : dbServiceAreaSearchTerms(row),
     slug: row.slug,
     source: row.source,
+    sourceLicense: row.sourceLicense,
+    sourceUrl: row.sourceUrl,
     sourceVersion: row.sourceVersion,
-    state: row.state === "CA" ? "CA" : "CA",
+    state: row.state,
     type: serviceAreaType(row.type),
   };
+}
+
+function dbMarketToResult(row: DbMarket): Market {
+  return {
+    active: row.active,
+    bbox: [row.bboxWest, row.bboxSouth, row.bboxEast, row.bboxNorth],
+    center: { lat: row.centerLat, lng: row.centerLng },
+    country: row.country,
+    label: row.label,
+    slug: row.slug,
+    state: row.state,
+  };
+}
+
+function fixtureServiceAreas(): ServiceAreaResult[] {
+  return activeServiceAreas.map((area) => ({
+    ...area,
+    id: `fixture:${area.slug}`,
+    marketSlug: area.marketSlug ?? DEFAULT_MARKET_SLUG,
+  }));
 }
 
 function serviceAreaDisclaimer(row: Pick<DbServiceArea, "source" | "type">) {
@@ -115,4 +308,18 @@ function serviceAreaDisclaimer(row: Pick<DbServiceArea, "source" | "type">) {
 function serviceAreaType(value: string): ServiceArea["type"] {
   if (value === "zip" || value === "city" || value === "neighborhood" || value === "custom") return value;
   return "custom";
+}
+
+function dbServiceAreaSearchTerms(row: DbServiceArea) {
+  const terms = [row.slug, row.label, row.postalCode];
+  if (row.type === "zip" && row.city) {
+    terms.push(row.city);
+    if (row.postalCode) terms.push(`${row.city} ${row.postalCode}`);
+    terms.push(`${row.city} ${row.state}`);
+  } else if (row.type === "city" && row.city) {
+    terms.push(row.city, `${row.city} ${row.state}`);
+  } else if (row.type === "neighborhood") {
+    terms.push(`${row.label} ${row.state}`);
+  }
+  return terms.filter((term): term is string => Boolean(term));
 }

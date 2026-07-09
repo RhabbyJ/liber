@@ -2,14 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatRange } from "../lib/format";
-import { activePilotAreas, approximateBuyerPoint } from "../lib/launch-market";
-import { selectedAreaBounds, type SelectedMapArea } from "../lib/map-area";
+import { approximateBuyerPoint } from "../lib/buyer-map-point";
+import { marketMapBounds, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
 import { loadMapboxGl } from "../lib/mapbox-gl-loader";
 import type { Buyer } from "../lib/mock-data";
 import { StaticBuyerMap } from "./static-buyer-map";
 
 type Props = {
   buyers: Buyer[];
+  market: MarketMapContext;
   selectedServiceArea?: SelectedMapArea | null;
   token: string;
   viewerUserId?: string;
@@ -25,7 +26,7 @@ type MarkerBuyerPoint = BuyerPoint & {
   markerOffset: [number, number];
 };
 
-export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token, viewerUserId }: Props) {
+export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null, token, viewerUserId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<Map<string, any>>(new Map());
@@ -45,7 +46,7 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token,
   );
   const markerPoints = useMemo(() => withMarkerOffsets(buyerPoints), [buyerPoints]);
   const selectedArea = selectedServiceArea;
-  const initialCenter = useMemo(() => mapCenter(buyerPoints, selectedArea), [buyerPoints, selectedArea]);
+  const initialCenter = useMemo(() => mapCenter(buyerPoints, selectedArea, market), [buyerPoints, selectedArea, market]);
 
   useEffect(() => {
     let canceled = false;
@@ -75,7 +76,7 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token,
           center: [initialCenter.lng, initialCenter.lat],
           cooperativeGestures: true,
           container: containerRef.current,
-          maxBounds: [[-118.75, 34.08], [-118.15, 34.37]],
+          maxBounds: marketMapBounds(market),
           style: "mapbox://styles/mapbox/streets-v12",
           zoom: buyerPoints.length > 1 ? 10.4 : 11.4,
         });
@@ -110,7 +111,7 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token,
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [buyerPoints.length, initialCenter.lat, initialCenter.lng, token]);
+  }, [buyerPoints.length, initialCenter.lat, initialCenter.lng, market, token]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current || !window.mapboxgl) return;
@@ -213,7 +214,7 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token,
   }
 
   if (didFail) {
-    return <StaticBuyerMap buyers={buyers} label="Mapbox unavailable" selectedServiceArea={selectedArea} />;
+    return <StaticBuyerMap buyers={buyers} label="Mapbox unavailable" market={market} selectedServiceArea={selectedArea} />;
   }
 
   return (
@@ -221,7 +222,7 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token,
       <div className="map-toolbar">
         <div>
           <strong>Buyer demand map</strong>
-          <span className="muted">{buyers.length} active buyers in the San Fernando Valley pilot</span>
+          <span className="muted">{buyers.length} active buyers in {market.label} service areas</span>
         </div>
         <div className="map-toolbar-pills">
           <span>{selectedArea ? selectedArea.label : "All service areas"}</span>
@@ -243,7 +244,7 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token,
   );
 }
 
-function mapCenter(points: BuyerPoint[], selectedArea: SelectedMapArea | null) {
+function mapCenter(points: BuyerPoint[], selectedArea: SelectedMapArea | null, market: MarketMapContext) {
   if (selectedArea) {
     return selectedArea.center;
   }
@@ -253,8 +254,7 @@ function mapCenter(points: BuyerPoint[], selectedArea: SelectedMapArea | null) {
     return { lat: total.lat / points.length, lng: total.lng / points.length };
   }
 
-  const total = activePilotAreas.reduce((sum, area) => ({ lat: sum.lat + area.lat, lng: sum.lng + area.lng }), { lat: 0, lng: 0 });
-  return { lat: total.lat / activePilotAreas.length, lng: total.lng / activePilotAreas.length };
+  return market.center;
 }
 
 function withMarkerOffsets(points: BuyerPoint[]): MarkerBuyerPoint[] {

@@ -2,13 +2,15 @@ import Link from "next/link";
 import { Icon } from "../components/icon";
 import { PublicMapLocationSearch } from "../components/public-map-location-search";
 import { PublicDemandMap } from "../components/public-demand-map";
-import { findServiceArea, findServiceAreaBySlug, serviceAreaDisplayLabel } from "../lib/service-areas";
+import { DEFAULT_MARKET_SLUG, serviceAreaDisplayLabel } from "../lib/service-areas";
 import { selectedMapArea } from "../lib/map-area";
 import { getPublicBuyerPreviews, type PublicBuyerPreview } from "../server/buyer-preview";
+import { getActiveMarketBySlug, getActiveServiceAreaBySlug, resolveActiveServiceArea } from "../server/service-areas";
 import { getSessionUser } from "../server/session";
 
 type HomeSearchParams = {
   area?: string;
+  market?: string;
 };
 
 export default async function HomePage({
@@ -18,29 +20,33 @@ export default async function HomePage({
 }) {
   const params = await searchParams;
   const user = await getSessionUser();
-  const selectedServiceArea = params.area ? findServiceAreaBySlug(params.area) ?? findServiceArea(params.area) : null;
+  const marketSlug = serviceAreaParam(params.market) ?? DEFAULT_MARKET_SLUG;
+  const market = await getActiveMarketBySlug(marketSlug);
+  const selectedServiceArea = params.area ? await resolveHomeServiceArea(params.area, market.slug) : null;
   const selectedArea = selectedMapArea(selectedServiceArea);
   const selectedAreaLabel = selectedServiceArea ? serviceAreaDisplayLabel(selectedServiceArea) : "";
-  const buyerPreviews = await getPublicBuyerPreviews(selectedServiceArea);
+  const buyerPreviews = await getPublicBuyerPreviews(market.slug, selectedServiceArea);
   const mapboxToken = (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim();
   const sellerSearchPath = selectedServiceArea
-    ? `/seller/search?serviceArea=${encodeURIComponent(selectedServiceArea.slug)}&area=${encodeURIComponent(selectedAreaLabel)}`
-    : "/seller/search";
+    ? `/seller/search?market=${encodeURIComponent(market.slug)}&serviceArea=${encodeURIComponent(selectedServiceArea.slug)}`
+    : `/seller/search?market=${encodeURIComponent(market.slug)}`;
   const sellerSearchHref = user
     ? sellerSearchPath
     : `/signup?role=seller&next=${encodeURIComponent(sellerSearchPath)}`;
   const sellerLoginHref = `/login?next=${encodeURIComponent(sellerSearchPath)}`;
-  const buyerProfileHref = user ? "/buyer/profile" : "/signup?role=buyer&next=/buyer/profile";
+  const buyerProfilePath = `/buyer/profile?market=${encodeURIComponent(market.slug)}`;
+  const buyerProfileHref = user ? buyerProfilePath : `/signup?role=buyer&next=${encodeURIComponent(buyerProfilePath)}`;
   const activePreviewLabel = `${buyerPreviews.length} active preview${buyerPreviews.length === 1 ? "" : "s"}`;
 
   return (
     <div className="map-landing">
       <section className="map-search-rail" aria-label="Buyer demand preview controls">
-        <PublicMapLocationSearch defaultArea={selectedAreaLabel} />
+        <PublicMapLocationSearch defaultArea={selectedAreaLabel} marketSlug={market.slug} />
       </section>
 
       <section className="map-landing-body" aria-label="Buyer demand preview">
         <PublicDemandMap
+          market={market}
           previews={buyerPreviews}
           primaryCtaHref={sellerSearchHref}
           primaryCtaLabel={user ? "View buyers" : "Sign up to view buyers"}
@@ -54,7 +60,7 @@ export default async function HomePage({
         <aside className="demand-panel">
           <header className="demand-panel-head">
             <div>
-              <h1>{selectedAreaLabel ? `${selectedAreaLabel} Buyer Demand` : "Los Angeles Buyer Demand"}</h1>
+              <h1>{selectedAreaLabel ? `${selectedAreaLabel} Buyer Demand` : `${market.label} Buyer Demand`}</h1>
               <p>{selectedArea ? "Preview cards in this selected area" : activePreviewLabel}</p>
             </div>
             <Link className="demand-sort-link" href={sellerSearchHref}>
@@ -100,6 +106,18 @@ export default async function HomePage({
       </section>
     </div>
   );
+}
+
+async function resolveHomeServiceArea(value: string, marketSlug: string) {
+  const bySlug = await getActiveServiceAreaBySlug(value, marketSlug);
+  if (bySlug) return bySlug;
+
+  const resolution = await resolveActiveServiceArea(value, marketSlug);
+  return resolution.status === "resolved" ? resolution.area : null;
+}
+
+function serviceAreaParam(value?: string) {
+  return value && /^[a-z0-9-]+$/.test(value) ? value : undefined;
 }
 
 function BuyerPreviewCard({ preview }: { preview: PublicBuyerPreview }) {

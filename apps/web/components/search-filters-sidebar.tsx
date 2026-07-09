@@ -3,10 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 import {
-  findServiceArea,
   serviceAreaDisplayLabel,
   type ServiceArea,
 } from "../lib/service-areas";
+import {
+  hasSearchSuggestions,
+  resolvedAreaFromSearchPayload,
+  type ServiceAreaSearchResponse,
+} from "../lib/service-area-api";
 import { propertyTypeOptions } from "../lib/property-types";
 import { Icon } from "./icon";
 
@@ -18,30 +22,12 @@ type Props = {
   defaultBedrooms?: string;
   defaultBudgetMax?: string | number;
   defaultBudgetMin?: string | number;
-  defaultCity?: string;
   defaultCondition?: string;
   defaultPropertySubtype?: string;
   defaultServiceArea?: string;
   defaultSort?: string;
   defaultSquareFeet?: string;
-  defaultState?: string;
-};
-
-type ServiceAreaApiResult = {
-  bbox: [number, number, number, number];
-  center: [number, number];
-  city: string | null;
-  county: string | null;
-  disclaimer: string;
-  geojson_path: string;
-  is_pilot: boolean;
-  label: string;
-  postal_code: string | null;
-  slug: string;
-  source: string;
-  source_version: string;
-  state: "CA";
-  type: ServiceArea["type"];
+  marketSlug: string;
 };
 
 const amenityOptions = ["Pool", "Parking", "ADU", "Yard", "Garage"] as const;
@@ -85,19 +71,16 @@ export function SearchFiltersSidebar({
   defaultBedrooms = "",
   defaultBudgetMax = "",
   defaultBudgetMin = "",
-  defaultCity = "",
   defaultCondition = "",
   defaultPropertySubtype = "",
   defaultServiceArea = "",
   defaultSort = "recommended",
   defaultSquareFeet = "",
-  defaultState = "CA",
+  marketSlug,
 }: Props) {
   const router = useRouter();
   const [area, setArea] = useState(defaultArea);
   const [serviceArea, setServiceArea] = useState(defaultServiceArea);
-  const [city, setCity] = useState(defaultCity);
-  const [state, setState] = useState(defaultState);
   const [locationMessage, setLocationMessage] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [minBudget, setMinBudget] = useState(String(defaultBudgetMin || ""));
@@ -114,26 +97,12 @@ export function SearchFiltersSidebar({
     setArea(value);
     setLocationMessage("");
 
-    const matchedArea = findServiceArea(value);
-    if (matchedArea) {
-      applyServiceArea(matchedArea);
-      return;
-    }
-
     setServiceArea("");
-    setCity("");
-    setState("CA");
   }
 
   async function handleLocationLookup() {
     if (!area.trim()) return;
     setLocationMessage("");
-
-    const localArea = findServiceArea(area);
-    if (localArea) {
-      applyServiceArea(localArea);
-      return;
-    }
 
     if (area.trim().length < 3) {
       setLocationMessage("Enter a supported city, neighborhood, or ZIP.");
@@ -142,18 +111,26 @@ export function SearchFiltersSidebar({
 
     setIsLookingUp(true);
     try {
-      const params = new URLSearchParams({ q: area });
+      const params = new URLSearchParams({ market: marketSlug, q: area });
       const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
-      const results = await response.json() as ServiceAreaApiResult[];
-      const result = results[0];
+      const payload = await response.json() as ServiceAreaSearchResponse;
 
-      if (!response.ok || !result) {
+      if (!response.ok) {
         setLocationMessage("We're not active there yet.");
         return;
       }
+      const resolvedArea = resolvedAreaFromSearchPayload(payload);
+      if (resolvedArea) {
+        applyServiceArea(resolvedArea);
+        setLocationMessage(`${resolvedArea.label} verified.`);
+        return;
+      }
+      if (hasSearchSuggestions(payload)) {
+        setLocationMessage("Choose a specific supported city, neighborhood, or ZIP.");
+        return;
+      }
 
-      applyServiceArea(apiResultToServiceArea(result));
-      setLocationMessage(`${result.label} verified.`);
+      setLocationMessage("We're not active there yet.");
     } catch {
       setLocationMessage("Location lookup failed.");
     } finally {
@@ -170,16 +147,12 @@ export function SearchFiltersSidebar({
   function handleClearLocation() {
     setArea("");
     setServiceArea("");
-    setCity("");
-    setState("CA");
     setLocationMessage("");
   }
 
   function applyServiceArea(matchedArea: ServiceArea) {
     setArea(serviceAreaDisplayLabel(matchedArea));
     setServiceArea(matchedArea.slug);
-    setCity(matchedArea.type === "neighborhood" ? matchedArea.label : matchedArea.city ?? matchedArea.label);
-    setState(matchedArea.state);
   }
 
   function toggleBadge(badge: string) {
@@ -195,17 +168,18 @@ export function SearchFiltersSidebar({
   }
 
   function handleClearFilters() {
-    router.push(queryPath(new URLSearchParams(defaultSort === "recommended" ? "" : `sort=${defaultSort}`)));
+    const nextParams = new URLSearchParams({ market: marketSlug });
+    if (defaultSort !== "recommended") nextParams.set("sort", defaultSort);
+    router.push(queryPath(nextParams));
   }
 
   function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const nextParams = new URLSearchParams();
-    if (area) nextParams.set("area", area);
-    if (serviceArea) nextParams.set("serviceArea", serviceArea);
-    if (city) nextParams.set("city", city);
-    if (state) nextParams.set("state", state);
+    const nextParams = new URLSearchParams({ market: marketSlug });
+    if (serviceArea) {
+      nextParams.set("serviceArea", serviceArea);
+    }
     if (minBudget) nextParams.set("budgetMin", minBudget);
     if (maxBudget) nextParams.set("budgetMax", maxBudget);
     if (bedrooms) nextParams.set("bedrooms", bedrooms);
@@ -385,29 +359,6 @@ export function SearchFiltersSidebar({
       </form>
     </aside>
   );
-}
-
-function apiResultToServiceArea(result: ServiceAreaApiResult): ServiceArea {
-  return {
-    active: true,
-    bbox: result.bbox,
-    center: {
-      lat: result.center[1],
-      lng: result.center[0],
-    },
-    city: result.city,
-    county: result.county,
-    disclaimer: result.disclaimer,
-    geojsonPath: result.geojson_path,
-    isPilot: result.is_pilot,
-    label: result.label,
-    postalCode: result.postal_code,
-    slug: result.slug,
-    source: result.source,
-    sourceVersion: result.source_version,
-    state: result.state,
-    type: result.type,
-  };
 }
 
 function queryPath(params: URLSearchParams) {

@@ -1,91 +1,66 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  activeServiceAreas,
-  findServiceArea,
   serviceAreaDisplayLabel,
   type ServiceArea,
 } from "../lib/service-areas";
+import {
+  apiResultToServiceArea,
+  hasSearchSuggestions,
+  resolvedAreaFromSearchPayload,
+  type ServiceAreaSearchResponse,
+} from "../lib/service-area-api";
 
 type Props = {
-  cityName: string;
-  defaultCity?: string;
-  defaultLat?: number | string;
-  defaultLng?: number | string;
   defaultLocation?: string;
-  defaultNeighborhood?: string;
-  defaultPostalCode?: string;
-  defaultRadiusMiles?: number | string;
-  inputName: string;
-  intent: "search" | "store";
+  defaultServiceAreaSlug?: string;
+  inputId: string;
   label: string;
-  latName: string;
-  lngName: string;
-  neighborhoodName?: string;
-  postalCodeName?: string;
-  radiusName?: string;
-  stateName: string;
-};
-
-type ServiceAreaApiResult = {
-  bbox: [number, number, number, number];
-  center: [number, number];
-  city: string | null;
-  county: string | null;
-  disclaimer: string;
-  geojson_path: string;
-  is_pilot: boolean;
-  label: string;
-  postal_code: string | null;
-  slug: string;
-  source: string;
-  source_version: string;
-  state: "CA";
-  type: ServiceArea["type"];
+  marketSlug: string;
 };
 
 export function LocationLookupFields({
-  cityName,
-  defaultCity = "",
-  defaultLat = "",
-  defaultLng = "",
   defaultLocation = "",
-  defaultNeighborhood = "",
-  defaultPostalCode = "",
-  defaultRadiusMiles = 4,
-  inputName,
-  intent: _intent,
+  defaultServiceAreaSlug = "",
+  inputId,
   label,
-  latName,
-  lngName,
-  neighborhoodName,
-  postalCodeName,
-  radiusName,
-  stateName,
+  marketSlug,
 }: Props) {
   const [query, setQuery] = useState(defaultLocation);
-  const [city, setCity] = useState(defaultCity);
-  const [state, setState] = useState("CA");
-  const [lat, setLat] = useState(String(defaultLat || ""));
-  const [lng, setLng] = useState(String(defaultLng || ""));
-  const [neighborhood, setNeighborhood] = useState(defaultNeighborhood);
-  const [postalCode, setPostalCode] = useState(defaultPostalCode);
-  const [radiusMiles, setRadiusMiles] = useState(String(defaultRadiusMiles || 4));
+  const [serviceAreaSlug, setServiceAreaSlug] = useState(defaultServiceAreaSlug);
   const [message, setMessage] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
-  const activeZipAreas = activeServiceAreas.filter((area) => area.type === "zip" && area.postalCode);
+  const [suggestedAreas, setSuggestedAreas] = useState<ServiceArea[]>([]);
+  const activeZipAreas = suggestedAreas.filter((area) => area.type === "zip" && area.postalCode);
+
+  useEffect(() => {
+    let canceled = false;
+
+    async function loadSuggestions() {
+      try {
+        const params = new URLSearchParams({ market: marketSlug, q: query.trim() });
+        const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
+        if (!response.ok) {
+          if (!canceled) setSuggestedAreas([]);
+          return;
+        }
+        const payload = await response.json() as ServiceAreaSearchResponse;
+        const suggestions = payload.suggestions.map(apiResultToServiceArea);
+        if (!canceled && suggestions.length > 0) setSuggestedAreas(suggestions);
+      } catch {
+        if (!canceled) setSuggestedAreas([]);
+      }
+    }
+
+    void loadSuggestions();
+    return () => {
+      canceled = true;
+    };
+  }, [marketSlug, query]);
 
   async function lookup() {
     setMessage("");
-    const localArea = findServiceArea(query);
-
-    if (localArea) {
-      applyArea(localArea);
-      setMessage(`${serviceAreaDisplayLabel(localArea)} is a supported Liber service area.`);
-      return;
-    }
-
     if (query.trim().length < 3) {
       setMessage("Enter a supported city, neighborhood, or ZIP before lookup.");
       return;
@@ -93,20 +68,28 @@ export function LocationLookupFields({
 
     setIsLookingUp(true);
     try {
-      const params = new URLSearchParams({ q: query });
+      const params = new URLSearchParams({ market: marketSlug, q: query });
       const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
-      const results = await response.json() as ServiceAreaApiResult[];
-      const result = results[0];
+      const payload = await response.json() as ServiceAreaSearchResponse;
 
-      if (!response.ok || !result) {
+      if (!response.ok) {
         setMessage("We're not active there yet.");
         return;
       }
+      const resolvedArea = resolvedAreaFromSearchPayload(payload);
+      if (resolvedArea) {
+        applyArea(resolvedArea);
+        setMessage(`${serviceAreaDisplayLabel(resolvedArea)} is a supported Liber service area.`);
+        return;
+      }
+      if (hasSearchSuggestions(payload)) {
+        setMessage("Choose a specific supported city, neighborhood, or ZIP.");
+        return;
+      }
 
-      applyArea(apiResultToServiceArea(result));
-      setMessage(`${result.label} is a supported Liber service area.`);
+      setMessage("We're not active there yet.");
     } catch {
-      setMessage("Location lookup failed. You can still enter the fields manually.");
+      setMessage("Location lookup failed. Try again before saving.");
     } finally {
       setIsLookingUp(false);
     }
@@ -116,42 +99,23 @@ export function LocationLookupFields({
     setQuery(value);
     setMessage("");
 
-    const area = findServiceArea(value);
-    if (area) {
-      applyArea(area);
-      return;
-    }
-
-    setCity("");
-    setState("CA");
-    setLat("");
-    setLng("");
-    setNeighborhood("");
-    setPostalCode("");
+    setServiceAreaSlug("");
   }
 
   function applyArea(area: ServiceArea) {
-    const nextCity = area.type === "neighborhood" ? area.label : area.city ?? area.label;
     setQuery(serviceAreaDisplayLabel(area));
-    setCity(nextCity);
-    setState(area.state);
-    setLat(String(area.center.lat));
-    setLng(String(area.center.lng));
-    setNeighborhood(area.type === "neighborhood" ? area.label : "");
-    setPostalCode(area.postalCode ?? "");
-    setRadiusMiles("4");
+    setServiceAreaSlug(area.slug);
   }
 
   return (
     <>
       <div className="field full">
-        <label htmlFor={inputName}>{label}</label>
+        <label htmlFor={inputId}>{label}</label>
         <div className="lookup-row">
           <input
             autoComplete="off"
-            id={inputName}
-            list={`${inputName}-service-areas`}
-            name={inputName}
+            id={inputId}
+            list={`${inputId}-service-areas`}
             onChange={(event) => handleQueryChange(event.target.value)}
             placeholder="Search city, neighborhood, or ZIP"
             value={query}
@@ -160,29 +124,24 @@ export function LocationLookupFields({
             {isLookingUp ? "Checking" : "Use area"}
           </button>
         </div>
-        <datalist id={`${inputName}-service-areas`}>
-          {activeServiceAreas.map((area) => (
+        <datalist id={`${inputId}-service-areas`}>
+          {suggestedAreas.map((area) => (
             <option key={area.slug} value={serviceAreaDisplayLabel(area)} />
           ))}
         </datalist>
         {message ? <span className="muted small">{message}</span> : null}
       </div>
-      <input name={cityName} type="hidden" value={city} />
-      <input name={stateName} type="hidden" value={state} />
-      <input name={latName} type="hidden" value={lat} />
-      <input name={lngName} type="hidden" value={lng} />
-      {neighborhoodName ? <input name={neighborhoodName} type="hidden" value={neighborhood} /> : null}
-      {postalCodeName ? <input name={postalCodeName} type="hidden" value={postalCode} /> : null}
-      {radiusName ? <input name={radiusName} type="hidden" value={radiusMiles} /> : null}
+      <input name="desiredServiceAreaSlug" type="hidden" value={serviceAreaSlug} />
+      <input name="desiredMarketSlug" type="hidden" value={marketSlug} />
       <div className="field">
-        <label>Active pilot ZIPs</label>
+        <label>Active ZIPs</label>
         <select
-          aria-label="Active pilot ZIP"
+          aria-label="Active ZIP"
           onChange={(event) => {
             const area = activeZipAreas.find((item) => item.postalCode === event.target.value);
             if (area) applyArea(area);
           }}
-          value={postalCode}
+          value={activeZipAreas.find((area) => area.slug === serviceAreaSlug)?.postalCode ?? ""}
         >
           <option value="">Select ZIP</option>
           {activeZipAreas.map((area) => (
@@ -190,40 +149,6 @@ export function LocationLookupFields({
           ))}
         </select>
       </div>
-      {radiusName ? (
-        <div className="field">
-          <label htmlFor={`${inputName}-radius`}>Approximate area miles</label>
-          <input
-            id={`${inputName}-radius`}
-            inputMode="numeric"
-            onChange={(event) => setRadiusMiles(event.target.value)}
-            value={radiusMiles}
-          />
-        </div>
-      ) : null}
     </>
   );
-}
-
-function apiResultToServiceArea(result: ServiceAreaApiResult): ServiceArea {
-  return {
-    active: true,
-    bbox: result.bbox,
-    center: {
-      lat: result.center[1],
-      lng: result.center[0],
-    },
-    city: result.city,
-    county: result.county,
-    disclaimer: result.disclaimer,
-    geojsonPath: result.geojson_path,
-    isPilot: result.is_pilot,
-    label: result.label,
-    postalCode: result.postal_code,
-    slug: result.slug,
-    source: result.source,
-    sourceVersion: result.source_version,
-    state: result.state,
-    type: result.type,
-  };
 }

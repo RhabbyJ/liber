@@ -52,18 +52,18 @@ export const inviteStatusSchema = z.enum([
 
 const optionalMoney = z.coerce.number().min(0).optional();
 const optionalInteger = z.coerce.number().int().min(0).optional();
+export const marketSlugSchema = z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/);
+const nullableServiceAreaSlug = z.union([
+  z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/),
+  z.null(),
+]).optional();
 
 const buyerProfileShape = {
   buyerType: purchaseTypeSchema.optional(),
   bio: z.string().trim().max(1200).optional(),
   buyingPurpose: buyingPurposeSchema.optional(),
-  desiredLocationText: z.string().trim().max(160).optional(),
-  desiredCity: z.string().trim().max(80).optional(),
-  desiredNeighborhood: z.string().trim().max(80).optional(),
-  desiredPostalCode: z.string().trim().regex(/^\d{5}$/).optional(),
-  desiredState: z.string().trim().length(2).optional(),
-  desiredLat: z.coerce.number().min(-90).max(90).optional(),
-  desiredLng: z.coerce.number().min(-180).max(180).optional(),
+  desiredMarketSlug: marketSlugSchema.optional(),
+  desiredServiceAreaSlug: nullableServiceAreaSlug,
   budgetMin: optionalMoney,
   budgetMax: optionalMoney,
   downPaymentMin: optionalMoney,
@@ -100,7 +100,15 @@ export const createBuyerProfileSchema = z.object({
     message: "Down payment minimum cannot exceed down payment maximum.",
     path: ["downPaymentMin"],
   },
-);
+).superRefine((input, context) => {
+  if (typeof input.desiredServiceAreaSlug === "string" && !input.desiredMarketSlug) {
+    context.addIssue({
+      code: "custom",
+      message: "A market is required for the selected service area.",
+      path: ["desiredMarketSlug"],
+    });
+  }
+});
 
 export const updateBuyerProfileSchema = z.object({
   ...buyerProfileShape,
@@ -122,7 +130,15 @@ export const updateBuyerProfileSchema = z.object({
     message: "Down payment minimum cannot exceed down payment maximum.",
     path: ["downPaymentMin"],
   },
-);
+).superRefine((input, context) => {
+  if (typeof input.desiredServiceAreaSlug === "string" && !input.desiredMarketSlug) {
+    context.addIssue({
+      code: "custom",
+      message: "A market is required for the selected service area.",
+      path: ["desiredMarketSlug"],
+    });
+  }
+});
 
 export const upsertBuyerCriteriaSchema = z.object({
   id: z.string().optional(),
@@ -195,12 +211,8 @@ export const sendInviteSchema = z.object({
 });
 
 export const searchBuyersSchema = z.object({
-  city: z.string().trim().max(80).optional(),
-  centerLat: z.coerce.number().min(-90).max(90).optional(),
-  centerLng: z.coerce.number().min(-180).max(180).optional(),
+  market: marketSlugSchema,
   serviceArea: z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/).optional(),
-  state: z.string().trim().length(2).optional(),
-  radiusMiles: z.coerce.number().min(1).max(100).optional(),
   propertyCategory: propertyCategorySchema.optional(),
   propertySubtype: propertySubtypeSchema.optional(),
   budgetMin: optionalMoney,
@@ -219,14 +231,6 @@ export const searchBuyersSchema = z.object({
     "most_verified",
   ]).default("recommended"),
 }).refine(
-  (input) =>
-    input.radiusMiles === undefined ||
-    (input.centerLat !== undefined && input.centerLng !== undefined),
-  {
-    message: "Radius search requires latitude and longitude.",
-    path: ["radiusMiles"],
-  },
-).refine(
   (input) =>
     input.budgetMin === undefined ||
     input.budgetMax === undefined ||

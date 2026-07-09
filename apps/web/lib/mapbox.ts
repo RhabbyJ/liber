@@ -1,5 +1,15 @@
 import type { Buyer } from "./mock-data";
-import { approximateBuyerPoint } from "./launch-market";
+import { approximateBuyerPoint } from "./buyer-map-point";
+
+export function mapboxServiceAreaQueries(feature: Record<string, any>) {
+  const properties = feature.properties ?? {};
+  const context = properties.context ?? {};
+  const typedPostcode = properties.feature_type === "postcode" ? properties.name : context.postcode?.name;
+  const typedPlace = properties.feature_type === "place" ? properties.name : context.place?.name;
+  return [typedPostcode, typedPlace]
+    .filter((value): value is string => typeof value === "string" && Boolean(value.trim()))
+    .map((value) => value.trim());
+}
 
 export function mapboxStaticImageUrl(buyers: Buyer[], token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN) {
   if (!token) return null;
