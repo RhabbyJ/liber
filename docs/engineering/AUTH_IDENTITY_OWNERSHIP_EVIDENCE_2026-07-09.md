@@ -110,8 +110,8 @@ These remain later security/release gates; they were not caused by `00016`.
 
 ## Local verification
 
-- Full workspace tests: web 77 passed with one guarded database E2E skipped;
-  validators 13/13 passed.
+- Full workspace tests after the cleanup review: database-target guards 3/3,
+  web 75 passed with one guarded database E2E skipped, and validators 13/13.
 - Focused identity suite: 12/12 passed, including locked role persistence and
   suspended/missing/collision/ADMIN-denial cases.
 - Full workspace typecheck passed.
