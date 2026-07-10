@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatRange } from "../lib/format";
 import { approximateBuyerPoint } from "../lib/buyer-map-point";
-import { marketMapBounds, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
+import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
 import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
 import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
+import { useSelectedAreaGeoJson } from "../lib/use-selected-area-geojson";
 import { StaticBuyerMap } from "./static-buyer-map";
 
 type Props = {
@@ -34,7 +35,7 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
   const [isReady, setIsReady] = useState(false);
   const [status, setStatus] = useState("Loading interactive map");
   const [didFail, setDidFail] = useState(false);
-  const [selectedAreaGeojson, setSelectedAreaGeojson] = useState<Record<string, unknown> | null>(null);
+  const selectedAreaGeojson = useSelectedAreaGeoJson(selectedServiceArea);
 
   const buyerPoints = useMemo(
     () =>
@@ -55,10 +56,11 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
       .querySelector<HTMLElement>(`.buyer-card[data-buyer-id="${cssEscape(buyerId)}"], .buyer-row[data-buyer-id="${cssEscape(buyerId)}"]`)
       ?.classList.toggle("active", active);
   }, []);
+  const mapInstanceKey = marketMapInstanceKey(market, token);
 
   useEffect(() => {
     setDidFail(false);
-  }, [buyerPoints.length, initialCenter.lat, initialCenter.lng, market, token]);
+  }, [mapInstanceKey]);
 
   useEffect(() => {
     if (didFail) return;
@@ -88,12 +90,12 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
         mapRef.current = new mapboxgl.Map({
           antialias: true,
           attributionControl: true,
-          center: [initialCenter.lng, initialCenter.lat],
+          center: [market.center.lng, market.center.lat],
           cooperativeGestures: true,
           container: containerRef.current,
           maxBounds: marketMapBounds(market),
           style: "mapbox://styles/mapbox/streets-v12",
-          zoom: buyerPoints.length > 1 ? 10.4 : 11.4,
+          zoom: 10.4,
         });
 
         mapRef.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "bottom-right");
@@ -128,7 +130,7 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [buyerPoints.length, didFail, initialCenter.lat, initialCenter.lng, market, token]);
+  }, [didFail, mapInstanceKey]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current || !window.mapboxgl) return;
@@ -173,31 +175,6 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
     }
 
   }, [buyerPoints, highlightBuyer, initialCenter.lat, initialCenter.lng, isReady, markerPoints, selectedArea, selectedAreaGeojson]);
-
-  useEffect(() => {
-    let canceled = false;
-
-    async function loadSelectedArea() {
-      setSelectedAreaGeojson(null);
-      if (!selectedArea) {
-        return;
-      }
-
-      try {
-        const response = await fetch(selectedArea.geojsonPath, { cache: "force-cache" });
-        if (!response.ok) throw new Error("Unable to load service area.");
-        const geojson = await response.json();
-        if (!canceled) setSelectedAreaGeojson(geojson);
-      } catch {
-        if (!canceled) setSelectedAreaGeojson(null);
-      }
-    }
-
-    void loadSelectedArea();
-    return () => {
-      canceled = true;
-    };
-  }, [selectedArea]);
 
   useEffect(() => {
     const cards = Array.from(document.querySelectorAll<HTMLElement>(".buyer-card[data-buyer-id], .buyer-row[data-buyer-id]"));

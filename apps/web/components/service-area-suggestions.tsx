@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiResultToServiceArea, type ServiceAreaSearchResponse } from "../lib/service-area-api";
+import { LatestRequestGate, runLatestRequest } from "../lib/latest-request";
 import { serviceAreaDisplayLabel, type ServiceArea } from "../lib/service-areas";
 
 type Props = {
@@ -12,30 +13,26 @@ type Props = {
 
 export function ServiceAreaSuggestions({ marketSlug, onSelect, query = "" }: Props) {
   const [areas, setAreas] = useState<ServiceArea[]>([]);
+  const requestGateRef = useRef(new LatestRequestGate());
 
   useEffect(() => {
-    let canceled = false;
+    const controller = new AbortController();
     setAreas([]);
-
-    async function loadSuggestions() {
-      try {
+    void runLatestRequest({
+      gate: requestGateRef.current,
+      load: async () => {
         const params = new URLSearchParams({ market: marketSlug, q: query.trim() });
-        const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
-        if (!response.ok) {
-          if (!canceled) setAreas([]);
-          return;
-        }
+        const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error("Service-area lookup failed.");
         const payload = await response.json() as ServiceAreaSearchResponse;
-        const suggestions = payload.suggestions.map(apiResultToServiceArea);
-        if (!canceled) setAreas(suggestions);
-      } catch {
-        if (!canceled) setAreas([]);
-      }
-    }
-
-    void loadSuggestions();
+        return payload.suggestions.map(apiResultToServiceArea);
+      },
+      onError: () => setAreas([]),
+      onSuccess: setAreas,
+    });
     return () => {
-      canceled = true;
+      controller.abort();
+      requestGateRef.current.invalidate();
     };
   }, [marketSlug, query]);
 
@@ -46,7 +43,7 @@ export function ServiceAreaSuggestions({ marketSlug, onSelect, query = "" }: Pro
         {areas.map((area) => (
           <button
             className="service-area-suggestion"
-            key={area.slug}
+            key={`${marketSlug}:${area.id ?? area.slug}`}
             onClick={() => onSelect(area)}
             onMouseDown={(event) => event.preventDefault()}
             type="button"

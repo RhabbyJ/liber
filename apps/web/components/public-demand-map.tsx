@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
 import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
-import { marketMapBounds, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
+import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
+import { useSelectedAreaGeoJson } from "../lib/use-selected-area-geojson";
 
 type Props = {
   market: MarketMapContext;
@@ -46,7 +47,7 @@ export function PublicDemandMap({
   const [didFail, setDidFail] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [hasLiveMarkers, setHasLiveMarkers] = useState(false);
-  const [selectedAreaGeojson, setSelectedAreaGeojson] = useState<Record<string, unknown> | null>(null);
+  const selectedAreaGeojson = useSelectedAreaGeoJson(selectedArea);
 
   const points = useMemo<PreviewPoint[]>(
     () =>
@@ -62,10 +63,11 @@ export function PublicDemandMap({
   );
   const mapboxToken = token?.trim() ?? "";
   const shouldUseMapbox = Boolean(mapboxToken);
+  const mapInstanceKey = marketMapInstanceKey(market, mapboxToken);
 
   useEffect(() => {
     setDidFail(false);
-  }, [mapboxToken, market]);
+  }, [mapInstanceKey]);
 
   useEffect(() => {
     if (didFail) return;
@@ -117,7 +119,7 @@ export function PublicDemandMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [didFail, mapboxToken, market, shouldUseMapbox]);
+  }, [didFail, mapInstanceKey, shouldUseMapbox]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current || !window.mapboxgl) return;
@@ -168,31 +170,6 @@ export function PublicDemandMap({
     selectedArea,
     selectedAreaGeojson,
   ]);
-
-  useEffect(() => {
-    let canceled = false;
-
-    async function loadSelectedArea() {
-      setSelectedAreaGeojson(null);
-      if (!selectedArea) {
-        return;
-      }
-
-      try {
-        const response = await fetch(selectedArea.geojsonPath, { cache: "force-cache" });
-        if (!response.ok) throw new Error("Unable to load service area.");
-        const geojson = await response.json();
-        if (!canceled) setSelectedAreaGeojson(geojson);
-      } catch {
-        if (!canceled) setSelectedAreaGeojson(null);
-      }
-    }
-
-    void loadSelectedArea();
-    return () => {
-      canceled = true;
-    };
-  }, [selectedArea]);
 
   if (!shouldUseMapbox || didFail) {
     return <PublicStaticDemandMap points={points} />;

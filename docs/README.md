@@ -38,6 +38,8 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `engineering/SELLER_SEARCH_SQL_PROPOSAL.sql` — unnumbered CTO index proposal; not an applied migration.
 - `engineering/UPLOAD_MALWARE_SCANNING.md` — selected OPSWAT private-processing scanner and credential-blocked public-launch gate.
 - `engineering/DEPENDENCY_AUDIT_2026-07-11.md` — current dependency findings, reachability triage, and compatible-upgrade policy.
+- `engineering/GEOGRAPHY_LA_COVERAGE_PROPOSAL_RUNBOOK.md` — non-activating LA County dataset staging, integration gates, activation separation, and rollback.
+- `engineering/GEOGRAPHY_LA_COVERAGE_EVIDENCE_2026-07-10.md` — dataset hashes, local verification, and open database proof.
 
 ## Section micro-docs
 

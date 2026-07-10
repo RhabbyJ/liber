@@ -98,6 +98,12 @@ describe.skipIf(!enabled)("database-backed canonical service areas", () => {
       await expect(prisma.serviceArea.create({
         data: { ...serviceAreaData(market.id, `wrong-state-${suffix}`, "Wrong state", "city"), state: "AZ" },
       })).rejects.toThrow("state must match its market state");
+      await expect(prisma.serviceArea.create({
+        data: {
+          ...serviceAreaData(market.id, `outside-bounds-${suffix}`, "Outside bounds", "city"),
+          bboxWest: market.bboxWest - 0.1,
+        },
+      })).rejects.toThrow("inside its market bounds");
       await expect(prisma.market.update({
         where: { id: market.id },
         data: { state: "AZ" },

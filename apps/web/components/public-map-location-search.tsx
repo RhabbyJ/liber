@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   serviceAreaDisplayLabel,
   type ServiceArea,
@@ -28,6 +28,16 @@ export function PublicMapLocationSearch({ defaultArea = "", marketSlug }: Props)
   const [message, setMessage] = useState("");
   const [isUnsupported, setIsUnsupported] = useState(Boolean(unsupportedArea));
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const previousMarketRef = useRef(marketSlug);
+
+  useEffect(() => {
+    if (previousMarketRef.current === marketSlug) return;
+    previousMarketRef.current = marketSlug;
+    setQuery("");
+    setMessage("");
+    setIsUnsupported(false);
+    setIsSuggestionsOpen(false);
+  }, [marketSlug]);
 
   useEffect(() => {
     if (unsupportedArea) {

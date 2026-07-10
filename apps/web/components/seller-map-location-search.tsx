@@ -31,8 +31,9 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
   useEffect(() => {
     setQuery(defaultArea);
     setMessage("");
+    setIsLookingUp(false);
     setIsSuggestionsOpen(false);
-  }, [defaultArea, defaultServiceArea]);
+  }, [defaultArea, defaultServiceArea, marketSlug]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

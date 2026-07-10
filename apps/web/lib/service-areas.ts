@@ -357,7 +357,7 @@ export function findServiceAreaBySlug(slug: string, areas: ServiceArea[] = activ
 }
 
 export function searchServiceAreas(query: string, areas: ServiceArea[] = activeServiceAreas, limit = 8) {
-  const normalized = normalizeSearchText(query);
+  const normalized = normalizeServiceAreaSearchTerm(query);
   if (!normalized) return [];
 
   const zip = normalizeZip(query);
@@ -378,7 +378,7 @@ export function searchServiceAreas(query: string, areas: ServiceArea[] = activeS
 }
 
 export function resolveServiceArea(query: string, areas: ServiceArea[] = activeServiceAreas): ServiceAreaResolution {
-  const normalized = normalizeSearchText(query);
+  const normalized = normalizeServiceAreaSearchTerm(query);
   if (!normalized) return { status: "none" };
 
   const slugMatches = areas.filter((area) => area.slug === normalized);
@@ -392,7 +392,7 @@ export function resolveServiceArea(query: string, areas: ServiceArea[] = activeS
   }
 
   const labelResolution = resolutionFromMatches(
-    areas.filter((area) => normalizeSearchText(area.label) === normalized),
+    areas.filter((area) => normalizeServiceAreaSearchTerm(area.label) === normalized),
   );
   if (labelResolution.status !== "none") return labelResolution;
 
@@ -403,13 +403,14 @@ export function resolveServiceArea(query: string, areas: ServiceArea[] = activeS
 
 export function serviceAreaDisplayLabel(area: ServiceArea) {
   if (area.type === "zip" && area.city) return `${area.city} ${area.postalCode}`;
+  if (area.type === "neighborhood" && area.city) return `${area.label}, ${area.city}`;
   return area.label;
 }
 
 function serviceAreaTerms(area: ServiceArea) {
   return Array.from(new Set([area.slug, area.label, area.postalCode, ...(area.searchTerms ?? []), ...(area.aliases ?? [])]
     .filter((value): value is string => Boolean(value))
-    .map(normalizeSearchText)));
+    .map(normalizeServiceAreaSearchTerm)));
 }
 
 function resolutionFromMatches(matches: ServiceArea[]): ServiceAreaResolution {
@@ -418,7 +419,7 @@ function resolutionFromMatches(matches: ServiceArea[]): ServiceAreaResolution {
   return { status: "ambiguous", areas: matches };
 }
 
-function normalizeSearchText(value: string) {
+export function normalizeServiceAreaSearchTerm(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 

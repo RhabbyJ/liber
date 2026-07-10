@@ -234,65 +234,167 @@ model BuyerProfile {
 }
 
 model Market {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug      String   @unique
-  label     String
-  state     String
-  country   String
-  centerLat Float    @map("center_lat")
-  centerLng Float    @map("center_lng")
-  bboxWest  Float    @map("bbox_west")
-  bboxSouth Float    @map("bbox_south")
-  bboxEast  Float    @map("bbox_east")
-  bboxNorth Float    @map("bbox_north")
-  active    Boolean  @default(false)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug              String   @unique
+  label             String
+  state             String
+  country           String
+  jurisdictionType  String?  @map("jurisdiction_type")
+  jurisdictionGeoid String?  @map("jurisdiction_geoid")
+  stableExternalId  String?  @unique @map("stable_external_id")
+  currentBoundaryId String?  @unique @map("current_boundary_id") @db.Uuid
+  centerLat         Float    @map("center_lat")
+  centerLng         Float    @map("center_lng")
+  bboxWest          Float    @map("bbox_west")
+  bboxSouth         Float    @map("bbox_south")
+  bboxEast          Float    @map("bbox_east")
+  bboxNorth         Float    @map("bbox_north")
+  active            Boolean  @default(false)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
 
-  serviceAreas ServiceArea[]
+  boundaryVersions MarketBoundaryVersion[]   @relation("MarketBoundaryVersions")
+  currentBoundary  MarketBoundaryVersion?    @relation("CurrentMarketBoundary", fields: [currentBoundaryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  datasetVersions  GeographyDatasetVersion[]
+  searchTerms      ServiceAreaSearchTerm[]
+  serviceAreas     ServiceArea[]
 
+  @@unique([country, jurisdictionType, jurisdictionGeoid], map: "markets_country_jurisdiction_type_jurisdiction_geoid_key")
   @@map("markets")
 }
 
 model ServiceArea {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  marketId      String   @map("market_id") @db.Uuid
-  market        Market   @relation(fields: [marketId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  slug          String
-  label         String
-  type          String
-  postalCode    String?  @map("postal_code")
-  city          String?
-  county        String?
-  state         String
-  centerLat     Float    @map("center_lat")
-  centerLng     Float    @map("center_lng")
-  bboxWest      Float    @map("bbox_west")
-  bboxSouth     Float    @map("bbox_south")
-  bboxEast      Float    @map("bbox_east")
-  bboxNorth     Float    @map("bbox_north")
-  geojsonPath   String   @map("geojson_path")
-  source        String
-  sourceVersion String   @map("source_version")
-  sourceLicense String?  @map("source_license")
-  sourceUrl     String?  @map("source_url")
-  geojsonSha256 String?  @map("geojson_sha256")
-  searchTerms   String[] @default([]) @map("search_terms")
-  active        Boolean  @default(false)
-  isPilot       Boolean  @default(false) @map("is_pilot")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  marketId           String    @map("market_id") @db.Uuid
+  market             Market    @relation(fields: [marketId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  slug               String
+  label              String
+  type               String
+  postalCode         String?   @map("postal_code")
+  city               String?
+  county             String?
+  state              String
+  centerLat          Float     @map("center_lat")
+  centerLng          Float     @map("center_lng")
+  bboxWest           Float     @map("bbox_west")
+  bboxSouth          Float     @map("bbox_south")
+  bboxEast           Float     @map("bbox_east")
+  bboxNorth          Float     @map("bbox_north")
+  geojsonPath        String    @map("geojson_path")
+  source             String
+  sourceVersion      String    @map("source_version")
+  sourceLicense      String?   @map("source_license")
+  sourceUrl          String?   @map("source_url")
+  sourceRetrievalUrl String?   @map("source_retrieval_url")
+  geojsonSha256      String?   @map("geojson_sha256")
+  stableExternalId   String?   @map("stable_external_id")
+  sourceRetrievedAt  DateTime? @map("source_retrieved_at") @db.Date
+  currentGeometryId  String?   @unique @map("current_geometry_id") @db.Uuid
+  searchTerms        String[]  @default([]) @map("search_terms")
+  active             Boolean   @default(false)
+  isPilot            Boolean   @default(false) @map("is_pilot")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
 
   buyerDesiredAreas   BuyerDesiredServiceArea[]
-  childRelationships  ServiceAreaRelationship[] @relation("ServiceAreaRelationshipChild")
-  parentRelationships ServiceAreaRelationship[] @relation("ServiceAreaRelationshipParent")
+  childRelationships  ServiceAreaRelationship[]    @relation("ServiceAreaRelationshipChild")
+  currentGeometry     ServiceAreaGeometryVersion?  @relation("CurrentServiceAreaGeometry", fields: [currentGeometryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  geometryVersions    ServiceAreaGeometryVersion[] @relation("ServiceAreaGeometryVersions")
+  parentRelationships ServiceAreaRelationship[]    @relation("ServiceAreaRelationshipParent")
+  reviewedSearchTerms ServiceAreaSearchTerm[]
 
   @@unique([marketId, slug])
   @@unique([marketId, postalCode])
+  @@unique([marketId, stableExternalId], map: "service_areas_market_id_stable_external_id_key")
+  @@unique([id, marketId], map: "service_areas_id_market_id_key")
   @@index([marketId, active, type])
   @@index([active, type])
   @@index([postalCode])
   @@map("service_areas")
+}
+
+model MarketBoundaryVersion {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  marketId           String   @map("market_id") @db.Uuid
+  datasetVersion     String   @map("dataset_version")
+  geojson            Json
+  sha256             String
+  source             String
+  sourceVersion      String   @map("source_version")
+  sourceLicense      String   @map("source_license")
+  sourceUrl          String   @map("source_url")
+  sourceRetrievalUrl String   @map("source_retrieval_url")
+  sourceRetrievedAt  DateTime @map("source_retrieved_at") @db.Date
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  currentFor     Market?                   @relation("CurrentMarketBoundary")
+  datasetRecords GeographyDatasetVersion[]
+  market         Market                    @relation("MarketBoundaryVersions", fields: [marketId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([marketId, datasetVersion])
+  @@index([marketId, sha256])
+  @@map("market_boundary_versions")
+}
+
+model ServiceAreaGeometryVersion {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  serviceAreaId      String   @map("service_area_id") @db.Uuid
+  datasetVersion     String   @map("dataset_version")
+  geojson            Json
+  sha256             String
+  sourceSha256       String   @map("source_sha256")
+  source             String
+  sourceVersion      String   @map("source_version")
+  sourceLicense      String   @map("source_license")
+  sourceUrl          String   @map("source_url")
+  sourceRetrievalUrl String   @map("source_retrieval_url")
+  sourceRetrievedAt  DateTime @map("source_retrieved_at") @db.Date
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  currentFor  ServiceArea? @relation("CurrentServiceAreaGeometry")
+  serviceArea ServiceArea  @relation("ServiceAreaGeometryVersions", fields: [serviceAreaId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([serviceAreaId, datasetVersion])
+  @@index([serviceAreaId, sha256])
+  @@index([serviceAreaId, createdAt])
+  @@map("service_area_geometry_versions")
+}
+
+model ServiceAreaSearchTerm {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  marketId       String   @map("market_id") @db.Uuid
+  serviceAreaId  String   @map("service_area_id") @db.Uuid
+  termNormalized String   @map("term_normalized")
+  termKind       String   @map("term_kind")
+  source         String
+  reviewedAt     DateTime @map("reviewed_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  market      Market      @relation(fields: [marketId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  serviceArea ServiceArea @relation(fields: [serviceAreaId, marketId], references: [id, marketId], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([marketId, termNormalized, serviceAreaId])
+  @@index([marketId, termNormalized])
+  @@index([serviceAreaId])
+  @@map("service_area_search_terms")
+}
+
+model GeographyDatasetVersion {
+  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  datasetVersion          String   @unique @map("dataset_version")
+  marketId                String   @map("market_id") @db.Uuid
+  marketBoundaryVersionId String   @map("market_boundary_version_id") @db.Uuid
+  manifestSha256          String   @map("manifest_sha256")
+  relationshipsSha256     String   @map("relationships_sha256")
+  manifest                Json
+  relationships           Json
+  stagedAt                DateTime @default(now()) @map("staged_at")
+
+  market         Market                @relation(fields: [marketId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  marketBoundary MarketBoundaryVersion @relation(fields: [marketBoundaryVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([marketId, stagedAt])
+  @@map("geography_dataset_versions")
 }
 
 model ServiceAreaRelationship {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 import {
   serviceAreaDisplayLabel,
   type ServiceArea,
@@ -68,6 +68,13 @@ export function SearchFiltersSidebar({
   const [condition, setCondition] = useState(defaultCondition);
   const [propertySubtype, setPropertySubtype] = useState(defaultPropertySubtype);
   const [amenities, setAmenities] = useState<string[]>(defaultAmenities);
+
+  useEffect(() => {
+    setArea(defaultArea);
+    setServiceArea(defaultServiceArea);
+    setLocationMessage("");
+    setIsLookingUp(false);
+  }, [defaultArea, defaultServiceArea, marketSlug]);
 
   function handleLocationChange(value: string) {
     setArea(value);

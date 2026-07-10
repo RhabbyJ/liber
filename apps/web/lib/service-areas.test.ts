@@ -10,6 +10,7 @@ import {
   normalizeZip,
   resolveServiceArea,
   searchServiceAreas,
+  serviceAreaDisplayLabel,
 } from "./service-areas";
 
 const publicRoot = path.resolve(process.cwd(), "public");
@@ -52,6 +53,18 @@ describe("service area metadata", () => {
     expect(findServiceArea("Woodland Hills")).toBeNull();
     expect(findServiceArea("Woodland Hills 91364")?.slug).toBe("91364");
     expect(searchServiceAreas("Woodland Hills").map((area) => area.slug)).toEqual(["91364", "91367"]);
+  });
+
+  it("keeps same-name city and community suggestions distinguishable", () => {
+    const city = { ...activeServiceAreas[0], label: "Arcadia", type: "city" as const };
+    const community = {
+      ...activeServiceAreas[0],
+      city: null,
+      label: "Arcadia (Unincorporated)",
+      type: "neighborhood" as const,
+    };
+    expect(serviceAreaDisplayLabel(city)).toBe("Arcadia");
+    expect(serviceAreaDisplayLabel(community)).toBe("Arcadia (Unincorporated)");
   });
 
   it("derives active market bounds from service-area metadata", () => {

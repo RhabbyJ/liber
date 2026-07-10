@@ -4,6 +4,7 @@ import {
   activeServiceAreas,
   defaultMarket,
   marketBboxString,
+  normalizeServiceAreaSearchTerm,
   resolveServiceArea,
   searchServiceAreas,
   type Market,
@@ -35,6 +36,7 @@ type DbServiceArea = {
   centerLng: number;
   city: string | null;
   county: string | null;
+  currentGeometry: { sha256: string } | null;
   geojsonPath: string;
   geojsonSha256: string | null;
   id: string;
@@ -132,7 +134,10 @@ export async function listActiveServiceAreas(marketSlug: string): Promise<Servic
   try {
     const rows = await prisma.serviceArea.findMany({
       where: { active: true, market: { active: true, slug: marketSlug } },
-      include: { market: { select: { slug: true } } },
+      include: {
+        currentGeometry: { select: { sha256: true } },
+        market: { select: { slug: true } },
+      },
       orderBy: [{ type: "asc" }, { slug: "asc" }],
     });
     return rows.map(dbServiceAreaToResult);
@@ -147,7 +152,10 @@ export async function getActiveServiceAreaBySlug(slug: string, marketSlug: strin
   try {
     const row = await prisma.serviceArea.findFirst({
       where: { active: true, slug, market: { active: true, slug: marketSlug } },
-      include: { market: { select: { slug: true } } },
+      include: {
+        currentGeometry: { select: { sha256: true } },
+        market: { select: { slug: true } },
+      },
     });
     if (row) return dbServiceAreaToResult(row);
     if (fixtureFallbackEnabled() && marketSlug === DEFAULT_MARKET_SLUG) {
@@ -159,6 +167,24 @@ export async function getActiveServiceAreaBySlug(slug: string, marketSlug: strin
     if (fixtureFallbackEnabled() && marketSlug === DEFAULT_MARKET_SLUG) {
       return fixtureServiceAreas().find((area) => area.slug === slug) ?? null;
     }
+    throw new GeographyUnavailableError(undefined, { cause: error });
+  }
+}
+
+export async function getActiveServiceAreaGeometryBySlug(slug: string, marketSlug: string, sha256?: string) {
+  try {
+    const row = await prisma.serviceArea.findFirst({
+      where: { active: true, slug, market: { active: true, slug: marketSlug } },
+      select: { id: true, currentGeometry: { select: { geojson: true, sha256: true } } },
+    });
+    if (!row) return null;
+    if (!sha256) return row.currentGeometry;
+    return prisma.serviceAreaGeometryVersion.findFirst({
+      where: { serviceAreaId: row.id, sha256 },
+      select: { geojson: true, sha256: true },
+    });
+  } catch (error) {
+    logGeographyFailure("get active service-area geometry", error);
     throw new GeographyUnavailableError(undefined, { cause: error });
   }
 }
@@ -196,26 +222,26 @@ export async function getSearchCoverageServiceAreaIds(serviceAreaId: string, mar
 }
 
 export async function searchActiveServiceAreas(query: string, limit: number, marketSlug: string) {
-  const areas = await listActiveServiceAreas(marketSlug);
-  return searchServiceAreas(query, areas, limit);
+  const lookup = await lookupActiveServiceAreas(query, limit, marketSlug);
+  return lookup.map(({ area }) => area);
 }
 
 export async function resolveActiveServiceArea(query: string, marketSlug: string): Promise<ServiceAreaResultResolution> {
-  const areas = await listActiveServiceAreas(marketSlug);
-  return resolveServiceArea(query, areas) as ServiceAreaResultResolution;
+  const lookup = await lookupActiveServiceAreas(query, 8, marketSlug);
+  return resolutionFromLookup(lookup.filter((row) => row.exactMatch).map((row) => row.area));
 }
 
 export async function searchAndResolveActiveServiceAreas(query: string, limit: number, marketSlug: string) {
-  const areas = await listActiveServiceAreas(marketSlug);
-  if (!query.trim()) {
+  if (!normalizeServiceAreaSearchTerm(query)) {
     return {
       resolution: { status: "none" } as ServiceAreaResultResolution,
-      suggestions: areas.filter((area) => area.type === "zip").slice(0, limit),
+      suggestions: [] as ServiceAreaResult[],
     };
   }
+  const lookup = await lookupActiveServiceAreas(query, limit, marketSlug);
   return {
-    resolution: resolveServiceArea(query, areas) as ServiceAreaResultResolution,
-    suggestions: searchServiceAreas(query, areas, limit) as ServiceAreaResult[],
+    resolution: resolutionFromLookup(lookup.filter((row) => row.exactMatch).map((row) => row.area)),
+    suggestions: lookup.map((row) => row.area),
   };
 }
 
@@ -254,6 +280,7 @@ export function serviceAreaResolutionApiShape(resolution: ServiceAreaResultResol
 }
 
 function dbServiceAreaToResult(row: DbServiceArea): ServiceAreaResult {
+  const geometrySha256 = row.currentGeometry?.sha256 ?? row.geojsonSha256;
   return {
     active: row.active,
     bbox: [row.bboxWest, row.bboxSouth, row.bboxEast, row.bboxNorth],
@@ -261,8 +288,10 @@ function dbServiceAreaToResult(row: DbServiceArea): ServiceAreaResult {
     city: row.city,
     county: row.county,
     disclaimer: serviceAreaDisclaimer(row),
-    geojsonPath: row.geojsonPath,
-    geojsonSha256: row.geojsonSha256,
+    geojsonPath: row.currentGeometry?.sha256
+      ? `/api/service-areas/${encodeURIComponent(row.slug)}/geometry?market=${encodeURIComponent(row.market.slug)}&v=${row.currentGeometry.sha256}`
+      : row.geojsonPath,
+    geojsonSha256: geometrySha256,
     id: row.id,
     isPilot: row.isPilot,
     label: row.label,
@@ -277,6 +306,54 @@ function dbServiceAreaToResult(row: DbServiceArea): ServiceAreaResult {
     state: row.state,
     type: serviceAreaType(row.type),
   };
+}
+
+async function lookupActiveServiceAreas(query: string, limit: number, marketSlug: string) {
+  const normalized = normalizeServiceAreaSearchTerm(query);
+  if (!normalized) return [];
+  try {
+    const rows = await prisma.$queryRaw<Array<{ exact_match: boolean; service_area_id: string }>>(Prisma.sql`
+      SELECT service_area_id::text, exact_match
+      FROM geography_admin.search_active_service_areas(
+        ${marketSlug}, ${normalized}, ${Math.min(Math.max(limit, 1), 8)}
+      )
+    `);
+    if (rows.length === 0) return [];
+    const areas = await prisma.serviceArea.findMany({
+      where: {
+        id: { in: rows.map((row) => row.service_area_id) },
+        active: true,
+        market: { active: true, slug: marketSlug },
+      },
+      include: {
+        currentGeometry: { select: { sha256: true } },
+        market: { select: { slug: true } },
+      },
+    });
+    const areaById = new Map(areas.map((area) => [area.id, dbServiceAreaToResult(area)]));
+    return rows.flatMap((row) => {
+      const area = areaById.get(row.service_area_id);
+      return area ? [{ area, exactMatch: row.exact_match }] : [];
+    });
+  } catch (error) {
+    logGeographyFailure("indexed service-area lookup", error);
+    if (fixtureFallbackEnabled() && marketSlug === DEFAULT_MARKET_SLUG) {
+      const fixtures = fixtureServiceAreas();
+      const suggestions = searchServiceAreas(query, fixtures, limit) as ServiceAreaResult[];
+      const resolution = resolveServiceArea(query, fixtures);
+      const exactIds = new Set(resolution.status === "resolved"
+        ? [resolution.area.id]
+        : resolution.status === "ambiguous" ? resolution.areas.map((area) => area.id) : []);
+      return suggestions.map((area) => ({ area, exactMatch: exactIds.has(area.id) }));
+    }
+    throw new GeographyUnavailableError(undefined, { cause: error });
+  }
+}
+
+function resolutionFromLookup(areas: ServiceAreaResult[]): ServiceAreaResultResolution {
+  if (areas.length === 0) return { status: "none" };
+  if (areas.length === 1) return { status: "resolved", area: areas[0] };
+  return { status: "ambiguous", areas };
 }
 
 function dbMarketToResult(row: DbMarket): Market {
@@ -299,9 +376,9 @@ function fixtureServiceAreas(): ServiceAreaResult[] {
   }));
 }
 
-function serviceAreaDisclaimer(row: Pick<DbServiceArea, "source" | "type">) {
-  if (row.source === "census_zcta") return "Approximate ZIP service area based on Census ZCTA data.";
-  if (row.type === "neighborhood") return "Approximate Liber neighborhood service area.";
+function serviceAreaDisclaimer(row: Pick<DbServiceArea, "type">) {
+  if (row.type === "zip") return "Approximate ZIP service area based on Census ZCTA data.";
+  if (row.type === "neighborhood") return "Approximate Los Angeles County statistical community service area.";
   return "Approximate Liber service area.";
 }
 

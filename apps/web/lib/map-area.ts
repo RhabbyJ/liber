@@ -12,7 +12,7 @@ export type MarketMapContext = {
 
 export type SelectedMapArea = Pick<
   ServiceArea,
-  "bbox" | "center" | "disclaimer" | "geojsonPath" | "label" | "slug" | "type"
+  "bbox" | "center" | "disclaimer" | "geojsonPath" | "id" | "label" | "marketSlug" | "slug" | "type"
 >;
 
 export function selectedMapArea(area?: ServiceArea | null): SelectedMapArea | null {
@@ -22,7 +22,9 @@ export function selectedMapArea(area?: ServiceArea | null): SelectedMapArea | nu
     center: area.center,
     disclaimer: area.disclaimer,
     geojsonPath: area.geojsonPath,
+    id: area.id,
     label: area.label,
+    marketSlug: area.marketSlug,
     slug: area.slug,
     type: area.type,
   };
@@ -34,4 +36,8 @@ export function selectedAreaBounds(area: SelectedMapArea) {
 
 export function marketMapBounds(market: Pick<MarketMapContext, "bbox">): [[number, number], [number, number]] {
   return serviceAreaBounds(market);
+}
+
+export function marketMapInstanceKey(market: MarketMapContext, rendererKey = "") {
+  return [rendererKey, market.slug, ...market.bbox, market.center.lng, market.center.lat].join(":");
 }

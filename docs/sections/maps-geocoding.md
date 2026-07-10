@@ -30,11 +30,13 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - Public homepage area selection is limited to known active service areas; it draws approximate Liber-owned polygons and scopes the limited preview cards only, and must not become unauthenticated buyer search.
 - ZIP/city/neighborhood selection must render service-area polygons from GeoJSON, not radius circles.
 - If a non-Mapbox fallback cannot project the selected GeoJSON truthfully, omit the boundary; never draw a generic decorative shape as if it were the selected area.
+- Static seller/public pin fallbacks currently normalize pins independently, so they must omit selected boundaries until both use one bbox projection.
 - Mapbox search/geocoding payloads must not become the canonical service-area database.
 - Canonical lookup requires a market slug plus a market-scoped service-area slug or explicit per-area search term.
 - Empty reviewed search terms fail closed; runtime code must not synthesize city/state aliases from broad metadata.
 - Mapbox geocoding must be constrained by the active market bbox from `public.markets`/service-area metadata, not a hardcoded SFV rectangle.
 - Map components must receive market context from server-loaded market metadata; do not import static market bounds into map components.
+- Versioned geometry URLs must return the exact retained hash even after the current pointer changes. Only unversioned URLs follow the current pointer.
 - Fixture market bounds must be derived from fixture service-area metadata; do not keep a hardcoded empty-catalog fallback rectangle.
 - Seller and public pins must use the buyer's selected DB service-area center; static catalog lookup and stale city text must not place pins.
 - Mapbox address results must use typed postcode/place fields. Never extract the first five-digit substring from a formatted address.

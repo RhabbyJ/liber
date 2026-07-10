@@ -121,13 +121,13 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
 - Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` before relying on invite
   email delivery.
 - Enable Supabase Auth leaked-password protection before public launch.
-- Decide whether to move PostGIS out of `public` or accept and document the
-  remaining `spatial_ref_sys`/PostGIS advisor findings.
-- Keep app tables deny-by-default through RLS until direct browser/Data API
-  access is intentionally designed with explicit policies.
-- Re-run Supabase security/performance advisors and realistic `EXPLAIN` plans
-  after the final schema and seller-search query land.
+- Decide whether to move PostGIS out of the public schema or otherwise accept and document Supabase advisor findings for `spatial_ref_sys` and PostGIS SECURITY DEFINER functions.
+- Keep app tables protected by server-mediated access. Current RLS-with-no-policy advisor findings are deny-by-default for direct Data API access; add explicit policies only if browser/Data API access is intentionally introduced.
+- Re-run Supabase security and performance advisors before launch and after every schema migration.
+- Re-run `EXPLAIN` on seller buyer-search queries against realistic data volume before public launch.
+- Keep current buyer/search/property indexes until realistic traffic proves they are unnecessary; early unused-index advisor findings in a demo database are not enough to drop them.
 - Remove clearly marked demo buyer data before true public launch.
+- Keep LA County coverage inactive. The versioned dataset and schema remain an unnumbered staging proposal until canonical fresh/upgrade proof, disposable double-stage evidence, source/relationship review, query plans, advisors, rollback review, and a separate activation migration are complete.
 
 ### Public-launch blocker: restore scheduled maintenance
 

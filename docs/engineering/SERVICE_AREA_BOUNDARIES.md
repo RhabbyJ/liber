@@ -38,10 +38,12 @@ CTO review confirmed this direction: do not switch to Google Maps or another pro
 
 For v1:
 
-- `public.markets` stores launch-market metadata, center, padded union bbox, and active state.
-- `public.service_areas` stores `market_id`, market-scoped slug, center, bbox, source/version/license/checksum, active flags, explicit search terms, and GeoJSON paths.
+- `public.markets` stores launch-market metadata, jurisdiction identity, center/bbox, active state, and an optional approved immutable boundary pointer.
+- `public.service_areas` stores `market_id`, market-scoped slug, stable source identity, center, bbox, source/version/license/retrieval/checksum metadata, active flags, and an optional approved immutable geometry pointer.
+- `public.geography_dataset_versions`, `market_boundary_versions`, and `service_area_geometry_versions` retain immutable staged evidence. Staging never changes live current pointers.
+- `public.service_area_search_terms` stores reviewed normalized runtime terms with a composite same-market foreign key.
 - `public.service_area_relationships` references parent/child UUIDs. Only reviewed `SEARCH_ROLLUP` rows affect matching; `CONTAINS`, `OVERLAPS`, and `DISPLAY_PARENT` are spatial/display metadata.
-- `apps/web/public/geo/service-areas/**` stores only the current reviewed development/cutover fixtures. Geography PR2 must move broader LA geometry to immutable, versioned, deploy-independent assets referenced by canonical database metadata.
+- `apps/web/public/geo/service-areas/**` stores only reviewed development/cutover fixtures. Broader LA geometry is proposed as immutable database-backed versions so approved areas do not require a frontend deployment.
 - `buyer_desired_service_areas` stores at most one primary service-area UUID per buyer. Searchable profiles require source `SELECTED`; parent matches are computed from reviewed relationships at query time.
 - `BuyerProfile.desiredPostalCode`, `desiredNeighborhood`, `desiredCity`, text, state, and approximate coordinates are compatibility/display fields derived server-side from the selected row. They do not drive ordinary runtime matching.
 - `service_area_migration_quarantine` records conflicting, ambiguous, and unresolved legacy profiles for review.
@@ -58,9 +60,11 @@ For a later spatial upgrade:
 The v1 database shape is scalable for ZIP-first LA expansion without changing map providers:
 
 - `service_areas(market_id, slug)` is unique for market-scoped lookup.
+- `service_areas(market_id, stable_external_id)` keeps source identity stable within
+  a market without blocking a boundary-crossing source area in an adjacent market.
 - `service_areas(market_id, active, type)` supports active-area listing inside a market.
 - `service_areas(postal_code)` supports ZIP metadata lookup.
-- `service_areas.search_terms` stores reviewed lookup terms for deterministic search.
+- `service_area_search_terms(market_id, term_normalized text_pattern_ops)` stores reviewed lookup terms for bounded deterministic exact/prefix search. Results are deduplicated by service-area UUID.
 - relationship UUID/type/reviewed indexes support recursive reviewed rollups without rewriting buyers.
 - `buyer_desired_service_areas(service_area_id, buyer_profile_id)` supports seller/public selected-area filtering.
 - a deferred constraint trigger prevents a buyer profile/selection transaction from committing an active profile without exactly one active primary `SELECTED` row; deactivating its market or area automatically drafts the profile and reactivation does not republish it.
@@ -107,7 +111,11 @@ Service-area lookup must be deterministic:
 
 ## Import And Activation
 
-Bulk import and activation are intentionally unavailable during the canonical cutover. Geography PR2 must deliver the reviewed Los Angeles County manifest, official display/search relationships, source/version/license/checksum evidence, deploy-independent immutable geometry, and transactionally derived market bounds before any broader activation. An inactive market makes all child areas unavailable even if a child row is active. Broad LA activation from bbox membership is prohibited.
+The LA County artifact and unnumbered schema proposal are available for local review, but shared import and activation remain unavailable. Validation is read-only by default. A write requires a sentinel-marked disposable database, a dedicated database URL, and an explicit write opt-in.
+
+Staging records immutable dataset/boundary/geometry evidence and creates new rows inactive. It must not change active rows, current pointers, market bounds, live terms, or live relationships. The reviewed relationship artifact contains 149 official County CSA `LCITY` city/community `DISPLAY_PARENT` rows and 149 `SEARCH_ROLLUP` rows; it contains no inferred ZCTA parent or search relationship.
+
+Activation is a later, separately reviewed transaction after the canonical fresh/upgrade gate. It must replace dataset-owned terms/relationships, derive bounds from the approved County boundary, set approved pointers, and activate an explicit allowlist with pre/post evidence and rollback state. Broad activation from bbox membership is prohibited. See `GEOGRAPHY_LA_COVERAGE_PROPOSAL_RUNBOOK.md`.
 
 ## Map Rendering
 
@@ -120,6 +128,7 @@ When a supported area is selected:
 5. Fit the map to the stored bbox.
 
 The UI must not draw radius circles for selected ZIP, city, or neighborhood areas.
+When Mapbox is unavailable, a fallback may draw a selected boundary only if pins and geometry share the same projection. Current static pin fallbacks omit the boundary rather than imply false spatial alignment.
 
 ## Privacy Rules
 
@@ -143,7 +152,7 @@ Approved sellers may see seller-safe buyer cards and map demand from the same fi
 
 ZIP-like areas use Census ZCTA data and must be labeled approximate, not official USPS ZIP borders.
 
-Neighborhoods are curated Liber service areas and must be labeled approximate, not official neighborhood boundaries.
+Los Angeles County statistical communities are approximate Liber service areas and must not be presented as exact neighborhood or jurisdictional boundaries.
 
 Cities use city boundary data where available and should still be presented as Liber service areas.
 
@@ -186,7 +195,7 @@ For richer future spatial queries, add PostGIS polygon matching (`service_areas.
 
 - Do not switch to Google for v1.
 - Do not depend on Mapbox Boundaries for v1.
-- Do not bulk import all LA areas until the authoritative boundary/search-term source and license have been reviewed.
+- Do not stage LA on a shared target or activate it until the proposal migration, sources, checksums, terms, relationships, counts, and rollback have completed CTO review.
 - Do not build generic public map search.
 - Do not expose seller buyer search on the public homepage.
 - Do not add speculative service-area admin UI before product approval.

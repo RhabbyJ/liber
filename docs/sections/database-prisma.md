@@ -30,7 +30,7 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - Property authority attestations, ownership decisions, documents, images, and invites are tied to `SellerProperty.identityVersion`.
 - `UploadSession.buyerProfileId` is a real foreign key. Abandoned sessions leave cleanup eligibility only after their object has been removed, then enter terminal `CLEANED` state.
 - `property-images` and `verification-documents` are private buckets; signed upload sessions authorize immutable server-selected paths.
-- Market and service-area records use immutable UUID primary keys. Service-area slugs are unique within `market_id`, not globally.
+- Market and service-area records use immutable UUID primary keys. Service-area slugs and stable source identities are unique within `market_id`, not globally; this permits a boundary-clipped source area in an adjacent future market.
 - Active service-area metadata is public only when its parent market is active. RLS must preserve that rule.
 - Buyer and relationship joins reference service-area UUIDs. Buyers store one primary selection; no copied `DERIVED` rows are allowed.
 - Only reviewed `SEARCH_ROLLUP` relationships affect matching, recursively at query time. Reviewed rollup graph writes serialize per market before cycle validation. Spatial/display relationship types do not affect buyer matches.
@@ -38,7 +38,9 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - Resolving a geography quarantine row preserves the legacy/candidate snapshot and records the selected area, actor, source, and resolution time. Resolution does not delete the row; profile-deletion retention is defined separately with the identity lifecycle.
 - Market state/country, canonical UUIDs, and service-area market membership are immutable. The canonical cutover locks buyer profiles and selections before snapshot/backfill work and revalidates every `ACTIVE` profile before commit.
 - Service-area TS metadata, DB seed rows, and GeoJSON properties/bboxes must stay aligned; add or update validation when touching any of them.
-- Bulk geography import remains disabled until Geography PR2 provides reviewed provenance, deploy-independent geometry, relationship import, inactive staging, and atomic market-bounds recomputation.
+- The LA County schema remains an unnumbered proposal. Its immutable dataset, boundary, and geometry versions are private server data; runtime search terms use a composite same-market foreign key.
+- Dataset validation must verify the external checksum ledger, bundle bytes/content, exact source features, per-area source hashes, counts, and official relationship evidence.
+- Staging is disposable-target-only and must not change active rows, current pointers, market bounds, live terms, or live relationships. Activation is a later migration after canonical fresh/upgrade proof.
 - Demo seed data is allowed only for local development and CEO demo / private preview environments, never true public production.
 - Demo seed scripts must be explicit, guarded by an opt-in env flag, deterministic enough to clean up, and use obvious non-real users/data.
 - `npm run demo:buyers -- seed|verify|cleanup` is the only shared CEO-preview buyer-data command. It requires `LIBER_ALLOW_DEMO_SEED=true`, `LIBER_CEO_PREVIEW_TARGET=ceo-preview`, and an absolute `LIBER_CEO_PREVIEW_CREDENTIALS_FILE` path outside the repository; the Supabase API and direct database project refs must match.
