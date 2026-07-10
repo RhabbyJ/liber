@@ -106,4 +106,4 @@ Launch as the trusted buyer-demand layer:
 
 > Sellers discover serious buyers before listing publicly.
 
-Keep the first launch geography narrow enough that marketplace quality can be manually managed.
+The LA beta boundary is Los Angeles County, but it may activate only after the reviewed county dataset, deploy-independent geometry, migration proof, and security/release gates pass. Until then, keep availability limited to the currently reviewed service areas so marketplace quality can be manually managed.

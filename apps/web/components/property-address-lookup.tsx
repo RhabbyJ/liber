@@ -44,6 +44,7 @@ export function PropertyAddressLookup({
 
   useEffect(() => {
     let canceled = false;
+    setZipSuggestions([]);
 
     async function loadZipSuggestions() {
       try {
@@ -57,7 +58,7 @@ export function PropertyAddressLookup({
         const suggestions = payload.suggestions
           .map(apiResultToServiceArea)
           .filter((area) => area.type === "zip" && area.postalCode);
-        if (!canceled && suggestions.length > 0) setZipSuggestions(suggestions);
+        if (!canceled) setZipSuggestions(suggestions);
       } catch {
         if (!canceled) setZipSuggestions([]);
       }
@@ -144,8 +145,8 @@ export function PropertyAddressLookup({
       </div>
       <div className="field">
         <label htmlFor="zip">Zip</label>
-        <input id="zip" list="property-pilot-zips" name="zip" onChange={(event) => setZip(event.target.value)} placeholder="91423" value={zip} />
-        <datalist id="property-pilot-zips">
+        <input id="zip" list="property-service-area-zips" name="zip" onChange={(event) => setZip(event.target.value)} placeholder="91423" value={zip} />
+        <datalist id="property-service-area-zips">
           {zipSuggestions.map((area) => (
             <option key={area.slug} value={area.postalCode ?? ""}>{serviceAreaDisplayLabel(area)}</option>
           ))}

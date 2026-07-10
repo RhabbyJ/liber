@@ -11,7 +11,6 @@ type Props = {
 };
 
 export function StaticBuyerMap({ buyers, label = "Approximate pins", market, selectedServiceArea = null }: Props) {
-  const hasSelectedArea = Boolean(selectedServiceArea);
   const areaLabel = selectedServiceArea ? selectedServiceArea.label : label;
 
   return (
@@ -27,9 +26,9 @@ export function StaticBuyerMap({ buyers, label = "Approximate pins", market, sel
         </div>
       </div>
       <div className="map-pins">
-        {hasSelectedArea ? <span aria-hidden="true" className="map-selected-area-static" /> : null}
         {buyers.map((buyer) => {
           const position = mapPinPosition(buyer, buyers);
+          if (!position) return null;
           return (
             <Link
               aria-label={`Open ${buyer.name}`}

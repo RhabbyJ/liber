@@ -41,7 +41,7 @@ For v1:
 - `public.markets` stores launch-market metadata, center, padded union bbox, and active state.
 - `public.service_areas` stores `market_id`, market-scoped slug, center, bbox, source/version/license/checksum, active flags, explicit search terms, and GeoJSON paths.
 - `public.service_area_relationships` references parent/child UUIDs. Only reviewed `SEARCH_ROLLUP` rows affect matching; `CONTAINS`, `OVERLAPS`, and `DISPLAY_PARENT` are spatial/display metadata.
-- `apps/web/public/geo/service-areas/**` stores simplified static GeoJSON polygons.
+- `apps/web/public/geo/service-areas/**` stores only the current reviewed development/cutover fixtures. Geography PR2 must move broader LA geometry to immutable, versioned, deploy-independent assets referenced by canonical database metadata.
 - `buyer_desired_service_areas` stores at most one primary service-area UUID per buyer. Searchable profiles require source `SELECTED`; parent matches are computed from reviewed relationships at query time.
 - `BuyerProfile.desiredPostalCode`, `desiredNeighborhood`, `desiredCity`, text, state, and approximate coordinates are compatibility/display fields derived server-side from the selected row. They do not drive ordinary runtime matching.
 - `service_area_migration_quarantine` records conflicting, ambiguous, and unresolved legacy profiles for review.
@@ -166,11 +166,11 @@ Seller map passes when:
 - unsupported service areas return no buyer results,
 - seller buyer API requires approved seller access.
 
-Data passes when:
+Current fixture data passes when:
 
-- every active service area has a valid GeoJSON file,
-- every GeoJSON file has matching slug/type/source/source-version metadata,
-- every stored bbox matches the computed GeoJSON bbox within tolerance,
+- every active fixture service area has a valid GeoJSON file,
+- every fixture GeoJSON file has matching slug/type/source/source-version metadata,
+- every fixture bbox matches the computed GeoJSON bbox within tolerance,
 - every service area has bbox and center values,
 - every active service area belongs to an active market,
 - every search-rollup relationship is explicit, reviewed, and evaluated at query time,

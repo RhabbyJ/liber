@@ -40,8 +40,11 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
   const buyerPoints = useMemo(
     () =>
       buyers
-        .map((buyer) => ({ buyer, ...approximateBuyerPoint(buyer) }))
-        .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng)),
+        .map((buyer) => {
+          const point = approximateBuyerPoint(buyer);
+          return point ? { buyer, ...point } : null;
+        })
+        .filter((point): point is BuyerPoint => point !== null),
     [buyers],
   );
   const markerPoints = useMemo(() => withMarkerOffsets(buyerPoints), [buyerPoints]);
@@ -49,7 +52,14 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
   const initialCenter = useMemo(() => mapCenter(buyerPoints, selectedArea, market), [buyerPoints, selectedArea, market]);
 
   useEffect(() => {
+    setDidFail(false);
+  }, [buyerPoints.length, initialCenter.lat, initialCenter.lng, market, token]);
+
+  useEffect(() => {
+    if (didFail) return;
     let canceled = false;
+    setIsReady(false);
+    setStatus("Loading interactive map");
 
     function fallBackToStaticMap() {
       if (canceled) return;
@@ -111,7 +121,7 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [buyerPoints.length, initialCenter.lat, initialCenter.lng, market, token]);
+  }, [buyerPoints.length, didFail, initialCenter.lat, initialCenter.lng, market, token]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current || !window.mapboxgl) return;
@@ -161,8 +171,8 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
     let canceled = false;
 
     async function loadSelectedArea() {
+      setSelectedAreaGeojson(null);
       if (!selectedArea) {
-        setSelectedAreaGeojson(null);
         return;
       }
 

@@ -36,9 +36,9 @@ The public or unauthenticated experience can:
 
 - show a small fixed set of privacy-safe buyer preview records, currently up to 6, as map pins and preview cards,
 - use active, non-hidden, non-suspended buyer demand records whose preview fields are approved or derived from preview-safe criteria,
-- place pins only at approximate locations (pilot-area centers or similarly coarse coordinates with a display offset), never at precise buyer locations,
+- place pins only at approximate active service-area centers with a display offset, never at precise buyer locations,
 - show coarse buyer-demand context in preview cards, such as broad geography, budget band, property type, size needs, room needs, amenities, condition preference, and display-safe trust signals,
-- let visitors select an active pilot ZIP/city/neighborhood service area to pan the public map, draw an approximate selected-area polygon, and scope the limited preview cards to that selected area, without exposing full search,
+- let visitors select an active ZIP/city/neighborhood service area to pan the public map, draw an approximate selected-area polygon, and scope the limited preview cards to that selected area, without exposing full search,
 - use anonymized or privacy-safe buyer labels,
 - invite the visitor to sign up or request seller access before viewing full search results or profiles.
 
@@ -46,7 +46,7 @@ The public or unauthenticated experience must not:
 
 - expose full buyer profiles,
 - expose exact buyer locations, precise pin coordinates, home addresses, private documents, lender documents, financial files, contact information, or storage paths,
-- expose a fully searchable buyer directory or public search filters beyond the limited active-pilot service-area selector,
+- expose a fully searchable buyer directory or public search filters beyond the limited active service-area selector,
 - expose real buyer profile URLs as public SEO/crawlable pages,
 - allow unauthenticated users to message, invite, contact, save, export, or otherwise act on a buyer,
 - use fake production buyers or fake trust signals outside the CEO demo / private preview data policy below,
@@ -64,7 +64,7 @@ Demo/test buyer data must:
 - be seeded only through an explicit test/demo seed command or script,
 - be safe to delete and recreate,
 - avoid real private documents, real financial documents, real IDs, real lender documents, and real contact information,
-- use approximate pilot-area locations only,
+- use approximate active service-area locations only,
 - keep any trust/badge labels clearly demo-safe unless backed by real reviewed evidence,
 - be removed or replaced before a true public production launch.
 

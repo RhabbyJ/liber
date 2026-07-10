@@ -36,6 +36,7 @@ export function LocationLookupFields({
 
   useEffect(() => {
     let canceled = false;
+    setSuggestedAreas([]);
 
     async function loadSuggestions() {
       try {
@@ -47,7 +48,7 @@ export function LocationLookupFields({
         }
         const payload = await response.json() as ServiceAreaSearchResponse;
         const suggestions = payload.suggestions.map(apiResultToServiceArea);
-        if (!canceled && suggestions.length > 0) setSuggestedAreas(suggestions);
+        if (!canceled) setSuggestedAreas(suggestions);
       } catch {
         if (!canceled) setSuggestedAreas([]);
       }

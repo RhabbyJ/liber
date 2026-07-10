@@ -268,7 +268,7 @@ function dbServiceAreaToResult(row: DbServiceArea): ServiceAreaResult {
     label: row.label,
     marketSlug: row.market.slug,
     postalCode: row.postalCode,
-    searchTerms: row.searchTerms.length > 0 ? row.searchTerms : dbServiceAreaSearchTerms(row),
+    searchTerms: row.searchTerms,
     slug: row.slug,
     source: row.source,
     sourceLicense: row.sourceLicense,
@@ -308,18 +308,4 @@ function serviceAreaDisclaimer(row: Pick<DbServiceArea, "source" | "type">) {
 function serviceAreaType(value: string): ServiceArea["type"] {
   if (value === "zip" || value === "city" || value === "neighborhood" || value === "custom") return value;
   return "custom";
-}
-
-function dbServiceAreaSearchTerms(row: DbServiceArea) {
-  const terms = [row.slug, row.label, row.postalCode];
-  if (row.type === "zip" && row.city) {
-    terms.push(row.city);
-    if (row.postalCode) terms.push(`${row.city} ${row.postalCode}`);
-    terms.push(`${row.city} ${row.state}`);
-  } else if (row.type === "city" && row.city) {
-    terms.push(row.city, `${row.city} ${row.state}`);
-  } else if (row.type === "neighborhood") {
-    terms.push(`${row.label} ${row.state}`);
-  }
-  return terms.filter((term): term is string => Boolean(term));
 }

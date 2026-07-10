@@ -40,7 +40,7 @@ export type Market = {
 
 export const DEFAULT_MARKET_SLUG = "los-angeles";
 
-export const serviceAreas: ServiceArea[] = [
+const serviceAreas: ServiceArea[] = [
   {
     active: true,
     bbox: [-118.370313, 34.142636, -118.279981, 34.221654],
@@ -324,8 +324,6 @@ export const defaultMarket = marketFromServiceAreas({
   slug: DEFAULT_MARKET_SLUG,
   state: "CA",
 });
-export const markets = [defaultMarket];
-
 export type ServiceAreaResolution =
   | { status: "none" }
   | { status: "resolved"; area: ServiceArea }
@@ -341,10 +339,6 @@ export function serviceAreaBounds(area: Pick<ServiceArea, "bbox">): [[number, nu
     [west, south],
     [east, north],
   ];
-}
-
-export function marketBounds(market: Pick<Market, "bbox"> = defaultMarket): [[number, number], [number, number]] {
-  return serviceAreaBounds(market);
 }
 
 export function marketBboxString(market: Pick<Market, "bbox"> = defaultMarket) {
@@ -412,13 +406,6 @@ export function serviceAreaDisplayLabel(area: ServiceArea) {
   return area.label;
 }
 
-export function supportedZipText() {
-  return activeServiceAreas
-    .filter((area) => area.type === "zip" && area.postalCode)
-    .map((area) => area.postalCode)
-    .join(", ");
-}
-
 function serviceAreaTerms(area: ServiceArea) {
   return Array.from(new Set([area.slug, area.label, area.postalCode, ...(area.searchTerms ?? []), ...(area.aliases ?? [])]
     .filter((value): value is string => Boolean(value))
@@ -448,6 +435,10 @@ function marketFromServiceAreas({
   slug: string;
   state: string;
 }): Market {
+  if (areas.length === 0) {
+    throw new Error("A fixture market requires at least one service area.");
+  }
+
   const bbox = areas.reduce<[number, number, number, number]>(
     ([west, south, east, north], area) => [
       Math.min(west, area.bbox[0]),
@@ -457,15 +448,12 @@ function marketFromServiceAreas({
     ],
     [Infinity, Infinity, -Infinity, -Infinity],
   );
-  const fallbackBbox: [number, number, number, number] = [-118.668163, 34.118761, -118.181583, 34.303478];
-  const resolvedBbox = Number.isFinite(bbox[0]) ? bbox : fallbackBbox;
-
   return {
     active: true,
-    bbox: resolvedBbox,
+    bbox,
     center: {
-      lat: (resolvedBbox[1] + resolvedBbox[3]) / 2,
-      lng: (resolvedBbox[0] + resolvedBbox[2]) / 2,
+      lat: (bbox[1] + bbox[3]) / 2,
+      lng: (bbox[0] + bbox[2]) / 2,
     },
     country,
     label,
