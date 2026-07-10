@@ -23,7 +23,7 @@ Owns buyer verification evidence, seller ownership evidence, private document st
 - Seller ownership evidence remains `DocumentType.OWNERSHIP`; use `OwnershipEvidenceKind` for government ID versus property address proof.
 - Seller ownership verification can be marked approved only after both required ownership evidence kinds are approved.
 - Ownership evidence carries the exact current `propertyOwnershipVersion` and owner UUID; generic, prior-version, or different-owner evidence cannot approve the property.
-- Every legacy ownership decision is quarantined for current-version re-review with its prior state retained in the admin audit log; generic evidence additionally requires classification.
+- Every legacy ownership decision is quarantined with its prior state retained in the admin audit log. Its null property version is permanent: classification or rejection may be recorded, but it cannot be rebound or approved. Fresh current-version uploads are required for ownership approval.
 - A document review is one-winner: only a row still in `PENDING` may transition, so racing admins cannot overwrite each other's decision.
 - Sensitive badges require approved evidence where supported.
 - Pre-approval expires after 90 days.

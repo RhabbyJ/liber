@@ -56,6 +56,9 @@ import type { EmailResult } from "./email";
 import { effectiveInviteStatus } from "./invite-integrity";
 import { inviteExpiresAt } from "./maintenance";
 import {
+  assertOwnershipEvidenceApprovalAllowed,
+  isOwnershipEvidenceAuditOnly,
+  isOwnershipEvidenceStale,
   nextOwnershipVerificationStatus,
   ownershipEvidenceKindForInput,
   ownershipEvidenceKindLabel,
@@ -1659,10 +1662,15 @@ export async function listPendingDocuments() {
       documentType: document.documentType,
       id: document.id,
       ownershipEvidenceKind: document.ownershipEvidenceKind,
-      ownershipEvidenceStale:
-        document.documentType === "OWNERSHIP" &&
-        document.propertyOwnershipVersion !== null &&
-        document.propertyOwnershipVersion !== document.property?.ownershipVersion,
+      ownershipEvidenceAuditOnly: isOwnershipEvidenceAuditOnly(
+        document.documentType,
+        document.propertyOwnershipVersion,
+      ),
+      ownershipEvidenceStale: isOwnershipEvidenceStale(
+        document.documentType,
+        document.propertyOwnershipVersion,
+        document.property?.ownershipVersion,
+      ),
       owner: document.user.name || document.user.email,
       signedUrl,
       subject:
@@ -1710,21 +1718,18 @@ export async function reviewDocument(input: unknown) {
       ) {
         throw new Error("Ownership evidence type cannot be changed after classification.");
       }
-      if (
-        data.decision === "APPROVED" &&
-        document.propertyOwnershipVersion !== null &&
-        document.propertyOwnershipVersion !== property.ownershipVersion
-      ) {
-        throw new Error("Ownership evidence belongs to a previous property version.");
-      }
     }
+
+    assertOwnershipEvidenceApprovalAllowed(
+      document.documentType,
+      data.decision,
+      document.propertyOwnershipVersion,
+      property?.ownershipVersion,
+    );
 
     const review = await tx.verificationDocument.updateMany({
       where: { id: data.documentId, reviewStatus: "PENDING" },
       data: {
-        ...(property && document.propertyOwnershipVersion === null
-          ? { propertyOwnershipVersion: property.ownershipVersion }
-          : {}),
         ...(document.documentType === "OWNERSHIP" && !document.ownershipEvidenceKind
           ? { ownershipEvidenceKind: data.ownershipEvidenceKind }
           : {}),

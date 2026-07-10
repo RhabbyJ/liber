@@ -19,6 +19,9 @@ DROP TRIGGER IF EXISTS enforce_ownership_evidence_binding ON public."Verificatio
 DROP FUNCTION IF EXISTS app_private.enforce_property_ownership_state();
 DROP FUNCTION IF EXISTS app_private.enforce_ownership_evidence_binding();
 
+ALTER TABLE public."VerificationDocument"
+  DROP CONSTRAINT IF EXISTS "VerificationDocument_approved_ownership_version_check";
+
 -- Restore pre-proposal decisions captured during the legacy re-review cutover.
 UPDATE public."VerificationDocument" AS document
 SET

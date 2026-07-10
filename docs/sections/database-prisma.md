@@ -25,7 +25,7 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - Do not weaken constraints to bypass application bugs.
 - Keep indexes aligned with search and ownership checks.
 - `PropertySubtype` values are `HOME` (displayed as House), `CONDO`, `TOWNHOUSE`, `MANUFACTURED`, and `LAND`.
-- `VerificationDocument.ownershipEvidenceKind` is nullable for legacy/non-ownership documents and typed for new seller ownership evidence.
+- `VerificationDocument.ownershipEvidenceKind` is nullable for legacy/non-ownership documents and typed for new seller ownership evidence. A null `propertyOwnershipVersion` on ownership evidence is a permanent audit-only marker: it cannot be rebound or approved.
 - Property ownership identity is `(SellerProperty.id, ownershipVersion)`, and `ownerUserId` is immutable in V1. Database triggers own version increments/reset behavior and evidence binding; application checks are defense in depth.
 - Active invite uniqueness is the partial key `(sellerId, buyerProfileId, propertyId)` for `SENT`/`VIEWED`, with required `expiresAt` and seller-scoped serialization before inserts.
 - Market and service-area records use immutable UUID primary keys. Service-area slugs are unique within `market_id`, not globally.

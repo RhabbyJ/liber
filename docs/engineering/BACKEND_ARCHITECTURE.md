@@ -150,7 +150,7 @@ Rules:
 - Server action return shapes avoid returning raw private storage paths for private buckets. Return document IDs/status, public URLs for public buckets, or short-lived signed URLs from admin/server-mediated reads only.
 - Seller ownership verification documents keep `DocumentType.OWNERSHIP` and use `OwnershipEvidenceKind` to distinguish government ID from property address proof. Ownership status can become approved only after both required evidence kinds are approved by an admin.
 - `SellerProperty.ownershipVersion` makes `(property id, ownership version)` the ownership identity. `ownerUserId` is immutable in V1. Address lines, city, state, ZIP, latitude, and longitude are ownership-relevant; changing any of them increments the version and resets the property to `PENDING`.
-- `VerificationDocument.propertyOwnershipVersion` binds typed ownership evidence to the exact property version and exact owner UUID. Earlier-version evidence remains immutable audit history but is excluded from current approval. All pre-versioning ownership decisions are quarantined for re-review with prior state captured in `AdminAuditLog`; generic evidence also requires classification.
+- `VerificationDocument.propertyOwnershipVersion` binds typed ownership evidence to the exact property version and exact owner UUID. Earlier-version evidence remains immutable audit history but is excluded from current approval. All pre-versioning ownership decisions are quarantined with prior state captured in `AdminAuditLog`. Their null version is permanent: admins may classify or reject them for audit, but cannot bind or approve them; current approval requires fresh version-bound evidence.
 
 ## Badge architecture
 

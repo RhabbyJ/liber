@@ -17,8 +17,11 @@ describe("seller-property integrity proposal", () => {
     expect(forward).toContain("legacy_ownership_evidence_quarantined");
     expect(forward).toContain("legacy_property_ownership_reopened");
     expect(forward).toContain("LIBER_PROPERTY_OWNER_IMMUTABLE");
+    expect(forward).toContain("LIBER_LEGACY_OWNERSHIP_EVIDENCE_AUDIT_ONLY");
+    expect(forward).toContain("VerificationDocument_approved_ownership_version_check");
     expect(forward).toContain("Invite_expiresAt_after_sentAt_check");
     expect(forward).not.toContain('AND document."ownershipEvidenceKind" IS NULL;');
+    expect(forward).not.toContain('AND document."propertyId" IS NOT NULL;');
   });
 
   it("keeps rollback identifiers aligned and removes the expiry constraint", () => {
@@ -26,6 +29,7 @@ describe("seller-property integrity proposal", () => {
 
     expect(rollback).toContain("legacy_ownership_evidence_quarantined");
     expect(rollback).toContain("legacy_property_ownership_reopened");
+    expect(rollback).toContain('DROP CONSTRAINT IF EXISTS "VerificationDocument_approved_ownership_version_check"');
     expect(rollback).toContain('DROP CONSTRAINT IF EXISTS "Invite_expiresAt_after_sentAt_check"');
   });
 

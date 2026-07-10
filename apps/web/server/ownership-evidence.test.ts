@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertOwnershipEvidenceApprovalAllowed,
+  isOwnershipEvidenceAuditOnly,
+  isOwnershipEvidenceStale,
   nextOwnershipVerificationStatus,
   ownershipEvidenceKindForInput,
   verificationDocumentTypeLabel,
@@ -41,6 +44,41 @@ describe("seller ownership evidence", () => {
       { ownershipEvidenceKind: "GOVERNMENT_ID", propertyOwnershipVersion: 2, reviewStatus: "APPROVED", userId: "other-seller" },
       { ownershipEvidenceKind: "PROPERTY_ADDRESS_PROOF", propertyOwnershipVersion: 2, reviewStatus: "APPROVED", userId: "other-seller" },
     ], 2, "seller-1")).toBe("PENDING");
+  });
+
+  it("treats null-version legacy evidence as permanently stale and audit-only", () => {
+    expect(isOwnershipEvidenceAuditOnly("OWNERSHIP", null)).toBe(true);
+    expect(isOwnershipEvidenceStale("OWNERSHIP", null, 3)).toBe(true);
+    expect(isOwnershipEvidenceStale("OWNERSHIP", 2, 3)).toBe(true);
+    expect(isOwnershipEvidenceStale("OWNERSHIP", 3, 3)).toBe(false);
+    expect(isOwnershipEvidenceStale("IDENTITY", null, null)).toBe(false);
+  });
+
+  it("allows legacy evidence rejection but never approval or rebinding", () => {
+    expect(() => assertOwnershipEvidenceApprovalAllowed(
+      "OWNERSHIP",
+      "REJECTED",
+      null,
+      3,
+    )).not.toThrow();
+    expect(() => assertOwnershipEvidenceApprovalAllowed(
+      "OWNERSHIP",
+      "APPROVED",
+      null,
+      3,
+    )).toThrow("Legacy ownership evidence is audit-only");
+    expect(() => assertOwnershipEvidenceApprovalAllowed(
+      "OWNERSHIP",
+      "APPROVED",
+      2,
+      3,
+    )).toThrow("previous property version");
+    expect(() => assertOwnershipEvidenceApprovalAllowed(
+      "OWNERSHIP",
+      "APPROVED",
+      3,
+      3,
+    )).not.toThrow();
   });
 
   it("validates ownership evidence kind input and labels admin document rows", () => {

@@ -14,7 +14,7 @@ The SQL remains intentionally unnumbered. Promote it to a numbered migration onl
 
 The ownership identity is `(SellerProperty.id, SellerProperty.ownershipVersion)`. The V1 owner UUID is immutable. Either address line, city, state, ZIP, latitude, or longitude changing increments the version and sets ownership status to `PENDING`. Both required typed evidence kinds must be approved for the current version and exact `ownerUserId` before the database permits `APPROVED`.
 
-Prior-version evidence rows and files are retained. Because pre-cutover property identity was not versioned, every legacy ownership evidence decision—typed or generic—is reopened to `PENDING` and unbound from a version. Former decisions and review metadata are copied to `AdminAuditLog` before live review fields are cleared. An admin must re-review each file against the current property; generic evidence also requires classification.
+Prior-version evidence rows and files are retained. Because pre-cutover property identity was not versioned, every legacy ownership evidence decision—typed or generic—is reopened to `PENDING` and left permanently unbound from a version. Former decisions and review metadata are copied to `AdminAuditLog` before live review fields are cleared. Null-version evidence is audit-only: an admin may classify or reject it, but neither the application nor the database may bind or approve it. Current approval requires fresh evidence uploaded against the current property version.
 
 ## Invite invariant
 
@@ -39,7 +39,7 @@ SELLER_PROPERTY_INTEGRITY_TEST_SENTINEL=
 SELLER_PROPERTY_INTEGRITY_TEST_ALLOW_WRITES=true
 ```
 
-Run `npm run db:test-seller-property-integrity`. The harness refuses configured shared database targets and must prove ownership edits, owner immutability, wrong-version/wrong-owner evidence rejection, quarantine of typed and generic legacy decisions, one-winner document review, database-clock expiry, exact owner/self-invite checks, and concurrent duplicate inserts. This proof remains open until the guarded command succeeds on the integrated schema.
+Run `npm run db:test-seller-property-integrity`. The harness refuses configured shared database targets and must prove ownership edits, owner immutability, wrong-version/wrong-owner evidence rejection, quarantine of typed and generic legacy decisions, permanent audit-only enforcement for null-version evidence, one-winner document review, database-clock expiry, exact owner/self-invite checks, and concurrent duplicate inserts. This proof remains open until the guarded command succeeds on the integrated schema.
 
 ## Rollback boundary
 

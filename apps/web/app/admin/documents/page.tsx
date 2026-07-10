@@ -33,7 +33,13 @@ export default async function AdminDocumentsPage() {
                 <td>{document.owner}</td>
                 <td>{document.subject}</td>
                 <td>{document.type}</td>
-                <td>{document.ownershipEvidenceStale ? "Prior property version" : document.status}</td>
+                <td>
+                  {document.ownershipEvidenceAuditOnly
+                    ? "Legacy audit-only"
+                    : document.ownershipEvidenceStale
+                      ? "Prior property version"
+                      : document.status}
+                </td>
                 <td>
                   {signedUrl ? (
                     <a href={signedUrl} rel="noreferrer" target="_blank">Open</a>

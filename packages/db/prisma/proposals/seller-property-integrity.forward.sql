@@ -47,7 +47,7 @@ ALTER TABLE public."Invite"
 
 -- Historical property identity was not versioned, so no legacy ownership decision can
 -- be proven to describe the current address/coordinates. Preserve every prior decision,
--- retain the immutable file row, and require a current-version re-review.
+-- retain the immutable file row as audit-only, and require fresh current-version evidence.
 INSERT INTO public."AdminAuditLog" (
   id, action, "targetType", "targetId", metadata, "createdAt"
 )
@@ -67,8 +67,7 @@ SELECT
   ),
   now()
 FROM public."VerificationDocument" AS document
-WHERE document."documentType" = 'OWNERSHIP'
-  AND document."propertyId" IS NOT NULL;
+WHERE document."documentType" = 'OWNERSHIP';
 
 UPDATE public."VerificationDocument"
 SET
@@ -79,8 +78,15 @@ SET
   "rejectionReason" = NULL,
   "propertyOwnershipVersion" = NULL,
   "updatedAt" = now()
-WHERE "documentType" = 'OWNERSHIP'
-  AND "propertyId" IS NOT NULL;
+WHERE "documentType" = 'OWNERSHIP';
+
+ALTER TABLE public."VerificationDocument"
+  ADD CONSTRAINT "VerificationDocument_approved_ownership_version_check"
+  CHECK (
+    "documentType" <> 'OWNERSHIP'
+    OR "reviewStatus" <> 'APPROVED'
+    OR "propertyOwnershipVersion" IS NOT NULL
+  );
 
 INSERT INTO public."AdminAuditLog" (
   id, action, "targetType", "targetId", metadata, "createdAt"
@@ -225,6 +231,31 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- Pre-versioning evidence remains immutable audit history. It may be classified
+  -- or rejected, but it can never acquire a current binding or approval.
+  IF TG_OP = 'UPDATE'
+    AND OLD."documentType" = 'OWNERSHIP'
+    AND OLD."propertyOwnershipVersion" IS NULL
+  THEN
+    IF NEW."propertyOwnershipVersion" IS NOT NULL
+      OR NEW."reviewStatus" = 'APPROVED'
+    THEN
+      RAISE EXCEPTION USING
+        ERRCODE = '23514',
+        MESSAGE = 'LIBER_LEGACY_OWNERSHIP_EVIDENCE_AUDIT_ONLY';
+    END IF;
+
+    IF OLD."ownershipEvidenceKind" IS NOT NULL
+      AND NEW."ownershipEvidenceKind" IS DISTINCT FROM OLD."ownershipEvidenceKind"
+    THEN
+      RAISE EXCEPTION USING
+        ERRCODE = '23514',
+        MESSAGE = 'LIBER_OWNERSHIP_EVIDENCE_BINDING_IMMUTABLE';
+    END IF;
+
+    RETURN NEW;
+  END IF;
+
   IF TG_OP = 'UPDATE'
     AND NEW."ownershipEvidenceKind" IS NOT DISTINCT FROM OLD."ownershipEvidenceKind"
     AND NEW."propertyOwnershipVersion" IS NOT DISTINCT FROM OLD."propertyOwnershipVersion"
@@ -366,6 +397,6 @@ COMMENT ON COLUMN public."SellerProperty"."ownershipVersion" IS
 COMMENT ON COLUMN public."SellerProperty"."ownerUserId" IS
 'Immutable in V1; property transfer requires a separately designed audited workflow.';
 COMMENT ON COLUMN public."VerificationDocument"."propertyOwnershipVersion" IS
-'The exact SellerProperty ownershipVersion reviewed by this evidence; prior versions are audit history only.';
+'The exact SellerProperty ownershipVersion reviewed by this evidence; prior versions and legacy nulls are audit history only.';
 
 COMMIT;

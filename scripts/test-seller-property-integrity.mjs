@@ -70,6 +70,12 @@ async function assertProposalCatalog(db) {
           AND contype = 'c'
       ) AS invite_expiry_check,
       EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'public."VerificationDocument"'::regclass
+          AND conname = 'VerificationDocument_approved_ownership_version_check'
+          AND contype = 'c'
+      ) AS legacy_approval_check,
+      EXISTS (
         SELECT 1 FROM pg_indexes
         WHERE schemaname = 'public'
           AND indexname = 'Invite_one_active_per_seller_buyer_property_key'
@@ -196,6 +202,15 @@ async function seedLegacyState(db) {
     `${ids.seller}/legacy-id.pdf`,
     `${ids.seller}/legacy-address.pdf`,
   ]);
+  await db.query(`
+    INSERT INTO public."VerificationDocument" (
+      id, "userId", "documentType", "storagePath", "reviewStatus",
+      "reviewedAt", "ownershipEvidenceKind", "createdAt", "updatedAt"
+    ) VALUES (
+      'integrity-legacy-unbound', $1, 'OWNERSHIP', $2, 'APPROVED',
+      now(), 'GOVERNMENT_ID', now(), now()
+    )
+  `, [ids.seller, `${ids.seller}/legacy-unbound.pdf`]);
 }
 
 async function assertLegacyEvidenceReopened(db) {
@@ -219,7 +234,19 @@ async function assertLegacyEvidenceReopened(db) {
         WHERE action = 'legacy_property_ownership_reopened'
           AND "targetId" = property.id
           AND metadata->>'previousStatus' = 'APPROVED'
-      ) AS prior_property_status_audited
+      ) AS prior_property_status_audited,
+      EXISTS (
+        SELECT 1 FROM public."VerificationDocument"
+        WHERE id = 'integrity-legacy-unbound'
+          AND "reviewStatus" = 'PENDING'
+          AND "propertyOwnershipVersion" IS NULL
+      ) AS propertyless_evidence_quarantined,
+      EXISTS (
+        SELECT 1 FROM public."AdminAuditLog"
+        WHERE action = 'legacy_ownership_evidence_quarantined'
+          AND "targetId" = 'integrity-legacy-unbound'
+          AND metadata->>'propertyId' IS NULL
+      ) AS propertyless_decision_audited
     FROM public."SellerProperty" AS property
     WHERE property.id = 'integrity-property'
   `);
@@ -227,7 +254,65 @@ async function assertLegacyEvidenceReopened(db) {
   if (!Object.values(row ?? {}).every(Boolean)) {
     throw new Error(`Legacy evidence was not safely reopened: ${JSON.stringify(row)}`);
   }
-  return row;
+
+  await expectPgError(
+    () => db.query(`
+      UPDATE public."VerificationDocument"
+      SET "reviewStatus" = 'APPROVED', "updatedAt" = now()
+      WHERE id = 'integrity-legacy-id'
+    `),
+    "23514",
+    "LIBER_LEGACY_OWNERSHIP_EVIDENCE_AUDIT_ONLY",
+  );
+  await expectPgError(
+    () => db.query(`
+      UPDATE public."VerificationDocument"
+      SET "reviewStatus" = 'APPROVED', "updatedAt" = now()
+      WHERE id = 'integrity-legacy-unbound'
+    `),
+    "23514",
+    "LIBER_LEGACY_OWNERSHIP_EVIDENCE_AUDIT_ONLY",
+  );
+  await expectPgError(
+    () => db.query(`
+      UPDATE public."VerificationDocument"
+      SET "propertyOwnershipVersion" = 1,
+          "reviewStatus" = 'REJECTED',
+          "updatedAt" = now()
+      WHERE id = 'integrity-legacy-address'
+    `),
+    "23514",
+    "LIBER_LEGACY_OWNERSHIP_EVIDENCE_AUDIT_ONLY",
+  );
+  await db.query(`
+    UPDATE public."VerificationDocument"
+    SET "ownershipEvidenceKind" = 'GOVERNMENT_ID',
+        "reviewStatus" = 'REJECTED',
+        "updatedAt" = now()
+    WHERE id = 'integrity-legacy-evidence'
+  `);
+
+  const auditOnly = await db.query(`
+    SELECT
+      count(*) FILTER (WHERE "propertyOwnershipVersion" IS NULL) = 4 AS versions_remain_null,
+      count(*) FILTER (WHERE "reviewStatus" = 'APPROVED') = 0 AS none_approved,
+      bool_and("reviewStatus" IN ('PENDING', 'REJECTED')) AS audit_status_only,
+      EXISTS (
+        SELECT 1 FROM public."VerificationDocument"
+        WHERE id = 'integrity-legacy-evidence'
+          AND "ownershipEvidenceKind" = 'GOVERNMENT_ID'
+          AND "reviewStatus" = 'REJECTED'
+          AND "propertyOwnershipVersion" IS NULL
+      ) AS classification_rejection_preserved
+    FROM public."VerificationDocument"
+    WHERE "documentType" = 'OWNERSHIP'
+      AND id LIKE 'integrity-legacy-%'
+  `);
+  const auditOnlyRow = auditOnly.rows[0];
+  if (!Object.values(auditOnlyRow ?? {}).every(Boolean)) {
+    throw new Error(`Legacy evidence escaped audit-only state: ${JSON.stringify(auditOnlyRow)}`);
+  }
+  return { ...row, ...auditOnlyRow };
 }
 
 async function assertVersionedOwnership(db) {
