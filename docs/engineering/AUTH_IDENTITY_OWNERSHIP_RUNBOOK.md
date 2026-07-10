@@ -78,37 +78,104 @@ possible.
 
 Customer-facing hard deletion is not enabled in this release.
 
-### Tombstone / deletion request
+The unnumbered follow-up proposal in
+`AUTH_SECURITY_FOLLOWUP_FORWARD.sql` defines the operator workflow below. It is
+not deployed and does not enable customer self-service deletion.
 
-Until the dedicated suspension, Storage, outbox, and retention work is merged:
+### Authoritative initialization
 
-1. Suspend the application User and buyer profile.
-2. Suspend seller access.
-3. Keep the original User UUID and Auth identity in place.
-4. Do not delete the Auth row from the Supabase dashboard or Admin API.
-5. Record the request and retention decision outside customer-visible data.
+1. The Auth insert trigger creates the UUID/email row with empty roles and a
+   blank private name. It does not trust signup metadata as authorization.
+2. A verified email callback resolves the canonical UUID/email pair with
+   `roles: []`; it never reads `user_metadata.role`. A new empty-role account is
+   sent to authenticated role onboarding.
+3. The authenticated `chooseRole` action may initialize/merge only BUYER/SELLER
+   from its validated form. A signup response that already contains a verified
+   session may initialize the same validated server-side signup form roles.
+4. Password login resolves the canonical identity but never initializes roles.
+5. `public."User".name` is authoritative thereafter. Verified role selection may
+   initialize the private name, but it never treats Auth metadata as authority.
+   The Auth update trigger
+   fires only for a changed email and never copies `raw_user_meta_data`.
 
-The later security PR must ban/revoke sessions, make Storage policies require an
-active application User, and define outbox cancellation before this becomes a
-complete self-service tombstone operation.
+### Collision recovery
 
-### Completed purge
+An identity collision never changes a UUID or ownership row.
+
+1. Rate-limit the recovery signal by shared IP and normalized-email budgets.
+2. Record `account_recovery_started` against the original application UUID.
+3. Verify control of the original Auth identity and support evidence outside
+   user-editable metadata. Never ask for passwords or recovery tokens.
+4. If the original Auth identity is recoverable, restore access to that UUID;
+   do not create, merge, or transfer a second application identity.
+5. Record `account_recovery_denied` with a non-sensitive reason when denied.
+6. Record `account_recovery_completed` only after the original UUID can log in
+   and the canonical resolver succeeds.
+
+### Audited tombstone
+
+`app_private.suspend_identity` locks actor and target in UUID order, requires an
+ACTIVE ADMIN actor, and in one transaction:
+
+1. sets User to SUSPENDED with `suspendedAt`,
+2. sets SellerAccess and BuyerProfile to SUSPENDED,
+3. cancels unsent EmailOutbox rows bound to `recipientUserId`,
+4. deletes every `auth.sessions` row for the UUID,
+5. and writes `suspend_user` with aggregate counts and `authBan=pending`.
+
+The server then calls `auth.admin.updateUserById` with a 100-year
+`ban_duration`. It writes `suspend_user_auth_ban_confirmed` or
+`suspend_user_auth_ban_failed`. A failed Auth call is retryable but never rolls
+back the safer application suspension. Existing access JWTs remain
+cryptographically valid until expiry, so application session checks and every
+authenticated Storage policy independently require an ACTIVE User.
+
+Keep the original User UUID and Auth identity in place after tombstone. Do not
+delete the Auth row from the dashboard or Admin API.
+
+### Pending outbox behavior
+
+- New jobs store `recipientUserId`; the proposal backfills unsent legacy jobs
+  from the exact normalized-email owner. Every unmatched unsent row is cancelled
+  with `UNMATCHED_LEGACY_RECIPIENT`. Pre-lease SENDING rows are quarantined for
+  provider reconciliation instead of being guessed safe to resend.
+- `app_private.claim_email_outbox` claims at most 100 jobs in one
+  `FOR UPDATE SKIP LOCKED`/UPDATE statement. Each claim increments attempts and
+  receives an expiring UUID lease. A crashed worker's expired lease can be
+  reclaimed; completion and failure updates must still match that lease token.
+- Suspension sets `cancelledAt`, clears retry time, and terminally marks every
+  PENDING/FAILED job for the UUID. Workers exclude cancelled jobs and re-check
+  ACTIVE recipient status after claiming, resolve the current application email,
+  and send with a stable provider idempotency key. A SENDING job must reach
+  SENT/FAILED or be reconciled with the provider before purge continues.
+- Purge must confirm no uncancelled unsent row remains for the UUID or normalized
+  email. Never retarget an old job to a new UUID after email reuse.
+- A message already accepted by the provider cannot be recalled. Record its
+  provider status in retention review and do not describe it as cancelled.
+
+### Completed purge and email reuse
 
 A purge is an explicit operator workflow after legal/retention review:
 
-1. Ban/revoke Auth sessions.
-2. Cancel or revalidate pending email jobs.
-3. Export or retain evidence and audit records according to policy.
-4. Delete or reassign owned Storage objects through the Storage API.
-5. Delete the application identity and review every cascade.
-6. Delete the Auth identity through the Auth Admin API.
-7. Record the purge outcome.
+1. Record `account_purge_started` with original UUID, approving operator,
+   retention decision, and case reference, without document URLs or secrets.
+2. Re-run tombstone. Confirm User/SellerAccess are suspended, Auth ban is
+   confirmed, `auth.sessions` is empty, and no uncancelled outbox job remains.
+3. Inventory Storage by UUID/path ownership. Retain approved evidence according
+   to policy, then delete purgeable objects through the Storage API. Never
+   delete only `storage.objects` rows in SQL.
+4. Resolve immutable evidence, audit, invite, notification, property, and
+   outbox retention. Redact queued recipient/payload data where policy requires.
+5. Delete the application User and review every cascade. The target UUID remains
+   in string-valued audit targets even if actor foreign keys become null.
+6. Delete the Auth user through the server-only Auth Admin API.
+7. Record `account_purge_completed` with Storage cleanup, application deletion,
+   Auth deletion, retained-record counts, and `emailReuseAllowed=true`.
 
-Only after both identities and retained ownership are intentionally cleared may
-the same email register again. Re-registration creates a new Auth UUID, empty
-roles, no buyer profile, no seller approval, no property ownership, and no
-document access. Restoration is a separately verified recovery operation, not
-an email-triggered transfer.
+Email reuse is forbidden before step 7. Afterwards, a case-variant registration
+must create a new Auth UUID and User with blank name, empty roles, no buyer
+profile, seller approval, property, document, or ADMIN inheritance. Restoration
+is separately verified recovery, never an email-triggered transfer.
 
 ## Deployment sequence
 
@@ -152,6 +219,28 @@ IDENTITY_MIGRATION_TEST_SENTINEL=<16+ character token>
 npm run db:test-identity
 ```
 
+The follow-up harness also applies the unnumbered forward proposal and verifies
+the exact normalized index, email-only update trigger, removal of Auth metadata
+name synchronization, simultaneous case-variant registration, legacy outbox
+quarantine, expired-lease crash recovery, and bounded limiter expiry/pruning.
+
+For full Auth Admin/Storage lifecycle proof:
+
+```text
+AUTH_SECURITY_STAGING_DATABASE_URL=<disposable direct URL>
+AUTH_SECURITY_STAGING_SUPABASE_URL=<same disposable API URL>
+AUTH_SECURITY_STAGING_PUBLISHABLE_KEY=<branch publishable key>
+AUTH_SECURITY_STAGING_SERVICE_ROLE_KEY=<branch service-role key>
+AUTH_SECURITY_STAGING_ALLOW_WRITES=true
+AUTH_SECURITY_STAGING_SENTINEL=<matching 16+ character token>
+npm run db:test-auth-security:staging
+```
+
+The staging harness also checks that authenticated admins cannot read private
+documents directly, ACTIVE owners can write property images/profile photos, and
+the same pre-suspension JWT cannot upload, update, or delete either afterwards.
+Never reuse parent/shared keys or a parent database password for this proof.
+
 For an empty test branch, also set
 `IDENTITY_MIGRATION_TEST_PREPARE_EMPTY=true`. The harness uses the same
 test-only `00005` compatibility shim documented by the geography runbook; it
@@ -162,8 +251,10 @@ does not change checked-in or deployed history.
 Do not restore the vulnerable `00007`/`00009` function, drop UUID immutability,
 or change the Auth FK to cascade as an emergency rollback.
 
-- If `00016` fails while applying, its transaction should roll back. Keep signup
-  closed, review the preflight failure, and correct data explicitly.
+- `00016` contains explicit `BEGIN`/`COMMIT`. If any statement fails, the
+  migration transaction rolls back. Keep signup closed, issue `ROLLBACK` if an
+  operator client remains in an aborted transaction, review the preflight
+  failure, and correct data explicitly.
 - If application behavior fails after database deployment, roll back the
   application runtime while leaving database identity hardening installed. The
   older runtime is compatible with an Auth-created User row, although collision
@@ -171,6 +262,15 @@ or change the Auth FK to cascade as an emergency rollback.
 - If Auth deletion is operationally required, complete the purge workflow. Do
   not weaken the FK.
 - Repair defects with a new forward migration and repeat the disposable proof.
+
+`AUTH_SECURITY_FOLLOWUP_ROLLBACK.sql` is intentionally security-preserving.
+Deploy a compatibility runtime that stops calling the suspension/shared-limiter
+functions but retains the lease-aware outbox worker, then run the SQL. If no such
+runtime is available, disable the entire maintenance endpoint. The legacy
+reader-then-SENDING worker is incompatible with the lease constraints and must
+never be re-enabled. The claim function, active leases, additive EmailOutbox
+fields/constraints/indexes, cancellation evidence, Auth trigger hardening, and
+ACTIVE-user Storage policies remain installed as forward-only boundaries.
 
 The historical exact-fresh-chain `00005` ownership failure remains a separate
 release gate. It must be resolved by the final migration/version strategy, not

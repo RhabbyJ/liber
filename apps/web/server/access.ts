@@ -4,18 +4,14 @@ import { hasRole, type SessionUser } from "./authz";
 import { getSessionUser } from "./session";
 
 export async function ensureSellerAccessRequested(userId: string) {
-  const existing = await prisma.sellerAccess.findUnique({
+  await prisma.sellerAccess.upsert({
     where: { userId },
-    select: { id: true },
-  });
-
-  if (existing) return;
-
-  await prisma.sellerAccess.create({
-    data: {
+    create: {
       status: "PENDING",
       userId,
     },
+    update: {},
+    select: { id: true },
   });
 }
 

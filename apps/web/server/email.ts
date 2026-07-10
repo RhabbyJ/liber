@@ -15,6 +15,10 @@ export type EmailResult = {
   reason?: string;
 };
 
+type EmailSendOptions = {
+  idempotencyKey?: string;
+};
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -24,16 +28,26 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#039;");
 }
 
-export async function sendInviteEmail(input: InviteEmailInput): Promise<EmailResult> {
+export async function sendInviteEmail(
+  input: InviteEmailInput,
+  options: EmailSendOptions = {},
+): Promise<EmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
 
   if (!apiKey || !from || !input.to) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Invite email delivery is not configured.");
+    }
     return {
       provider: "mock",
       queued: false,
       reason: "Resend is not configured or buyer email is missing.",
     };
+  }
+
+  if (options.idempotencyKey && options.idempotencyKey.length > 256) {
+    throw new Error("Email idempotency key exceeds 256 characters.");
   }
 
   const response = await fetch("https://api.resend.com/emails", {
@@ -57,6 +71,7 @@ export async function sendInviteEmail(input: InviteEmailInput): Promise<EmailRes
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
+      ...(options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : {}),
     },
     method: "POST",
   });

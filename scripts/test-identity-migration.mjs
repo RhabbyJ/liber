@@ -11,6 +11,7 @@ await assertDisposableDatabase(testUrl);
 
 const migrationRoot = path.resolve("packages/db/prisma/migrations");
 const identityMigration = "20260709000016_harden_auth_identity_ownership";
+const authSecurityProposal = path.resolve("docs/engineering/AUTH_SECURITY_FOLLOWUP_FORWARD.sql");
 const oldUserId = randomUUID();
 const newUserId = randomUUID();
 const inFlightUserId = randomUUID();
@@ -24,11 +25,14 @@ try {
   await seedOwnedIdentity(client);
   const lockProof = await applyBehindInFlightAuthInsert();
   const catalog = await assertHardenedCatalog(client);
+  const outboxLease = await assertOutboxLeaseRecovery(client);
+  const rateLimiter = await assertRateLimiterLifecycle(client);
+  const concurrentRegistration = await assertConcurrentCaseVariantRegistration();
   const immutability = await assertOwnershipCannotMove(client);
   const lifecycle = await assertRestrictedDeletionAndFreshReregistration(client);
 
   process.stdout.write(
-    `${JSON.stringify({ catalog, immutability, lifecycle, lockProof }, null, 2)}\n`,
+    `${JSON.stringify({ catalog, concurrentRegistration, immutability, lifecycle, lockProof, outboxLease, rateLimiter }, null, 2)}\n`,
   );
 } finally {
   await client.end();
@@ -191,6 +195,15 @@ async function seedOwnedIdentity(db) {
     [oldUserId],
   );
   await db.query(
+    `INSERT INTO public."EmailOutbox" (
+       id, type, "to", payload, status, "createdAt", "updatedAt"
+     ) VALUES
+       ('identity-outbox-matched', 'INVITE', $1, '{}'::jsonb, 'PENDING', now(), now()),
+       ('identity-outbox-unmatched', 'INVITE', 'unmatched-legacy@example.invalid', '{}'::jsonb, 'PENDING', now(), now()),
+       ('identity-outbox-sending', 'INVITE', $1, '{}'::jsonb, 'SENDING', now(), now())`,
+    [oldEmail],
+  );
+  await db.query(
     `INSERT INTO public."AdminAuditLog" (
        id, "actorUserId", action, "targetType", "targetId", "createdAt"
      ) VALUES ('identity-audit', $1, 'identity_test', 'user', $1::text, now())`,
@@ -217,6 +230,7 @@ async function applyBehindInFlightAuthInsert() {
     const migrationPid = await waitForBlockedMigration(observer, writer.processID);
     await writer.query("COMMIT");
     await migrationPromise;
+    await client.query(await readFile(authSecurityProposal, "utf8"));
 
     return {
       blocked_by_in_flight_auth_write: Boolean(migrationPid),
@@ -288,6 +302,82 @@ async function assertHardenedCatalog(db) {
         AND NOT has_function_privilege('authenticated', 'app_private.handle_new_user()', 'EXECUTE')
         AND NOT has_function_privilege('service_role', 'app_private.handle_new_user()', 'EXECUTE')
         AS trigger_acl_restricted,
+      EXISTS (
+        SELECT 1
+        FROM pg_index
+        JOIN pg_class AS index_class ON index_class.oid = pg_index.indexrelid
+        JOIN pg_am ON pg_am.oid = index_class.relam
+        WHERE index_class.oid = 'public."User_email_normalized_key"'::regclass
+          AND pg_index.indisunique
+          AND pg_index.indisvalid
+          AND pg_index.indpred IS NULL
+          AND pg_index.indnkeyatts = 1
+          AND pg_get_expr(pg_index.indexprs, pg_index.indrelid) = 'lower(btrim(email))'
+          AND pg_am.amname = 'btree'
+      ) AS normalized_index_exact,
+      position('AFTER UPDATE OF email ON auth.users' IN pg_get_triggerdef(
+        (SELECT oid FROM pg_trigger WHERE tgrelid = 'auth.users'::regclass AND tgname = 'on_auth_user_updated')
+      )) > 0 AS update_trigger_email_only,
+      position('raw_user_meta_data' IN pg_get_functiondef(
+        'app_private.handle_update_user()'::regprocedure
+      )) = 0 AS auth_metadata_name_sync_removed,
+      to_regprocedure('app_private.claim_email_outbox(integer,uuid,integer,integer)') IS NOT NULL
+        AS outbox_claim_function,
+      to_regprocedure('app_private.consume_rate_limit(text,text,integer,integer)') IS NOT NULL
+        AS rate_limit_function,
+      to_regprocedure('app_private.prune_rate_limit_buckets(timestamp with time zone,integer)') IS NOT NULL
+        AS rate_limit_prune_function,
+      to_regclass('app_private.rate_limit_buckets_expires_at_idx') IS NOT NULL
+        AS rate_limit_expiry_index,
+      NOT has_function_privilege(
+        'authenticated',
+        'app_private.claim_email_outbox(integer,uuid,integer,integer)',
+        'EXECUTE'
+      ) AS outbox_claim_acl_restricted,
+      NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'storage'
+          AND tablename = 'objects'
+          AND policyname = 'Admins can view all verification documents'
+      ) AS direct_admin_storage_policy_absent,
+      (
+        SELECT count(*) = 3 AND bool_and(
+          position('is_active_user' IN coalesce(qual, '') || coalesce(with_check, '')) > 0
+        )
+        FROM pg_policies
+        WHERE schemaname = 'storage'
+          AND tablename = 'objects'
+          AND policyname IN (
+            'Profile photo owners can upload profile photos',
+            'Profile photo owners can update profile photos',
+            'Profile photo owners can delete profile photos'
+          )
+      ) AS active_profile_storage_policies,
+      (
+        SELECT count(*) = 3 AND bool_and(
+          position('owns_property' IN coalesce(qual, '') || coalesce(with_check, '')) > 0
+        )
+        FROM pg_policies
+        WHERE schemaname = 'storage'
+          AND tablename = 'objects'
+          AND policyname IN (
+            'Property owners can upload property images',
+            'Property owners can update property images',
+            'Property owners can delete property images'
+          )
+      ) AS active_property_storage_policies,
+      (
+        SELECT count(*) = 2 AND bool_and(
+          position('is_active_user' IN coalesce(qual, '') || coalesce(with_check, '')) > 0
+        )
+        FROM pg_policies
+        WHERE schemaname = 'storage'
+          AND tablename = 'objects'
+          AND policyname IN (
+            'Document owners can view own verification documents',
+            'Document owners can upload verification documents'
+          )
+      ) AS active_document_storage_policies,
       user_fks.child_fk_count,
       user_fks.child_update_restrict_count
     FROM user_fks
@@ -299,12 +389,205 @@ async function assertHardenedCatalog(db) {
     !row?.immutable_trigger ||
     !row?.validated_auth_fk ||
     !row?.trigger_acl_restricted ||
+    !row?.normalized_index_exact ||
+    !row?.update_trigger_email_only ||
+    !row?.auth_metadata_name_sync_removed ||
+    !row?.outbox_claim_function ||
+    !row?.rate_limit_function ||
+    !row?.rate_limit_prune_function ||
+    !row?.rate_limit_expiry_index ||
+    !row?.outbox_claim_acl_restricted ||
+    !row?.direct_admin_storage_policy_absent ||
+    !row?.active_profile_storage_policies ||
+    !row?.active_property_storage_policies ||
+    !row?.active_document_storage_policies ||
     row?.child_fk_count !== 11 ||
     row?.child_update_restrict_count !== 11
   ) {
     throw new Error(`Identity catalog assertion failed: ${JSON.stringify(row)}`);
   }
   return row;
+}
+
+async function assertOutboxLeaseRecovery(db) {
+  const legacy = await db.query(
+    `SELECT id, "recipientUserId", "cancelledAt", "lastError", status::text
+     FROM public."EmailOutbox"
+     WHERE id IN ('identity-outbox-matched', 'identity-outbox-sending', 'identity-outbox-unmatched')
+     ORDER BY id`,
+  );
+  const matched = legacy.rows.find((row) => row.id === "identity-outbox-matched");
+  const legacySending = legacy.rows.find((row) => row.id === "identity-outbox-sending");
+  const unmatched = legacy.rows.find((row) => row.id === "identity-outbox-unmatched");
+  if (
+    matched?.recipientUserId !== oldUserId
+    || matched?.cancelledAt !== null
+    || !legacySending?.cancelledAt
+    || legacySending?.lastError !== "LEGACY_SENDING_REQUIRES_RECONCILIATION"
+    || legacySending?.status !== "FAILED"
+    || unmatched?.recipientUserId !== null
+    || !unmatched?.cancelledAt
+    || unmatched?.lastError !== "UNMATCHED_LEGACY_RECIPIENT"
+    || unmatched?.status !== "FAILED"
+  ) {
+    throw new Error(`Legacy outbox quarantine mismatch: ${JSON.stringify(legacy.rows)}`);
+  }
+
+  const firstToken = randomUUID();
+  const firstClaim = await db.query(
+    `SELECT id, attempts, "leaseToken", status::text
+     FROM app_private.claim_email_outbox(1, $1::uuid, 300, 5)`,
+    [firstToken],
+  );
+  if (
+    firstClaim.rows[0]?.id !== "identity-outbox-matched"
+    || firstClaim.rows[0]?.attempts !== 1
+    || firstClaim.rows[0]?.leaseToken !== firstToken
+    || firstClaim.rows[0]?.status !== "SENDING"
+  ) {
+    throw new Error(`Initial outbox lease mismatch: ${JSON.stringify(firstClaim.rows)}`);
+  }
+
+  await db.query(
+    `UPDATE public."EmailOutbox"
+     SET "leaseExpiresAt" = now() - interval '1 second'
+     WHERE id = 'identity-outbox-matched'`,
+  );
+  const recoveryToken = randomUUID();
+  const recovered = await db.query(
+    `SELECT id, attempts, "leaseToken", status::text
+     FROM app_private.claim_email_outbox(1, $1::uuid, 300, 5)`,
+    [recoveryToken],
+  );
+  if (
+    recovered.rows[0]?.id !== "identity-outbox-matched"
+    || recovered.rows[0]?.attempts !== 2
+    || recovered.rows[0]?.leaseToken !== recoveryToken
+    || recovered.rows[0]?.status !== "SENDING"
+  ) {
+    throw new Error(`Expired outbox lease was not recovered: ${JSON.stringify(recovered.rows)}`);
+  }
+
+  const recipientConstraint = await expectPgError(
+    () => db.query(
+      `INSERT INTO public."EmailOutbox" (
+         id, type, "to", payload, status, "createdAt", "updatedAt"
+       ) VALUES ('identity-outbox-invalid', 'INVITE', 'nobody@example.invalid', '{}'::jsonb, 'PENDING', now(), now())`,
+    ),
+    "23514",
+    "EmailOutbox_sendable_recipient_check",
+  );
+  await db.query(
+    `DELETE FROM public."EmailOutbox"
+     WHERE id IN (
+       'identity-outbox-matched',
+       'identity-outbox-sending',
+       'identity-outbox-unmatched',
+       'identity-outbox-invalid'
+     )`,
+  );
+  return {
+    crash_recovered_attempt: recovered.rows[0].attempts,
+    legacy_sending_quarantined: true,
+    legacy_unmatched_quarantined: true,
+    null_recipient_constraint_sqlstate: recipientConstraint.code,
+  };
+}
+
+async function assertRateLimiterLifecycle(db) {
+  const namespace = `identity-test:${randomUUID()}`;
+  const keyHash = "a".repeat(64);
+  const first = await db.query(
+    `SELECT * FROM app_private.consume_rate_limit($1, $2, 1, 60)`,
+    [namespace, keyHash],
+  );
+  const denied = await db.query(
+    `SELECT * FROM app_private.consume_rate_limit($1, $2, 1, 60)`,
+    [namespace, keyHash],
+  );
+  if (first.rows[0]?.allowed !== true || denied.rows[0]?.allowed !== false) {
+    throw new Error(`Rate limiter did not enforce its budget: ${JSON.stringify({ first: first.rows, denied: denied.rows })}`);
+  }
+
+  await db.query(
+    `UPDATE app_private.rate_limit_buckets
+     SET expires_at = now() - interval '1 second'
+     WHERE namespace = $1 AND key_hash = $2`,
+    [namespace, keyHash],
+  );
+  const reset = await db.query(
+    `SELECT * FROM app_private.consume_rate_limit($1, $2, 1, 60)`,
+    [namespace, keyHash],
+  );
+  if (reset.rows[0]?.allowed !== true) {
+    throw new Error(`Expired rate limit window did not reset: ${JSON.stringify(reset.rows)}`);
+  }
+
+  const pruneNamespace = `${namespace}:prune`;
+  await db.query(
+    `INSERT INTO app_private.rate_limit_buckets (
+       namespace, key_hash, hit_count, window_seconds,
+       window_started_at, expires_at, updated_at
+     )
+     SELECT $1, lpad(sequence::text, 64, '0'), 1, 60,
+       now() - interval '2 minutes', now() - interval '1 minute', now()
+     FROM generate_series(1, 150) AS sequence`,
+    [pruneNamespace],
+  );
+  const pruned = await db.query(
+    `SELECT app_private.prune_rate_limit_buckets(now(), 100) AS count`,
+  );
+  const remaining = await db.query(
+    `SELECT count(*)::int AS count
+     FROM app_private.rate_limit_buckets
+     WHERE namespace = $1`,
+    [pruneNamespace],
+  );
+  if (pruned.rows[0]?.count !== 100 || remaining.rows[0]?.count !== 50) {
+    throw new Error(`Bounded limiter prune mismatch: ${JSON.stringify({ pruned: pruned.rows, remaining: remaining.rows })}`);
+  }
+  await db.query(`DELETE FROM app_private.rate_limit_buckets WHERE namespace LIKE $1`, [`${namespace}%`]);
+  return {
+    denied_after_limit: true,
+    expired_window_reset: true,
+    prune_batch: pruned.rows[0].count,
+  };
+}
+
+async function assertConcurrentCaseVariantRegistration() {
+  const first = new pg.Client({ connectionString: testUrl });
+  const second = new pg.Client({ connectionString: testUrl });
+  const firstId = randomUUID();
+  const secondId = randomUUID();
+  const email = `identity-case-${firstId}@example.invalid`;
+  await first.connect();
+  await second.connect();
+  try {
+    const results = await Promise.allSettled([
+      insertAuthUser(first, firstId, email.toLowerCase(), "Case variant one"),
+      insertAuthUser(second, secondId, email.toUpperCase(), "Case variant two"),
+    ]);
+    const fulfilled = results.filter((result) => result.status === "fulfilled");
+    const rejected = results.filter((result) => result.status === "rejected");
+    if (fulfilled.length !== 1 || rejected.length !== 1) {
+      throw new Error(`Concurrent case registration did not produce one winner: ${JSON.stringify(results)}`);
+    }
+    const error = rejected[0].reason;
+    if (error?.code !== "23505" || !String(error.message).includes("LIBER_IDENTITY_RECOVERY_REQUIRED")) {
+      throw new Error(`Concurrent collision was not explicit: ${error?.code}: ${error?.message}`);
+    }
+    const count = await client.query(
+      `SELECT count(*)::int AS users
+       FROM public."User"
+       WHERE lower(btrim(email)) = lower(btrim($1))`,
+      [email],
+    );
+    if (count.rows[0]?.users !== 1) throw new Error("Normalized email index admitted multiple case variants.");
+    return { collision_sqlstate: error.code, winners: count.rows[0].users };
+  } finally {
+    await second.end();
+    await first.end();
+  }
 }
 
 async function assertOwnershipCannotMove(db) {

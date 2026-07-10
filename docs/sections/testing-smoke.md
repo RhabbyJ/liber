@@ -38,6 +38,14 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - The identity harness must use branch-specific direct credentials. Connector
   proof does not substitute for its two-connection Auth-write/migration lock
   assertion.
+- `npm run db:test-auth-security:staging` requires disposable branch-specific
+  database, publishable, and service-role credentials plus the sentinel. It
+  tests a real Auth signup/session, Admin ban, direct Storage access before and
+  after suspension, absence of direct authenticated-admin document reads,
+  property-image and profile-photo insert/update/delete enforcement, Storage API
+  cleanup, audited purge, and fresh same-email registration. The suspended
+  download fixture must never be read before suspension so CDN/object caching
+  cannot invalidate the assertion.
 - After auth, nav, or protected-route changes, run a focused browser auth pass covering signed-out CTAs, buyer signup/login/logout, buyer-to-seller intent, seller signup/access gating, both-role signup when supported, and mobile nav/logout.
 - Browser auth QA failures or inconclusive results should include a screenshot or compact state dump with URL, relevant DOM attributes, visible text excerpt, and console errors.
 - Public and seller DTO tests must snapshot serialized responses and recursively reject forbidden identity, coordinate, criteria-ID, service-area-ID, badge, document, and Storage fields.

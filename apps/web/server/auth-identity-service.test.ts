@@ -10,6 +10,7 @@ const db = vi.hoisted(() => ({
 
 vi.mock("@liber/db", () => ({
   prisma: {
+    $queryRaw: db.queryRaw,
     $transaction: db.transaction,
     user: {
       findFirst: db.findFirst,
@@ -18,7 +19,10 @@ vi.mock("@liber/db", () => ({
   },
 }));
 
-import { persistUserRolesForAuthIdentity } from "./auth-identity";
+import {
+  persistUserRolesForAuthIdentity,
+  signupStatusForAuthFailure,
+} from "./auth-identity";
 
 const authUser = {
   email: "buyer@example.test",
@@ -96,5 +100,48 @@ describe("auth identity role persistence", () => {
       }),
     ).rejects.toThrow("ADMIN cannot be assigned");
     expect(db.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("signup failure classification", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it.each([
+    [{ code: "user_already_exists" }, "account-exists"],
+    [{ code: "weak_password" }, "weak-password"],
+    [{ code: "email_address_invalid" }, "invalid-email"],
+    [{ code: "over_request_rate_limit" }, "rate-limited"],
+    [{ status: 429 }, "rate-limited"],
+  ] as const)("uses structured Supabase fields for %o", async (error, expected) => {
+    await expect(signupStatusForAuthFailure(error, authUser.email)).resolves.toBe(expected);
+    expect(db.queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("checks normalized application ownership after an opaque Supabase failure", async () => {
+    db.queryRaw.mockResolvedValueOnce([{ id: authUser.id }]);
+
+    await expect(
+      signupStatusForAuthFailure(
+        { code: "unexpected_failure", status: 500 },
+        " Buyer@Example.Test ",
+      ),
+    ).resolves.toBe("identity-recovery-required");
+
+    const sql = db.queryRaw.mock.calls[0]?.[0]?.join("") ?? "";
+    expect(sql).toContain("lower(btrim(email))");
+    expect(db.queryRaw.mock.calls[0]).toContain("buyer@example.test");
+  });
+
+  it("keeps an opaque failure generic when no application identity collides", async () => {
+    db.queryRaw.mockResolvedValueOnce([]);
+
+    await expect(
+      signupStatusForAuthFailure(
+        { code: "unexpected_failure", status: 500 },
+        authUser.email,
+      ),
+    ).resolves.toBe("signup-error");
   });
 });

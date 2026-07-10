@@ -119,6 +119,14 @@ function authNotice(status: string, email: string) {
     };
   }
 
+  if (status === "rate-limited") {
+    return {
+      body: "Too many authentication attempts were received. Wait before trying again.",
+      title: "Try again later",
+      tone: "info",
+    };
+  }
+
   if (status === "account-exists") {
     return {
       body: "That email already has a Liber account. Log in here and we'll take you to the right place to add seller access.",

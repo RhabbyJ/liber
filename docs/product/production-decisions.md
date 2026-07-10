@@ -1,6 +1,6 @@
 # Production Decisions
 
-Last reviewed: 2026-07-09
+Last reviewed: 2026-07-10
 
 This is the living launch-gate matrix for moving Liber from a controlled CEO
 demo/private preview to a public Los Angeles beta. It does not override
@@ -42,13 +42,23 @@ demo/private preview to a public Los Angeles beta. It does not override
 
 ### Auth, suspension, and Storage
 
-- Run the direct two-connection identity harness and real staging Auth flows for
-  deletion, email reuse, ownership preservation, and ADMIN non-inheritance.
-- Revoke/ban sessions and seller access when suspending a user.
-- Make Storage policies require an active application user and test suspended
-  users directly against Storage.
-- Keep customer hard deletion disabled until retention, Storage, outbox, and
-  audited purge behavior is implemented.
+- The unnumbered Auth/security follow-up proposal implements verified-identity,
+  application-form role initialization, canonical login collision recovery,
+  atomic application suspension/session revocation, Auth ban confirmation,
+  ACTIVE-user Storage policies, recipient-bound leased outbox delivery, and
+  bounded shared Auth throttling. It remains undeployed pending CTO migration
+  numbering and review.
+- Earlier disposable-branch proof passed the exact normalized-email catalog
+  check, simultaneous case-variant registration, session revocation, and direct
+  suspended-user Storage denial. The repaired lease/limiter proposal has changed
+  since that proof and must be reapplied to a fresh disposable target; historical
+  evidence does not close the current gate.
+- The direct two-connection harness and full Admin API deletion/re-registration
+  script remain launch gates until branch-specific database and service-role
+  credentials are available. Parent/shared credentials must never be reused.
+- Keep customer hard deletion disabled. Recovery, tombstone, purge, email
+  reuse, Storage cleanup, retention, audit, and outbox behavior are operator
+  workflows in `AUTH_IDENTITY_OWNERSHIP_RUNBOOK.md`, not self-service UI.
 
 ### Public and seller data contracts
 
@@ -90,7 +100,12 @@ demo/private preview to a public Los Angeles beta. It does not override
   query plans to CI/release gates.
 - Replace in-memory limits for auth, search, profile views, uploads, invites,
   geocoding, and enrichment with a shared limiter.
-- Make email-outbox claiming lease-based and safe with multiple workers.
+- The Auth/login/signup/resend/recovery portion has a Supabase-backed proposal;
+  search/profile/upload/invite/geocode/enrichment limits remain separate gates.
+- Lease-based outbox code and SQL exist in the unnumbered proposal, including
+  expired-lease recovery and provider idempotency. Migration numbering, a fresh
+  database run, multi-worker database proof, and the full staging lifecycle
+  harness remain open launch gates.
 
 ### UI/UX
 

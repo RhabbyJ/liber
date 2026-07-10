@@ -1,6 +1,8 @@
 -- User ownership is bound to the immutable Supabase Auth UUID. Email is a
 -- collision signal only; it must never move an application identity.
 
+BEGIN;
+
 -- Auth writes take this table first, then write public."User" through the
 -- trigger. Matching that order drains in-flight uses of the old function and
 -- avoids a lock-order inversion during the cutover.
@@ -250,3 +252,5 @@ DROP INDEX IF EXISTS public."User_email_idx";
 
 COMMENT ON CONSTRAINT "User_id_auth_users_fkey" ON public."User" IS
 'Active Liber identities use the immutable auth.users primary key. Auth deletion is restricted until application retention and Storage cleanup are complete.';
+
+COMMIT;

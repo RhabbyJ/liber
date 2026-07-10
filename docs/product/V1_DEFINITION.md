@@ -145,12 +145,25 @@ Admin role assignment is not self-service.
   the original UUID and raw Auth deletion is blocked.
 - After an explicitly reviewed full purge, same-email registration creates a
   fresh UUID with no inherited roles, ownership, approval, or private access.
+- Buyer/seller role initialization occurs only after Supabase establishes a
+  verified identity and the user submits a validated application role form. A
+  verified callback never derives roles from Auth metadata; it sends an
+  empty-role user to authenticated onboarding. An immediate verified-session
+  signup may use the validated signup form. An unconfirmed signup never receives
+  application roles or seller access.
+- Suspension immediately blocks application and Storage authorization, suspends
+  seller access and buyer visibility, revokes Auth sessions, bans new Auth
+  sessions, and cancels unsent email jobs addressed to that application UUID.
 
 ## V1 buyer profile rules
 
 Buyer profiles are the marketplace asset.
 
 The buyer's account name is private account identity for the buyer portal only. It may personalize owner-only dashboard copy, but it must not be used as the seller/public buyer identity. Seller-facing buyer identity uses a generated neutral alias plus a generated avatar.
+
+`User.name` is the authoritative private account name. Signup Auth metadata may
+initialize it only after a verified callback/session; later user-editable Auth
+metadata does not overwrite the application value.
 
 A searchable buyer profile may include:
 

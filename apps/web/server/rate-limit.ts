@@ -17,8 +17,12 @@ export type RateLimitResult = {
 };
 
 export function clientIpFromRequest(request: Request) {
-  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwardedFor || request.headers.get("x-real-ip") || "unknown-ip";
+  return clientIpFromHeaders(request.headers);
+}
+
+export function clientIpFromHeaders(headers: Headers) {
+  const forwardedFor = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwardedFor || headers.get("x-real-ip") || "unknown-ip";
 }
 
 export function checkRateLimit(key: string, limit: number, windowMs: number): RateLimitResult {

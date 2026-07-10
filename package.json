@@ -30,7 +30,8 @@
     "db:test-geography:upgrade": "node scripts/test-geography-migration-upgrade.mjs",
     "db:test-identity": "node scripts/test-identity-migration.mjs",
     "db:test-buyer-profile-atomicity": "node scripts/test-buyer-profile-atomicity.mjs",
-    "db:test-seller-property-integrity": "node scripts/test-seller-property-integrity.mjs"
+    "db:test-seller-property-integrity": "node scripts/test-seller-property-integrity.mjs",
+    "db:test-auth-security:staging": "node scripts/test-auth-security-staging.mjs"
   },
   "devDependencies": {
     "prisma": "7.8.0",

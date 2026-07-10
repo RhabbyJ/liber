@@ -515,21 +515,26 @@ model AdminAuditLog {
 }
 
 model EmailOutbox {
-  id            String            @id @default(cuid())
-  type          String
-  to            String
-  subject       String?
-  templateName  String?
-  payload       Json
-  status        EmailOutboxStatus @default(PENDING)
-  attempts      Int               @default(0)
-  lastError     String?
-  nextAttemptAt DateTime?
-  sentAt        DateTime?
+  id              String            @id @default(cuid())
+  type            String
+  to              String
+  recipientUserId String?           @db.Uuid
+  subject         String?
+  templateName    String?
+  payload         Json
+  status          EmailOutboxStatus @default(PENDING)
+  attempts        Int               @default(0)
+  lastError       String?
+  nextAttemptAt   DateTime?
+  sentAt          DateTime?
+  cancelledAt     DateTime?
+  leaseToken      String?           @db.Uuid
+  leaseExpiresAt  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status, nextAttemptAt])
+  @@index([recipientUserId, cancelledAt])
   @@index([createdAt])
 }

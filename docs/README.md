@@ -24,6 +24,13 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `engineering/AUTH_IDENTITY_OWNERSHIP_RUNBOOK.md` — immutable Auth UUID rules, collision recovery, account lifecycle, deployment, and rollback for identity migration 16.
 - `engineering/AUTH_IDENTITY_OWNERSHIP_EVIDENCE_2026-07-09.md` — shared read-only audit, disposable proof, and remaining identity deployment gates.
 - `engineering/SELLER_PROPERTY_INTEGRITY_PROPOSAL.md` — ownership-version and invite-validity proposal, rollout gates, disposable proof command, and rollback boundary.
+- `engineering/AUTH_SECURITY_FOLLOWUP_FORWARD.sql` and
+  `engineering/AUTH_SECURITY_FOLLOWUP_ROLLBACK.sql` — unnumbered CTO migration
+  proposal for callback/session initialization, suspension, Storage, outbox,
+  and shared Auth limiting.
+- `engineering/AUTH_SECURITY_FOLLOWUP_EVIDENCE_2026-07-09.md` — disposable
+  catalog/concurrency/Storage results for the earlier proposal plus the current
+  repair addendum and still-open database/staging gates.
 - `engineering/SERVICE_AREA_BOUNDARIES.md` — canonical service-area, relationship, geometry, rendering, and LA import boundaries.
 - `engineering/SELLER_SEARCH_SQL_EVIDENCE_2026-07-09.md` — SQL-native seller search contract, temporary 25K-row benchmark, cursor assertions, and measured plan.
 - `engineering/SELLER_SEARCH_SQL_PROPOSAL.sql` — unnumbered CTO index proposal; not an applied migration.

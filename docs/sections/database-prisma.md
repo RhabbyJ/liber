@@ -21,6 +21,18 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
   account-retention workflow completes.
 - Auth signup inserts a fresh empty-role User by UUID. A normalized email
   collision raises recovery-required and never updates a primary key.
+- The normalized email boundary is exactly one valid, unique, non-partial btree
+  expression index on `lower(btrim(email))`; concurrent case variants must
+  produce one winner and one explicit recovery-required failure.
+- Auth user updates trigger application synchronization only for a changed email.
+  Private names are application-owned after verified initialization.
+- Auth/security follow-up SQL remains an unnumbered forward/rollback proposal
+  under `docs/engineering/`; migration files 00009 and 00016 stay immutable.
+- The proposal adds recipient-bound outbox jobs, expiring UUID leases, a
+  sendable-recipient constraint, lease-state constraint, and partial ready/lease
+  claim indexes that Prisma cannot express. It also owns the private generic
+  limiter table, expiry index, bounded prune function, and atomic consume
+  function. Keep the raw SQL and Prisma fields intentionally aligned.
 - RLS/storage policies are security boundaries.
 - Do not weaken constraints to bypass application bugs.
 - Keep indexes aligned with search and ownership checks.

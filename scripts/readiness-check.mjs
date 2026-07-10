@@ -13,6 +13,7 @@ const required = [
 ];
 
 const productionChecks = [
+  ["AUTH_RATE_LIMIT_PEPPER", "32+ character HMAC pepper for shared Auth limiter keys"],
   ["CRON_SECRET", "Maintenance route bearer secret"],
   ["NEXT_PUBLIC_MAPBOX_TOKEN", "Mapbox autocomplete/geocoding and production map rendering"],
   ["ATTOM_API_KEY", "ATTOM property facts enrichment"],
@@ -51,6 +52,7 @@ checkPostgresUrl("DATABASE_URL", failures);
 checkPostgresUrl("DIRECT_URL", failures);
 checkEmailPair(warnings, failures);
 checkAutoConfirm(failures);
+checkAuthRateLimitPepper(productionMode ? failures : warnings);
 
 console.log("");
 console.log("Production decisions still required outside env:");
@@ -159,5 +161,12 @@ function checkEmailPair(warningsCollection, failuresCollection) {
 function checkAutoConfirm(collection) {
   if (productionMode && env.LIBER_AUTO_CONFIRM_SIGNUPS === "true") {
     collection.push("LIBER_AUTO_CONFIRM_SIGNUPS must be unset or false in production.");
+  }
+}
+
+function checkAuthRateLimitPepper(collection) {
+  if (!hasValue("AUTH_RATE_LIMIT_PEPPER")) return;
+  if (env.AUTH_RATE_LIMIT_PEPPER.length < 32) {
+    collection.push("AUTH_RATE_LIMIT_PEPPER must contain at least 32 characters.");
   }
 }

@@ -47,6 +47,23 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Raw Auth deletion is restricted while the application User exists. Until the
   full session/Storage/retention lifecycle ships, deletion requests remain a
   suspended tombstone and same-email signup does not inherit or relink data.
+- A verified callback calls `establishVerifiedAuthSession` with no roles and
+  never reads `user_metadata.role`; new accounts continue to authenticated role
+  onboarding. Only the validated `chooseRole` form or immediate verified-session
+  signup form may supply self-selectable BUYER/SELLER roles. Login uses
+  `resolveAuthIdentity` and never initializes.
+- `User.name` is authoritative private account data. Auth updates synchronize
+  email only; later `user_metadata.name` edits never overwrite it.
+- Login, signup, confirmation resend, and collision-recovery signals consume
+  shared database-backed IP and normalized-email budgets. Production fails
+  closed if the shared limiter or its HMAC pepper is unavailable.
+- Supabase failures are classified from structured status/code values. For an
+  opaque database-trigger failure, the server performs a normalized application
+  email lookup after signup fails; it never parses vendor error-message text to
+  decide whether identity recovery is required.
+- User suspension atomically suspends the User, seller access, buyer visibility,
+  unsent recipient-bound outbox jobs, and Auth sessions before the Admin API ban
+  is confirmed and audited.
 
 ## Agent notes
 

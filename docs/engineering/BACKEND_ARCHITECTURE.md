@@ -97,6 +97,21 @@ Key concepts:
   evidence, and retention are handled. A completed purge may then remove the
   application identity followed by Auth; later same-email registration is a
   fresh empty account, never restoration by email.
+- `establishVerifiedAuthSession` is the only production initialization service
+  for self-selectable BUYER/SELLER roles. A verified email callback passes no
+  roles and sends a new empty-role User to authenticated role onboarding; it
+  never reads `user_metadata.role`. Only the validated `chooseRole` form or an
+  immediate verified-session signup form supplies self-selected roles. Password
+  login resolves identity but never initializes roles.
+- `User.name` is authoritative private application data. Verified session
+  establishment may initialize it once from signup metadata; the Auth update
+  trigger is limited to actual email changes and never synchronizes later
+  user-editable metadata.
+- Suspension is fail-closed in two stages. A single database function locks and
+  suspends User, SellerAccess, BuyerProfile, unsent recipient-bound EmailOutbox
+  rows, revokes `auth.sessions`, and writes an audit event. The server then bans
+  the Auth identity through the Admin API and writes a confirmed/failed audit
+  outcome. An Auth API failure never reactivates application access.
 
 Operational proof and rollback are in
 `docs/engineering/AUTH_IDENTITY_OWNERSHIP_RUNBOOK.md` and
@@ -147,6 +162,12 @@ Rules:
 - Private documents are viewed through admin/server-mediated signed URLs only.
 - Storage paths and signed URLs must not become public profile data.
 - Server uploads should validate file type, size, ownership, and purpose.
+- Every authenticated Storage policy checks an ACTIVE application User. Public
+  property-image/profile-photo reads remain public by product design, while all
+  property-image and profile-photo writes plus verification-document owner
+  reads/uploads fail for a suspended or missing application identity. Admin
+  document review never has a direct authenticated-browser policy; it stays
+  behind the server-mediated signed-URL route.
 - Server action return shapes avoid returning raw private storage paths for private buckets. Return document IDs/status, public URLs for public buckets, or short-lived signed URLs from admin/server-mediated reads only.
 - Seller ownership verification documents keep `DocumentType.OWNERSHIP` and use `OwnershipEvidenceKind` to distinguish government ID from property address proof. Ownership status can become approved only after both required evidence kinds are approved by an admin.
 - `SellerProperty.ownershipVersion` makes `(property id, ownership version)` the ownership identity. `ownerUserId` is immutable in V1. Address lines, city, state, ZIP, latitude, and longitude are ownership-relevant; changing any of them increments the version and resets the property to `PENDING`.
@@ -181,7 +202,7 @@ Invite creation must check:
 
 `Invite.expiresAt` is required and later than `sentAt`. Read code computes the effective status at request time, while response writes compare against PostgreSQL's clock, so maintenance lag or application-clock skew never extends validity. PostgreSQL serializes invite creation per seller, expires stale active duplicates before reuse, denies self-invites and property-owner mismatches, and enforces one `SENT`/`VIEWED` row per seller + buyer profile + property with a partial unique index.
 
-Invite email should be queued through `EmailOutbox`, not sent inline as the source of truth.
+Invite email should be queued through `EmailOutbox`, not sent inline as the source of truth. Jobs are bound to an immutable recipient UUID. A private SQL function claims jobs with `FOR UPDATE SKIP LOCKED`, an expiring UUID lease, and an attempt ceiling; worker updates must match the lease token. The worker re-checks ACTIVE status, uses the User's current email, and supplies the outbox ID as the provider idempotency key. Unmatched legacy and pre-lease SENDING rows are quarantined rather than automatically delivered.
 
 ## Search architecture
 
@@ -270,6 +291,15 @@ Important actions should write `AdminAuditLog` or equivalent operational events 
 
 Current in-app rate limiting is acceptable only as a local development / CEO demo safeguard. Before true production launch, abuse controls for login, signup/resend, buyer search/profile view, invite send, uploads, geocode, and property enrichment must use a shared store such as Redis/Vercel KV/Upstash or a Supabase-backed limiter. In-memory process limits are not sufficient on Vercel/serverless because each instance has its own bucket and limits reset on cold starts/deploys.
 
+The unnumbered Auth/security follow-up moves login, signup, confirmation resend,
+and collision-recovery paths to a Supabase-backed atomic fixed-window limiter
+keyed by HMACs of IP/email. IP denial short-circuits before an email bucket is
+created. The generic private bucket table has explicit expiry, an expiry index,
+and bounded pruning; the runtime fails closed in production and requires a 32+
+character `AUTH_RATE_LIMIT_PEPPER`. This is not deployed until migration review,
+numbering, and staging proof finish. Other abuse-prone paths still use the
+legacy local limiter until their owning launch work replaces it.
+
 ## Maintenance
 
 `POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET` and expires stale invites/badges.
@@ -280,7 +310,9 @@ Do not create unauthenticated maintenance endpoints.
 
 - Mapbox is optional and should degrade to the non-interactive map presentation. Canonical service-area metadata is not optional in production; database failures must log and fail closed instead of loading the static pilot catalog.
 - ATTOM/property enrichment must require auth and rate limits.
-- Resend transactional email is used only when configured.
+- Resend transactional email is used only when configured. Local development
+  may return a non-sending mock; production throws when Resend is unavailable so
+  an outbox job is never marked SENT without provider delivery.
 - Missing external keys should not break local development.
 
 ## Security invariants
@@ -289,7 +321,10 @@ Do not create unauthenticated maintenance endpoints.
 - No service role in browser code.
 - No private document public URLs.
 - No seller-directory access from role alone.
-- No app authorization from user-editable auth metadata. Signup metadata may bootstrap buyer/seller onboarding only; admin roles and seller-directory approval must come from server-controlled database state.
+- No app authorization from user-editable Auth metadata. Buyer/seller
+  self-selection comes from validated application forms after identity
+  verification; ADMIN roles and seller-directory approval come only from
+  server-controlled database state.
 - No public buyer profile exposure.
 - No weakening RLS/storage policy to satisfy UI behavior.
 - No production claims for escrow, money movement, or lender approval.

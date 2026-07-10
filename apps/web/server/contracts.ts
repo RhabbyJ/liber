@@ -76,6 +76,7 @@ import {
 } from "./buyer-dtos";
 import { querySellerSearchIds } from "./seller-search-query";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
+import { suspendApplicationIdentity } from "./account-security";
 import { redirect } from "next/navigation";
 
 async function requireCurrentUser(role: "BUYER" | "SELLER" | "ADMIN") {
@@ -1464,6 +1465,7 @@ export async function sendInvite(input: unknown) {
         await tx.emailOutbox.create({
           data: {
             payload: emailPayload,
+            recipientUserId: created.buyerProfile.userId,
             status: "PENDING",
             subject: data.title,
             templateName: "invite",
@@ -1930,25 +1932,11 @@ export async function suspendUser(input: unknown) {
   const data = userModerationSchema.parse(normalizeInput(input));
   if (data.userId === admin.id) throw new Error("Admins cannot suspend their own account.");
 
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: data.userId },
-      data: { status: "SUSPENDED", suspendedAt: new Date() },
-    }),
-    prisma.buyerProfile.updateMany({
-      where: { userId: data.userId },
-      data: { visibilityStatus: "SUSPENDED" },
-    }),
-    prisma.adminAuditLog.create({
-      data: {
-        action: "suspend_user",
-        actorUserId: admin.id,
-        metadata: { reason: data.reason },
-        targetId: data.userId,
-        targetType: "user",
-      },
-    }),
-  ]);
+  await suspendApplicationIdentity({
+    actorUserId: admin.id,
+    reason: data.reason ?? "Admin suspension",
+    targetUserId: data.userId,
+  });
   return { ok: true, data };
 }
 
