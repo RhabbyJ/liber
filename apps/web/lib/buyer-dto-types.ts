@@ -47,7 +47,13 @@ export type SellerBuyerSearchDto = {
 };
 
 export type SellerBuyerSearchResponseDto = {
-  buyers: SellerBuyerSearchDto[];
+  items: SellerBuyerSearchDto[];
+  pageInfo: {
+    hasMore: boolean;
+    nextCursor: string | null;
+    pageSize: number;
+    snapshotAt: string;
+  };
 };
 
 export type SellerBuyerProfileDto = {

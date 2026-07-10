@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { BuyerCard } from "../../../components/buyer-card";
 import { BuyerMap } from "../../../components/buyer-map";
 import { EmptyState } from "../../../components/empty-state";
@@ -14,6 +15,7 @@ import { DEFAULT_MARKET_SLUG, serviceAreaDisplayLabel } from "../../../lib/servi
 import { canViewBuyerDirectory } from "../../../server/access";
 import { getCurrentSellerAccess, searchBuyers } from "../../../server/contracts";
 import { getActiveMarketBySlug, getActiveServiceAreaBySlug } from "../../../server/service-areas";
+import { SellerSearchCursorError } from "../../../server/seller-search-query";
 import { getSessionUser } from "../../../server/session";
 
 type SellerSearchParams = {
@@ -24,6 +26,7 @@ type SellerSearchParams = {
   budgetMin?: string;
   budgetMax?: string;
   condition?: string;
+  cursor?: string;
   market?: string;
   propertySubtype?: string;
   serviceArea?: string;
@@ -89,20 +92,30 @@ export default async function SellerSearchPage({
     ? await getActiveServiceAreaBySlug(requestedServiceArea, market.slug)
     : null;
   const selectedMapServiceArea = selectedMapArea(selectedServiceArea);
-  const { data: results } = await searchBuyers({
-    amenities,
-    badges,
-    bathrooms: params.bathrooms || undefined,
-    bedrooms: params.bedrooms || undefined,
-    budgetMin: params.budgetMin || undefined,
-    budgetMax: params.budgetMax || undefined,
-    condition: params.condition || undefined,
-    market: market.slug,
-    propertySubtype: params.propertySubtype || undefined,
-    serviceArea: requestedServiceArea,
-    sort,
-    squareFeet: params.squareFeet || undefined,
-  });
+  let resultPage: Awaited<ReturnType<typeof searchBuyers>>["data"];
+  try {
+    ({ data: resultPage } = await searchBuyers({
+      amenities,
+      badges,
+      bathrooms: params.bathrooms || undefined,
+      bedrooms: params.bedrooms || undefined,
+      budgetMin: params.budgetMin || undefined,
+      budgetMax: params.budgetMax || undefined,
+      condition: params.condition || undefined,
+      cursor: params.cursor || undefined,
+      market: market.slug,
+      propertySubtype: params.propertySubtype || undefined,
+      serviceArea: requestedServiceArea,
+      sort,
+      squareFeet: params.squareFeet || undefined,
+    }));
+  } catch (error) {
+    if (params.cursor && error instanceof SellerSearchCursorError) {
+      redirect(sellerSearchHrefWithout(params, ["cursor"]));
+    }
+    throw error;
+  }
+  const results = resultPage.items;
 
   const selectedServiceAreaLabel = selectedServiceArea ? serviceAreaDisplayLabel(selectedServiceArea) : "";
   const activeFilters = buildActiveFilters(
@@ -193,6 +206,17 @@ export default async function SellerSearchPage({
               ))
             )}
           </div>
+          {resultPage.pageInfo.nextCursor ? (
+            <div className="actions" style={{ justifyContent: "flex-end", paddingTop: 16 }}>
+              <Link
+                className="button secondary"
+                href={sellerSearchHrefWithCursor(params, resultPage.pageInfo.nextCursor)}
+              >
+                Next buyers
+                <Icon name="arrow-right" size={14} />
+              </Link>
+            </div>
+          ) : null}
         </div>
       </section>
     </div>
@@ -284,7 +308,7 @@ function sellerSearchHrefWithout(params: SellerSearchParams, remove: string[]) {
   const nextParams = new URLSearchParams();
   for (const key of sellerSearchParamKeys) {
     const value = params[key];
-    if (remove.includes(key) || value === undefined || value === "") continue;
+    if (key === "cursor" || remove.includes(key) || value === undefined || value === "") continue;
     if (Array.isArray(value)) {
       value.forEach((item) => nextParams.append(key, item));
     } else {
@@ -295,6 +319,20 @@ function sellerSearchHrefWithout(params: SellerSearchParams, remove: string[]) {
   return query ? `/seller/search?${query}` : "/seller/search";
 }
 
+function sellerSearchHrefWithCursor(params: SellerSearchParams, cursor: string) {
+  const nextParams = new URLSearchParams();
+  for (const key of sellerSearchParamKeys) {
+    const value = key === "cursor" ? cursor : params[key];
+    if (value === undefined || value === "") continue;
+    if (Array.isArray(value)) {
+      value.forEach((item) => nextParams.append(key, item));
+    } else {
+      nextParams.set(key, value);
+    }
+  }
+  return `/seller/search?${nextParams.toString()}`;
+}
+
 const sellerSearchParamKeys = [
   "amenities",
   "badges",
@@ -303,6 +341,7 @@ const sellerSearchParamKeys = [
   "budgetMax",
   "budgetMin",
   "condition",
+  "cursor",
   "market",
   "propertySubtype",
   "serviceArea",

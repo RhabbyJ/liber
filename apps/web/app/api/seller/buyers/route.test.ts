@@ -49,7 +49,18 @@ describe("GET /api/seller/buyers", () => {
       roles: ["SELLER"],
     });
     mocks.canViewBuyerDirectory.mockResolvedValue(true);
-    mocks.searchBuyers.mockResolvedValue({ data: [ownBuyer], ok: true });
+    mocks.searchBuyers.mockResolvedValue({
+      data: {
+        items: [ownBuyer],
+        pageInfo: {
+          hasMore: false,
+          nextCursor: null,
+          pageSize: 24,
+          snapshotAt: "2026-07-09T12:00:00.000Z",
+        },
+      },
+      ok: true,
+    });
   });
 
   it("serializes the seller-safe envelope and preserves non-invitable own demand", async () => {
@@ -59,8 +70,16 @@ describe("GET /api/seller/buyers", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ buyers: [ownBuyer] });
-    expect(body.buyers[0].canInvite).toBe(false);
+    expect(body).toEqual({
+      items: [ownBuyer],
+      pageInfo: {
+        hasMore: false,
+        nextCursor: null,
+        pageSize: 24,
+        snapshotAt: "2026-07-09T12:00:00.000Z",
+      },
+    });
+    expect(body.items[0].canInvite).toBe(false);
     expectNoForbiddenFields(body);
     expect(mocks.searchBuyers).toHaveBeenCalledWith(expect.objectContaining({
       bedrooms: "3",
@@ -91,7 +110,7 @@ describe("GET /api/seller/buyers", () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: "Unable to search buyers.", buyers: [] });
+    expect(body).toEqual({ error: "Unable to search buyers.", items: [], pageInfo: null });
     expect(JSON.stringify(body)).not.toContain(internalDetail);
     expect(log).toHaveBeenCalledWith(
       "[seller-buyers-api] search failed",
@@ -106,7 +125,8 @@ describe("GET /api/seller/buyers", () => {
     expect(limited.status).toBe(429);
     expect(await limited.json()).toEqual({
       error: "Too many buyer searches. Try again later.",
-      buyers: [],
+      items: [],
+      pageInfo: null,
     });
 
     mocks.searchBuyers.mockRejectedValueOnce(new ZodError([]));
@@ -114,9 +134,10 @@ describe("GET /api/seller/buyers", () => {
     expect(invalid.status).toBe(400);
     expect(await invalid.json()).toEqual({
       error: "Invalid buyer search filters.",
-      buyers: [],
+      items: [],
+      pageInfo: null,
     });
-    expect(log).toHaveBeenCalledTimes(2);
+    expect(log).not.toHaveBeenCalled();
   });
 });
 

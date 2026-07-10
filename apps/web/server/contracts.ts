@@ -50,7 +50,7 @@ import {
   requireApprovedSellerAccess,
   sellerAccessStatusForUser,
 } from "./access";
-import { assertInviteAllowed, searchBuyerDirectory } from "./domain";
+import { assertInviteAllowed } from "./domain";
 import type { EmailResult } from "./email";
 import { inviteExpiresAt } from "./maintenance";
 import {
@@ -61,20 +61,15 @@ import {
 } from "./ownership-evidence";
 import { assertRateLimit } from "./rate-limit";
 import { getSessionUser } from "./session";
-import {
-  getActiveServiceAreaBySlug,
-  getSearchCoverageServiceAreaIds,
-} from "./service-areas";
 import { normalizeInput } from "./normalize-input";
-import { activePrimaryServiceAreaWhere } from "./service-area-matching";
 import {
   sellerProfileBuyerSelect,
   sellerSearchBuyerSelect,
-  sellerSearchRowToBuyer,
   sellerVisibleBuyerWhere,
   toSellerBuyerProfileDto,
   toSellerSearchBuyerDto,
 } from "./buyer-dtos";
+import { querySellerSearchIds } from "./seller-search-query";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
 import { redirect } from "next/navigation";
 
@@ -513,113 +508,37 @@ async function createVerificationSignedUrl(storagePath: string) {
 }
 
 async function searchDbBuyerProfiles(filters: SearchBuyersInput, viewerUserId: string) {
-  const serviceArea = filters.serviceArea
-    ? await getActiveServiceAreaBySlug(filters.serviceArea, filters.market)
-    : null;
-  if (filters.serviceArea && !serviceArea) return [];
-  const coverageAreaIds = serviceArea
-    ? await getSearchCoverageServiceAreaIds(serviceArea.id, filters.market)
-    : [];
+  return prisma.$transaction(async (tx) => {
+    const page = await querySellerSearchIds(tx, filters);
+    const snapshotAt = new Date(page.snapshotAt);
+    const profiles = page.ids.length > 0
+      ? await tx.buyerProfile.findMany({
+          where: { id: { in: page.ids } },
+          select: sellerSearchBuyerSelect(snapshotAt),
+        })
+      : [];
+    const profilesById = new Map(profiles.map((profile) => [profile.id, profile] as const));
+    if (profilesById.size !== page.ids.length) {
+      throw new Error("Seller search result changed during pagination.");
+    }
 
-  const where = sellerVisibleBuyerWhere(filters.market);
-  const and: Prisma.BuyerProfileWhereInput[] = [];
-  if (serviceArea) {
-    and.push(activePrimaryServiceAreaWhere(filters.market, coverageAreaIds));
-  }
-  if (filters.budgetMin !== undefined) {
-    and.push({
-      budgetMax: { gte: new Prisma.Decimal(filters.budgetMin) },
+    const items = page.ids.map((id) => {
+      const profile = profilesById.get(id);
+      const dto = profile ? toSellerSearchBuyerDto(profile, viewerUserId, snapshotAt) : null;
+      if (!dto) throw new Error("Seller search result failed its safe DTO projection.");
+      return dto;
     });
-  }
-  if (filters.budgetMax !== undefined) {
-    and.push({
-      OR: [
-        { budgetMin: null },
-        { budgetMin: { lte: new Prisma.Decimal(filters.budgetMax) } },
-      ],
-    });
-  }
-  const criteriaWhere = propertyFitCriteriaWhere(filters);
-  if (criteriaWhere) {
-    and.push({ criteria: { some: criteriaWhere } });
-  }
-  for (const badge of filters.badges) {
-    and.push({
-      badges: {
-        some: {
-          badgeType: badge,
-          status: "ACTIVE",
-          OR: [
-            { expiresAt: null },
-            { expiresAt: { gt: new Date() } },
-          ],
-        },
+
+    return {
+      items,
+      pageInfo: {
+        hasMore: page.hasMore,
+        nextCursor: page.nextCursor,
+        pageSize: page.pageSize,
+        snapshotAt: page.snapshotAt,
       },
-    });
-  }
-  if (and.length > 0) where.AND = and;
-
-  const now = new Date();
-  const profiles = await prisma.buyerProfile.findMany({
-    where,
-    select: sellerSearchBuyerSelect(now),
-    orderBy: filters.sort === "recently_active"
-      ? { lastRefreshedAt: "desc" }
-      : filters.sort === "highest_budget"
-        ? { budgetMax: "desc" }
-        : { updatedAt: "desc" },
-    take: 100,
-  });
-
-  const directoryFilters = serviceArea ? withoutServiceAreaFilter(filters) : filters;
-  const eligibleProfiles = profiles.flatMap((profile) => {
-    const buyer = sellerSearchRowToBuyer(profile, now);
-    return buyer ? [{ buyer, profile }] : [];
-  });
-  const profilesById = new Map(eligibleProfiles.map(({ profile }) => [profile.id, profile]));
-  const rankedBuyers = searchBuyerDirectory(
-    directoryFilters,
-    eligibleProfiles.map(({ buyer }) => buyer),
-  );
-  return rankedBuyers.flatMap((buyer) => {
-    const profile = profilesById.get(buyer.id);
-    if (!profile) return [];
-    const dto = toSellerSearchBuyerDto(profile, viewerUserId, now);
-    return dto ? [dto] : [];
-  });
-}
-
-function withoutServiceAreaFilter(filters: SearchBuyersInput): SearchBuyersInput {
-  const { serviceArea: _serviceArea, ...rest } = filters;
-  return rest;
-}
-
-function propertyFitCriteriaWhere(filters: SearchBuyersInput) {
-  const and: Prisma.BuyerCriteriaWhereInput[] = [];
-
-  if (filters.propertySubtype) and.push({ propertySubtype: filters.propertySubtype });
-  if (filters.propertyCategory) and.push({ propertyCategory: filters.propertyCategory });
-  if (filters.bedrooms !== undefined) {
-    and.push({ OR: [{ bedroomsMin: null }, { bedroomsMin: { lte: filters.bedrooms } }] });
-  }
-  if (filters.bathrooms !== undefined) {
-    and.push({ OR: [{ bathroomsMin: null }, { bathroomsMin: { lte: filters.bathrooms } }] });
-  }
-  if (filters.squareFeet !== undefined) {
-    and.push({
-      OR: [{ squareFeetMin: null }, { squareFeetMin: { lte: filters.squareFeet } }],
-    }, {
-      OR: [{ squareFeetMax: null }, { squareFeetMax: { gte: filters.squareFeet } }],
-    });
-  }
-  if (filters.lotSize !== undefined) {
-    and.push({
-      OR: [{ lotSizeMin: null }, { lotSizeMin: { lte: filters.lotSize } }],
-    }, {
-      OR: [{ lotSizeMax: null }, { lotSizeMax: { gte: filters.lotSize } }],
-    });
-  }
-  return and.length > 0 ? { AND: and } satisfies Prisma.BuyerCriteriaWhereInput : null;
+    };
+  }, { isolationLevel: "RepeatableRead" });
 }
 
 function inviteFromDb(invite: {
@@ -1164,7 +1083,7 @@ export async function searchBuyers(input: unknown) {
   const data = searchBuyersSchema.parse(input);
   const results = await searchDbBuyerProfiles(data, seller.id);
   await auditSecurityEvent(seller, "buyer_search", "buyer_directory", "search", {
-    resultCount: results.length,
+    resultCount: results.items.length,
     ...(data.serviceArea ? { serviceArea: data.serviceArea } : {}),
   });
   return { ok: true, data: results };
@@ -1442,15 +1361,14 @@ export async function sendInvite(input: unknown) {
     }),
   ]);
 
-  const buyerForInvite = buyer ? sellerSearchRowToBuyer(buyer, now) : null;
-  if (!buyerForInvite) throw new Error("Buyer profile must be active before receiving invites.");
+  if (!buyer) throw new Error("Buyer profile must be active before receiving invites.");
   if (!property) throw new Error("Seller must own property before sending invites.");
-  if (buyerForInvite.userId === seller.id) throw new Error("Sellers cannot invite their own buyer profile.");
+  if (buyer.userId === seller.id) throw new Error("Sellers cannot invite their own buyer profile.");
   if (property.flaggedForReviewAt) throw new Error("Property is under review and cannot send invites.");
   if (activeDuplicate) throw new Error("An active invite already exists for this buyer and property.");
 
   assertInviteAllowed({
-    buyer: buyerForInvite,
+    buyer: { userId: buyer.userId, visibility: "active" },
     property: propertyFromDb(property),
     seller,
     sentInviteCountToday,

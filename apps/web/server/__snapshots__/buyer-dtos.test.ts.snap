@@ -1,0 +1,130 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buyer response contracts > snapshots serialized public, seller-search, and seller-profile boundaries 1`] = `
+{
+  "publicPreview": [
+    {
+      "amenities": [
+        "Pool",
+        "Garage",
+      ],
+      "area": "Sherman Oaks, CA",
+      "badges": [
+        "Pre-approved",
+        "Verified funds",
+      ],
+      "bathroomsMin": 2,
+      "bedroomsMin": 3,
+      "budgetLabel": "$800K–$1.3M",
+      "condition": "Move-in ready",
+      "label": "House",
+      "pin": {
+        "latitude": 34.1467,
+        "longitude": -118.425314,
+      },
+      "squareFeetMin": 1800,
+    },
+  ],
+  "sellerProfile": {
+    "data": {
+      "alias": "Maple Haven",
+      "avatarVariant": "avatarka:animals:3",
+      "badges": [
+        {
+          "expiresInDays": 30,
+          "label": "Admin-verified pre-approval",
+          "status": "active",
+          "type": "PRE_APPROVED",
+        },
+        {
+          "label": "Verified funds",
+          "status": "active",
+          "type": "VERIFIED_FUNDS",
+        },
+      ],
+      "budgetMax": 1240000,
+      "budgetMin": 810000,
+      "buyerProfileId": "buyer-profile-1",
+      "downPaymentMax": 300000,
+      "downPaymentMin": 180000,
+      "location": "Sherman Oaks, CA",
+      "needs": [
+        "House",
+        "Move-in ready",
+        "1800+ sqft",
+        "5000+ lot",
+        "3+ bedrooms",
+      ],
+      "propertyType": "House",
+      "purchaseType": "Conventional financing",
+      "viewerCanInvite": true,
+      "viewerIsOwner": false,
+      "wants": [
+        "2+ bathrooms",
+        "Garage",
+        "Pool",
+      ],
+    },
+    "ok": true,
+  },
+  "sellerSearch": {
+    "items": [
+      {
+        "alias": "Maple Haven",
+        "avatarVariant": "avatarka:animals:3",
+        "badges": [
+          {
+            "expiresInDays": 30,
+            "label": "Admin-verified pre-approval",
+            "status": "active",
+            "type": "PRE_APPROVED",
+          },
+          {
+            "label": "Verified funds",
+            "status": "active",
+            "type": "VERIFIED_FUNDS",
+          },
+        ],
+        "budgetMax": 1240000,
+        "budgetMin": 810000,
+        "buyerProfileId": "buyer-profile-1",
+        "canInvite": true,
+        "criteria": [
+          {
+            "bathroomsMin": 2,
+            "bedroomsMin": 3,
+            "condition": "Move-in ready",
+            "features": [
+              "Garage",
+              "Pool",
+            ],
+            "lotSizeMax": 8000,
+            "lotSizeMin": 5000,
+            "propertyCategory": "HOME",
+            "propertySubtype": "HOME",
+            "squareFeetMax": 2600,
+            "squareFeetMin": 1800,
+            "yearBuiltMin": 1980,
+          },
+        ],
+        "downPaymentMax": 300000,
+        "downPaymentMin": 180000,
+        "location": "Sherman Oaks, CA",
+        "mapPoint": {
+          "latitude": 34.1467,
+          "longitude": -118.433314,
+        },
+        "propertyType": "House",
+        "purchaseType": "Conventional financing",
+        "refreshedAt": "2026-07-08",
+      },
+    ],
+    "pageInfo": {
+      "hasMore": false,
+      "nextCursor": null,
+      "pageSize": 24,
+      "snapshotAt": "2026-07-09T12:00:00.000Z",
+    },
+  },
+}
+`;

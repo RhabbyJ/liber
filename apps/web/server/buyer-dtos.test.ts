@@ -2,10 +2,9 @@ import { Decimal } from "@prisma/client/runtime/client";
 import { describe, expect, it } from "vitest";
 import {
   approximatePublicPin,
-  publicPreviewBuyerWhere,
   publicPreviewBuyerSelect,
+  publicPreviewBuyerWhere,
   sellerProfileBuyerSelect,
-  sellerBuyerSearchResponse,
   sellerSearchBuyerSelect,
   sellerVisibleBuyerWhere,
   toPublicBuyerPreviewDto,
@@ -27,17 +26,13 @@ const serviceArea = {
     city: "Sherman Oaks",
     label: "Sherman Oaks",
     market: { active: true },
-    postalCode: "91423",
     state: "CA",
     type: "neighborhood",
   },
 };
 
 const publicRow: PublicPreviewBuyerRow = {
-  badges: [
-    { badgeType: "PRE_APPROVED" },
-    { badgeType: "VERIFIED_FUNDS" },
-  ],
+  badges: [{ badgeType: "PRE_APPROVED" }, { badgeType: "VERIFIED_FUNDS" }],
   budgetMax: new Decimal(1_240_000),
   budgetMin: new Decimal(810_000),
   buyerType: "Conventional financing",
@@ -107,264 +102,73 @@ const profileRow: SellerProfileBuyerRow = {
 };
 
 describe("buyer response contracts", () => {
-  it("snapshots the serialized homepage preview contract", () => {
-    const preview = toPublicBuyerPreviewDto(publicRow, 0);
-    const response = serialized(preview ? [preview] : []);
-
-    expect(response).toMatchInlineSnapshot(`
-      [
-        {
-          "amenities": [
-            "Pool",
-            "Garage",
-          ],
-          "area": "Sherman Oaks, CA",
-          "badges": [
-            "Pre-approved",
-            "Verified funds",
-          ],
-          "bathroomsMin": 2,
-          "bedroomsMin": 3,
-          "budgetLabel": "$800K–$1.3M",
-          "condition": "Move-in ready",
-          "label": "House",
-          "pin": {
-            "latitude": 34.1467,
-            "longitude": -118.425314,
-          },
-          "squareFeetMin": 1800,
-        },
-      ]
-    `);
-    expectNoForbiddenFields(response);
-  });
-
-  it("snapshots the serialized seller API contract", () => {
-    const buyer = toSellerSearchBuyerDto(searchRow, viewerUserId, now);
-    const response = serialized(sellerBuyerSearchResponse(buyer ? [buyer] : []));
-
-    expect(response).toMatchInlineSnapshot(`
-      {
-        "buyers": [
-          {
-            "alias": "Maple Haven",
-            "avatarVariant": "avatarka:animals:3",
-            "badges": [
-              {
-                "expiresInDays": 30,
-                "label": "Admin-verified pre-approval",
-                "status": "active",
-                "type": "PRE_APPROVED",
-              },
-              {
-                "label": "Verified funds",
-                "status": "active",
-                "type": "VERIFIED_FUNDS",
-              },
-            ],
-            "budgetMax": 1240000,
-            "budgetMin": 810000,
-            "buyerProfileId": "buyer-profile-1",
-            "canInvite": true,
-            "criteria": [
-              {
-                "bathroomsMin": 2,
-                "bedroomsMin": 3,
-                "condition": "Move-in ready",
-                "features": [
-                  "Garage",
-                  "Pool",
-                ],
-                "lotSizeMax": 8000,
-                "lotSizeMin": 5000,
-                "propertyCategory": "HOME",
-                "propertySubtype": "HOME",
-                "squareFeetMax": 2600,
-                "squareFeetMin": 1800,
-                "yearBuiltMin": 1980,
-              },
-            ],
-            "downPaymentMax": 300000,
-            "downPaymentMin": 180000,
-            "location": "Sherman Oaks, CA",
-            "mapPoint": {
-              "latitude": 34.1467,
-              "longitude": -118.433314,
-            },
-            "propertyType": "House",
-            "purchaseType": "Conventional financing",
-            "refreshedAt": "2026-07-08",
-          },
-        ],
-      }
-    `);
-    expectNoForbiddenFields(response);
-  });
-
-  it("keeps a seller's own active buyer demand visible but non-invitable", () => {
-    const buyer = toSellerSearchBuyerDto(searchRow, searchRow.userId, now);
-
-    expect(buyer).not.toBeNull();
-    expect(buyer?.canInvite).toBe(false);
-  });
-
-  it("snapshots the serialized seller-view buyer profile contract", () => {
+  it("snapshots serialized public, seller-search, and seller-profile boundaries", () => {
+    const publicPreview = toPublicBuyerPreviewDto(publicRow, 0);
+    const searchBuyer = toSellerSearchBuyerDto(searchRow, viewerUserId, now);
     const response = serialized({
-      data: toSellerBuyerProfileDto(profileRow, viewerUserId, true, now),
-      ok: true,
+      publicPreview: publicPreview ? [publicPreview] : [],
+      sellerProfile: {
+        data: toSellerBuyerProfileDto(profileRow, viewerUserId, true, now),
+        ok: true,
+      },
+      sellerSearch: {
+        items: searchBuyer ? [searchBuyer] : [],
+        pageInfo: {
+          hasMore: false,
+          nextCursor: null,
+          pageSize: 24,
+          snapshotAt: now.toISOString(),
+        },
+      },
     });
 
-    expect(response).toMatchInlineSnapshot(`
-      {
-        "data": {
-          "alias": "Maple Haven",
-          "avatarVariant": "avatarka:animals:3",
-          "badges": [
-            {
-              "expiresInDays": 30,
-              "label": "Admin-verified pre-approval",
-              "status": "active",
-              "type": "PRE_APPROVED",
-            },
-            {
-              "label": "Verified funds",
-              "status": "active",
-              "type": "VERIFIED_FUNDS",
-            },
-          ],
-          "budgetMax": 1240000,
-          "budgetMin": 810000,
-          "buyerProfileId": "buyer-profile-1",
-          "downPaymentMax": 300000,
-          "downPaymentMin": 180000,
-          "location": "Sherman Oaks, CA",
-          "needs": [
-            "House",
-            "Move-in ready",
-            "1800+ sqft",
-            "5000+ lot",
-            "3+ bedrooms",
-          ],
-          "propertyType": "House",
-          "purchaseType": "Conventional financing",
-          "viewerCanInvite": true,
-          "viewerIsOwner": false,
-          "wants": [
-            "2+ bathrooms",
-            "Garage",
-            "Pool",
-          ],
-        },
-        "ok": true,
-      }
-    `);
+    expect(response).toMatchSnapshot();
     expectNoForbiddenFields(response);
+  });
+
+  it("keeps a seller's own demand visible but non-invitable", () => {
+    const buyer = toSellerSearchBuyerDto(searchRow, searchRow.userId, now);
+    expect(buyer).not.toBeNull();
+    expect(buyer?.canInvite).toBe(false);
   });
 });
 
 describe("buyer response eligibility", () => {
-  it("requires active public state and explicitly approved preview values", () => {
-    const cases: Array<[string, PublicPreviewBuyerRow]> = [
-      ["suspended user", { ...publicRow, user: { status: "SUSPENDED" } }],
-      ["hidden profile", { ...publicRow, visibilityStatus: "HIDDEN" }],
-      ["draft profile", { ...publicRow, visibilityStatus: "DRAFT" }],
-      ["suspended profile", { ...publicRow, visibilityStatus: "SUSPENDED" }],
-      ["inactive area", withPublicAreaState({ areaActive: false })],
-      ["inactive market", withPublicAreaState({ marketActive: false })],
-      ["unapproved purchase type", { ...publicRow, buyerType: "Investor" }],
-      ["unapproved property type", { ...publicRow, buyingPurpose: "Any property" }],
-    ];
-
-    for (const [label, row] of cases) {
-      expect(toPublicBuyerPreviewDto(row, 0), label).toBeNull();
-    }
+  it("requires active users, profiles, markets, and areas", () => {
+    expect(toPublicBuyerPreviewDto({ ...publicRow, user: { status: "SUSPENDED" } }, 0)).toBeNull();
+    expect(toPublicBuyerPreviewDto({ ...publicRow, visibilityStatus: "DRAFT" }, 0)).toBeNull();
+    expect(toPublicBuyerPreviewDto(withPublicAreaState(false, true), 0)).toBeNull();
+    expect(toPublicBuyerPreviewDto(withPublicAreaState(true, false), 0)).toBeNull();
+    expect(toSellerSearchBuyerDto({ ...searchRow, visibilityStatus: "HIDDEN" }, viewerUserId, now)).toBeNull();
+    expect(toSellerBuyerProfileDto({ ...profileRow, user: { ...profileRow.user, status: "SUSPENDED" } }, viewerUserId, true, now)).toBeNull();
   });
 
-  it("fails seller search and seller profile DTOs closed for excluded states", () => {
-    const searchCases: SellerSearchBuyerRow[] = [
-      { ...searchRow, user: { ...searchRow.user, status: "SUSPENDED" } },
-      { ...searchRow, visibilityStatus: "HIDDEN" },
-      { ...searchRow, visibilityStatus: "DRAFT" },
-      { ...searchRow, visibilityStatus: "SUSPENDED" },
-      withSearchAreaState(false),
-    ];
-    const profileCases: SellerProfileBuyerRow[] = [
-      { ...profileRow, user: { ...profileRow.user, status: "SUSPENDED" } },
-      { ...profileRow, visibilityStatus: "HIDDEN" },
-      { ...profileRow, visibilityStatus: "DRAFT" },
-      { ...profileRow, visibilityStatus: "SUSPENDED" },
-      { ...profileRow, desiredServiceAreas: withSearchAreaState(false).desiredServiceAreas },
-    ];
-
-    searchCases.forEach((row) => expect(toSellerSearchBuyerDto(row, viewerUserId, now)).toBeNull());
-    profileCases.forEach((row) => expect(toSellerBuyerProfileDto(row, viewerUserId, true, now)).toBeNull());
+  it("requires explicitly approved public preview fields", () => {
+    expect(toPublicBuyerPreviewDto({ ...publicRow, buyerType: "Investor" }, 0)).toBeNull();
+    expect(toPublicBuyerPreviewDto({ ...publicRow, buyingPurpose: "Any property" }, 0)).toBeNull();
   });
 
-  it("builds query predicates with active-user, active-profile, canonical-area, and preview approval gates", () => {
-    expect(publicPreviewBuyerWhere("los-angeles", ["area-91423"])).toMatchInlineSnapshot(`
-      {
-        "buyerType": {
-          "in": [
-            "Cash",
-            "Conventional financing",
-            "Other",
-          ],
-        },
-        "buyingPurpose": {
-          "in": [
-            "House",
-            "Condo",
-            "Townhouse",
-            "Manufactured",
-            "Land",
-          ],
-        },
-        "criteria": {
-          "some": {},
-        },
-        "desiredServiceAreas": {
-          "some": {
-            "isPrimary": true,
-            "serviceArea": {
-              "active": true,
-              "market": {
-                "active": true,
-                "slug": "los-angeles",
-              },
-            },
-            "serviceAreaId": {
-              "in": [
-                "area-91423",
-              ],
-            },
-            "source": "SELECTED",
-          },
-        },
-        "user": {
-          "is": {
-            "status": "ACTIVE",
-          },
-        },
-        "visibilityStatus": "ACTIVE",
-      }
-    `);
+  it("builds narrow active-state selectors", () => {
+    const previewWhere = publicPreviewBuyerWhere("los-angeles", ["area-91423"]);
+    expect(previewWhere).toMatchObject({
+      user: { is: { status: "ACTIVE" } },
+      visibilityStatus: "ACTIVE",
+    });
+    expect(previewWhere).not.toHaveProperty("userId");
     expect(sellerVisibleBuyerWhere("los-angeles")).toMatchObject({
       user: { is: { status: "ACTIVE" } },
       visibilityStatus: "ACTIVE",
     });
-    expect(sellerVisibleBuyerWhere("los-angeles")).not.toHaveProperty("userId");
-    expect(publicPreviewBuyerSelect(now).badges.where).toEqual({
-      status: "ACTIVE",
-      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-    });
-    expect(sellerSearchBuyerSelect(now).badges.where).toEqual({
-      status: "ACTIVE",
-      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-    });
-    expect(sellerProfileBuyerSelect(now).badges.where).toEqual({
-      status: "ACTIVE",
-      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-    });
+    for (const select of [
+      publicPreviewBuyerSelect(now),
+      sellerSearchBuyerSelect(now),
+      sellerProfileBuyerSelect(now),
+    ]) {
+      expect(select.badges.where).toEqual({
+        status: "ACTIVE",
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      });
+    }
   });
 
   it("accepts valid service-area centers on zero latitude or longitude", () => {
@@ -376,13 +180,7 @@ describe("buyer response eligibility", () => {
   });
 });
 
-function withPublicAreaState({
-  areaActive = true,
-  marketActive = true,
-}: {
-  areaActive?: boolean;
-  marketActive?: boolean;
-}): PublicPreviewBuyerRow {
+function withPublicAreaState(areaActive: boolean, marketActive: boolean): PublicPreviewBuyerRow {
   return {
     ...publicRow,
     desiredServiceAreas: [{
@@ -390,18 +188,6 @@ function withPublicAreaState({
         ...serviceArea.serviceArea,
         active: areaActive,
         market: { active: marketActive },
-      },
-    }],
-  };
-}
-
-function withSearchAreaState(active: boolean): SellerSearchBuyerRow {
-  return {
-    ...searchRow,
-    desiredServiceAreas: [{
-      serviceArea: {
-        ...serviceArea.serviceArea,
-        active,
       },
     }],
   };

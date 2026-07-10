@@ -149,7 +149,7 @@ function isPathSegment(pathname: string, prefix: string) {
 
 export function assertInviteAllowed(args: {
   seller: SessionUser;
-  buyer: Buyer;
+  buyer: Pick<Buyer, "userId" | "visibility">;
   property: Property;
   sentInviteCountToday: number;
 }) {

@@ -221,9 +221,11 @@ export const searchBuyersSchema = z.object({
   bathrooms: optionalInteger,
   squareFeet: optionalInteger,
   lotSize: optionalInteger,
-  condition: z.string().trim().max(80).optional(),
-  amenities: z.array(z.string().trim().min(1).max(40)).default([]),
+  condition: z.enum(["Move-in ready", "Mild fixer", "Fixer"]).optional(),
+  amenities: z.array(z.enum(["Pool", "Parking", "ADU", "Yard", "Garage"])).max(5).default([]),
   badges: z.array(badgeTypeSchema).default([]),
+  cursor: z.string().trim().min(1).max(2048).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).default(24),
   sort: z.enum([
     "recommended",
     "recently_active",

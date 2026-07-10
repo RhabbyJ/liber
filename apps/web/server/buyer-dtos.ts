@@ -9,9 +9,8 @@ import type {
   SafeCriteriaDto,
   SellerBuyerProfileDto,
   SellerBuyerSearchDto,
-  SellerBuyerSearchResponseDto,
 } from "../lib/buyer-dto-types";
-import type { Badge, Buyer } from "../lib/mock-data";
+import type { Badge } from "../lib/mock-data";
 import { buyerAliasForDisplay } from "../lib/buyer-alias";
 import { avatarVariantFromSeed, normalizeAvatarVariant } from "../lib/avatar-variant";
 import { propertySubtypeLabel, type PropertySubtype } from "../lib/property-types";
@@ -46,12 +45,6 @@ const publicBadgeLabels: Record<Badge["type"], string> = {
   VERIFIED_FUNDS: "Verified funds",
   COMPLETED_TRANSACTION: "Past transaction",
 };
-
-export function sellerBuyerSearchResponse(
-  buyers: SellerBuyerSearchDto[],
-): SellerBuyerSearchResponseDto {
-  return { buyers };
-}
 
 export function publicPreviewBuyerWhere(
   marketSlug: string,
@@ -260,29 +253,28 @@ export function toSellerSearchBuyerDto(
   viewerUserId: string,
   now = new Date(),
 ): SellerBuyerSearchDto | null {
-  const internal = sellerSearchRowToBuyer(profile, now);
   const primaryArea = activeSelectedArea(profile);
-  if (!internal || !primaryArea) return null;
+  if (!isActiveCandidate(profile) || !primaryArea) return null;
 
   return {
-    alias: internal.name,
+    alias: buyerAliasForDisplay(profile.displayName, profile.userId),
     avatarVariant: approvedAvatarVariant(profile.user.avatarVariant, profile.userId),
     badges: safeBadges(profile.badges, now),
-    budgetMax: internal.budgetMax,
-    budgetMin: internal.budgetMin,
+    budgetMax: toNumber(profile.budgetMax),
+    budgetMin: toNumber(profile.budgetMin),
     buyerProfileId: profile.id,
     canInvite: profile.userId !== viewerUserId,
     criteria: safeCriteria(profile.criteria),
-    downPaymentMax: internal.downPaymentMax,
-    downPaymentMin: internal.downPaymentMin,
-    location: internal.location,
+    downPaymentMax: toNumber(profile.downPaymentMax),
+    downPaymentMin: toNumber(profile.downPaymentMin),
+    location: areaLabel(primaryArea),
     mapPoint: {
       latitude: primaryArea.centerLat,
       longitude: primaryArea.centerLng,
     },
-    propertyType: internal.purpose,
-    purchaseType: internal.type,
-    refreshedAt: internal.refreshedAt,
+    propertyType: approvedPropertyType(profile.buyingPurpose),
+    purchaseType: approvedPurchaseType(profile.buyerType),
+    refreshedAt: dateKey(profile.lastRefreshedAt ?? profile.updatedAt),
   };
 }
 
@@ -314,52 +306,6 @@ export function toSellerBuyerProfileDto(
     viewerCanInvite: !viewerIsOwner && viewerCanViewDirectory,
     viewerIsOwner,
     wants: labels.slice(5, 10),
-  };
-}
-
-export function sellerSearchRowToBuyer(
-  profile: SellerSearchBuyerRow,
-  now = new Date(),
-): Buyer | null {
-  if (!isActiveCandidate(profile)) return null;
-  const primaryArea = activeSelectedArea(profile);
-  if (!primaryArea) return null;
-  const criteria = safeCriteria(profile.criteria);
-  const labels = criteriaLabels(criteria);
-  const location = areaLabel(primaryArea);
-  const city = primaryArea.city ?? primaryArea.label;
-
-  return {
-    id: profile.id,
-    avatarVariant: approvedAvatarVariant(profile.user.avatarVariant, profile.userId),
-    userId: profile.userId,
-    name: buyerAliasForDisplay(profile.displayName, profile.userId),
-    location,
-    city,
-    neighborhood: primaryArea.type === "neighborhood" ? primaryArea.label : undefined,
-    postalCode: undefined,
-    state: primaryArea.state,
-    type: approvedPurchaseType(profile.buyerType),
-    purpose: approvedPropertyType(profile.buyingPurpose),
-    visibility: "active",
-    budgetMin: toNumber(profile.budgetMin),
-    budgetMax: toNumber(profile.budgetMax),
-    downPaymentMin: toNumber(profile.downPaymentMin),
-    downPaymentMax: toNumber(profile.downPaymentMax),
-    bio: "",
-    needs: labels.slice(0, 5),
-    wants: labels.slice(5, 10),
-    badges: safeBadges(profile.badges, now).map((badge) => ({
-      ...badge,
-      id: badge.type,
-    })),
-    criteria: labels,
-    criteriaDetails: criteria,
-    propertySubtypes: Array.from(new Set(criteria.map((item) => item.propertySubtype))),
-    refreshedAt: dateKey(profile.lastRefreshedAt ?? profile.updatedAt),
-    serviceAreaSlugs: [],
-    lat: 0,
-    lng: 0,
   };
 }
 
