@@ -24,6 +24,8 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `engineering/AUTH_IDENTITY_OWNERSHIP_RUNBOOK.md` — immutable Auth UUID rules, collision recovery, account lifecycle, deployment, and rollback for identity migration 16.
 - `engineering/AUTH_IDENTITY_OWNERSHIP_EVIDENCE_2026-07-09.md` — shared read-only audit, disposable proof, and remaining identity deployment gates.
 - `engineering/SERVICE_AREA_BOUNDARIES.md` — canonical service-area, relationship, geometry, rendering, and LA import boundaries.
+- `engineering/SELLER_SEARCH_SQL_EVIDENCE_2026-07-09.md` — SQL-native seller search contract, temporary 25K-row benchmark, cursor assertions, and measured plan.
+- `engineering/SELLER_SEARCH_SQL_PROPOSAL.sql` — unnumbered CTO index proposal; not an applied migration.
 
 ## Section micro-docs
 

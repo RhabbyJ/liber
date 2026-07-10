@@ -78,6 +78,7 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.set("market", marketSlug);
     nextParams.set("serviceArea", area.slug);
+    nextParams.delete("cursor");
     removeLegacyGeographyParams(nextParams);
     setQuery(serviceAreaDisplayLabel(area));
     setMessage("");
@@ -89,6 +90,7 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.set("market", marketSlug);
     nextParams.delete("serviceArea");
+    nextParams.delete("cursor");
     removeLegacyGeographyParams(nextParams);
     setQuery("");
     setMessage("");

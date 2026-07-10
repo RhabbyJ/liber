@@ -193,6 +193,7 @@ describe("Liber validators", () => {
       amenities: [],
       badges: [],
       market: "los-angeles",
+      pageSize: 24,
       sort: "recommended",
     });
     expect(searchBuyersSchema.parse({ ...market, serviceArea: "northridge" }).serviceArea).toBe("northridge");
@@ -205,6 +206,9 @@ describe("Liber validators", () => {
       amenities: ["Pool", "ADU"],
       condition: "Fixer",
     });
+    expect(searchBuyersSchema.parse({ ...market, pageSize: "100" }).pageSize).toBe(100);
+    expect(() => searchBuyersSchema.parse({ ...market, pageSize: 101 })).toThrow();
+    expect(() => searchBuyersSchema.parse({ ...market, amenities: ["Elevator"] })).toThrow();
     expect(searchBuyersSchema.parse({ ...market, budgetMin: "900000", budgetMax: "1200000" })).toMatchObject({
       budgetMax: 1200000,
       budgetMin: 900000,

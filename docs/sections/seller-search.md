@@ -14,13 +14,14 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - `apps/web/components/interactive-buyer-map.tsx`
 - `apps/web/components/static-buyer-map.tsx`
 - `apps/web/server/contracts.ts`
+- `apps/web/server/seller-search-query.ts`
 - `apps/web/server/service-areas.ts`
 
 ## Invariants
 
 - Requires approved seller access.
 - Approved sellers land on the map view by default (`view=list` opts out); buyer cards render below the map from the same result set.
-- List and map use the same result set.
+- List and map use the same `items` from one paginated query contract; neither consumer performs its own filtering or sorting.
 - Map pins show coarse budget labels for buyer demand signals, not seller listings, identities, or exact buyer locations.
 - Location filtering requires market + service-area routing keys; the selected polygon and buyer list use the same resolved UUID.
 - Seller search matches the buyer's one primary `SELECTED` UUID plus recursively reviewed `SEARCH_ROLLUP` descendants. It does not use ordinary legacy text/bbox fallback.
@@ -29,12 +30,18 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - Seller map pins use the selected DB service-area center; raw buyer coordinates are not a geography fallback.
 - Budget min/max filters match overlapping buyer budget ranges, not exact prices.
 - Property-fit filters (beds/baths/sqft/condition/amenities Pool/Parking/ADU/Yard/Garage) stay fit-and-trust oriented; no protected-class proxies.
+- Persisted filters and all four sorts execute in SQL before keyset pagination; do not reintroduce a fixed pre-filter cap or post-cap JavaScript matching.
+- Cursors are opaque, filter-bound, snapshot-bound, expire after 30 minutes, reject future snapshots, and are ordered by the SQL sort key plus buyer id. Filter, geography, and sort changes must clear the cursor. The snapshot excludes later inserts but is not a historical copy of profiles edited between page requests.
 - Public pre-signup previews may show only limited privacy-safe buyer cards; they are not full seller search.
 - Search should explain why a buyer matches where possible.
 - Search/profile-view usage should remain rate-limited/auditable.
 - A seller who also owns an active buyer profile may see that buyer demand in search; self-invite actions stay blocked elsewhere.
 - Production search filtering, sorting, and pagination belong in SQL. Do not cap a broad query and apply seller filters afterward in JavaScript.
 - Use stable cursor pagination with no silent result truncation. Validate final query plans and indexes against realistic LA-scale data.
+
+## Query contract
+
+`searchBuyers` returns `{ items, pageInfo }`. `pageInfo` contains `hasMore`, `nextCursor`, `pageSize`, and `snapshotAt`. The seller API returns the same shape. Page size defaults to 24 and is capped at 100; clients follow `nextCursor` rather than constructing offsets.
 
 ## Agent notes
 

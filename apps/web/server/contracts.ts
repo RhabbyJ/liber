@@ -50,7 +50,7 @@ import {
   requireApprovedSellerAccess,
   sellerAccessStatusForUser,
 } from "./access";
-import { assertInviteAllowed, searchBuyerDirectory } from "./domain";
+import { assertInviteAllowed } from "./domain";
 import type { EmailResult } from "./email";
 import { inviteExpiresAt } from "./maintenance";
 import {
@@ -63,10 +63,10 @@ import { assertRateLimit } from "./rate-limit";
 import { getSessionUser } from "./session";
 import {
   getActiveServiceAreaBySlug,
-  getSearchCoverageServiceAreaIds,
 } from "./service-areas";
 import { normalizeInput } from "./normalize-input";
 import { activePrimaryServiceAreaWhere } from "./service-area-matching";
+import { querySellerSearchIds } from "./seller-search-query";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
 import { redirect } from "next/navigation";
 
@@ -504,107 +504,32 @@ async function createVerificationSignedUrl(storagePath: string) {
   return data.signedUrl;
 }
 
-async function searchDbBuyerProfiles(filters: SearchBuyersInput, excludeUserId?: string) {
-  const serviceArea = filters.serviceArea
-    ? await getActiveServiceAreaBySlug(filters.serviceArea, filters.market)
-    : null;
-  if (filters.serviceArea && !serviceArea) return [];
-  const coverageAreaIds = serviceArea
-    ? await getSearchCoverageServiceAreaIds(serviceArea.id, filters.market)
-    : [];
+async function searchDbBuyerProfiles(filters: SearchBuyersInput) {
+  return prisma.$transaction(async (tx) => {
+    const page = await querySellerSearchIds(tx, filters);
+    const profiles = page.ids.length > 0
+      ? await tx.buyerProfile.findMany({
+          where: { id: { in: page.ids } },
+          include: buyerInclude,
+        })
+      : [];
+    const profilesById = new Map(
+      profiles.map((profile: DbBuyerProfile) => [profile.id, profile] as const),
+    );
+    if (profilesById.size !== page.ids.length) {
+      throw new Error("Seller search result changed during pagination.");
+    }
 
-  const where: Prisma.BuyerProfileWhereInput = {
-    visibilityStatus: "ACTIVE",
-    ...activePrimaryServiceAreaWhere(filters.market),
-  };
-  const and: Prisma.BuyerProfileWhereInput[] = [];
-  if (excludeUserId) where.userId = { not: excludeUserId };
-  if (serviceArea) {
-    and.push(activePrimaryServiceAreaWhere(filters.market, coverageAreaIds));
-  }
-  if (filters.budgetMin !== undefined) {
-    and.push({
-      budgetMax: { gte: new Prisma.Decimal(filters.budgetMin) },
-    });
-  }
-  if (filters.budgetMax !== undefined) {
-    and.push({
-      OR: [
-        { budgetMin: null },
-        { budgetMin: { lte: new Prisma.Decimal(filters.budgetMax) } },
-      ],
-    });
-  }
-  const criteriaWhere = propertyFitCriteriaWhere(filters);
-  if (criteriaWhere) {
-    and.push({ criteria: { some: criteriaWhere } });
-  }
-  for (const badge of filters.badges) {
-    and.push({
-      badges: {
-        some: {
-          badgeType: badge,
-          status: "ACTIVE",
-          OR: [
-            { expiresAt: null },
-            { expiresAt: { gt: new Date() } },
-          ],
-        },
+    return {
+      items: page.ids.map((id) => buyerFromDb(profilesById.get(id)!)),
+      pageInfo: {
+        hasMore: page.hasMore,
+        nextCursor: page.nextCursor,
+        pageSize: page.pageSize,
+        snapshotAt: page.snapshotAt,
       },
-    });
-  }
-  if (and.length > 0) where.AND = and;
-
-  const profiles = await prisma.buyerProfile.findMany({
-    where,
-    include: buyerInclude,
-    orderBy: filters.sort === "recently_active"
-      ? { lastRefreshedAt: "desc" }
-      : filters.sort === "highest_budget"
-        ? { budgetMax: "desc" }
-        : { updatedAt: "desc" },
-    take: 100,
-  });
-
-  const directoryFilters = serviceArea ? withoutServiceAreaFilter(filters) : filters;
-  return searchBuyerDirectory(
-    directoryFilters,
-    profiles.map((profile: DbBuyerProfile) => buyerFromDb(profile)),
-    { excludeUserId },
-  );
-}
-
-function withoutServiceAreaFilter(filters: SearchBuyersInput): SearchBuyersInput {
-  const { serviceArea: _serviceArea, ...rest } = filters;
-  return rest;
-}
-
-function propertyFitCriteriaWhere(filters: SearchBuyersInput) {
-  const and: Prisma.BuyerCriteriaWhereInput[] = [];
-
-  if (filters.propertySubtype) and.push({ propertySubtype: filters.propertySubtype });
-  if (filters.propertyCategory) and.push({ propertyCategory: filters.propertyCategory });
-  if (filters.bedrooms !== undefined) {
-    and.push({ OR: [{ bedroomsMin: null }, { bedroomsMin: { lte: filters.bedrooms } }] });
-  }
-  if (filters.bathrooms !== undefined) {
-    and.push({ OR: [{ bathroomsMin: null }, { bathroomsMin: { lte: filters.bathrooms } }] });
-  }
-  if (filters.squareFeet !== undefined) {
-    and.push({
-      OR: [{ squareFeetMin: null }, { squareFeetMin: { lte: filters.squareFeet } }],
-    }, {
-      OR: [{ squareFeetMax: null }, { squareFeetMax: { gte: filters.squareFeet } }],
-    });
-  }
-  if (filters.lotSize !== undefined) {
-    and.push({
-      OR: [{ lotSizeMin: null }, { lotSizeMin: { lte: filters.lotSize } }],
-    }, {
-      OR: [{ lotSizeMax: null }, { lotSizeMax: { gte: filters.lotSize } }],
-    });
-  }
-  return and.length > 0 ? { AND: and } satisfies Prisma.BuyerCriteriaWhereInput : null;
+    };
+  }, { isolationLevel: "RepeatableRead" });
 }
 
 function inviteFromDb(invite: {
@@ -1149,7 +1074,7 @@ export async function searchBuyers(input: unknown) {
   const data = searchBuyersSchema.parse(input);
   const results = await searchDbBuyerProfiles(data);
   await auditSecurityEvent(seller, "buyer_search", "buyer_directory", "search", {
-    resultCount: results.length,
+    resultCount: results.items.length,
     ...(data.serviceArea ? { serviceArea: data.serviceArea } : {}),
   });
   return { ok: true, data: results };
