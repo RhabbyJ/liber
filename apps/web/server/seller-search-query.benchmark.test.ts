@@ -124,7 +124,7 @@ async function createBenchmarkTables(tx: any) {
     `CREATE TEMP TABLE "BuyerProfile" (id text PRIMARY KEY, "userId" uuid NOT NULL, "budgetMin" numeric, "budgetMax" numeric, "visibilityStatus" text NOT NULL, "createdAt" timestamptz NOT NULL, "lastRefreshedAt" timestamptz, "updatedAt" timestamptz NOT NULL) ON COMMIT DROP`,
     `CREATE TEMP TABLE buyer_desired_service_areas (buyer_profile_id text NOT NULL, service_area_id uuid NOT NULL, is_primary boolean NOT NULL, source text NOT NULL) ON COMMIT DROP`,
     `CREATE TEMP TABLE "BuyerCriteria" ("buyerProfileId" text NOT NULL, "propertyCategory" text NOT NULL, "propertySubtype" text NOT NULL, "bedroomsMin" integer, "bathroomsMin" integer, "squareFeetMin" integer, "squareFeetMax" integer, "lotSizeMin" integer, "lotSizeMax" integer, condition text, features text[] NOT NULL) ON COMMIT DROP`,
-    `CREATE TEMP TABLE "BuyerBadge" ("buyerProfileId" text NOT NULL, "badgeType" text NOT NULL, status text NOT NULL, "expiresAt" timestamptz) ON COMMIT DROP`,
+    `CREATE TEMP TABLE "BuyerBadge" ("buyerProfileId" text NOT NULL, "badgeType" text NOT NULL, status text NOT NULL, "expiresAt" timestamptz, "createdAt" timestamptz NOT NULL, "updatedAt" timestamptz NOT NULL) ON COMMIT DROP`,
   ];
   for (const statement of statements) await tx.$executeRawUnsafe(statement);
 }
@@ -210,12 +210,16 @@ async function seedBenchmarkData(tx: any, benchmarkAt: Date) {
     FROM generate_series(1, 25000) series
   `);
   await tx.$executeRaw`
-    INSERT INTO pg_temp."BuyerBadge" ("buyerProfileId", "badgeType", status, "expiresAt")
+    INSERT INTO pg_temp."BuyerBadge" (
+      "buyerProfileId", "badgeType", status, "expiresAt", "createdAt", "updatedAt"
+    )
     SELECT
       'buyer-' || lpad(series::text, 5, '0'),
       'PRE_APPROVED',
       CASE WHEN series % 2 = 0 THEN 'ACTIVE' ELSE 'EXPIRED' END,
-      ${benchmarkAt}::timestamptz + interval '30 days'
+      ${benchmarkAt}::timestamptz + interval '30 days',
+      ${benchmarkAt}::timestamptz - interval '1 day',
+      ${benchmarkAt}::timestamptz - interval '1 day'
     FROM generate_series(1, 25000) series
   `;
 }
