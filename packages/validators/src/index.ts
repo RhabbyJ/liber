@@ -16,8 +16,6 @@ export const buyerVisibilityStatusSchema = z.enum([
   "SUSPENDED",
 ]);
 
-export const buyerSelfVisibilityStatusSchema = z.enum(["DRAFT", "ACTIVE"]);
-
 // V1 keeps a broad HOME category while subtypes mirror buyer/seller property choices.
 export const propertyCategorySchema = z.enum(["HOME"]);
 
@@ -52,128 +50,54 @@ export const inviteStatusSchema = z.enum([
 
 const optionalMoney = z.coerce.number().min(0).optional();
 const optionalInteger = z.coerce.number().int().min(0).optional();
+const clearedSnapshotValue = (value: unknown) =>
+  value === undefined || (typeof value === "string" && value.trim() === "") ? null : value;
+const snapshotMoney = z.preprocess(
+  clearedSnapshotValue,
+  z.coerce.number().min(0).nullable(),
+);
+const snapshotInteger = z.preprocess(
+  clearedSnapshotValue,
+  z.coerce.number().int().min(0).nullable(),
+);
+const snapshotText = (max: number) => z.preprocess(
+  clearedSnapshotValue,
+  z.string().trim().max(max).nullable(),
+);
 export const marketSlugSchema = z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/);
-const nullableServiceAreaSlug = z.union([
-  z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/),
-  z.null(),
-]).optional();
+const serviceAreaSlugSchema = z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/);
 
-const buyerProfileShape = {
-  buyerType: purchaseTypeSchema.optional(),
-  bio: z.string().trim().max(1200).optional(),
-  buyingPurpose: buyingPurposeSchema.optional(),
-  desiredMarketSlug: marketSlugSchema.optional(),
-  desiredServiceAreaSlug: nullableServiceAreaSlug,
-  budgetMin: optionalMoney,
-  budgetMax: optionalMoney,
-  downPaymentMin: optionalMoney,
-  downPaymentMax: optionalMoney,
-  visibilityStatus: buyerSelfVisibilityStatusSchema.optional(),
-};
-
-function minDoesNotExceedMax<T extends Record<string, unknown>>(input: T, minKey: keyof T, maxKey: keyof T) {
-  return (
-    input[minKey] === undefined ||
-    input[maxKey] === undefined ||
-    Number(input[minKey]) <= Number(input[maxKey])
-  );
-}
-
-export const createBuyerProfileSchema = z.object({
-  ...buyerProfileShape,
-  visibilityStatus: buyerSelfVisibilityStatusSchema.default("DRAFT"),
-}).refine(
-  (input) =>
-    input.budgetMin === undefined ||
-    input.budgetMax === undefined ||
-    input.budgetMin <= input.budgetMax,
-  {
-    message: "Budget minimum cannot exceed budget maximum.",
-    path: ["budgetMin"],
-  },
-).refine(
-  (input) =>
-    input.downPaymentMin === undefined ||
-    input.downPaymentMax === undefined ||
-    input.downPaymentMin <= input.downPaymentMax,
-  {
-    message: "Down payment minimum cannot exceed down payment maximum.",
-    path: ["downPaymentMin"],
-  },
-).superRefine((input, context) => {
-  if (typeof input.desiredServiceAreaSlug === "string" && !input.desiredMarketSlug) {
-    context.addIssue({
-      code: "custom",
-      message: "A market is required for the selected service area.",
-      path: ["desiredMarketSlug"],
-    });
-  }
-});
-
-export const updateBuyerProfileSchema = z.object({
-  ...buyerProfileShape,
-}).refine(
-  (input) =>
-    input.budgetMin === undefined ||
-    input.budgetMax === undefined ||
-    input.budgetMin <= input.budgetMax,
-  {
-    message: "Budget minimum cannot exceed budget maximum.",
-    path: ["budgetMin"],
-  },
-).refine(
-  (input) =>
-    input.downPaymentMin === undefined ||
-    input.downPaymentMax === undefined ||
-    input.downPaymentMin <= input.downPaymentMax,
-  {
-    message: "Down payment minimum cannot exceed down payment maximum.",
-    path: ["downPaymentMin"],
-  },
-).superRefine((input, context) => {
-  if (typeof input.desiredServiceAreaSlug === "string" && !input.desiredMarketSlug) {
-    context.addIssue({
-      code: "custom",
-      message: "A market is required for the selected service area.",
-      path: ["desiredMarketSlug"],
-    });
-  }
-});
-
-export const upsertBuyerCriteriaSchema = z.object({
-  id: z.string().optional(),
-  buyerProfileId: z.string().min(1),
-  propertyCategory: propertyCategorySchema.default("HOME"),
-  propertySubtype: propertySubtypeSchema,
-  priceMin: optionalMoney,
-  priceMax: optionalMoney,
-  squareFeetMin: optionalInteger,
-  squareFeetMax: optionalInteger,
-  lotSizeMin: optionalInteger,
-  lotSizeMax: optionalInteger,
-  bedroomsMin: optionalInteger,
-  bathroomsMin: optionalInteger,
-  yearBuiltMin: optionalInteger,
-  condition: z.string().trim().max(80).optional(),
+export const publishBuyerProfileSchema = z.object({
+  bathroomsMin: snapshotInteger,
+  bedroomsMin: snapshotInteger,
+  bio: snapshotText(1200),
+  budgetMax: snapshotMoney,
+  budgetMin: snapshotMoney,
+  buyerType: purchaseTypeSchema,
+  buyingPurpose: buyingPurposeSchema,
+  condition: snapshotText(80),
+  desiredMarketSlug: marketSlugSchema,
+  desiredServiceAreaSlug: serviceAreaSlugSchema,
+  downPaymentMax: snapshotMoney,
+  downPaymentMin: snapshotMoney,
   features: z.array(z.string().trim().min(1).max(80)).default([]),
+  lotSizeMax: snapshotInteger,
+  lotSizeMin: snapshotInteger,
+  squareFeetMax: snapshotInteger,
+  squareFeetMin: snapshotInteger,
+  yearBuiltMin: snapshotInteger,
 }).refine(
-  (input) => minDoesNotExceedMax(input, "priceMin", "priceMax"),
-  {
-    message: "Price minimum cannot exceed price maximum.",
-    path: ["priceMin"],
-  },
+  (input) => input.budgetMin === null || input.budgetMax === null || input.budgetMin <= input.budgetMax,
+  { message: "Budget minimum cannot exceed budget maximum.", path: ["budgetMin"] },
 ).refine(
-  (input) => minDoesNotExceedMax(input, "squareFeetMin", "squareFeetMax"),
-  {
-    message: "Square feet minimum cannot exceed square feet maximum.",
-    path: ["squareFeetMin"],
-  },
+  (input) => input.downPaymentMin === null || input.downPaymentMax === null || input.downPaymentMin <= input.downPaymentMax,
+  { message: "Down payment minimum cannot exceed down payment maximum.", path: ["downPaymentMin"] },
 ).refine(
-  (input) => minDoesNotExceedMax(input, "lotSizeMin", "lotSizeMax"),
-  {
-    message: "Lot size minimum cannot exceed lot size maximum.",
-    path: ["lotSizeMin"],
-  },
+  (input) => input.squareFeetMin === null || input.squareFeetMax === null || input.squareFeetMin <= input.squareFeetMax,
+  { message: "Square feet minimum cannot exceed square feet maximum.", path: ["squareFeetMin"] },
+).refine(
+  (input) => input.lotSizeMin === null || input.lotSizeMax === null || input.lotSizeMin <= input.lotSizeMax,
+  { message: "Lot size minimum cannot exceed lot size maximum.", path: ["lotSizeMin"] },
 );
 
 export const createSellerPropertySchema = z.object({
@@ -262,10 +186,6 @@ export const revokeBadgeSchema = z.object({
   notes: z.string().trim().max(500).optional(),
 });
 
-export const profileVisibilitySchema = z.object({
-  visibilityStatus: buyerSelfVisibilityStatusSchema,
-});
-
 export const userModerationSchema = z.object({
   userId: z.string().min(1),
   reason: z.string().trim().max(500).optional(),
@@ -287,9 +207,7 @@ export const respondToInviteSchema = z.object({
   response: z.enum(["ACCEPTED", "DECLINED"]),
 });
 
-export type CreateBuyerProfileInput = z.infer<typeof createBuyerProfileSchema>;
-export type UpdateBuyerProfileInput = z.infer<typeof updateBuyerProfileSchema>;
-export type UpsertBuyerCriteriaInput = z.infer<typeof upsertBuyerCriteriaSchema>;
+export type PublishBuyerProfileInput = z.infer<typeof publishBuyerProfileSchema>;
 export type CreateSellerPropertyInput = z.infer<typeof createSellerPropertySchema>;
 export type UpdateSellerPropertyInput = z.infer<typeof updateSellerPropertySchema>;
 export type SendInviteInput = z.infer<typeof sendInviteSchema>;

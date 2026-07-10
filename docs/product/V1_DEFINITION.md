@@ -167,6 +167,8 @@ A searchable buyer profile may include:
 
 A buyer profile may become or remain searchable only when it has exactly one primary, buyer-confirmed service-area selection in an active market. The server derives location display fields and approximate coordinates from that canonical service-area row. Clearing the selection, selecting an unsupported/out-of-market area, or deactivating its market keeps the profile out of seller search and public previews.
 
+V1 has exactly one property-fit criteria record per buyer. Publishing the buyer form is a full-snapshot operation: profile fields, cleared optional values, canonical service-area selection, derived location fields, criteria, and `ACTIVE` visibility commit in one transaction. Separate profile, criteria, and activation writes are not supported.
+
 Buyer profile intent is purchase-only in v1. Rental/tenant demand is out of scope and must not be offered as a buyer signup or profile purpose.
 
 A buyer profile must not expose:

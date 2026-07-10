@@ -67,6 +67,11 @@ demo/private preview to a public Los Angeles beta. It does not override
   explicitly changed to support alternatives.
 - Test rollback, concurrent saves, exact UUID ownership, and geography
   deactivation.
+- The `codex/buyer-profile-atomicity` branch proposes these application and
+  database paths. Focused local tests do not prove database serialization. Its
+  exact constraint/trigger SQL remains unnumbered pending CTO assignment; this
+  gate remains open until the real publication service passes the disposable
+  two-connection and rollback harness on the integrated schema.
 
 ### Seller search, properties, and invites
 

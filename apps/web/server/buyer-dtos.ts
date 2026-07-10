@@ -55,7 +55,7 @@ export function publicPreviewBuyerWhere(
     user: { is: { status: "ACTIVE" } },
     buyerType: { in: [...approvedPreviewPurchaseTypes] },
     buyingPurpose: { in: [...approvedPreviewPropertyTypes] },
-    criteria: { some: {} },
+    criteria: { isNot: null },
     ...activePrimaryServiceAreaWhere(marketSlug, serviceAreaIds),
   };
 }
@@ -333,7 +333,7 @@ function activeSelectedArea<T extends {
   return area?.active && area.market.active ? area : null;
 }
 
-function safeCriteria(criteria: Array<{
+type BuyerCriteriaProjection = {
   bathroomsMin: number | null;
   bedroomsMin: number | null;
   condition: string | null;
@@ -345,20 +345,23 @@ function safeCriteria(criteria: Array<{
   squareFeetMax?: number | null;
   squareFeetMin: number | null;
   yearBuiltMin?: number | null;
-}>): SafeCriteriaDto[] {
-  return criteria.map((item) => ({
-    bathroomsMin: item.bathroomsMin ?? undefined,
-    bedroomsMin: item.bedroomsMin ?? undefined,
-    condition: item.condition && approvedCriteriaConditions.has(item.condition) ? item.condition : undefined,
-    features: item.features.filter((feature) => approvedCriteriaFeatures.has(feature)),
-    lotSizeMax: item.lotSizeMax ?? undefined,
-    lotSizeMin: item.lotSizeMin ?? undefined,
-    propertyCategory: item.propertyCategory ?? "HOME",
-    propertySubtype: item.propertySubtype ?? "HOME",
-    squareFeetMax: item.squareFeetMax ?? undefined,
-    squareFeetMin: item.squareFeetMin ?? undefined,
-    yearBuiltMin: item.yearBuiltMin ?? undefined,
-  }));
+};
+
+function safeCriteria(criteria: BuyerCriteriaProjection | null): SafeCriteriaDto[] {
+  if (!criteria) return [];
+  return [{
+    bathroomsMin: criteria.bathroomsMin ?? undefined,
+    bedroomsMin: criteria.bedroomsMin ?? undefined,
+    condition: criteria.condition && approvedCriteriaConditions.has(criteria.condition) ? criteria.condition : undefined,
+    features: criteria.features.filter((feature) => approvedCriteriaFeatures.has(feature)),
+    lotSizeMax: criteria.lotSizeMax ?? undefined,
+    lotSizeMin: criteria.lotSizeMin ?? undefined,
+    propertyCategory: criteria.propertyCategory ?? "HOME",
+    propertySubtype: criteria.propertySubtype ?? "HOME",
+    squareFeetMax: criteria.squareFeetMax ?? undefined,
+    squareFeetMin: criteria.squareFeetMin ?? undefined,
+    yearBuiltMin: criteria.yearBuiltMin ?? undefined,
+  }];
 }
 
 function safeBadges(

@@ -37,13 +37,13 @@ const publicRow: PublicPreviewBuyerRow = {
   budgetMin: new Decimal(810_000),
   buyerType: "Conventional financing",
   buyingPurpose: "House",
-  criteria: [{
+  criteria: {
     bathroomsMin: 2,
     bedroomsMin: 3,
     condition: "Move-in ready",
     features: ["Garage", "Pool", "private note"],
     squareFeetMin: 1800,
-  }],
+  },
   desiredServiceAreas: [serviceArea],
   user: { status: "ACTIVE" },
   visibilityStatus: "ACTIVE",
@@ -59,7 +59,7 @@ const searchRow: SellerSearchBuyerRow = {
   budgetMin: new Decimal(810_000),
   buyerType: "Conventional financing",
   buyingPurpose: "House",
-  criteria: [{
+  criteria: {
     bathroomsMin: 2,
     bedroomsMin: 3,
     condition: "Move-in ready",
@@ -71,7 +71,7 @@ const searchRow: SellerSearchBuyerRow = {
     squareFeetMax: 2600,
     squareFeetMin: 1800,
     yearBuiltMin: 1980,
-  }],
+  },
   desiredServiceAreas: [serviceArea],
   displayName: "Maple Haven",
   downPaymentMax: new Decimal(300_000),

@@ -25,13 +25,13 @@ describe("public buyer preview controller", () => {
       budgetMin: 700_000,
       buyerType: "Conventional financing",
       buyingPurpose: "House",
-      criteria: [{
+      criteria: {
         bathroomsMin: 2,
         bedroomsMin: 3,
         condition: "Move-in ready",
         features: ["Garage"],
         squareFeetMin: 1_600,
-      }],
+      },
       desiredServiceAreas: [{
         serviceArea: {
           active: true,

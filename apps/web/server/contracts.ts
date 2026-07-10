@@ -3,11 +3,10 @@
 import { Prisma, prisma } from "@liber/db";
 import {
   buyerProfileModerationSchema,
-  createBuyerProfileSchema,
   createSellerPropertySchema,
   grantBadgeSchema,
   purchaseTypeSchema,
-  profileVisibilitySchema,
+  publishBuyerProfileSchema,
   respondToInviteSchema,
   reviewDocumentSchema,
   revokeBadgeSchema,
@@ -15,11 +14,9 @@ import {
   seekingPropertyTypeSchema,
   sendInviteSchema,
   sellerAccessReviewSchema,
-  updateBuyerProfileSchema,
   updateSellerPropertySchema,
   userModerationSchema,
-  upsertBuyerCriteriaSchema,
-  type CreateBuyerProfileInput,
+  type PublishBuyerProfileInput,
   type SearchBuyersInput,
 } from "@liber/validators";
 import {
@@ -43,6 +40,10 @@ import {
   randomBuyerAlias,
 } from "../lib/buyer-alias";
 import { buyerLocationFromSelectedServiceArea } from "./canonical-buyer-location";
+import {
+  buyerCriteriaSnapshotData,
+  buyerProfileSnapshotData,
+} from "./buyer-profile-publication";
 import { hasRole, type SessionUser } from "./authz";
 import {
   canViewBuyerDirectory,
@@ -121,11 +122,6 @@ function propertyStatusLabel(value: string) {
   return "Ownership not submitted";
 }
 
-// V1 keeps one broad category while property subtype captures House/Condo/etc.
-function defaultPropertyCategory(): "HOME" {
-  return "HOME";
-}
-
 function displayPurchaseType(value?: string | null) {
   const trimmed = value?.trim();
   if (!trimmed) return "";
@@ -159,10 +155,6 @@ function badgeFromDb(badge: {
     status: isExpired ? "expired" : badge.status === "ACTIVE" ? "active" : badge.status === "PENDING" ? "pending" : "expired",
     expiresInDays: expiresInDays(badge.expiresAt),
   };
-}
-
-function editableBuyerVisibilityStatus(value: unknown): "ACTIVE" | "DRAFT" {
-  return value === "ACTIVE" ? "ACTIVE" : "DRAFT";
 }
 
 function buyerCanUpdateVisibility(value?: string | null) {
@@ -235,7 +227,7 @@ function buyerFromDb(profile: {
   budgetMin: unknown;
   buyerType: string | null;
   buyingPurpose: string | null;
-  criteria: Array<{
+  criteria: {
     bathroomsMin: number | null;
     bedroomsMin: number | null;
     condition: string | null;
@@ -250,7 +242,7 @@ function buyerFromDb(profile: {
     squareFeetMax: number | null;
     squareFeetMin: number | null;
     yearBuiltMin: number | null;
-  }>;
+  } | null;
   desiredServiceAreas?: Array<{
     isPrimary: boolean;
     serviceArea: {
@@ -278,7 +270,8 @@ function buyerFromDb(profile: {
   userId: string;
   visibilityStatus: string;
 }): Buyer {
-  const criteria = criteriaLabels(profile.criteria);
+  const criteriaItems = profile.criteria ? [profile.criteria] : [];
+  const criteria = criteriaLabels(criteriaItems);
   const primaryServiceArea = profile.desiredServiceAreas?.find(
     (area) => area.isPrimary && area.source === "SELECTED",
   )?.serviceArea;
@@ -306,8 +299,8 @@ function buyerFromDb(profile: {
     wants: criteria.slice(5, 10),
     badges: profile.badges.map(badgeFromDb),
     criteria,
-    criteriaDetails: criteriaDetails(profile.criteria),
-    propertySubtypes: Array.from(new Set(profile.criteria.map((item) => item.propertySubtype))),
+    criteriaDetails: criteriaDetails(criteriaItems),
+    propertySubtypes: criteriaItems.map((item) => item.propertySubtype),
     refreshedAt: dateKey(profile.lastRefreshedAt ?? profile.updatedAt),
     primaryServiceArea: primaryServiceArea
       ? {
@@ -528,7 +521,6 @@ async function searchDbBuyerProfiles(filters: SearchBuyersInput, viewerUserId: s
       if (!dto) throw new Error("Seller search result failed its safe DTO projection.");
       return dto;
     });
-
     return {
       items,
       pageInfo: {
@@ -652,63 +644,115 @@ function buyerVerificationDocumentType(value: unknown): BuyerVerificationDocumen
   throw new Error("Unsupported buyer verification document type.");
 }
 
-async function upsertDbBuyerProfile(user: SessionUser, data: Partial<CreateBuyerProfileInput>) {
-  const existing = await prisma.buyerProfile.findUnique({
-    where: { userId: user.id },
-    select: { displayName: true, id: true, visibilityStatus: true },
+async function lockBuyerOwnership(tx: Prisma.TransactionClient, authUserId: string) {
+  const owners = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT id
+    FROM public."User"
+    WHERE id = ${authUserId}::uuid
+    FOR UPDATE
+  `);
+  if (owners.length !== 1) throw new Error("Buyer account ownership could not be verified.");
+}
+
+async function upsertOwnedBuyerCriteria(
+  tx: Prisma.TransactionClient,
+  buyerProfileId: string,
+  authUserId: string,
+  data: PublishBuyerProfileInput,
+) {
+  const criteria = buyerCriteriaSnapshotData(data);
+  await tx.buyerCriteria.upsert({
+    where: {
+      buyerProfileId,
+      buyerProfile: { userId: authUserId },
+    },
+    update: criteria,
+    create: {
+      ...criteria,
+      buyerProfileId,
+    },
   });
-  const displayName = normalizeBuyerAlias(existing?.displayName) ?? buyerAliasFromSeed(user.id);
-  const selectionChanged = data.desiredServiceAreaSlug !== undefined;
+}
+
+async function assertActivationPrerequisites(
+  tx: Prisma.TransactionClient,
+  buyerProfileId: string,
+  authUserId: string,
+) {
+  const selectedCount = await tx.buyerDesiredServiceArea.count({
+    where: {
+      buyerProfileId,
+      buyerProfile: { userId: authUserId },
+      isPrimary: true,
+      source: "SELECTED",
+      serviceArea: { active: true, market: { active: true } },
+    },
+  });
+  if (selectedCount !== 1) {
+    throw new Error("Choose an active Liber service area before publishing your profile.");
+  }
+
+  const criteriaCount = await tx.buyerCriteria.count({
+    where: {
+      buyerProfileId,
+      buyerProfile: { userId: authUserId },
+    },
+  });
+  if (criteriaCount !== 1) {
+    throw new Error("Complete the required buyer criteria before publishing your profile.");
+  }
+}
+
+async function publishDbBuyerProfile(
+  user: SessionUser,
+  data: PublishBuyerProfileInput,
+) {
   const profile = await prisma.$transaction(async (tx) => {
-    const canonicalArea = selectionChanged
-      ? await resolveCanonicalBuyerServiceArea(tx, data.desiredServiceAreaSlug, data.desiredMarketSlug)
-      : await currentCanonicalBuyerServiceArea(tx, existing?.id);
-    const requestedVisibility = data.visibilityStatus === undefined
-      ? editableBuyerVisibilityStatus(existing?.visibilityStatus)
-      : editableBuyerVisibilityStatus(data.visibilityStatus);
-    const editableVisibility = buyerCanUpdateVisibility(existing?.visibilityStatus)
-      ? requestedVisibility === "ACTIVE" && !canonicalArea ? "DRAFT" : requestedVisibility
-      : existing?.visibilityStatus;
-    const canonicalLocationUpdate = selectionChanged ? canonicalBuyerLocationData(canonicalArea) : {};
+    await lockBuyerOwnership(tx, user.id);
+    const existing = await tx.buyerProfile.findUnique({
+      where: { userId: user.id },
+      select: { displayName: true, id: true, visibilityStatus: true },
+    });
+    if (existing && !buyerCanUpdateVisibility(existing.visibilityStatus)) {
+      throw new Error("This profile visibility is controlled by admin review.");
+    }
+    const displayName = normalizeBuyerAlias(existing?.displayName) ?? buyerAliasFromSeed(user.id);
+    const canonicalArea = await resolveCanonicalBuyerServiceArea(
+      tx,
+      data.desiredServiceAreaSlug,
+      data.desiredMarketSlug,
+    );
+    if (!canonicalArea) {
+      throw new Error("Choose an active Liber service area before publishing your profile.");
+    }
+    const profileSnapshot = buyerProfileSnapshotData(data);
 
     const savedProfile = await tx.buyerProfile.upsert({
       where: { userId: user.id },
       update: {
-        bio: data.bio,
-        budgetMax: data.budgetMax,
-        budgetMin: data.budgetMin,
-        buyerType: data.buyerType,
-        buyingPurpose: data.buyingPurpose,
-        ...canonicalLocationUpdate,
-        displayName,
-        downPaymentMax: data.downPaymentMax,
-        downPaymentMin: data.downPaymentMin,
-        lastRefreshedAt: new Date(),
-        ...(editableVisibility ? { visibilityStatus: editableVisibility } : {}),
-      },
-      create: {
-        bio: data.bio,
-        budgetMax: data.budgetMax,
-        budgetMin: data.budgetMin,
-        buyerType: data.buyerType,
-        buyingPurpose: data.buyingPurpose,
+        ...profileSnapshot,
         ...canonicalBuyerLocationData(canonicalArea),
         displayName,
-        downPaymentMax: data.downPaymentMax,
-        downPaymentMin: data.downPaymentMin,
+        lastRefreshedAt: new Date(),
+        visibilityStatus: "ACTIVE",
+      },
+      create: {
+        ...profileSnapshot,
+        ...canonicalBuyerLocationData(canonicalArea),
+        displayName,
         lastRefreshedAt: new Date(),
         userId: user.id,
-        visibilityStatus: editableVisibility === "ACTIVE" ? "ACTIVE" : "DRAFT",
+        visibilityStatus: "ACTIVE",
       },
       include: buyerInclude,
     });
 
-    if (selectionChanged) {
-      await syncBuyerDesiredServiceArea(tx, savedProfile.id, canonicalArea, user.id);
-    }
+    await syncBuyerDesiredServiceArea(tx, savedProfile.id, canonicalArea, user.id);
+    await upsertOwnedBuyerCriteria(tx, savedProfile.id, user.id, data);
+    await assertActivationPrerequisites(tx, savedProfile.id, user.id);
 
-    return tx.buyerProfile.findUniqueOrThrow({
-      where: { id: savedProfile.id },
+    return tx.buyerProfile.findFirstOrThrow({
+      where: { id: savedProfile.id, userId: user.id },
       include: buyerInclude,
     });
   });
@@ -722,7 +766,9 @@ async function syncBuyerDesiredServiceArea(
   serviceArea: CanonicalBuyerServiceArea | null,
   resolvedByUserId: string,
 ) {
-  await tx.buyerDesiredServiceArea.deleteMany({ where: { buyerProfileId } });
+  await tx.buyerDesiredServiceArea.deleteMany({
+    where: { buyerProfileId, buyerProfile: { userId: resolvedByUserId } },
+  });
   if (!serviceArea) return;
   await tx.buyerDesiredServiceArea.create({
     data: {
@@ -733,7 +779,11 @@ async function syncBuyerDesiredServiceArea(
     },
   });
   await tx.serviceAreaMigrationQuarantine.updateMany({
-    where: { buyerProfileId, resolvedAt: null },
+    where: {
+      buyerProfileId,
+      buyerProfile: { userId: resolvedByUserId },
+      resolvedAt: null,
+    },
     data: {
       resolution: {
         actorUserId: resolvedByUserId,
@@ -793,27 +843,6 @@ async function resolveCanonicalBuyerServiceArea(
   return serviceArea;
 }
 
-async function currentCanonicalBuyerServiceArea(
-  tx: Prisma.TransactionClient,
-  buyerProfileId?: string,
-): Promise<CanonicalBuyerServiceArea | null> {
-  if (!buyerProfileId) return null;
-  const selected = await tx.buyerDesiredServiceArea.findFirst({
-    where: {
-      buyerProfileId,
-      isPrimary: true,
-      source: "SELECTED",
-      serviceArea: { active: true, market: { active: true } },
-    },
-    select: {
-      serviceArea: {
-        select: canonicalBuyerServiceAreaSelect,
-      },
-    },
-  });
-  return selected?.serviceArea ?? null;
-}
-
 function canonicalBuyerLocationData(serviceArea: CanonicalBuyerServiceArea | null) {
   if (!serviceArea) {
     return {
@@ -841,16 +870,13 @@ function canonicalBuyerLocationData(serviceArea: CanonicalBuyerServiceArea | nul
   };
 }
 
-export async function createBuyerProfile(input: unknown) {
+export async function publishBuyerProfile(input: unknown) {
   const user = await requireCurrentUser("BUYER");
-  const data = createBuyerProfileSchema.parse(normalizeInput(input));
-  return { ok: true, data: await upsertDbBuyerProfile(user, data) };
-}
-
-export async function updateBuyerProfile(input: unknown) {
-  const user = await requireCurrentUser("BUYER");
-  const data = updateBuyerProfileSchema.parse(normalizeInput(input));
-  return { ok: true, data: await upsertDbBuyerProfile(user, data) };
+  const data = publishBuyerProfileSchema.parse(normalizeInput(input));
+  return {
+    ok: true,
+    data: await publishDbBuyerProfile(user, data),
+  };
 }
 
 export async function regenerateBuyerAlias() {
@@ -880,94 +906,6 @@ export async function regenerateBuyerAlias() {
     ok: true,
     data: { buyerProfileId: profile.id, displayName },
   };
-}
-
-export async function upsertBuyerCriteria(input: unknown) {
-  const user = await requireCurrentUser("BUYER");
-  const data = upsertBuyerCriteriaSchema.parse(normalizeInput(input));
-  const propertyCategory = defaultPropertyCategory();
-  const profile = await prisma.buyerProfile.findUnique({ where: { userId: user.id }, select: { id: true } });
-  if (!profile || data.buyerProfileId !== profile.id) {
-    throw new Error("Criteria must target the current buyer profile.");
-  }
-
-  const criteriaData = {
-    bathroomsMin: data.bathroomsMin,
-    bedroomsMin: data.bedroomsMin,
-    condition: data.condition,
-    features: data.features,
-    lotSizeMax: data.lotSizeMax,
-    lotSizeMin: data.lotSizeMin,
-    priceMax: data.priceMax,
-    priceMin: data.priceMin,
-    propertyCategory,
-    propertySubtype: data.propertySubtype,
-    squareFeetMax: data.squareFeetMax,
-    squareFeetMin: data.squareFeetMin,
-    yearBuiltMin: data.yearBuiltMin,
-  };
-
-  if (data.id) {
-    const result = await prisma.buyerCriteria.updateMany({
-      where: { id: data.id, buyerProfileId: profile.id },
-      data: criteriaData,
-    });
-    if (result.count !== 1) throw new Error("Criteria not found.");
-  } else {
-    // One criteria row per profile in v1: update the existing row instead of
-    // stacking duplicates when the caller (e.g. the profile wizard) has no id.
-    const existing = await prisma.buyerCriteria.findFirst({
-      where: { buyerProfileId: profile.id },
-      orderBy: { createdAt: "asc" },
-      select: { id: true },
-    });
-    if (existing) {
-      await prisma.buyerCriteria.update({
-        where: { id: existing.id },
-        data: criteriaData,
-      });
-    } else {
-      await prisma.buyerCriteria.create({
-        data: { ...criteriaData, buyerProfileId: profile.id },
-      });
-    }
-  }
-  await prisma.buyerProfile.update({
-    where: { id: profile.id },
-    data: { lastRefreshedAt: new Date() },
-  });
-  return { ok: true, data: { ...data, propertyCategory } };
-}
-
-export async function setBuyerProfileVisibility(input: unknown) {
-  const user = await requireCurrentUser("BUYER");
-  const data = profileVisibilitySchema.parse(normalizeInput(input));
-  const existing = await prisma.buyerProfile.findUnique({
-    where: { userId: user.id },
-    select: { visibilityStatus: true },
-  });
-  if (!buyerCanUpdateVisibility(existing?.visibilityStatus)) {
-    throw new Error("This profile visibility is controlled by admin review.");
-  }
-  if (data.visibilityStatus === "ACTIVE") {
-    const selectedCount = await prisma.buyerDesiredServiceArea.count({
-      where: {
-        buyerProfile: { userId: user.id },
-        isPrimary: true,
-        source: "SELECTED",
-        serviceArea: { active: true, market: { active: true } },
-      },
-    });
-    if (selectedCount !== 1) {
-      throw new Error("Choose an active Liber service area before publishing your profile.");
-    }
-  }
-  const profile = await prisma.buyerProfile.update({
-    where: { userId: user.id },
-    data: { visibilityStatus: editableBuyerVisibilityStatus(data.visibilityStatus) },
-    include: buyerInclude,
-  });
-  return { ok: true, data: buyerFromDb(profile) };
 }
 
 export async function getCurrentBuyerProfile() {
@@ -1860,12 +1798,21 @@ export async function suspendUser(input: unknown) {
 export async function hideBuyerProfile(input: unknown) {
   const admin = await requireCurrentUser("ADMIN");
   const data = buyerProfileModerationSchema.parse(normalizeInput(input));
-  await prisma.$transaction([
-    prisma.buyerProfile.update({
+  await prisma.$transaction(async (tx) => {
+    const profile = await tx.buyerProfile.findUnique({
       where: { id: data.buyerProfileId },
+      select: { userId: true },
+    });
+    if (!profile) throw new Error("Buyer profile not found.");
+
+    await lockBuyerOwnership(tx, profile.userId);
+    const hidden = await tx.buyerProfile.updateMany({
+      where: { id: data.buyerProfileId, userId: profile.userId },
       data: { visibilityStatus: "HIDDEN" },
-    }),
-    prisma.adminAuditLog.create({
+    });
+    if (hidden.count !== 1) throw new Error("Buyer profile not found.");
+
+    await tx.adminAuditLog.create({
       data: {
         action: "hide_buyer_profile",
         actorUserId: admin.id,
@@ -1873,8 +1820,8 @@ export async function hideBuyerProfile(input: unknown) {
         targetId: data.buyerProfileId,
         targetType: "buyer_profile",
       },
-    }),
-  ]);
+    });
+  });
   return { ok: true, data };
 }
 

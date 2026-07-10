@@ -31,6 +31,8 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - Buyer and relationship joins reference service-area UUIDs. Buyers store one primary selection; no copied `DERIVED` rows are allowed.
 - Only reviewed `SEARCH_ROLLUP` relationships affect matching, recursively at query time. Reviewed rollup graph writes serialize per market before cycle validation. Spatial/display relationship types do not affect buyer matches.
 - Buyer profile/selection writes may commit `ACTIVE` only with one primary `SELECTED` area in an active market. Inferred, ambiguous, multiple-selection, and unresolved legacy profiles belong in `service_area_migration_quarantine` and draft status. Deactivating a market or area automatically drafts affected active profiles.
+- `BuyerCriteria.buyerProfileId` is unique in v1, and Prisma models the parent relation as singular/optional. Publication also requires exactly one criteria row through deferred database enforcement; application-side find-then-create logic is not a concurrency guarantee.
+- Buyer publication transactions lock the exact immutable Auth UUID `User.id` before reading or writing the owned profile, selection, derived location, criteria, or visibility.
 - Resolving a geography quarantine row preserves the legacy/candidate snapshot and records the selected area, actor, source, and resolution time. Resolution does not delete the row; profile-deletion retention is defined separately with the identity lifecycle.
 - Market state/country, canonical UUIDs, and service-area market membership are immutable. The canonical cutover locks buyer profiles and selections before snapshot/backfill work and revalidates every `ACTIVE` profile before commit.
 - Service-area TS metadata, DB seed rows, and GeoJSON properties/bboxes must stay aligned; add or update validation when touching any of them.
@@ -47,3 +49,5 @@ After schema changes, run `npm run db:validate` and regenerate Prisma client whe
 `BuyerProfile.displayName` stores a generated neutral public alias, not a buyer-entered name. Application code must normalize old/stale values through the alias allowlist and fall back to a deterministic alias from the buyer id.
 
 When adding seed scripts, include a cleanup path and avoid inserting private document records, real contact information, or fake production trust claims.
+
+The buyer criteria uniqueness/activation SQL is kept as an unnumbered proposal under `packages/db/prisma/proposals/` for CTO migration-order integration. Its paired rollback restores the prior non-unique ownership index.

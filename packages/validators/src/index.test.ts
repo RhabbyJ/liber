@@ -1,109 +1,109 @@
 import { describe, expect, it } from "vitest";
 import {
-  createBuyerProfileSchema,
   createSellerPropertySchema,
   grantBadgeSchema,
+  publishBuyerProfileSchema,
   reviewDocumentSchema,
   searchBuyersSchema,
   sellerAccessReviewSchema,
   sendInviteSchema,
-  updateBuyerProfileSchema,
-  upsertBuyerCriteriaSchema,
 } from "./index";
 
 describe("Liber validators", () => {
-  it("rejects reversed buyer budget ranges", () => {
-    expect(() =>
-      createBuyerProfileSchema.parse({
-        budgetMin: 960000,
-        budgetMax: 780000,
-      }),
-    ).toThrow("Budget minimum cannot exceed budget maximum.");
-  });
+  it("parses buyer publication as a required full snapshot", () => {
+    expect(() => publishBuyerProfileSchema.parse({})).toThrow();
+    expect(() => publishBuyerProfileSchema.parse({
+      buyerType: "Cash",
+      desiredMarketSlug: "los-angeles",
+      desiredServiceAreaSlug: "90001",
+    })).toThrow();
 
-  it("does not allow buyers to self-assign admin-controlled visibility states", () => {
-    expect(() =>
-      createBuyerProfileSchema.parse({
-        visibilityStatus: "HIDDEN",
-      }),
-    ).toThrow();
-  });
-
-  it("keeps buyer profile property intent allowlisted", () => {
-    expect(createBuyerProfileSchema.parse({
-      buyerType: "Conventional financing",
-      buyingPurpose: "Townhouse",
+    expect(publishBuyerProfileSchema.parse({
+      bio: "   ",
+      buyerType: "Cash",
+      buyingPurpose: "Condo",
+      desiredMarketSlug: "los-angeles",
+      desiredServiceAreaSlug: "90001",
+      squareFeetMin: "   ",
     })).toMatchObject({
+      bathroomsMin: null,
+      bedroomsMin: null,
+      bio: null,
+      budgetMax: null,
+      budgetMin: null,
+      buyingPurpose: "Condo",
+      condition: null,
+      downPaymentMax: null,
+      downPaymentMin: null,
+      features: [],
+      lotSizeMax: null,
+      lotSizeMin: null,
+      squareFeetMax: null,
+      squareFeetMin: null,
+      yearBuiltMin: null,
+    });
+  });
+
+  it("keeps the full buyer snapshot allowlisted and range-safe", () => {
+    const base = {
       buyerType: "Conventional financing",
       buyingPurpose: "Townhouse",
+      desiredMarketSlug: "los-angeles",
+      desiredServiceAreaSlug: "91325",
+    } as const;
+
+    expect(publishBuyerProfileSchema.parse({
+      ...base,
+      budgetMax: "987654",
+      budgetMin: "731249",
+      downPaymentMax: "223457",
+      downPaymentMin: "123456",
+      lotSizeMax: "8765",
+      lotSizeMin: "7654",
+      squareFeetMax: "2345",
+      squareFeetMin: "1234",
+    })).toMatchObject({
+      budgetMax: 987654,
+      budgetMin: 731249,
+      downPaymentMax: 223457,
+      downPaymentMin: 123456,
+      lotSizeMax: 8765,
+      lotSizeMin: 7654,
+      squareFeetMax: 2345,
+      squareFeetMin: 1234,
     });
 
     expect(() =>
-      createBuyerProfileSchema.parse({
+      publishBuyerProfileSchema.parse({
+        ...base,
         buyingPurpose: "Rental",
       }),
     ).toThrow();
 
     expect(() =>
-      createBuyerProfileSchema.parse({
+      publishBuyerProfileSchema.parse({
+        ...base,
         buyerType: "Investor",
       }),
     ).toThrow();
-  });
-
-  it("strips public alias from buyer profile API input", () => {
-    expect(createBuyerProfileSchema.parse({ displayName: "Maple Haven" })).not.toHaveProperty("displayName");
-    expect(updateBuyerProfileSchema.parse({ displayName: "Maple Haven" })).not.toHaveProperty("displayName");
-  });
-
-  it("keeps omitted buyer update visibility unchanged", () => {
-    expect(updateBuyerProfileSchema.parse({ buyerType: "Cash" })).not.toHaveProperty("visibilityStatus");
     expect(() =>
-      updateBuyerProfileSchema.parse({
+      publishBuyerProfileSchema.parse({
+        ...base,
         budgetMin: 960000,
         budgetMax: 780000,
       }),
     ).toThrow("Budget minimum cannot exceed budget maximum.");
-  });
-
-  it("allows custom buyer budget and down payment amounts", () => {
-    expect(updateBuyerProfileSchema.parse({
-      budgetMax: "987654",
-      budgetMin: "731249",
-      desiredMarketSlug: "los-angeles",
-      desiredNeighborhood: "Northridge",
-      desiredPostalCode: "91325",
-      desiredServiceAreaSlug: "91325",
-      downPaymentMax: "223457",
-      downPaymentMin: "123456",
-    })).toMatchObject({
-      budgetMax: 987654,
-      budgetMin: 731249,
-      desiredMarketSlug: "los-angeles",
-      desiredServiceAreaSlug: "91325",
-      downPaymentMax: 223457,
-      downPaymentMin: 123456,
-    });
 
     expect(() =>
-      updateBuyerProfileSchema.parse({ desiredServiceAreaSlug: "../91325" }),
+      publishBuyerProfileSchema.parse({ ...base, desiredServiceAreaSlug: "../91325" }),
     ).toThrow();
-  });
-
-  it("allows buyer geography fields to be explicitly cleared", () => {
-    const parsed = updateBuyerProfileSchema.parse({
-      desiredCity: null,
-      desiredLat: null,
-      desiredLng: null,
-      desiredLocationText: null,
-      desiredNeighborhood: null,
-      desiredPostalCode: null,
-      desiredServiceAreaSlug: null,
-      desiredState: null,
+    const stripped = publishBuyerProfileSchema.parse({
+      ...base,
+      displayName: "Maple Haven",
+      visibilityStatus: "HIDDEN",
     });
-    expect(parsed).toEqual({
-      desiredServiceAreaSlug: null,
-    });
+    expect(stripped).not.toHaveProperty("displayName");
+    expect(stripped).not.toHaveProperty("visibilityStatus");
   });
 
   it("requires accepted terms for invite sending", () => {
@@ -139,42 +139,6 @@ describe("Liber validators", () => {
         price: "925000",
       }),
     ).toThrow();
-  });
-
-  it("rejects reversed searchable criteria ranges", () => {
-    expect(() =>
-      upsertBuyerCriteriaSchema.parse({
-        buyerProfileId: "buyer-1",
-        propertySubtype: "HOME",
-        squareFeetMin: 2000,
-        squareFeetMax: 1000,
-      }),
-    ).toThrow("Square feet minimum cannot exceed square feet maximum.");
-
-    // Non-residential subtypes are out of v1 scope.
-    expect(() =>
-      upsertBuyerCriteriaSchema.parse({
-        buyerProfileId: "buyer-1",
-        propertySubtype: "MULTIFAMILY",
-      }),
-    ).toThrow();
-  });
-
-  it("allows custom square footage and lot size amounts", () => {
-    expect(upsertBuyerCriteriaSchema.parse({
-      buyerProfileId: "buyer-1",
-      lotSizeMax: "8765",
-      lotSizeMin: "7654",
-      propertySubtype: "TOWNHOUSE",
-      squareFeetMax: "2345",
-      squareFeetMin: "1234",
-    })).toMatchObject({
-      lotSizeMax: 8765,
-      lotSizeMin: 7654,
-      propertySubtype: "TOWNHOUSE",
-      squareFeetMax: 2345,
-      squareFeetMin: 1234,
-    });
   });
 
   it("validates search, document review, and badge admin inputs", () => {

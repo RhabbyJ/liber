@@ -184,7 +184,7 @@ model BuyerProfile {
   profileCompleteness Int                   @default(0)
   lastRefreshedAt     DateTime?
 
-  criteria            BuyerCriteria[]
+  criteria            BuyerCriteria?
   badges              BuyerBadge[]
   invites             Invite[]
   documents           VerificationDocument[]
@@ -313,7 +313,7 @@ model ServiceAreaMigrationQuarantine {
 
 model BuyerCriteria {
   id             String       @id @default(cuid())
-  buyerProfileId String
+  buyerProfileId String       @unique
   buyerProfile   BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
 
   propertyCategory PropertyCategory
@@ -333,7 +333,6 @@ model BuyerCriteria {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([buyerProfileId])
   @@index([propertyCategory, propertySubtype])
   @@index([priceMin, priceMax])
 }
