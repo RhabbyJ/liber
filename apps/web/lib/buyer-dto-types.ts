@@ -1,4 +1,4 @@
-import type { Badge, BuyerCriteriaDetail } from "./mock-data";
+import type { Badge, BuyerCriteriaDetail } from "./domain-types";
 
 export type SafeBadgeDto = {
   expiresInDays?: number;

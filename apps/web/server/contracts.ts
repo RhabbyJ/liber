@@ -25,7 +25,8 @@ import {
   type BuyerCriteriaDetail,
   type Invite,
   type Property,
-} from "../lib/mock-data";
+  type PropertyVerificationStatus,
+} from "../lib/domain-types";
 import { propertySubtypeLabel } from "../lib/property-types";
 import {
   avatarVariantFromSeed,
@@ -64,7 +65,7 @@ import {
   ownershipEvidenceKindLabel,
   verificationDocumentTypeLabel,
 } from "./ownership-evidence";
-import { assertRateLimit } from "./rate-limit";
+import { assertSharedRateLimit } from "./shared-rate-limit";
 import { getSessionUser } from "./session";
 import { normalizeInput } from "./normalize-input";
 import {
@@ -128,7 +129,7 @@ function titleFromStatus(value: string): Invite["status"] {
   return "Sent";
 }
 
-function propertyStatusLabel(value: string) {
+function propertyStatusLabel(value: PropertyVerificationStatus) {
   if (value === "APPROVED") return "Ownership verified";
   if (value === "PENDING") return "Ownership pending";
   if (value === "REJECTED") return "Ownership rejected";
@@ -385,7 +386,7 @@ function propertyFromDb(property: {
   id: string;
   lotSize: number | null;
   ownerUserId: string;
-  ownershipVerificationStatus: string;
+  ownershipVerificationStatus: PropertyVerificationStatus;
   price: unknown;
   propertyType: Property["propertyType"];
   squareFeet: number | null;
@@ -411,6 +412,7 @@ function propertyFromDb(property: {
     condition: property.condition || "",
     features: property.features,
     description: property.description || "",
+    ownershipVerificationStatus: property.ownershipVerificationStatus,
     status: propertyStatusLabel(property.ownershipVerificationStatus),
   };
 }
@@ -565,7 +567,7 @@ function inviteFromDb(invite: {
   property: {
     addressLine1: string | null;
     city: string | null;
-    ownershipVerificationStatus: string;
+    ownershipVerificationStatus: PropertyVerificationStatus;
     propertyType: Property["propertyType"];
   };
   propertyId: string;
@@ -583,6 +585,7 @@ function inviteFromDb(invite: {
     buyer: buyerAliasForDisplay(invite.buyerProfile.displayName, invite.buyerProfile.userId),
     property: invite.property.addressLine1 || `${invite.property.city || "Property"} ${propertySubtypeLabel(invite.property.propertyType).toLowerCase()}`,
     propertyStatus: propertyStatusLabel(invite.property.ownershipVerificationStatus),
+    propertyOwnershipVerificationStatus: invite.property.ownershipVerificationStatus,
     status: titleFromStatus(effectiveInviteStatus(invite)),
     sentAt: dateKey(invite.sentAt) || "Now",
     sentAtDate: dateKey(invite.sentAt),
@@ -631,19 +634,6 @@ const evidenceRequiredBadgeTypes = new Set<Badge["type"]>([
 
 type BuyerVerificationDocumentType = "PRE_APPROVAL" | "VERIFIED_FUNDS" | "IDENTITY" | "OTHER";
 
-async function assertAuditRateLimit(user: SessionUser, action: string, limit: number, windowMs: number) {
-  const createdAt = { gte: new Date(Date.now() - windowMs) };
-  const count = await prisma.adminAuditLog.count({
-    where: {
-      action,
-      actorUserId: user.id,
-      createdAt,
-    },
-  });
-
-  if (count >= limit) throw new Error("Rate limit reached. Try again later.");
-}
-
 async function auditSecurityEvent(
   user: SessionUser,
   action: string,
@@ -670,13 +660,20 @@ function buyerVerificationDocumentType(value: unknown): BuyerVerificationDocumen
 }
 
 async function lockBuyerOwnership(tx: Prisma.TransactionClient, authUserId: string) {
-  const owners = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-    SELECT id
+  const owners = await tx.$queryRaw<Array<{ id: string; status: string }>>(Prisma.sql`
+    SELECT id, status::text
     FROM public."User"
     WHERE id = ${authUserId}::uuid
     FOR UPDATE
   `);
   if (owners.length !== 1) throw new Error("Buyer account ownership could not be verified.");
+  return owners[0];
+}
+
+async function lockActiveApplicationUser(tx: Prisma.TransactionClient, userId: string) {
+  const user = await lockBuyerOwnership(tx, userId);
+  if (user.status !== "ACTIVE") throw new Error("The application user is not active.");
+  return user;
 }
 
 async function upsertOwnedBuyerCriteria(
@@ -733,7 +730,7 @@ async function publishDbBuyerProfile(
   data: PublishBuyerProfileInput,
 ) {
   const profile = await prisma.$transaction(async (tx) => {
-    await lockBuyerOwnership(tx, user.id);
+    await lockActiveApplicationUser(tx, user.id);
     const existing = await tx.buyerProfile.findUnique({
       where: { userId: user.id },
       select: { displayName: true, id: true, visibilityStatus: true },
@@ -1058,7 +1055,12 @@ export async function respondToInvite(input: unknown) {
 
 export async function searchBuyers(input: unknown) {
   const seller = await requireApprovedSellerAccess();
-  await assertAuditRateLimit(seller, "buyer_search", 60, 60_000);
+  await assertSharedRateLimit({
+    identifier: seller.id,
+    limit: 60,
+    namespace: "seller:buyer-search",
+    windowSeconds: 60,
+  });
   const data = searchBuyersSchema.parse(input);
   const results = await searchDbBuyerProfiles(data, seller.id);
   await auditSecurityEvent(seller, "buyer_search", "buyer_directory", "search", {
@@ -1070,7 +1072,12 @@ export async function searchBuyers(input: unknown) {
 
 export async function getBuyerProfileForSeller(buyerProfileId: string) {
   const seller = await requireApprovedSellerAccess();
-  await assertAuditRateLimit(seller, "buyer_profile_view", 120, 60 * 60_000);
+  await assertSharedRateLimit({
+    identifier: seller.id,
+    limit: 120,
+    namespace: "seller:buyer-profile-view",
+    windowSeconds: 60 * 60,
+  });
   const now = new Date();
   const buyer = await prisma.buyerProfile.findFirst({
     where: { id: buyerProfileId, ...sellerVisibleBuyerWhere() },
@@ -1085,7 +1092,12 @@ export async function getBuyerProfileForSeller(buyerProfileId: string) {
 
 export async function getPublicBuyerProfile(buyerProfileId: string) {
   const user = await requireAuthenticatedUser();
-  await assertAuditRateLimit(user, "buyer_profile_view", 120, 60 * 60_000);
+  await assertSharedRateLimit({
+    identifier: user.id,
+    limit: 120,
+    namespace: "user:buyer-profile-view",
+    windowSeconds: 60 * 60,
+  });
   const now = new Date();
   const buyer = await prisma.buyerProfile.findFirst({
     where: { id: buyerProfileId, ...sellerVisibleBuyerWhere() },
@@ -1113,40 +1125,9 @@ export async function getPublicBuyerProfile(buyerProfileId: string) {
 export async function createSellerProperty(input: unknown) {
   const seller = await requireCurrentUser("SELLER");
   const data = createSellerPropertySchema.parse(normalizeInput(input));
-  const property = await prisma.sellerProperty.create({
-    data: {
-      addressLine1: data.addressLine1,
-      addressLine2: data.addressLine2,
-      bathrooms: data.bathrooms,
-      bedrooms: data.bedrooms,
-      city: data.city,
-      condition: data.condition,
-      description: data.description,
-      features: data.features,
-      garageArea: data.garageArea,
-      lat: data.lat,
-      lng: data.lng,
-      lotSize: data.lotSize,
-      ownerUserId: seller.id,
-      price: data.price,
-      propertyType: data.propertyType,
-      squareFeet: data.squareFeet,
-      state: data.state,
-      zip: data.zip,
-    },
-  });
-  await auditSecurityEvent(seller, "property_ownership_confirmed", "seller_property", property.id, {
-    ownershipConfirmed: true,
-  });
-  return { ok: true, data: propertyFromDb(property) };
-}
-
-export async function updateSellerProperty(input: unknown) {
-  const seller = await requireCurrentUser("SELLER");
-  const data = updateSellerPropertySchema.parse(normalizeInput(input));
-  try {
-    const property = await prisma.sellerProperty.update({
-      where: { id: data.propertyId, ownerUserId: seller.id },
+  const property = await prisma.$transaction(async (tx) => {
+    await lockActiveApplicationUser(tx, seller.id);
+    return tx.sellerProperty.create({
       data: {
         addressLine1: data.addressLine1,
         addressLine2: data.addressLine2,
@@ -1160,12 +1141,49 @@ export async function updateSellerProperty(input: unknown) {
         lat: data.lat,
         lng: data.lng,
         lotSize: data.lotSize,
+        ownerUserId: seller.id,
         price: data.price,
         propertyType: data.propertyType,
         squareFeet: data.squareFeet,
         state: data.state,
         zip: data.zip,
       },
+    });
+  });
+  await auditSecurityEvent(seller, "property_ownership_confirmed", "seller_property", property.id, {
+    ownershipConfirmed: true,
+  });
+  return { ok: true, data: propertyFromDb(property) };
+}
+
+export async function updateSellerProperty(input: unknown) {
+  const seller = await requireCurrentUser("SELLER");
+  const data = updateSellerPropertySchema.parse(normalizeInput(input));
+  try {
+    const property = await prisma.$transaction(async (tx) => {
+      await lockActiveApplicationUser(tx, seller.id);
+      return tx.sellerProperty.update({
+        where: { id: data.propertyId, ownerUserId: seller.id },
+        data: {
+          addressLine1: data.addressLine1,
+          addressLine2: data.addressLine2,
+          bathrooms: data.bathrooms,
+          bedrooms: data.bedrooms,
+          city: data.city,
+          condition: data.condition,
+          description: data.description,
+          features: data.features,
+          garageArea: data.garageArea,
+          lat: data.lat,
+          lng: data.lng,
+          lotSize: data.lotSize,
+          price: data.price,
+          propertyType: data.propertyType,
+          squareFeet: data.squareFeet,
+          state: data.state,
+          zip: data.zip,
+        },
+      });
     });
     return { ok: true, data: propertyFromDb(property) };
   } catch (error) {
@@ -1178,7 +1196,12 @@ export async function uploadPropertyImageFile(propertyId: string, file: File) {
   const seller = await requireCurrentUser("SELLER");
   const contentType = await assertAllowedFile(file, propertyImageMimeTypes, "Property image", "a PNG, JPG, or WebP file", 10 * 1_048_576);
 
-  assertRateLimit(`upload:property-image:${seller.id}`, 30, 60 * 60_000);
+  await assertSharedRateLimit({
+    identifier: seller.id,
+    limit: 30,
+    namespace: "upload:property-image",
+    windowSeconds: 60 * 60,
+  });
 
   const property = await prisma.sellerProperty.findFirst({
     where: { id: propertyId, ownerUserId: seller.id },
@@ -1190,6 +1213,7 @@ export async function uploadPropertyImageFile(propertyId: string, file: File) {
   await uploadToStorage("property-images", storagePath, file, contentType);
   try {
     await prisma.$transaction(async (tx) => {
+      await lockActiveApplicationUser(tx, seller.id);
       const ownedProperty = await tx.sellerProperty.findUnique({
         where: { id: property.id, ownerUserId: seller.id },
         select: { id: true },
@@ -1227,7 +1251,12 @@ export async function uploadOwnershipDocumentFile(
   );
   const sha256 = await fileSha256(file);
 
-  assertRateLimit(`upload:verification:${seller.id}`, 20, 60 * 60_000);
+  await assertSharedRateLimit({
+    identifier: seller.id,
+    limit: 20,
+    namespace: "upload:verification",
+    windowSeconds: 60 * 60,
+  });
 
   const property = await prisma.sellerProperty.findFirst({
     where: { id: propertyId, ownerUserId: seller.id },
@@ -1240,6 +1269,7 @@ export async function uploadOwnershipDocumentFile(
   await uploadToStorage("verification-documents", storagePath, file, contentType);
   try {
     await prisma.$transaction(async (tx) => {
+      await lockActiveApplicationUser(tx, seller.id);
       const boundProperty = await tx.sellerProperty.update({
         where: {
           id: property.id,
@@ -1299,7 +1329,12 @@ export async function uploadBuyerVerificationDocumentFile(documentTypeInput: unk
   const contentType = await assertAllowedFile(file, documentMimeTypes, "Verification document", "a PDF, PNG, JPG, or WebP file", 20 * 1_048_576);
   const sha256 = await fileSha256(file);
 
-  assertRateLimit(`upload:verification:${buyerUser.id}`, 20, 60 * 60_000);
+  await assertSharedRateLimit({
+    identifier: buyerUser.id,
+    limit: 20,
+    namespace: "upload:verification",
+    windowSeconds: 60 * 60,
+  });
 
   const buyer = await prisma.buyerProfile.findUnique({
     where: { userId: buyerUser.id },
@@ -1310,40 +1345,56 @@ export async function uploadBuyerVerificationDocumentFile(documentTypeInput: unk
   const documentId = `doc_${crypto.randomUUID()}`;
   const storagePath = `${buyerUser.id}/${documentId}/${storageFileNameForMime(contentType)}`;
   await uploadToStorage("verification-documents", storagePath, file, contentType);
-  await prisma.$transaction([
-    prisma.verificationDocument.create({
-      data: {
-        buyerProfileId: buyer.id,
-        documentType,
-        fileSha256: sha256,
-        fileSizeBytes: file.size,
-        id: documentId,
-        mimeType: contentType,
-        originalFilename: file.name,
-        reviewStatus: "PENDING",
-        storageBucket: "verification-documents",
-        storagePath,
-        uploadedByUserId: buyerUser.id,
-        userId: buyerUser.id,
-      },
-    }),
-    prisma.adminAuditLog.create({
-      data: {
-        action: "document_upload",
-        actorUserId: buyerUser.id,
-        metadata: { buyerProfileId: buyer.id, documentType },
-        targetId: documentId,
-        targetType: "document",
-      },
-    }),
-  ]);
+  try {
+    await prisma.$transaction(async (tx) => {
+      await lockActiveApplicationUser(tx, buyerUser.id);
+      const ownedBuyer = await tx.buyerProfile.findUnique({
+        where: { id: buyer.id, userId: buyerUser.id },
+        select: { id: true },
+      });
+      if (!ownedBuyer) throw new Error("Buyer profile not found.");
+      await tx.verificationDocument.create({
+        data: {
+          buyerProfileId: ownedBuyer.id,
+          documentType,
+          fileSha256: sha256,
+          fileSizeBytes: file.size,
+          id: documentId,
+          mimeType: contentType,
+          originalFilename: file.name,
+          reviewStatus: "PENDING",
+          storageBucket: "verification-documents",
+          storagePath,
+          uploadedByUserId: buyerUser.id,
+          userId: buyerUser.id,
+        },
+      });
+      await tx.adminAuditLog.create({
+        data: {
+          action: "document_upload",
+          actorUserId: buyerUser.id,
+          metadata: { buyerProfileId: ownedBuyer.id, documentType },
+          targetId: documentId,
+          targetType: "document",
+        },
+      });
+    });
+  } catch (error) {
+    await removeUploadedObject("verification-documents", storagePath);
+    throw error;
+  }
 
   return { ok: true, data: { documentId, status: "PENDING" as const } };
 }
 
 export async function sendInvite(input: unknown) {
   const seller = await requireApprovedSellerAccess();
-  await assertAuditRateLimit(seller, "invite_sent", 30, 60 * 60_000);
+  await assertSharedRateLimit({
+    identifier: seller.id,
+    limit: 30,
+    namespace: "seller:invite",
+    windowSeconds: 60 * 60,
+  });
   const data = sendInviteSchema.parse(normalizeInput(input));
   const now = new Date();
   const [buyer, property, sentInviteCountToday, activeDuplicate] = await Promise.all([
@@ -1380,7 +1431,10 @@ export async function sendInvite(input: unknown) {
 
   assertInviteAllowed({
     buyer: { userId: buyer.userId, visibility: "active" },
-    property: propertyFromDb(property),
+    property: {
+      ownerUserId: property.ownerUserId,
+      ownershipVerificationStatus: property.ownershipVerificationStatus,
+    },
     seller,
     sentInviteCountToday,
   });

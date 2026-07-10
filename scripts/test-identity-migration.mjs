@@ -340,10 +340,8 @@ async function assertHardenedCatalog(db) {
           AND tablename = 'objects'
           AND policyname = 'Admins can view all verification documents'
       ) AS direct_admin_storage_policy_absent,
-      (
-        SELECT count(*) = 3 AND bool_and(
-          position('is_active_user' IN coalesce(qual, '') || coalesce(with_check, '')) > 0
-        )
+      NOT EXISTS (
+        SELECT 1
         FROM pg_policies
         WHERE schemaname = 'storage'
           AND tablename = 'objects'
@@ -352,7 +350,7 @@ async function assertHardenedCatalog(db) {
             'Profile photo owners can update profile photos',
             'Profile photo owners can delete profile photos'
           )
-      ) AS active_profile_storage_policies,
+      ) AS profile_storage_write_policies_absent,
       (
         SELECT count(*) = 3 AND bool_and(
           position('owns_property' IN coalesce(qual, '') || coalesce(with_check, '')) > 0
@@ -398,7 +396,7 @@ async function assertHardenedCatalog(db) {
     !row?.rate_limit_expiry_index ||
     !row?.outbox_claim_acl_restricted ||
     !row?.direct_admin_storage_policy_absent ||
-    !row?.active_profile_storage_policies ||
+    !row?.profile_storage_write_policies_absent ||
     !row?.active_property_storage_policies ||
     !row?.active_document_storage_policies ||
     row?.child_fk_count !== 11 ||

@@ -13,8 +13,8 @@ IP limiter before email, adds expiry and bounded pruning to the generic limiter,
 quarantines every unmatched unsent and pre-lease SENDING outbox row, and replaces
 the partial claim with a tokenized expiring lease claimed in one SQL
 `FOR UPDATE SKIP LOCKED`/UPDATE path. It also removes direct authenticated-admin
-document reads, adds ACTIVE checks to profile-photo writes, and expands the
-guarded staging harness to property-image/profile-photo writes. The verified
+document reads, keeps the obsolete profile-photo write policies absent, and
+expands the guarded staging harness to property-image writes. The verified
 callback now passes no roles and cannot turn user-editable Auth metadata into
 BUYER, SELLER, or ADMIN authorization.
 
@@ -22,7 +22,12 @@ Local focused tests and typecheck cover those runtime/static invariants, but the
 repaired forward proposal has not been applied to a new disposable database and
 the guarded Auth/Storage staging harness has not run. Both gates remain open.
 
-Current local verification on 2026-07-10:
+Auth-branch local verification recorded on 2026-07-10 before final CTO
+integration:
+
+These counts belong to the Auth/security workstream revision and are preserved
+as historical evidence. The final integrated verification is recorded
+separately in `CTO_INTEGRATION_EVIDENCE_2026-07-10.md`.
 
 - Focused Auth/security suite: 29 tests passed across 9 files.
 - Full workspace tests: 3 database-target guard tests, 98 web tests passed with
@@ -59,7 +64,7 @@ the same synthetic `example.invalid` email. Exactly one committed. The other
 failed with SQLSTATE `23505` and `LIBER_IDENTITY_RECOVERY_REQUIRED`; the
 application User count for the normalized email was exactly one.
 
-Two concurrent calls to the shared Auth limiter with a limit of one produced
+Two concurrent calls to the shared limiter with a limit of one produced
 one allowed response and one denied response with a positive retry interval.
 The first execution found and corrected a PL/pgSQL `current_time` name collision;
 the final forward SQL was reapplied and the concurrent proof then passed.
@@ -109,7 +114,7 @@ password protection disabled, and unused-index notices on the empty test data.
 - The full guarded staging harness could not exercise the application Admin API
   ban call, Storage service-role cleanup, Auth Admin deletion, complete
   deletion/re-registration sequence, direct-admin document denial, or suspended
-  property-image/profile-photo insert/update/delete denial without those
+  property-image insert/update/delete denial without those
   credentials.
 - Connector proof set the synthetic Auth ban state and proved session
   revocation/Storage denial, but it is not a substitute for the full Admin API

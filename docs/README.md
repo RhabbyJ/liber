@@ -23,11 +23,12 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `engineering/GEOGRAPHY_CANONICAL_CUTOVER_EVIDENCE_2026-07-09.md` — disposable-branch counts, per-row quarantine review, database assertions, and the open fresh-install gate.
 - `engineering/AUTH_IDENTITY_OWNERSHIP_RUNBOOK.md` — immutable Auth UUID rules, collision recovery, account lifecycle, deployment, and rollback for identity migration 16.
 - `engineering/AUTH_IDENTITY_OWNERSHIP_EVIDENCE_2026-07-09.md` — shared read-only audit, disposable proof, and remaining identity deployment gates.
+- `engineering/MIGRATION_VERSION_PLAN_2026-07-10.md` — reserved `00017`–`00022` order, schema-ahead warning, proof requirements, and rollback boundaries; reservations are not deployment authorization.
 - `engineering/SELLER_PROPERTY_INTEGRITY_PROPOSAL.md` — ownership-version and invite-validity proposal, rollout gates, disposable proof command, and rollback boundary.
 - `engineering/AUTH_SECURITY_FOLLOWUP_FORWARD.sql` and
   `engineering/AUTH_SECURITY_FOLLOWUP_ROLLBACK.sql` — unnumbered CTO migration
   proposal for callback/session initialization, suspension, Storage, outbox,
-  and shared Auth limiting.
+  and generic shared limiting.
 - `engineering/AUTH_SECURITY_FOLLOWUP_EVIDENCE_2026-07-09.md` — disposable
   catalog/concurrency/Storage results for the earlier proposal plus the current
   repair addendum and still-open database/staging gates.

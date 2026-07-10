@@ -2,6 +2,12 @@
 
 This is the backend source of truth for agents.
 
+Status note (2026-07-10): schema-dependent sections describe the CTO
+integration target. The shared database was observed through migration `00012`;
+the integration runtime depends on later numbered migrations and unnumbered
+proposals reserved in `MIGRATION_VERSION_PLAN_2026-07-10.md`. Do not infer that
+target behavior is deployed.
+
 ## Stack
 
 - Next.js App Router in `apps/web`
@@ -163,11 +169,15 @@ Rules:
 - Storage paths and signed URLs must not become public profile data.
 - Server uploads should validate file type, size, ownership, and purpose.
 - Every authenticated Storage policy checks an ACTIVE application User. Public
-  property-image/profile-photo reads remain public by product design, while all
-  property-image and profile-photo writes plus verification-document owner
-  reads/uploads fail for a suspended or missing application identity. Admin
+  property-image reads remain public by product design, while property-image
+  writes plus verification-document owner reads/uploads fail for a suspended or
+  missing application identity. The historical public `profile-photos` bucket is
+  unused and has no owner-write policies; V1 must not upload to it. Admin
   document review never has a direct authenticated-browser policy; it stays
   behind the server-mediated signed-URL route.
+- After a service-role upload, the database transaction locks and rechecks the
+  ACTIVE application user plus current ownership before binding the object. A
+  failed recheck triggers best-effort orphan cleanup.
 - Server action return shapes avoid returning raw private storage paths for private buckets. Return document IDs/status, public URLs for public buckets, or short-lived signed URLs from admin/server-mediated reads only.
 - Seller ownership verification documents keep `DocumentType.OWNERSHIP` and use `OwnershipEvidenceKind` to distinguish government ID from property address proof. Ownership status can become approved only after both required evidence kinds are approved by an admin.
 - `SellerProperty.ownershipVersion` makes `(property id, ownership version)` the ownership identity. `ownerUserId` is immutable in V1. Address lines, city, state, ZIP, latitude, and longitude are ownership-relevant; changing any of them increments the version and resets the property to `PENDING`.
@@ -216,13 +226,13 @@ Service-area selection must resolve through canonical slugs or explicit per-area
 
 Seller search requires a market slug plus an optional market-scoped service-area slug. `buyer_desired_service_areas` stores at most one primary selection per buyer. When a buyer profile or selection transaction commits, an active profile requires exactly one `SELECTED` row whose service area and market are active; a deferred database trigger enforces that write path. Runtime queries also require the area and market to remain active, so they fail closed. Deactivating a market or service area automatically drafts affected active buyers; reactivation never republishes them without an explicit buyer action. Client-provided city, ZIP, neighborhood, text, and coordinates are not trusted independently: profile saves resolve the selected area first and derive all compatibility/display fields from that row. Ordinary seller/public runtime queries do not use legacy text or bbox matching.
 
-V1 has exactly one `BuyerCriteria` row per buyer profile. A database unique constraint, not an application check, is the concurrency boundary. Deferred activation guards require both that criteria row and the active canonical selection before an `ACTIVE` profile can commit. The proposed constraint/trigger SQL and rollback are intentionally unnumbered under `packages/db/prisma/proposals/` until the CTO assigns stacked migration ordering.
+V1 has exactly one `BuyerCriteria` row per buyer profile. A database unique constraint, not an application check, is the concurrency boundary. Deferred activation guards require both that criteria row and the active canonical selection before an `ACTIVE` profile can commit. The proposed constraint/trigger SQL and rollback are reserved for `00018` under `packages/db/prisma/proposals/`; reservation is not deployment proof.
 
 Only reviewed `SEARCH_ROLLUP` relationships affect matching. `CONTAINS`, `OVERLAPS`, and `DISPLAY_PARENT` remain spatial/display metadata. Reviewed rollup ancestors are evaluated recursively at query time, so relationship changes take effect without rewriting buyer rows. Reviewed rollup mutations serialize on their market row before cycle validation. The corrective migration write-locks buyer profiles and selections before taking legacy snapshots, removes stale `DERIVED`/`MIGRATED` rows, audits state-scoped legacy candidates in ZIP -> neighborhood -> city order, stores inferred, ambiguous, multiple-selection, and unresolved cases in quarantine for confirmation, and drafts profiles without a confirmed selection.
 
-Bulk service-area import and activation remain disabled until Geography PR2 delivers the reviewed LA County dataset, deploy-independent versioned geometry, provenance/checksum enforcement, relationship import, and atomic bounds recomputation. Do not activate broad LA from a bbox or edit an already-applied migration.
+Bulk service-area import and activation remain disabled. An inactive LA County proposal exists only on isolated commit `0ae12d7`; it is not integrated or authorized and still has migration, rollback, idempotency, importer-guard, and direct navigation race defects. Do not activate broad LA from a bbox or edit an already-applied migration.
 
-Budget filters are treated as range-overlap filters: a buyer matches when the buyer's max budget is at or above the seller's minimum and the buyer's min budget is at or below the seller's maximum. The persisted seller-search path applies geography, budget, property-fit criteria, condition, canonical amenities, active badges, and sorting in `apps/web/server/seller-search-query.ts`; `apps/web/server/domain.ts` remains fixture-only test behavior. Amenity filters match the canonical criteria feature tokens (Pool, Parking, ADU, Yard, Garage).
+Budget filters are treated as range-overlap filters: a buyer matches when the buyer's max budget is at or above the seller's minimum and the buyer's min budget is at or below the seller's maximum. The persisted seller-search path applies geography, budget, property-fit criteria, condition, canonical amenities, active badges, and sorting in `apps/web/server/seller-search-query.ts`. The obsolete in-memory fixture search has been removed; `apps/web/server/domain.ts` now contains only route/invite invariants still shared by runtime code. Amenity filters match the canonical criteria feature tokens (Pool, Parking, ADU, Yard, Garage).
 
 Persisted seller search uses keyset pagination rather than an offset or fixed pre-filter cap. The result contract returns unchanged seller-safe buyer DTO items plus page metadata. Each opaque cursor is bound to the current filter/sort fingerprint, the first-page snapshot, the last SQL sort key, and buyer id. Ordering always includes buyer id as a unique tiebreaker. Cursors expire after 30 minutes and reject future snapshots; new profiles created after the first-page snapshot do not enter later pages. List and map receive the same page items. Cursor snapshots do not recreate historical values for profiles edited between requests, so mutable-sort updates remain eventually consistent.
 
@@ -249,7 +259,7 @@ not response fields. Runtime queries and DTO mapping both fail closed unless
 the application user, buyer profile, selected canonical service area, and its
 market are active.
 
-Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN` on the buyer search query against realistic data volume. Legacy city/state/ZIP lookup indexes are removed by the canonical cutover. Public launch requires measured indexes for the active canonical-area join, budget overlap, badge status, criteria filters, and sort/cursor patterns. The current unnumbered CTO proposal and temporary-table evidence live in `docs/engineering/SELLER_SEARCH_SQL_PROPOSAL.sql` and `docs/engineering/SELLER_SEARCH_SQL_EVIDENCE_2026-07-09.md`; neither is an applied migration.
+Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN` on the buyer search query against realistic data volume. Legacy city/state/ZIP lookup indexes are removed by the canonical cutover. Public launch requires measured indexes for the active canonical-area join, budget overlap, badge status, criteria filters, and sort/cursor patterns. The reserved `00020` proposal and temporary-table evidence live in `docs/engineering/SELLER_SEARCH_SQL_PROPOSAL.sql` and `docs/engineering/SELLER_SEARCH_SQL_EVIDENCE_2026-07-09.md`; neither is an applied migration or a production-like plan.
 
 ## Public buyer-demand preview
 
@@ -289,16 +299,16 @@ Abuse-prone actions should be rate-limited:
 
 Important actions should write `AdminAuditLog` or equivalent operational events where supported.
 
-Current in-app rate limiting is acceptable only as a local development / CEO demo safeguard. Before true production launch, abuse controls for login, signup/resend, buyer search/profile view, invite send, uploads, geocode, and property enrichment must use a shared store such as Redis/Vercel KV/Upstash or a Supabase-backed limiter. In-memory process limits are not sufficient on Vercel/serverless because each instance has its own bucket and limits reset on cold starts/deploys.
-
-The unnumbered Auth/security follow-up moves login, signup, confirmation resend,
-and collision-recovery paths to a Supabase-backed atomic fixed-window limiter
-keyed by HMACs of IP/email. IP denial short-circuits before an email bucket is
-created. The generic private bucket table has explicit expiry, an expiry index,
-and bounded pruning; the runtime fails closed in production and requires a 32+
-character `AUTH_RATE_LIMIT_PEPPER`. This is not deployed until migration review,
-numbering, and staging proof finish. Other abuse-prone paths still use the
-legacy local limiter until their owning launch work replaces it.
+Login, signup/resend/recovery, buyer search/profile view, invite send, uploads,
+geocode, and property enrichment now call `apps/web/server/shared-rate-limit.ts`.
+It uses the Supabase-backed atomic fixed-window limiter proposed for `00017`,
+with HMAC identifiers, explicit expiry, an expiry index, and bounded pruning.
+IP denial short-circuits user/email bucket consumption where both apply.
+Production fails closed when the shared store is unavailable. Only local
+development may fall back to the bounded process-local map; that fallback is
+not a serverless security boundary. The historically named 32+ character
+`AUTH_RATE_LIMIT_PEPPER` protects every generic limiter identifier. The runtime
+must not deploy until `00017` is numbered and proven.
 
 ## Maintenance
 

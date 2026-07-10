@@ -142,7 +142,7 @@ export default async function InviteBuyerPage({
     );
   }
 
-  const verified = property.status.toLowerCase().includes("verified");
+  const verified = property.ownershipVerificationStatus === "APPROVED";
 
   return (
     <div className="page wide stack loose invite-compose-page">

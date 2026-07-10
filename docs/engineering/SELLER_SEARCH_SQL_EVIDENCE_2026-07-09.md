@@ -21,7 +21,7 @@ Output:
 
 ```ts
 {
-  items: Buyer[]; // unchanged seller-safe DTO
+  items: SellerBuyerSearchDto[];
   pageInfo: {
     hasMore: boolean;
     nextCursor: string | null;

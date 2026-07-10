@@ -1,4 +1,4 @@
--- Unnumbered migration proposal. The CTO must assign the final migration number.
+-- Unnumbered migration proposal reserved for 00017; reservation is not deployment authorization.
 -- Prerequisite: 20260709000016_harden_auth_identity_ownership is installed.
 
 BEGIN;
@@ -528,36 +528,11 @@ REVOKE ALL ON FUNCTION app_private.is_active_user() FROM PUBLIC, anon, service_r
 GRANT EXECUTE ON FUNCTION app_private.is_active_user() TO authenticated;
 
 DROP POLICY IF EXISTS "Profile photo owners can upload profile photos" ON storage.objects;
-CREATE POLICY "Profile photo owners can upload profile photos"
-ON storage.objects FOR INSERT TO authenticated
-WITH CHECK (
-  bucket_id = 'profile-photos'
-  AND (SELECT app_private.is_active_user())
-  AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
-);
-
 DROP POLICY IF EXISTS "Profile photo owners can update profile photos" ON storage.objects;
-CREATE POLICY "Profile photo owners can update profile photos"
-ON storage.objects FOR UPDATE TO authenticated
-USING (
-  bucket_id = 'profile-photos'
-  AND (SELECT app_private.is_active_user())
-  AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
-)
-WITH CHECK (
-  bucket_id = 'profile-photos'
-  AND (SELECT app_private.is_active_user())
-  AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
-);
-
 DROP POLICY IF EXISTS "Profile photo owners can delete profile photos" ON storage.objects;
-CREATE POLICY "Profile photo owners can delete profile photos"
-ON storage.objects FOR DELETE TO authenticated
-USING (
-  bucket_id = 'profile-photos'
-  AND (SELECT app_private.is_active_user())
-  AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
-);
+
+-- V1 avatars are generated in-app. Keep the historical profile-photos bucket
+-- inert by removing its owner-write policies rather than resurrecting uploads.
 
 CREATE OR REPLACE FUNCTION app_private.owns_property(property_id text)
 RETURNS boolean

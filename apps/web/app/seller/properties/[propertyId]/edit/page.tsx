@@ -19,7 +19,7 @@ export default async function EditSellerPropertyPage({
 
   if (!property) notFound();
 
-  const verified = property.status.toLowerCase().includes("verified");
+  const verified = property.ownershipVerificationStatus === "APPROVED";
 
   return (
     <div className="page wide seller-property-reference-page">

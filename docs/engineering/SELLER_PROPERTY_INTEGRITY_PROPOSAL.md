@@ -29,6 +29,8 @@ Create a disposable Supabase branch at the current schema and add:
 ```sql
 create table public.seller_property_integrity_test_sentinel (token text primary key);
 insert into public.seller_property_integrity_test_sentinel values ('replace-with-16-plus-character-token');
+revoke all on table public.seller_property_integrity_test_sentinel
+  from public, anon, authenticated, service_role;
 ```
 
 Then set the branch-specific direct URL and matching sentinel:

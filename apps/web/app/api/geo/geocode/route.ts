@@ -8,7 +8,8 @@ import {
   marketBboxParam,
   resolveActiveServiceArea,
 } from "../../../../server/service-areas";
-import { checkRateLimit, clientIpFromRequest } from "../../../../server/rate-limit";
+import { clientIpFromRequest } from "../../../../server/rate-limit";
+import { consumeSharedRateLimit } from "../../../../server/shared-rate-limit";
 import { getSessionUser } from "../../../../server/session";
 
 type GeocodeResult = {
@@ -31,8 +32,20 @@ export async function GET(request: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Authentication required.", results: [] }, { status: 401 });
 
-  const ipLimit = checkRateLimit(`geocode:ip:${clientIpFromRequest(request)}`, 60, 60_000);
-  const userLimit = checkRateLimit(`geocode:user:${user.id}`, 40, 60_000);
+  const ipLimit = await consumeSharedRateLimit({
+    identifier: clientIpFromRequest(request),
+    limit: 60,
+    namespace: "geocode:ip",
+    windowSeconds: 60,
+  });
+  const userLimit = ipLimit.allowed
+    ? await consumeSharedRateLimit({
+        identifier: user.id,
+        limit: 40,
+        namespace: "geocode:user",
+        windowSeconds: 60,
+      })
+    : ipLimit;
   if (!ipLimit.allowed || !userLimit.allowed) {
     const retryAfter = Math.max(ipLimit.retryAfterSeconds, userLimit.retryAfterSeconds);
     return NextResponse.json(

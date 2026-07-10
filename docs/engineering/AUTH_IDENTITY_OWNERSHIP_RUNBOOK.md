@@ -237,8 +237,10 @@ npm run db:test-auth-security:staging
 ```
 
 The staging harness also checks that authenticated admins cannot read private
-documents directly, ACTIVE owners can write property images/profile photos, and
-the same pre-suspension JWT cannot upload, update, or delete either afterwards.
+documents directly, ACTIVE owners can write property images, and the same
+pre-suspension JWT cannot upload, update, or delete them afterwards. The
+historical `profile-photos` bucket remains unused with no owner-write policies;
+avatars are generated in-app.
 Never reuse parent/shared keys or a parent database password for this proof.
 
 For an empty test branch, also set

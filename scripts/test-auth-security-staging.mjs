@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import process from "node:process";
 import pg from "pg";
 import { createClient } from "@supabase/supabase-js";
-import { sameDatabaseTarget } from "./database-target.mjs";
+import { sameDatabaseTarget, supabaseProjectRef } from "./database-target.mjs";
 
 const databaseUrl = process.env.AUTH_SECURITY_STAGING_DATABASE_URL;
 const supabaseUrl = process.env.AUTH_SECURITY_STAGING_SUPABASE_URL;
@@ -35,8 +35,6 @@ let activeReadPath;
 let deniedReadPath;
 let propertyImagePath;
 let deniedPropertyImagePath;
-let profileImagePath;
-let deniedProfileImagePath;
 
 await db.connect();
 try {
@@ -133,8 +131,6 @@ try {
 
   propertyImagePath = `${propertyId}/auth-security-active-${suffix}.png`;
   deniedPropertyImagePath = `${propertyId}/auth-security-denied-${suffix}.png`;
-  profileImagePath = `${targetId}/auth-security-active-${suffix}.png`;
-  deniedProfileImagePath = `${targetId}/auth-security-denied-${suffix}.png`;
   const initialImageBytes = Buffer.from("89504e470d0a1a0a00", "hex");
   const activeImageBytes = Buffer.from("89504e470d0a1a0a01", "hex");
   const suspendedImageBytes = Buffer.from("89504e470d0a1a0a02", "hex");
@@ -145,14 +141,6 @@ try {
     initialImageBytes,
     activeImageBytes,
   );
-  await uploadAndUpdateImage(
-    targetStorage,
-    "profile-photos",
-    profileImagePath,
-    initialImageBytes,
-    activeImageBytes,
-  );
-
   const auditId = randomUUID();
   const suspension = await db.query(
     `SELECT * FROM app_private.suspend_identity($1::uuid, $2::uuid, $3, $4)`,
@@ -187,18 +175,6 @@ try {
     suspendedBytes: suspendedImageBytes,
     suspendedClient: targetStorage,
   });
-  await assertSuspendedImageWritesDenied({
-    activeBytes: activeImageBytes,
-    adminClient: admin,
-    bucket: "profile-photos",
-    database: db,
-    deniedPath: deniedProfileImagePath,
-    label: "profile photo",
-    path: profileImagePath,
-    suspendedBytes: suspendedImageBytes,
-    suspendedClient: targetStorage,
-  });
-
   const state = await db.query(
     `SELECT
        (SELECT status::text FROM public."User" WHERE id = $1) AS user_status,
@@ -221,9 +197,6 @@ try {
   await admin.storage
     .from("property-images")
     .remove([propertyImagePath, deniedPropertyImagePath].filter(Boolean));
-  await admin.storage
-    .from("profile-photos")
-    .remove([profileImagePath, deniedProfileImagePath].filter(Boolean));
   await db.query(
     `INSERT INTO public."AdminAuditLog" (
        id, "actorUserId", action, "targetType", "targetId", metadata, "createdAt"
@@ -270,7 +243,6 @@ try {
     auth_metadata_role_ignored: true,
     email_reuse_fresh_uuid: true,
     property_image_writes_denied_after_suspension: true,
-    profile_image_writes_denied_after_suspension: true,
     sessions_revoked: counts.sessions_revoked,
     storage_direct_admin_document_read_denied: true,
     storage_denied_after_suspension: true,
@@ -291,12 +263,6 @@ try {
       await admin.storage
         .from("property-images")
         .remove([propertyImagePath, deniedPropertyImagePath].filter(Boolean))
-        .catch(() => undefined);
-    }
-    if (profileImagePath || deniedProfileImagePath) {
-      await admin.storage
-        .from("profile-photos")
-        .remove([profileImagePath, deniedProfileImagePath].filter(Boolean))
         .catch(() => undefined);
     }
     await db.query(`DELETE FROM public."User" WHERE id = $1`, [targetId]).catch(() => undefined);
@@ -377,8 +343,9 @@ async function assertDisposableStaging() {
       throw new Error("Refusing to run Auth security staging tests against the configured shared database.");
     }
   }
-  const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
-  if (!projectRef || !databaseUrl.includes(projectRef)) {
+  const apiProjectRef = supabaseProjectRef(supabaseUrl);
+  const databaseProjectRef = supabaseProjectRef(databaseUrl);
+  if (!apiProjectRef || !databaseProjectRef || apiProjectRef !== databaseProjectRef) {
     throw new Error("Staging Supabase and database targets do not identify the same project.");
   }
   const guard = new pg.Client({ connectionString: databaseUrl });

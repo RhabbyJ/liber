@@ -11,6 +11,8 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - `apps/web/server/access.ts`
 - `apps/web/server/auth-actions.ts`
 - `apps/web/server/auth-identity.ts`
+- `apps/web/server/auth-rate-limit.ts`
+- `apps/web/server/shared-rate-limit.ts`
 - `apps/web/lib/auth-identity.ts`
 - `apps/web/server/request-origin.ts`
 - `apps/web/proxy.ts`
@@ -64,6 +66,8 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - User suspension atomically suspends the User, seller access, buyer visibility,
   unsent recipient-bound outbox jobs, and Auth sessions before the Admin API ban
   is confirmed and audited.
+- These runtime paths depend on the unnumbered Auth/security SQL reserved for
+  `00017`; they are not deployable to a database that stops at `00016`.
 
 ## Agent notes
 

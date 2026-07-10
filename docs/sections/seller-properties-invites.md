@@ -25,6 +25,9 @@ Owns private seller property records, property images, ownership evidence upload
 - Seller ownership verification requires two private evidence uploads before admin approval: government-issued photo ID and utility/tax/mortgage proof matching the property address.
 - Ownership approval is bound to a property identity/version. Editing address, ZIP, coordinates, or another ownership-relevant field increments the version and returns the property to `PENDING`; prior evidence remains audit history only.
 - The seller owner UUID is immutable in V1. Evidence upload rechecks the exact owner and the version observed before Storage upload; a changed property rejects the binding and triggers best-effort object cleanup.
+- Property create/update and post-upload binding transactions lock and recheck
+  the ACTIVE exact application owner. Suspension racing one of those writes
+  therefore closes on the same User row lock.
 - Seller can invite only from owned properties.
 - Seller cannot invite their own buyer profile.
 - Invite is manual outreach only.

@@ -1,4 +1,4 @@
--- Unnumbered proposal. Promote to a numbered migration only after review and disposable-branch proof.
+-- Unnumbered proposal reserved for 00019. Promote only after review and disposable-branch proof.
 BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '120s';

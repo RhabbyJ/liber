@@ -10,7 +10,7 @@ import type {
   SellerBuyerProfileDto,
   SellerBuyerSearchDto,
 } from "../lib/buyer-dto-types";
-import type { Badge } from "../lib/mock-data";
+import type { Badge } from "../lib/domain-types";
 import { buyerAliasForDisplay } from "../lib/buyer-alias";
 import { avatarVariantFromSeed, normalizeAvatarVariant } from "../lib/avatar-variant";
 import { propertySubtypeLabel, type PropertySubtype } from "../lib/property-types";

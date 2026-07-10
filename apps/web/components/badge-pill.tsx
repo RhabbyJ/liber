@@ -1,4 +1,4 @@
-import type { Badge } from "../lib/mock-data";
+import type { Badge } from "../lib/domain-types";
 import { Icon } from "./icon";
 
 const badgeIcon: Record<Badge["type"], "shield" | "money" | "diamond" | "star" | "check-shield" | "key" | "doc"> = {

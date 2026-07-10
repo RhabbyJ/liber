@@ -1,4 +1,4 @@
--- Unnumbered proposal: the CTO must assign migration ordering during integration.
+-- Unnumbered proposal reserved for 00018; reservation is not deployment authorization.
 BEGIN;
 
 LOCK TABLE public."BuyerProfile", public."BuyerCriteria" IN SHARE ROW EXCLUSIVE MODE;

@@ -15,6 +15,10 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 ## Invariants
 
 - Schema changes require migrations.
+- The integration schema/runtime is ahead of the shared catalog and must not be
+  deployed until its dependent proposals are numbered and proven. Reserved
+  ordering and rollback boundaries live in
+  `docs/engineering/MIGRATION_VERSION_PLAN_2026-07-10.md`.
 - User IDs must remain Supabase Auth UUID-compatible.
 - `User.id` is immutable and validated against the `auth.users` primary key.
   Auth deletion and all ownership-key updates are restricted until the explicit
@@ -27,7 +31,8 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - Auth user updates trigger application synchronization only for a changed email.
   Private names are application-owned after verified initialization.
 - Auth/security follow-up SQL remains an unnumbered forward/rollback proposal
-  under `docs/engineering/`; migration files 00009 and 00016 stay immutable.
+  reserved for `00017` under `docs/engineering/`; migration files 00009 and
+  00016 stay immutable.
 - The proposal adds recipient-bound outbox jobs, expiring UUID leases, a
   sendable-recipient constraint, lease-state constraint, and partial ready/lease
   claim indexes that Prisma cannot express. It also owns the private generic
@@ -50,7 +55,9 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - Resolving a geography quarantine row preserves the legacy/candidate snapshot and records the selected area, actor, source, and resolution time. Resolution does not delete the row; profile-deletion retention is defined separately with the identity lifecycle.
 - Market state/country, canonical UUIDs, and service-area market membership are immutable. The canonical cutover locks buyer profiles and selections before snapshot/backfill work and revalidates every `ACTIVE` profile before commit.
 - Service-area TS metadata, DB seed rows, and GeoJSON properties/bboxes must stay aligned; add or update validation when touching any of them.
-- Bulk geography import remains disabled until Geography PR2 provides reviewed provenance, deploy-independent geometry, relationship import, inactive staging, and atomic market-bounds recomputation.
+- Bulk geography import remains disabled. The isolated LA proposal at `0ae12d7`
+  is non-activating but still requires the repairs and proof listed in the
+  migration plan before it can be considered for reserved `00021`.
 - Demo seed data is allowed only for local development and CEO demo / private preview environments, never true public production.
 - Demo seed scripts must be explicit, guarded by an opt-in env flag, deterministic enough to clean up, and use obvious non-real users/data.
 
@@ -58,7 +65,7 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 
 After schema changes, run `npm run db:validate` and regenerate Prisma client when needed.
 
-Seller-property integrity is currently supplied as unnumbered forward/rollback SQL under `packages/db/prisma/proposals/`. It is not database-proven. Do not promote it into migration history until the disposable harness passes, every legacy ownership decision/quarantine record is reviewed, and active invite duplicates or invalid expiry rows are resolved.
+Seller-property integrity is currently supplied as unnumbered forward/rollback SQL under `packages/db/prisma/proposals/` and reserved for `00019`. It is not database-proven. Do not promote it into migration history until the disposable harness passes, every legacy ownership decision/quarantine record is reviewed, and active invite duplicates or invalid expiry rows are resolved.
 
 `User.avatarVariant` is an allowlisted generated animal-avatar token for buyer profile display; it should stay nullable so existing accounts fall back to deterministic generated avatars. It is not an image URL or storage path.
 
@@ -66,4 +73,4 @@ Seller-property integrity is currently supplied as unnumbered forward/rollback S
 
 When adding seed scripts, include a cleanup path and avoid inserting private document records, real contact information, or fake production trust claims.
 
-The buyer criteria uniqueness/activation SQL is kept as an unnumbered proposal under `packages/db/prisma/proposals/` for CTO migration-order integration. Its paired rollback restores the prior non-unique ownership index.
+The buyer criteria uniqueness/activation SQL is kept as an unnumbered proposal under `packages/db/prisma/proposals/` and reserved for `00018`. Its paired rollback restores the prior non-unique ownership index.

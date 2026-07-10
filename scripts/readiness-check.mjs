@@ -13,7 +13,7 @@ const required = [
 ];
 
 const productionChecks = [
-  ["AUTH_RATE_LIMIT_PEPPER", "32+ character HMAC pepper for shared Auth limiter keys"],
+  ["AUTH_RATE_LIMIT_PEPPER", "32+ character HMAC pepper for shared limiter keys"],
   ["CRON_SECRET", "Maintenance route bearer secret"],
   ["NEXT_PUBLIC_MAPBOX_TOKEN", "Mapbox autocomplete/geocoding and production map rendering"],
   ["ATTOM_API_KEY", "ATTOM property facts enrichment"],

@@ -1,146 +1,18 @@
 import { describe, expect, it } from "vitest";
-import type { Buyer } from "../lib/mock-data";
-import { buyers, invites, properties } from "../lib/mock-data";
 import {
   assertInviteAllowed,
   assertRouteAllowed,
-  countSellerInvitesToday,
-  hasActiveBadge,
   UNVERIFIED_SELLER_INVITE_LIMIT_PER_DAY,
   VERIFIED_SELLER_INVITE_LIMIT_PER_DAY,
   sellerInviteLimitForProperty,
-  searchBuyerDirectory,
 } from "./domain";
 
-describe("seller buyer search", () => {
-  it("only returns active buyer profiles", () => {
-    const results = searchBuyerDirectory({});
-
-    expect(results.map((buyer) => buyer.id)).toContain("julie-p");
-    expect(results.map((buyer) => buyer.id)).not.toContain("draft-buyer");
-  });
-
-  it("filters by active badges and ignores expired badges", () => {
-    const expiredBadgeBuyer = buyers.find((buyer) => buyer.id === "draft-buyer") as Buyer;
-
-    expect(hasActiveBadge(expiredBadgeBuyer, "PRE_APPROVED")).toBe(false);
-    expect(searchBuyerDirectory({ badges: ["PRE_APPROVED"], sort: "recently_active" }).map((buyer) => buyer.id)).toEqual([
-      "julie-p",
-      "asha-k",
-    ]);
-  });
-
-  it("does not use legacy city, coordinate, or radius query keys", () => {
-    const baseline = searchBuyerDirectory({}).map((buyer) => buyer.id);
-    const results = searchBuyerDirectory({
-      centerLat: 33.5387,
-      centerLng: -112.186,
-      city: "Glendale",
-      radiusMiles: 1,
-      state: "AZ",
-    });
-
-    expect(results.map((buyer) => buyer.id)).toEqual(baseline);
-  });
-
-  it("filters by the expanded v1 property subtype choices", () => {
-    const condoBuyer: Buyer = {
-      ...buyers[0],
-      criteria: ["Condo", "Northridge"],
-      criteriaDetails: [{
-        propertyCategory: "HOME",
-        propertySubtype: "CONDO",
-      }],
-      id: "condo-buyer",
-      propertySubtypes: ["CONDO"],
-      purpose: "Condo",
-    };
-
-    expect(searchBuyerDirectory({ propertySubtype: "CONDO" }, [condoBuyer]).map((buyer) => buyer.id)).toEqual([
-      "condo-buyer",
-    ]);
-    expect(searchBuyerDirectory({ propertySubtype: "LAND" }, [condoBuyer])).toEqual([]);
-  });
-
-  it("filters by supported service area slug", () => {
-    expect(searchBuyerDirectory({ serviceArea: "91325" }).map((buyer) => buyer.id)).toContain("julie-p");
-    expect(searchBuyerDirectory({ serviceArea: "northridge" }).map((buyer) => buyer.id)).toContain("julie-p");
-    expect(searchBuyerDirectory({ serviceArea: "glendale" }).map((buyer) => buyer.id)).not.toContain("julie-p");
-  });
-
-  it("uses persisted service-area slugs before legacy location text", () => {
-    const studioCityBuyer: Buyer = {
-      ...buyers[0],
-      city: "Burbank",
-      id: "studio-city-selected",
-      location: "Burbank, CA",
-      postalCode: "91502",
-      serviceAreaSlugs: ["91604"],
-    };
-
-    expect(searchBuyerDirectory({ serviceArea: "91604" }, [studioCityBuyer]).map((buyer) => buyer.id)).toEqual([
-      "studio-city-selected",
-    ]);
-    expect(searchBuyerDirectory({ serviceArea: "burbank" }, [studioCityBuyer])).toEqual([]);
-  });
-
-  it("returns no buyers for unsupported service area slugs", () => {
-    expect(searchBuyerDirectory({ serviceArea: "san-diego" })).toEqual([]);
-  });
-
-  it("filters by structured property fit criteria", () => {
-    expect(searchBuyerDirectory({ bedrooms: 3 }).map((buyer) => buyer.id)).not.toContain("julie-p");
-    expect(searchBuyerDirectory({ bedrooms: 4 }).map((buyer) => buyer.id)).toContain("julie-p");
-    expect(searchBuyerDirectory({ bedrooms: 4 }).map((buyer) => buyer.id)).not.toContain("asha-k");
-    expect(searchBuyerDirectory({ bedrooms: 5 }).map((buyer) => buyer.id)).toContain("asha-k");
-  });
-
-  it("filters by amenity needs and condition preference", () => {
-    const fixerWithPool: Buyer = {
-      ...buyers[0],
-      id: "fixer-with-pool",
-      criteria: ["Pool"],
-      criteriaDetails: [{
-        propertyCategory: "HOME",
-        propertySubtype: "HOME",
-        condition: "Fixer",
-        features: ["Pool"],
-      }],
-    };
-    const moveInReadyWithPool: Buyer = {
-      ...fixerWithPool,
-      id: "move-in-ready-with-pool",
-      criteriaDetails: [{
-        propertyCategory: "HOME",
-        propertySubtype: "HOME",
-        condition: "Move-in ready",
-        features: ["Pool"],
-      }],
-    };
-
-    const results = searchBuyerDirectory(
-      { amenities: ["Pool"], condition: "Fixer" },
-      [fixerWithPool, moveInReadyWithPool],
-    );
-
-    expect(results.map((buyer) => buyer.id)).toEqual(["fixer-with-pool"]);
-  });
-
-  it("filters by budget range overlap", () => {
-    expect(searchBuyerDirectory({ budgetMin: 1_000_000 }).map((buyer) => buyer.id)).not.toContain("julie-p");
-    expect(searchBuyerDirectory({ budgetMin: 1_000_000 }).map((buyer) => buyer.id)).toContain("marcus-r");
-    expect(searchBuyerDirectory({ budgetMin: 1_000_000, budgetMax: 1_500_000 }).map((buyer) => buyer.id)).toEqual([
-      "marcus-r",
-    ]);
-  });
-
-  it("excludes the current seller's own buyer profile", () => {
-    const results = searchBuyerDirectory({}, buyers, { excludeUserId: "user-marcus" });
-
-    expect(results.map((buyer) => buyer.id)).not.toContain("marcus-r");
-    expect(results.map((buyer) => buyer.id)).toContain("julie-p");
-  });
-});
+const activeBuyer = { userId: "buyer-fixture", visibility: "active" } as const;
+const draftBuyer = { userId: "draft-buyer-fixture", visibility: "draft" } as const;
+const pendingProperty = {
+  ownerUserId: "seller-fixture",
+  ownershipVerificationStatus: "PENDING",
+} as const;
 
 describe("route and invite authorization", () => {
   it("blocks private routes without a matching role", () => {
@@ -168,27 +40,22 @@ describe("route and invite authorization", () => {
   });
 
   it("requires seller-owned property before sending invites", () => {
-    const buyer = buyers[0];
-    const property = properties[0];
-
     expect(() =>
       assertInviteAllowed({
         seller: { id: "other-seller", roles: ["SELLER"] },
-        buyer,
-        property,
+        buyer: activeBuyer,
+        property: pendingProperty,
         sentInviteCountToday: 0,
       }),
     ).toThrow("Seller must own property before sending invites.");
   });
 
   it("allows owned-property invites and blocks hidden buyers", () => {
-    const property = properties[0];
-
     expect(() =>
       assertInviteAllowed({
         seller: { id: "seller-fixture", roles: ["SELLER"] },
-        buyer: buyers[0],
-        property,
+        buyer: activeBuyer,
+        property: pendingProperty,
         sentInviteCountToday: 0,
       }),
     ).not.toThrow();
@@ -196,48 +63,43 @@ describe("route and invite authorization", () => {
     expect(() =>
       assertInviteAllowed({
         seller: { id: "seller-fixture", roles: ["SELLER"] },
-        buyer: buyers.find((buyer) => buyer.id === "draft-buyer") as Buyer,
-        property,
+        buyer: draftBuyer,
+        property: pendingProperty,
         sentInviteCountToday: 0,
       }),
     ).toThrow("Buyer profile must be active");
   });
 
   it("blocks sellers from inviting their own buyer profile", () => {
-    const property = properties[0];
-    const ownBuyer = { ...buyers[0], userId: "seller-fixture" };
+    const ownBuyer = { ...activeBuyer, userId: "seller-fixture" };
 
     expect(() =>
       assertInviteAllowed({
         seller: { id: "seller-fixture", roles: ["SELLER"] },
         buyer: ownBuyer,
-        property,
+        property: pendingProperty,
         sentInviteCountToday: 0,
       }),
     ).toThrow("Sellers cannot invite their own buyer profile.");
   });
 
-  it("counts seller invite volume by seller and day", () => {
-    const today = new Date("2026-05-20T12:00:00.000Z");
-
-    expect(countSellerInvitesToday("seller-fixture", invites, today)).toBe(1);
-    expect(countSellerInvitesToday("other-seller", invites, today)).toBe(0);
+  it("enforces the unverified-property invite limit", () => {
     expect(() =>
       assertInviteAllowed({
         seller: { id: "seller-fixture", roles: ["SELLER"] },
-        buyer: buyers[0],
-        property: properties[0],
+        buyer: activeBuyer,
+        property: pendingProperty,
         sentInviteCountToday: UNVERIFIED_SELLER_INVITE_LIMIT_PER_DAY,
       }),
     ).toThrow("Seller invite rate limit reached.");
   });
 
   it("uses lower invite limits until property ownership is verified", () => {
-    expect(sellerInviteLimitForProperty(properties[0])).toBe(UNVERIFIED_SELLER_INVITE_LIMIT_PER_DAY);
+    expect(sellerInviteLimitForProperty(pendingProperty)).toBe(UNVERIFIED_SELLER_INVITE_LIMIT_PER_DAY);
     expect(
       sellerInviteLimitForProperty({
-        ...properties[0],
-        status: "Ownership verified",
+        ...pendingProperty,
+        ownershipVerificationStatus: "APPROVED",
       }),
     ).toBe(VERIFIED_SELLER_INVITE_LIMIT_PER_DAY);
   });

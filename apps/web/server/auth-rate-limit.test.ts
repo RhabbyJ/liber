@@ -70,6 +70,6 @@ describe("shared auth rate limiting", () => {
         email: "buyer@example.test",
         ip: "203.0.113.8",
       }),
-    ).rejects.toThrow("Shared auth rate limiting is unavailable");
+    ).rejects.toThrow("Shared rate limiting is unavailable");
   });
 });

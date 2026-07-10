@@ -62,8 +62,9 @@ describe("buyer profile publication atomicity", () => {
       contracts.indexOf("export async function hideBuyerProfile"),
       contracts.indexOf("export async function listAuditLog"),
     );
-    expect(publication).toContain("await lockBuyerOwnership(tx, user.id)");
+    expect(publication).toContain("await lockActiveApplicationUser(tx, user.id)");
     expect(moderation).toContain("await lockBuyerOwnership(tx, profile.userId)");
+    expect(contracts).toContain('if (user.status !== "ACTIVE")');
   });
 
   it("proposes a real uniqueness constraint and deferred activation guards", () => {

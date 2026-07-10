@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { enrichPropertyByAddress } from "../../../../server/attom";
 import { hasRole } from "../../../../server/authz";
-import { checkRateLimit, clientIpFromRequest } from "../../../../server/rate-limit";
+import { clientIpFromRequest } from "../../../../server/rate-limit";
+import { consumeSharedRateLimit } from "../../../../server/shared-rate-limit";
 import { getSessionUser } from "../../../../server/session";
 
 const enrichQuerySchema = z.object({
@@ -20,8 +21,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Seller role required.", property: null }, { status: 403 });
   }
 
-  const ipLimit = checkRateLimit(`property-enrich:ip:${clientIpFromRequest(request)}`, 30, 60_000);
-  const userLimit = checkRateLimit(`property-enrich:user:${user.id}`, 20, 60_000);
+  const ipLimit = await consumeSharedRateLimit({
+    identifier: clientIpFromRequest(request),
+    limit: 30,
+    namespace: "property-enrich:ip",
+    windowSeconds: 60,
+  });
+  const userLimit = ipLimit.allowed
+    ? await consumeSharedRateLimit({
+        identifier: user.id,
+        limit: 20,
+        namespace: "property-enrich:user",
+        windowSeconds: 60,
+      })
+    : ipLimit;
   if (!ipLimit.allowed || !userLimit.allowed) {
     const retryAfter = Math.max(ipLimit.retryAfterSeconds, userLimit.retryAfterSeconds);
     return NextResponse.json(

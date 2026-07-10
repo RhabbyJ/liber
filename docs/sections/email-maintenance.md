@@ -27,6 +27,10 @@ Owns transactional email queueing, invite email delivery, expiry jobs, and maint
   idempotency key. Expired leases are reclaimable. Unmatched legacy and
   pre-lease SENDING rows are quarantined. Provider-accepted jobs still require
   reconciliation; accepted messages cannot be recalled.
+- The lease-aware runtime requires the EmailOutbox columns, constraints, and
+  private claim function in the unnumbered proposal reserved for `00017`. Do
+  not deploy it to an older database or roll back to the legacy reader-then-
+  `SENDING` worker.
 
 ## Agent notes
 

@@ -16,6 +16,7 @@ Owns Next route handlers and external provider adapters for auth callbacks, geoc
 - `apps/web/app/auth/callback/route.ts`
 - `apps/web/server/attom.ts`
 - `apps/web/server/rate-limit.ts`
+- `apps/web/server/shared-rate-limit.ts`
 
 ## Invariants
 
@@ -36,6 +37,10 @@ Owns Next route handlers and external provider adapters for auth callbacks, geoc
   `Buyer` domain model or internal exception details.
 - State-changing routes need appropriate origin/session protection.
 - Property enrichment is for private seller property prep. It requires an authenticated seller/admin role and rate limits, but not approved seller-directory access.
+- Auth, search/profile, invite, upload, geocode, and enrichment budgets use the
+  shared database limiter. Routes with both IP and user/email buckets consume
+  the IP bucket first and short-circuit on denial. Production fails closed;
+  only local development may use the bounded in-process fallback.
 
 ## Agent notes
 
