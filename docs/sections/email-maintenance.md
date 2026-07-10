@@ -16,6 +16,7 @@ Owns transactional email queueing, invite email delivery, expiry jobs, and maint
 
 - Invite creation should not depend on inline email success.
 - Email jobs should retry safely and not duplicate invites.
+- Outbox workers must claim jobs atomically with a lease so concurrent workers cannot send the same message.
 - Maintenance endpoints require `CRON_SECRET` bearer auth.
 - Local development may use mock/non-sending email.
 

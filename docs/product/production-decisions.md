@@ -1,28 +1,115 @@
 # Production Decisions
 
-This file tracks decisions and operational work required before Liber moves from CEO demo / private preview to true public production.
+Last reviewed: 2026-07-09
 
-## Current Environment
+This is the living launch-gate matrix for moving Liber from a controlled CEO
+demo/private preview to a public Los Angeles beta. It does not override
+`V1_DEFINITION.md`, `CEO_ROADMAP.md`, or the backend architecture.
 
-The current shared Vercel + Supabase deployment is treated as CEO demo / private preview while access remains intentionally limited.
+## Current release state
 
-## Open Production Items
+- Keep Liber in controlled pilot availability. Do not advertise LA-wide
+  coverage yet.
+- Geography PR1 and identity PR2 are draft, stacked changes. Neither migration
+  set has been deployed to the shared Supabase project.
+- The intended LA beta boundary is Los Angeles County. Activation waits for the
+  reviewed Geography PR2 dataset and every security/scale gate below.
 
-- Configure `CRON_SECRET` before enabling scheduled maintenance in production.
-- Configure Resend (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`) before relying on invite email delivery.
+## Required release sequence
+
+1. Prove the canonical geography cutover on both a supported fresh baseline and
+   representative existing Liber data.
+2. Prove immutable Auth UUID ownership and collision recovery in staging.
+3. Land seller/public DTO privacy and property-evidence version integrity.
+4. Land suspension/session/Storage enforcement and real CI/lint gates.
+5. Import and review Los Angeles County coverage as inactive, versioned data.
+6. Land atomic buyer saves, SQL seller search, pagination, shared rate limiting,
+   concurrency-safe outbox leasing, and invite-expiry enforcement.
+7. Run the full migration/security suite on staging with production-like data.
+8. Activate the reviewed LA beta only after a human go/no-go review.
+
+## LA launch blockers by owner
+
+### Geography
+
+- Resolve the historical `00005` fresh-install blocker without rewriting any
+  migration already applied to a shared database.
+- Deliver versioned Los Angeles County ZIP/ZCTA, city, and community geometry
+  with provenance, license, checksums, reviewed relationships, and atomic
+  market-bound derivation.
+- Prove same-named places across markets and rapid A-to-B map navigation without
+  stale suggestions or polygons.
+
+### Auth, suspension, and Storage
+
+- Run the direct two-connection identity harness and real staging Auth flows for
+  deletion, email reuse, ownership preservation, and ADMIN non-inheritance.
+- Revoke/ban sessions and seller access when suspending a user.
+- Make Storage policies require an active application user and test suspended
+  users directly against Storage.
+- Keep customer hard deletion disabled until retention, Storage, outbox, and
+  audited purge behavior is implemented.
+
+### Public and seller data contracts
+
+- Build public-safe and seller-safe data with narrow Prisma `select`
+  projections. Do not sanitize a broad internal buyer object after loading it.
+- Exclude Auth UUIDs, internal criteria/service-area IDs, raw coordinates,
+  private paths, and inactive badges from serialized responses.
+- Require an active user and explicit preview-safe eligibility; calculate
+  approximate public pins on the server and snapshot serialized responses.
+
+### Buyer ownership and atomicity
+
+- Save profile, canonical service-area selection, activation, and criteria in
+  one transaction.
+- Enforce exactly one criteria row per buyer unless the product definition is
+  explicitly changed to support alternatives.
+- Test rollback, concurrent saves, exact UUID ownership, and geography
+  deactivation.
+
+### Seller search, properties, and invites
+
+- Move filtering/sorting into SQL with stable cursor pagination; remove the
+  silent 100-buyer cap and post-cap JavaScript filtering.
+- Bind ownership approval to a property identity/version. Ownership-relevant
+  edits must increment the version and return the property to `PENDING` while
+  preserving old evidence for audit only.
+- Reject expired invites at read and use time, not only in maintenance.
+
+### Release infrastructure
+
+- Install a real ESLint configuration and execute it in CI.
+- Add exact fresh/upgrade migrations, typecheck, tests, production build,
+  RLS/Storage security tests, readiness validation, and realistic seller-search
+  query plans to CI/release gates.
+- Replace in-memory limits for auth, search, profile views, uploads, invites,
+  geocoding, and enrichment with a shared limiter.
+- Make email-outbox claiming lease-based and safe with multiple workers.
+
+### UI/UX
+
+- Run a fresh desktop/mobile audit after DTOs, pagination, and geography APIs
+  stabilize. Do not execute the dated 2026-07-03 research plan as a current bug
+  list without re-verifying each item.
+- Cover loading, empty, unavailable, recovery, keyboard, hydration-disabled,
+  and mobile navigation states. UI work must not redefine authorization or data
+  contracts.
+
+## Environment and advisor decisions
+
+- Configure `CRON_SECRET` before scheduled maintenance is enabled.
+- Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` before relying on invite
+  email delivery.
 - Enable Supabase Auth leaked-password protection before public launch.
-- Decide whether to move PostGIS out of the public schema or otherwise accept and document Supabase advisor findings for `spatial_ref_sys` and PostGIS SECURITY DEFINER functions.
-- Keep app tables protected by server-mediated access. Current RLS-with-no-policy advisor findings are deny-by-default for direct Data API access; add explicit policies only if browser/Data API access is intentionally introduced.
-- Re-run Supabase security and performance advisors before launch and after every schema migration.
-- Re-run `EXPLAIN` on seller buyer-search queries against realistic data volume before public launch.
-- Keep current buyer/search/property indexes until realistic traffic proves they are unnecessary; early unused-index advisor findings in a demo database are not enough to drop them.
-- Remove or replace clearly marked demo buyer data before true public launch.
+- Decide whether to move PostGIS out of `public` or accept and document the
+  remaining `spatial_ref_sys`/PostGIS advisor findings.
+- Keep app tables deny-by-default through RLS until direct browser/Data API
+  access is intentionally designed with explicit policies.
+- Re-run Supabase security/performance advisors and realistic `EXPLAIN` plans
+  after the final schema and seller-search query land.
+- Remove clearly marked demo buyer data before true public launch.
 
-## Recent Advisor Snapshot
-
-Captured during the ownership-evidence/property-subtype pass:
-
-- Security advisor: RLS enabled with no policies on core app tables, which currently keeps direct Data API access denied by default.
-- Security advisor: `public.spatial_ref_sys` has RLS disabled and PostGIS is installed in `public`.
-- Security advisor: Supabase Auth leaked-password protection is disabled.
-- Performance advisor: several app indexes are unused in the low-traffic demo database, including the new `VerificationDocument_propertyId_ownershipEvidenceKind_idx`; retain until representative production traffic or query plans show they are unnecessary.
+Low-traffic unused-index findings are not sufficient reason to drop ownership,
+search, or foreign-key indexes. Decide indexes from final query plans and
+representative volume.

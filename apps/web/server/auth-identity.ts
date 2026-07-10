@@ -44,15 +44,6 @@ export async function resolveAuthIdentity(authUser: {
   return classifyAuthIdentity(authUser, appUserById, appUserByEmail);
 }
 
-export async function appIdentityExistsForEmail(email: string) {
-  return Boolean(
-    await prisma.user.findFirst({
-      where: { email: { equals: normalizeIdentityEmail(email), mode: "insensitive" } },
-      select: { id: true },
-    }),
-  );
-}
-
 export async function persistUserRolesForAuthIdentity(args: {
   authUser: { email?: string | null; id: string };
   mode: "initialize" | "merge";

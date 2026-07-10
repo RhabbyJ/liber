@@ -24,6 +24,8 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - Criteria should describe property fit, not protected-class attributes.
 - Amenity needs use canonical feature tokens (Pool, Parking, ADU, Yard, Garage) so seller amenity filters can match; condition uses Move-in ready / Mild fixer / Fixer.
 - Buyer setup is one form on `/buyer/profile`: buyer info, criteria, size, details, and location. Criteria save in the same submit as the profile.
+- Profile, canonical service-area selection, visibility activation, and criteria must commit atomically; a partial save must not publish stale or mismatched buyer demand.
+- The database must enforce exactly one criteria row per buyer unless an approved product change introduces named alternative criteria sets.
 - Buyer info uses allowlisted purchase type values (`Cash`, `Conventional financing`, `Other`) and allowlisted seeking property type values (`House`, `Condo`, `Townhouse`, `Manufactured`, `Land`). The persisted fields are still `buyerType` and `buyingPurpose` for schema compatibility.
 - Buyer desired location is exactly one primary service-area UUID in an active market. Active profiles require a buyer-confirmed `SELECTED` row.
 - Profile saves resolve market + slug on the server and derive location text, city, neighborhood, postal code, state, and approximate coordinates from the canonical service-area row. Client copies of those fields are not authoritative.

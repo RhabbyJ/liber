@@ -10,6 +10,8 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - `apps/web/server/service-area-db.e2e.test.ts`
 - `scripts/test-geography-migration-fresh.mjs`
 - `scripts/test-geography-migration-upgrade.mjs`
+- `scripts/test-identity-migration.mjs`
+- `scripts/database-target.mjs`
 - `scripts/route-smoke.mjs`
 - `scripts/security-smoke.mjs`
 - `scripts/forbidden-auth-bypass-smoke.mjs`
@@ -37,6 +39,9 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
   assertion.
 - After auth, nav, or protected-route changes, run a focused browser auth pass covering signed-out CTAs, buyer signup/login/logout, buyer-to-seller intent, seller signup/access gating, both-role signup when supported, and mobile nav/logout.
 - Browser auth QA failures or inconclusive results should include a screenshot or compact state dump with URL, relevant DOM attributes, visible text excerpt, and console errors.
+- Public and seller DTO tests must snapshot serialized responses and recursively reject forbidden identity, coordinate, criteria-ID, service-area-ID, badge, document, and Storage fields.
+- Release CI must execute real ESLint, exact fresh and representative upgrade migrations, typecheck, tests, production build, RLS/Storage security tests, readiness validation, and realistic seller-search query plans.
+- Add concurrency tests for buyer save cardinality, distributed rate limits, outbox claim leases, and invite/property state transitions.
 
 ## Agent notes
 

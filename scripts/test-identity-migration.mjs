@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import pg from "pg";
+import { sameDatabaseTarget } from "./database-target.mjs";
 
 const testUrl = process.env.IDENTITY_MIGRATION_TEST_DATABASE_URL;
 await assertDisposableDatabase(testUrl);
@@ -407,7 +408,7 @@ async function assertDisposableDatabase(url) {
     throw new Error("Set the identity database URL, write opt-in, and a 16+ character disposable sentinel.");
   }
   for (const sharedUrl of [process.env.DIRECT_URL, process.env.DATABASE_URL]) {
-    if (sharedUrl && normalizeDatabaseUrl(sharedUrl) === normalizeDatabaseUrl(url)) {
+    if (sharedUrl && sameDatabaseTarget(sharedUrl, url)) {
       throw new Error("Refusing to run the destructive identity migration test against the configured shared database.");
     }
   }
@@ -415,6 +416,10 @@ async function assertDisposableDatabase(url) {
   const guard = new pg.Client({ connectionString: url });
   await guard.connect();
   try {
+    const table = await guard.query(
+      "SELECT to_regclass('public.identity_migration_test_sentinel') IS NOT NULL AS present",
+    );
+    if (!table.rows[0]?.present) throw new Error("Disposable identity sentinel table is missing.");
     const result = await guard.query(
       `SELECT EXISTS (
          SELECT 1 FROM public.identity_migration_test_sentinel WHERE token = $1
@@ -425,11 +430,4 @@ async function assertDisposableDatabase(url) {
   } finally {
     await guard.end();
   }
-}
-
-function normalizeDatabaseUrl(value) {
-  const url = new URL(value);
-  url.password = "";
-  url.search = "";
-  return url.toString();
 }

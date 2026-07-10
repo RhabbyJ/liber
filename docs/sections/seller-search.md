@@ -33,6 +33,8 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - Search should explain why a buyer matches where possible.
 - Search/profile-view usage should remain rate-limited/auditable.
 - A seller who also owns an active buyer profile may see that buyer demand in search; self-invite actions stay blocked elsewhere.
+- Production search filtering, sorting, and pagination belong in SQL. Do not cap a broad query and apply seller filters afterward in JavaScript.
+- Use stable cursor pagination with no silent result truncation. Validate final query plans and indexes against realistic LA-scale data.
 
 ## Agent notes
 

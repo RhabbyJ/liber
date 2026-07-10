@@ -16,7 +16,7 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 
 - `product/V1_DEFINITION.md` — exact v1 product boundary. Read before changing customer workflows.
 - `product/CEO_ROADMAP.md` — CEO/product roadmap. Read before planning features.
-- `product/production-decisions.md` — launch readiness decisions, environment blockers, and advisor follow-ups.
+- `product/production-decisions.md` — living LA launch-gate matrix, release order, environment blockers, and advisor follow-ups.
 - `engineering/BACKEND_ARCHITECTURE.md` — backend, auth, Supabase, Prisma, storage, email, and security architecture.
 
 - `engineering/GEOGRAPHY_CANONICAL_CUTOVER_RUNBOOK.md` — migration history, fresh/upgrade proof, reconciliation, and rollback for geography migrations 13-15.
@@ -28,6 +28,7 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 
 - `sections/auth-access.md`
 - `sections/buyer-profile-criteria.md`
+- `sections/public-preview-privacy.md`
 - `sections/seller-search.md`
 - `sections/seller-properties-invites.md`
 - `sections/verification-documents-badges.md`

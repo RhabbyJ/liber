@@ -138,3 +138,14 @@ These remain later security/release gates; they were not caused by `00016`.
   current Supabase.
 - Full two-connection harness, staging Auth API flows, session revocation, and
   direct Storage denial remain required before shared deployment.
+
+## Cleanup review addendum
+
+The post-proof lean-code review did not change migration `00016` or the Prisma
+schema hashes recorded above. It removed an unused duplicate password-login
+server action and the unauthenticated application-email preflight. The guarded
+identity harness now rejects direct and pooler URLs for the same Supabase
+project, its three database-target tests pass, and the runbook explicitly
+requires operators to create the disposable sentinel before an empty-branch
+run. The direct two-connection staging run remains open; this addendum does not
+represent it as passed.

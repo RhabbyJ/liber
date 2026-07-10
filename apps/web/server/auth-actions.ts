@@ -1,13 +1,10 @@
 "use server";
 
-import { prisma } from "@liber/db";
 import { redirect } from "next/navigation";
 import { safeInternalPath } from "../lib/redirect";
 import { ensureSellerAccessRequested } from "./access";
 import {
-  appIdentityExistsForEmail,
   AuthIdentityLinkError,
-  normalizeIdentityEmail,
   persistUserRolesForAuthIdentity,
 } from "./auth-identity";
 import { pathForSignedInAuthIntent } from "./auth-intent";
@@ -20,10 +17,6 @@ function requiredText(formData: FormData, key: string) {
     throw new Error(`${key} is required.`);
   }
   return value.trim();
-}
-
-function safeNext(formData: FormData) {
-  return safeInternalPath(formData.get("next"));
 }
 
 function safeNextValue(formData: FormData) {
@@ -48,58 +41,6 @@ function nextForRoles(roles: AppRole[]) {
   return "/onboarding/role";
 }
 
-export async function loginWithPassword(formData: FormData) {
-  const next = safeNext(formData);
-  const emailValue = formData.get("email");
-  const passwordValue = formData.get("password");
-  const email = typeof emailValue === "string" ? emailValue.trim() : "";
-  const password = typeof passwordValue === "string" ? passwordValue.trim() : "";
-
-  if (!email || !password) {
-    redirect(`/login?status=missing-credentials&email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
-  }
-
-  const supabase = await createSupabaseServerClient();
-
-  if (!supabase) {
-    throw new Error("Supabase Auth is not configured.");
-  }
-
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (error) {
-    if (isEmailNotConfirmedError(error.message)) {
-      redirect(`/signup/verify?email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
-    }
-
-    redirect(`/login?status=invalid-login&email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
-  }
-
-  const { data: authData, error: userError } = await supabase.auth.getUser();
-  if (userError || !authData.user) {
-    redirect(`/login?status=invalid-login&email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
-  }
-
-  const appUser = await prisma.user.findUnique({
-    where: { id: authData.user.id },
-    select: { email: true, roles: true, status: true },
-  });
-
-  if (
-    !appUser ||
-    appUser.status !== "ACTIVE" ||
-    normalizeIdentityEmail(appUser.email) !== normalizeIdentityEmail(authData.user.email)
-  ) {
-    await supabase.auth.signOut();
-    redirect("/login?status=account-unavailable");
-  }
-
-  redirect(pathForSignedInAuthIntent({ id: authData.user.id, roles: appUser.roles }, { next }));
-}
-
 export async function signupWithPassword(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const roles = selectedRoles(formData);
@@ -119,10 +60,6 @@ export async function signupWithPassword(formData: FormData) {
 
   if (password.length < 12) {
     redirect(signupRedirectPath(formData, "weak-password", email));
-  }
-
-  if (await appIdentityExistsForEmail(email)) {
-    redirect(existingAccountLoginPath(formData, email, next ?? nextForRoles(roles)));
   }
 
   const { data, error } = await supabase.auth.signUp({
@@ -280,10 +217,6 @@ function identityRecoveryLoginPath(email: string) {
 
 function identityFailureLoginPath(error: AuthIdentityLinkError, email: string) {
   return error.code === "inactive" ? "/login?status=account-unavailable" : identityRecoveryLoginPath(email);
-}
-
-function isEmailNotConfirmedError(message: string) {
-  return message.toLowerCase().includes("email not confirmed");
 }
 
 async function authCallbackUrl(next: string) {

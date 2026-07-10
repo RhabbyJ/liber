@@ -129,6 +129,22 @@ an email-triggered transfer.
 
 Use only a sentinel-marked disposable database:
 
+```sql
+CREATE TABLE public.identity_migration_test_sentinel (
+  token text PRIMARY KEY,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+REVOKE ALL ON public.identity_migration_test_sentinel
+  FROM PUBLIC, anon, authenticated, service_role;
+INSERT INTO public.identity_migration_test_sentinel(token)
+VALUES ('<same 16+ character token used below>');
+```
+
+Create this table manually on the newly created disposable branch before
+running the harness. The harness never creates its own proof of disposability.
+It rejects both exact shared URLs and direct/pooler URLs that identify the same
+Supabase project.
+
 ```text
 IDENTITY_MIGRATION_TEST_DATABASE_URL=<disposable direct URL>
 IDENTITY_MIGRATION_TEST_ALLOW_WRITES=true
