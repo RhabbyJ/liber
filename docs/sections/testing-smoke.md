@@ -49,6 +49,7 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
   serialized response.
 - Release CI must execute real ESLint, exact fresh and representative upgrade migrations, typecheck, tests, production build, RLS/Storage security tests, readiness validation, and realistic seller-search query plans.
 - Add concurrency tests for buyer save cardinality, distributed rate limits, outbox claim leases, and invite/property state transitions.
+- Before promoting the seller-property integrity proposal, run `npm run db:test-seller-property-integrity` against a sentinel-marked disposable current-schema branch. The gate must prove ownership invalidation and owner immutability, wrong-version/wrong-owner evidence rejection, typed and generic legacy quarantine, one-winner document review, database-clock invite expiry, exact property ownership, self-invite denial, and concurrent duplicate serialization. Merely having the guarded script in the repository is not proof.
 
 ## Agent notes
 

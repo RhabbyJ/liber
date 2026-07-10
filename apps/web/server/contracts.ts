@@ -53,6 +53,7 @@ import {
 } from "./access";
 import { assertInviteAllowed } from "./domain";
 import type { EmailResult } from "./email";
+import { effectiveInviteStatus } from "./invite-integrity";
 import { inviteExpiresAt } from "./maintenance";
 import {
   nextOwnershipVerificationStatus,
@@ -94,6 +95,14 @@ function toNumber(value: unknown) {
 function dateKey(value?: Date | string | null) {
   if (!value) return "";
   return new Date(value).toISOString().slice(0, 10);
+}
+
+function isUniqueConstraintError(error: unknown): error is { code: string } {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+}
+
+function isRecordNotFoundError(error: unknown): error is { code: string } {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2025";
 }
 
 function expiresInDays(value?: Date | null) {
@@ -488,6 +497,17 @@ async function uploadToStorage(bucket: string, path: string, file: File, content
   if (error) throw new Error(error.message);
 }
 
+async function removeUploadedObject(bucket: string, path: string) {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return;
+
+  try {
+    await supabase.storage.from(bucket).remove([path]);
+  } catch {
+    // Cleanup is best-effort; the private path is intentionally not logged.
+  }
+}
+
 async function createVerificationSignedUrl(storagePath: string) {
   const supabase = createSupabaseAdminClient() ?? await createSupabaseServerClient();
   if (!supabase) return null;
@@ -546,6 +566,7 @@ function inviteFromDb(invite: {
   };
   propertyId: string;
   sellerId: string;
+  expiresAt: Date | null;
   sentAt: Date;
   status: string;
   title: string;
@@ -558,7 +579,7 @@ function inviteFromDb(invite: {
     buyer: buyerAliasForDisplay(invite.buyerProfile.displayName, invite.buyerProfile.userId),
     property: invite.property.addressLine1 || `${invite.property.city || "Property"} ${propertySubtypeLabel(invite.property.propertyType).toLowerCase()}`,
     propertyStatus: propertyStatusLabel(invite.property.ownershipVerificationStatus),
-    status: titleFromStatus(invite.status),
+    status: titleFromStatus(effectiveInviteStatus(invite)),
     sentAt: dateKey(invite.sentAt) || "Now",
     sentAtDate: dateKey(invite.sentAt),
     title: invite.title,
@@ -1002,14 +1023,32 @@ export async function respondToInvite(input: unknown) {
   const data = respondToInviteSchema.parse(normalizeInput(input));
   const buyer = await prisma.buyerProfile.findUnique({ where: { userId: user.id }, select: { id: true } });
   if (!buyer) throw new Error("Buyer profile not found.");
-  const result = await prisma.invite.updateMany({
-    where: { id: data.inviteId, buyerProfileId: buyer.id, status: { in: ["SENT", "VIEWED"] } },
-    data: {
-      respondedAt: new Date(),
-      status: data.response,
-    },
+  const changed = await prisma.$transaction(async (tx) => {
+    const responded = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      UPDATE public."Invite"
+      SET
+        status = ${data.response}::public."InviteStatus",
+        "respondedAt" = pg_catalog.clock_timestamp(),
+        "updatedAt" = pg_catalog.clock_timestamp()
+      WHERE id = ${data.inviteId}
+        AND "buyerProfileId" = ${buyer.id}
+        AND status IN ('SENT', 'VIEWED')
+        AND "expiresAt" > pg_catalog.clock_timestamp()
+      RETURNING id
+    `);
+    if (responded.length === 1) return true;
+
+    await tx.$executeRaw(Prisma.sql`
+      UPDATE public."Invite"
+      SET status = 'EXPIRED', "updatedAt" = pg_catalog.clock_timestamp()
+      WHERE id = ${data.inviteId}
+        AND "buyerProfileId" = ${buyer.id}
+        AND status IN ('SENT', 'VIEWED')
+        AND "expiresAt" <= pg_catalog.clock_timestamp()
+    `);
+    return false;
   });
-  if (result.count !== 1) throw new Error("Invite cannot be changed after response or expiration.");
+  if (!changed) throw new Error("Invite cannot be changed after response or expiration.");
   return { ok: true, data };
 }
 
@@ -1101,34 +1140,34 @@ export async function createSellerProperty(input: unknown) {
 export async function updateSellerProperty(input: unknown) {
   const seller = await requireCurrentUser("SELLER");
   const data = updateSellerPropertySchema.parse(normalizeInput(input));
-  const existing = await prisma.sellerProperty.findFirst({
-    where: { id: data.propertyId, ownerUserId: seller.id },
-    select: { id: true },
-  });
-  if (!existing) throw new Error("Property not found.");
-  const property = await prisma.sellerProperty.update({
-    where: { id: data.propertyId },
-    data: {
-      addressLine1: data.addressLine1,
-      addressLine2: data.addressLine2,
-      bathrooms: data.bathrooms,
-      bedrooms: data.bedrooms,
-      city: data.city,
-      condition: data.condition,
-      description: data.description,
-      features: data.features,
-      garageArea: data.garageArea,
-      lat: data.lat,
-      lng: data.lng,
-      lotSize: data.lotSize,
-      price: data.price,
-      propertyType: data.propertyType,
-      squareFeet: data.squareFeet,
-      state: data.state,
-      zip: data.zip,
-    },
-  });
-  return { ok: true, data: propertyFromDb(property) };
+  try {
+    const property = await prisma.sellerProperty.update({
+      where: { id: data.propertyId, ownerUserId: seller.id },
+      data: {
+        addressLine1: data.addressLine1,
+        addressLine2: data.addressLine2,
+        bathrooms: data.bathrooms,
+        bedrooms: data.bedrooms,
+        city: data.city,
+        condition: data.condition,
+        description: data.description,
+        features: data.features,
+        garageArea: data.garageArea,
+        lat: data.lat,
+        lng: data.lng,
+        lotSize: data.lotSize,
+        price: data.price,
+        propertyType: data.propertyType,
+        squareFeet: data.squareFeet,
+        state: data.state,
+        zip: data.zip,
+      },
+    });
+    return { ok: true, data: propertyFromDb(property) };
+  } catch (error) {
+    if (isRecordNotFoundError(error)) throw new Error("Property not found.");
+    throw error;
+  }
 }
 
 export async function uploadPropertyImageFile(propertyId: string, file: File) {
@@ -1145,13 +1184,25 @@ export async function uploadPropertyImageFile(propertyId: string, file: File) {
 
   const storagePath = `${property.id}/${crypto.randomUUID()}/${storageFileNameForMime(contentType)}`;
   await uploadToStorage("property-images", storagePath, file, contentType);
-  await prisma.propertyImage.create({
-    data: {
-      altText: file.name,
-      propertyId: property.id,
-      storagePath,
-    },
-  });
+  try {
+    await prisma.$transaction(async (tx) => {
+      const ownedProperty = await tx.sellerProperty.findUnique({
+        where: { id: property.id, ownerUserId: seller.id },
+        select: { id: true },
+      });
+      if (!ownedProperty) throw new Error("Property not found.");
+      await tx.propertyImage.create({
+        data: {
+          altText: file.name,
+          propertyId: ownedProperty.id,
+          storagePath,
+        },
+      });
+    });
+  } catch (error) {
+    await removeUploadedObject("property-images", storagePath);
+    throw error;
+  }
 
   return { ok: true, data: { storagePath } };
 }
@@ -1176,45 +1227,64 @@ export async function uploadOwnershipDocumentFile(
 
   const property = await prisma.sellerProperty.findFirst({
     where: { id: propertyId, ownerUserId: seller.id },
-    select: { id: true },
+    select: { id: true, ownershipVersion: true },
   });
   if (!property) throw new Error("Property not found.");
 
   const documentId = `doc_${crypto.randomUUID()}`;
   const storagePath = `${seller.id}/${documentId}/${storageFileNameForMime(contentType)}`;
   await uploadToStorage("verification-documents", storagePath, file, contentType);
-  await prisma.$transaction([
-    prisma.sellerProperty.update({
-      where: { id: property.id },
-      data: { ownershipVerificationStatus: "PENDING" },
-    }),
-    prisma.verificationDocument.create({
-      data: {
-        documentType: "OWNERSHIP",
-        fileSha256: sha256,
-        fileSizeBytes: file.size,
-        id: documentId,
-        mimeType: contentType,
-        originalFilename: file.name,
-        ownershipEvidenceKind,
-        propertyId: property.id,
-        reviewStatus: "PENDING",
-        storageBucket: "verification-documents",
-        storagePath,
-        uploadedByUserId: seller.id,
-        userId: seller.id,
-      },
-    }),
-    prisma.adminAuditLog.create({
-      data: {
-        action: "document_upload",
-        actorUserId: seller.id,
-        metadata: { documentType: "OWNERSHIP", ownershipEvidenceKind, propertyId: property.id },
-        targetId: documentId,
-        targetType: "document",
-      },
-    }),
-  ]);
+  try {
+    await prisma.$transaction(async (tx) => {
+      const boundProperty = await tx.sellerProperty.update({
+        where: {
+          id: property.id,
+          ownerUserId: seller.id,
+          ownershipVersion: property.ownershipVersion,
+        },
+        data: { ownershipVerificationStatus: "PENDING" },
+        select: { id: true, ownershipVersion: true },
+      });
+      await tx.verificationDocument.create({
+        data: {
+          documentType: "OWNERSHIP",
+          fileSha256: sha256,
+          fileSizeBytes: file.size,
+          id: documentId,
+          mimeType: contentType,
+          originalFilename: file.name,
+          ownershipEvidenceKind,
+          propertyOwnershipVersion: boundProperty.ownershipVersion,
+          propertyId: boundProperty.id,
+          reviewStatus: "PENDING",
+          storageBucket: "verification-documents",
+          storagePath,
+          uploadedByUserId: seller.id,
+          userId: seller.id,
+        },
+      });
+      await tx.adminAuditLog.create({
+        data: {
+          action: "document_upload",
+          actorUserId: seller.id,
+          metadata: {
+            documentType: "OWNERSHIP",
+            ownershipEvidenceKind,
+            propertyId: boundProperty.id,
+            propertyOwnershipVersion: boundProperty.ownershipVersion,
+          },
+          targetId: documentId,
+          targetType: "document",
+        },
+      });
+    });
+  } catch (error) {
+    await removeUploadedObject("verification-documents", storagePath);
+    if (isRecordNotFoundError(error)) {
+      throw new Error("Property changed while the ownership document was uploading. Review the property and try again.");
+    }
+    throw error;
+  }
 
   return { ok: true, data: { documentId, status: "PENDING" as const } };
 }
@@ -1291,6 +1361,7 @@ export async function sendInvite(input: unknown) {
         buyerProfileId: data.buyerProfileId,
         propertyId: data.propertyId,
         sellerId: seller.id,
+        expiresAt: { gt: now },
         status: { in: ["SENT", "VIEWED"] },
       },
       select: { id: true },
@@ -1310,87 +1381,114 @@ export async function sendInvite(input: unknown) {
     sentInviteCountToday,
   });
 
-  const invite = await prisma.$transaction(async (tx) => {
-    const created = await tx.invite.create({
-      data: {
-        buyerProfileId: data.buyerProfileId,
-        message: data.message,
-        propertyId: data.propertyId,
-        sellerId: seller.id,
-        title: data.title,
-        expiresAt: inviteExpiresAt(),
-      },
-      include: {
-        buyerProfile: {
-          select: {
-            displayName: true,
-            user: { select: { email: true } },
-            userId: true,
+  const invite = await (async () => {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        await tx.invite.updateMany({
+          where: {
+            buyerProfileId: data.buyerProfileId,
+            expiresAt: { lte: now },
+            propertyId: data.propertyId,
+            sellerId: seller.id,
+            status: { in: ["SENT", "VIEWED"] },
           },
-        },
-        property: { select: { addressLine1: true, city: true, ownershipVerificationStatus: true, propertyType: true, state: true } },
-      },
-    });
-    await tx.notification.create({
-      data: {
-        body: "A seller sent a property invite.",
-        metadata: {
-          inviteId: created.id,
-          propertyId: created.propertyId,
-        },
-        title: data.title,
-        type: "invite_received",
-        userId: created.buyerProfile.userId,
-      },
-    });
-    await tx.notification.create({
-      data: {
-        body: "Your manual invite was sent to the buyer.",
-        metadata: {
-          buyerProfileId: created.buyerProfileId,
-          inviteId: created.id,
-          propertyId: created.propertyId,
-        },
-        title: data.title,
-        type: "invite_sent",
-        userId: seller.id,
-      },
-    });
-    const propertyTitle =
-      created.property.addressLine1 ||
-      [created.property.city, created.property.state].filter(Boolean).join(", ") ||
-      `${propertySubtypeLabel(created.property.propertyType).toLowerCase()} property`;
-    const emailPayload = {
-      buyerName: buyerAliasForDisplay(created.buyerProfile.displayName, created.buyerProfile.userId),
-      message: data.message,
-      propertyTitle,
-      title: data.title,
-      to: created.buyerProfile.user.email,
-    };
-    await tx.emailOutbox.create({
-      data: {
-        payload: emailPayload,
-        status: "PENDING",
-        subject: data.title,
-        templateName: "invite",
-        to: created.buyerProfile.user.email,
-        type: "INVITE",
-      },
-    });
-    await tx.adminAuditLog.create({
-      data: {
-        action: "invite_sent",
-        actorUserId: seller.id,
-        metadata: {
-          buyerProfileId: created.buyerProfileId,
-          propertyId: created.propertyId,
-        },
-        targetId: created.id,
-        targetType: "invite",
-      },
-    });
-    return created;
-  });
+          data: { status: "EXPIRED" },
+        });
+        const created = await tx.invite.create({
+          data: {
+            buyerProfileId: data.buyerProfileId,
+            expiresAt: inviteExpiresAt(now),
+            message: data.message,
+            propertyId: data.propertyId,
+            sellerId: seller.id,
+            title: data.title,
+          },
+          include: {
+            buyerProfile: {
+              select: {
+                displayName: true,
+                user: { select: { email: true } },
+                userId: true,
+              },
+            },
+            property: {
+              select: {
+                addressLine1: true,
+                city: true,
+                ownershipVerificationStatus: true,
+                propertyType: true,
+                state: true,
+              },
+            },
+          },
+        });
+        await tx.notification.create({
+          data: {
+            body: "A seller sent a property invite.",
+            metadata: {
+              inviteId: created.id,
+              propertyId: created.propertyId,
+            },
+            title: data.title,
+            type: "invite_received",
+            userId: created.buyerProfile.userId,
+          },
+        });
+        await tx.notification.create({
+          data: {
+            body: "Your manual invite was sent to the buyer.",
+            metadata: {
+              buyerProfileId: created.buyerProfileId,
+              inviteId: created.id,
+              propertyId: created.propertyId,
+            },
+            title: data.title,
+            type: "invite_sent",
+            userId: seller.id,
+          },
+        });
+        const propertyTitle =
+          created.property.addressLine1 ||
+          [created.property.city, created.property.state].filter(Boolean).join(", ") ||
+          `${propertySubtypeLabel(created.property.propertyType).toLowerCase()} property`;
+        const emailPayload = {
+          buyerName: buyerAliasForDisplay(created.buyerProfile.displayName, created.buyerProfile.userId),
+          message: data.message,
+          propertyTitle,
+          title: data.title,
+          to: created.buyerProfile.user.email,
+        };
+        await tx.emailOutbox.create({
+          data: {
+            payload: emailPayload,
+            status: "PENDING",
+            subject: data.title,
+            templateName: "invite",
+            to: created.buyerProfile.user.email,
+            type: "INVITE",
+          },
+        });
+        await tx.adminAuditLog.create({
+          data: {
+            action: "invite_sent",
+            actorUserId: seller.id,
+            metadata: {
+              buyerProfileId: created.buyerProfileId,
+              propertyId: created.propertyId,
+            },
+            targetId: created.id,
+            targetType: "invite",
+          },
+        });
+        return created;
+      });
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        throw new Error("An active invite already exists for this buyer and property.");
+      }
+      throw error;
+    }
+  })();
   const email: EmailResult = { provider: "outbox", queued: true };
 
   return { ok: true, data: { ...inviteFromDb(invite), email } };
@@ -1544,7 +1642,7 @@ export async function listPendingDocuments() {
     where: { reviewStatus: "PENDING" },
     include: {
       buyerProfile: { select: { displayName: true, userId: true } },
-      property: { select: { addressLine1: true, city: true, propertyType: true } },
+      property: { select: { addressLine1: true, city: true, ownershipVersion: true, propertyType: true } },
       user: { select: { email: true, name: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -1558,7 +1656,13 @@ export async function listPendingDocuments() {
   return {
     ok: true,
     data: documentsWithUrls.map(({ document, signedUrl }) => ({
+      documentType: document.documentType,
       id: document.id,
+      ownershipEvidenceKind: document.ownershipEvidenceKind,
+      ownershipEvidenceStale:
+        document.documentType === "OWNERSHIP" &&
+        document.propertyOwnershipVersion !== null &&
+        document.propertyOwnershipVersion !== document.property?.ownershipVersion,
       owner: document.user.name || document.user.email,
       signedUrl,
       subject:
@@ -1585,9 +1689,45 @@ export async function reviewDocument(input: unknown) {
       throw new Error("Document has already been reviewed.");
     }
 
-    const reviewedDocument = await tx.verificationDocument.update({
-      where: { id: data.documentId },
+    let property:
+      | { id: string; ownerUserId: string; ownershipVersion: number }
+      | null = null;
+    if (document.documentType === "OWNERSHIP" && document.propertyId) {
+      property = await tx.sellerProperty.findUnique({
+        where: { id: document.propertyId },
+        select: { id: true, ownerUserId: true, ownershipVersion: true },
+      });
+      if (!property || property.ownerUserId !== document.userId) {
+        throw new Error("Ownership evidence owner does not match the exact property owner.");
+      }
+      if (!document.ownershipEvidenceKind && !data.ownershipEvidenceKind) {
+        throw new Error("Legacy ownership evidence must be classified before re-review.");
+      }
+      if (
+        document.ownershipEvidenceKind &&
+        data.ownershipEvidenceKind &&
+        document.ownershipEvidenceKind !== data.ownershipEvidenceKind
+      ) {
+        throw new Error("Ownership evidence type cannot be changed after classification.");
+      }
+      if (
+        data.decision === "APPROVED" &&
+        document.propertyOwnershipVersion !== null &&
+        document.propertyOwnershipVersion !== property.ownershipVersion
+      ) {
+        throw new Error("Ownership evidence belongs to a previous property version.");
+      }
+    }
+
+    const review = await tx.verificationDocument.updateMany({
+      where: { id: data.documentId, reviewStatus: "PENDING" },
       data: {
+        ...(property && document.propertyOwnershipVersion === null
+          ? { propertyOwnershipVersion: property.ownershipVersion }
+          : {}),
+        ...(document.documentType === "OWNERSHIP" && !document.ownershipEvidenceKind
+          ? { ownershipEvidenceKind: data.ownershipEvidenceKind }
+          : {}),
         rejectionReason: data.decision === "REJECTED" ? data.rejectionReason : null,
         reviewedAt: new Date(),
         reviewedByUserId: admin.id,
@@ -1595,19 +1735,31 @@ export async function reviewDocument(input: unknown) {
         reviewStatus: data.decision,
       },
     });
+    if (review.count !== 1) throw new Error("Document has already been reviewed.");
+    const reviewedDocument = await tx.verificationDocument.findUniqueOrThrow({
+      where: { id: data.documentId },
+    });
 
-    if (reviewedDocument.documentType === "OWNERSHIP" && reviewedDocument.propertyId) {
+    if (reviewedDocument.documentType === "OWNERSHIP" && reviewedDocument.propertyId && property) {
       const ownershipDocuments = await tx.verificationDocument.findMany({
         where: {
           documentType: "OWNERSHIP",
           propertyId: reviewedDocument.propertyId,
+          propertyOwnershipVersion: property.ownershipVersion,
+          userId: property.ownerUserId,
         },
         select: {
           ownershipEvidenceKind: true,
+          propertyOwnershipVersion: true,
           reviewStatus: true,
+          userId: true,
         },
       });
-      const nextOwnershipStatus = nextOwnershipVerificationStatus(ownershipDocuments, data.decision);
+      const nextOwnershipStatus = nextOwnershipVerificationStatus(
+        ownershipDocuments,
+        property.ownershipVersion,
+        property.ownerUserId,
+      );
 
       await tx.sellerProperty.update({
         where: { id: reviewedDocument.propertyId },

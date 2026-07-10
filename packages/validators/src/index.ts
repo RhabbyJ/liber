@@ -170,6 +170,7 @@ export const searchBuyersSchema = z.object({
 export const reviewDocumentSchema = z.object({
   documentId: z.string().min(1),
   decision: z.enum(["APPROVED", "REJECTED"]),
+  ownershipEvidenceKind: z.enum(["GOVERNMENT_ID", "PROPERTY_ADDRESS_PROOF"]).optional(),
   rejectionReason: z.string().trim().max(500).optional(),
 });
 

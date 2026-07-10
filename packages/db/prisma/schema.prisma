@@ -141,7 +141,6 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
 }
 
 model SellerAccess {
@@ -387,6 +386,7 @@ model SellerProperty {
   features                    String[]                   @default([])
   description                 String?
   price                       Decimal?                   @db.Decimal(12, 2)
+  ownershipVersion            Int                        @default(1)
   ownershipVerificationStatus PropertyVerificationStatus @default(NOT_SUBMITTED)
   flaggedForReviewAt          DateTime?
 
@@ -425,21 +425,22 @@ model VerificationDocument {
   propertyId       String?
   property         SellerProperty? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  documentType          DocumentType
-  fileSha256            String?
-  fileSizeBytes         Int?
-  mimeType              String?
-  storageBucket         String                 @default("verification-documents")
-  storagePath           String
-  originalFilename      String?
-  uploadedAt            DateTime               @default(now())
-  reviewStatus          DocumentStatus         @default(PENDING)
-  reviewedByUserId      String?                @db.Uuid
-  reviewedBy            User?                  @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
-  reviewedAt            DateTime?
-  reviewNotes           String?
-  rejectionReason       String?
-  ownershipEvidenceKind OwnershipEvidenceKind?
+  documentType             DocumentType
+  fileSha256               String?
+  fileSizeBytes            Int?
+  mimeType                 String?
+  storageBucket            String                 @default("verification-documents")
+  storagePath              String
+  originalFilename         String?
+  uploadedAt               DateTime               @default(now())
+  reviewStatus             DocumentStatus         @default(PENDING)
+  reviewedByUserId         String?                @db.Uuid
+  reviewedBy               User?                  @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  reviewedAt               DateTime?
+  reviewNotes              String?
+  rejectionReason          String?
+  ownershipEvidenceKind    OwnershipEvidenceKind?
+  propertyOwnershipVersion Int?
 
   badgeEvidence BuyerBadge[] @relation("BadgeEvidence")
 
@@ -451,7 +452,7 @@ model VerificationDocument {
   @@index([uploadedByUserId])
   @@index([buyerProfileId])
   @@index([propertyId])
-  @@index([propertyId, ownershipEvidenceKind])
+  @@index([propertyId, propertyOwnershipVersion, ownershipEvidenceKind, reviewStatus])
   @@index([reviewedByUserId])
   @@index([reviewStatus])
 }
@@ -471,7 +472,7 @@ model Invite {
   sentAt      DateTime     @default(now())
   viewedAt    DateTime?
   respondedAt DateTime?
-  expiresAt   DateTime?
+  expiresAt   DateTime     @default(dbgenerated("(now() + '30 days'::interval)"))
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -480,6 +481,7 @@ model Invite {
   @@index([buyerProfileId])
   @@index([propertyId])
   @@index([status])
+  @@index([status, expiresAt])
 }
 
 model Notification {

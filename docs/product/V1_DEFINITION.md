@@ -264,6 +264,8 @@ Seller ownership verification requires private admin review of both:
 - a government-issued photo ID matching the exact name on the title record, or the decision maker for an owning entity,
 - a utility bill, tax bill, or mortgage bill matching the owner/entity name and property address.
 
+Ownership approval applies to the exact private property identity `(property id, ownership version)`, and the V1 owner UUID is immutable. Changing either address line, city, state, ZIP, latitude, or longitude increments the ownership version and returns the property to `PENDING`. Evidence from an earlier version remains private audit history and cannot approve the current property state. Because historical property identity was not versioned, every legacy ownership decision must be reopened and reviewed against the current version; generic evidence also requires classification.
+
 The whiteboard notes include deeper owner/buyer verification flow ideas around proof of funds, lender connections, IDs, and multi-day verification. Those purple-board verification workflow details are not part of this immediate v1 UI update unless separately approved and specified.
 
 ## V1 invite rules
@@ -289,6 +291,8 @@ An invite must not:
 - bind the buyer or seller to terms,
 - represent legal acceptance,
 - or automate transaction execution.
+
+Invite validity is checked whenever an invite is listed, responded to, or reused; reaching `expiresAt` makes an otherwise sent/viewed invite expired even before maintenance persists the status. Only one unexpired sent/viewed invite may exist for the exact seller, buyer profile, and seller-owned property, and self-invites are denied at the server and database boundaries.
 
 Required invite disclaimer language should remain plain-English and close to the send/response actions:
 

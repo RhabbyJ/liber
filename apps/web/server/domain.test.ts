@@ -178,7 +178,7 @@ describe("route and invite authorization", () => {
         property,
         sentInviteCountToday: 0,
       }),
-    ).toThrow("Resource is not owned");
+    ).toThrow("Seller must own property before sending invites.");
   });
 
   it("allows owned-property invites and blocks hidden buyers", () => {

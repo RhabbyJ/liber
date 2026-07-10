@@ -26,6 +26,8 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - Keep indexes aligned with search and ownership checks.
 - `PropertySubtype` values are `HOME` (displayed as House), `CONDO`, `TOWNHOUSE`, `MANUFACTURED`, and `LAND`.
 - `VerificationDocument.ownershipEvidenceKind` is nullable for legacy/non-ownership documents and typed for new seller ownership evidence.
+- Property ownership identity is `(SellerProperty.id, ownershipVersion)`, and `ownerUserId` is immutable in V1. Database triggers own version increments/reset behavior and evidence binding; application checks are defense in depth.
+- Active invite uniqueness is the partial key `(sellerId, buyerProfileId, propertyId)` for `SENT`/`VIEWED`, with required `expiresAt` and seller-scoped serialization before inserts.
 - Market and service-area records use immutable UUID primary keys. Service-area slugs are unique within `market_id`, not globally.
 - Active service-area metadata is public only when its parent market is active. RLS must preserve that rule.
 - Buyer and relationship joins reference service-area UUIDs. Buyers store one primary selection; no copied `DERIVED` rows are allowed.
@@ -43,6 +45,8 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 ## Agent notes
 
 After schema changes, run `npm run db:validate` and regenerate Prisma client when needed.
+
+Seller-property integrity is currently supplied as unnumbered forward/rollback SQL under `packages/db/prisma/proposals/`. It is not database-proven. Do not promote it into migration history until the disposable harness passes, every legacy ownership decision/quarantine record is reviewed, and active invite duplicates or invalid expiry rows are resolved.
 
 `User.avatarVariant` is an allowlisted generated animal-avatar token for buyer profile display; it should stay nullable so existing accounts fall back to deterministic generated avatars. It is not an image URL or storage path.
 

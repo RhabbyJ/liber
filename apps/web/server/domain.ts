@@ -3,7 +3,8 @@ import { buyers } from "../lib/mock-data";
 import { formatBadgeType } from "../lib/format";
 import { findServiceAreaBySlug, type ServiceArea } from "../lib/service-areas";
 import type { AppRole, SessionUser } from "./authz";
-import { hasRole, requireOwnedResource, requireRole } from "./authz";
+import { hasRole, requireRole } from "./authz";
+import { assertInviteParticipants } from "./invite-integrity";
 import { searchBuyersSchema, type SearchBuyersInput } from "@liber/validators";
 
 export const UNVERIFIED_SELLER_INVITE_LIMIT_PER_DAY = 5;
@@ -154,14 +155,14 @@ export function assertInviteAllowed(args: {
   sentInviteCountToday: number;
 }) {
   requireRole(args.seller, "SELLER");
-  requireOwnedResource(args.property.ownerUserId, args.seller);
+  assertInviteParticipants({
+    buyerUserId: args.buyer.userId,
+    propertyOwnerUserId: args.property.ownerUserId,
+    sellerId: args.seller.id,
+  });
 
   if (args.buyer.visibility !== "active") {
     throw new Error("Buyer profile must be active before receiving invites.");
-  }
-
-  if (args.buyer.userId === args.seller.id) {
-    throw new Error("Sellers cannot invite their own buyer profile.");
   }
 
   const inviteLimit = sellerInviteLimitForProperty(args.property);
