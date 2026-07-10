@@ -9,6 +9,7 @@ export function SortSelect({ value }: { value: string }) {
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.set("sort", e.target.value);
+    nextParams.delete("cursor");
     router.push(`/seller/search?${nextParams.toString()}`);
   };
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { activePilotAreas, isActivePilotZip, supportedZipText } from "../lib/launch-market";
+import { useEffect, useState } from "react";
+import { apiResultToServiceArea, type ServiceAreaSearchResponse } from "../lib/service-area-api";
+import { serviceAreaDisplayLabel, type ServiceArea } from "../lib/service-areas";
 
 type PropertyDefaults = {
   addressLine1?: string;
@@ -17,11 +18,19 @@ type PropertyDefaults = {
   zip?: string;
 };
 
-export function PropertyAddressLookup({ defaults = {} }: { defaults?: PropertyDefaults }) {
+export function PropertyAddressLookup({
+  defaults = {},
+  marketSlug,
+  marketState,
+}: {
+  defaults?: PropertyDefaults;
+  marketSlug: string;
+  marketState: string;
+}) {
   const [addressLine1, setAddressLine1] = useState(defaults.addressLine1 ?? "");
   const [addressLine2, setAddressLine2] = useState(defaults.addressLine2 ?? "");
   const [city, setCity] = useState(defaults.city ?? "");
-  const [state, setState] = useState(defaults.state ?? "CA");
+  const [state, setState] = useState(defaults.state ?? marketState);
   const [zip, setZip] = useState(defaults.zip ?? "");
   const [lat, setLat] = useState(String(defaults.lat ?? ""));
   const [lng, setLng] = useState(String(defaults.lng ?? ""));
@@ -31,6 +40,35 @@ export function PropertyAddressLookup({ defaults = {} }: { defaults?: PropertyDe
   const [lotSize, setLotSize] = useState(String(defaults.lotSize ?? ""));
   const [message, setMessage] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
+  const [zipSuggestions, setZipSuggestions] = useState<ServiceArea[]>([]);
+
+  useEffect(() => {
+    let canceled = false;
+    setZipSuggestions([]);
+
+    async function loadZipSuggestions() {
+      try {
+        const params = new URLSearchParams({ market: marketSlug, q: zip.trim() });
+        const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
+        if (!response.ok) {
+          if (!canceled) setZipSuggestions([]);
+          return;
+        }
+        const payload = await response.json() as ServiceAreaSearchResponse;
+        const suggestions = payload.suggestions
+          .map(apiResultToServiceArea)
+          .filter((area) => area.type === "zip" && area.postalCode);
+        if (!canceled) setZipSuggestions(suggestions);
+      } catch {
+        if (!canceled) setZipSuggestions([]);
+      }
+    }
+
+    void loadZipSuggestions();
+    return () => {
+      canceled = true;
+    };
+  }, [marketSlug, zip]);
 
   async function lookupProperty() {
     setMessage("");
@@ -40,14 +78,14 @@ export function PropertyAddressLookup({ defaults = {} }: { defaults?: PropertyDe
       return;
     }
 
-    if (!isActivePilotZip(zip)) {
-      setMessage(`Property lookup is limited to active pilot ZIPs: ${supportedZipText()}.`);
+    if (!/^\d{5}$/.test(zip.trim())) {
+      setMessage("Enter an active service-area ZIP.");
       return;
     }
 
     setIsLookingUp(true);
     try {
-      const params = new URLSearchParams({ addressLine1, city, state, zip });
+      const params = new URLSearchParams({ addressLine1, city, market: marketSlug, state, zip });
       const response = await fetch(`/api/property/enrich?${params}`, { cache: "no-store" });
       const payload = await response.json();
 
@@ -103,14 +141,14 @@ export function PropertyAddressLookup({ defaults = {} }: { defaults?: PropertyDe
       </div>
       <div className="field">
         <label htmlFor="state">State</label>
-        <input id="state" name="state" onChange={(event) => setState(event.target.value.toUpperCase())} placeholder="CA" value={state} />
+        <input id="state" name="state" onChange={(event) => setState(event.target.value.toUpperCase())} placeholder={marketState} value={state} />
       </div>
       <div className="field">
         <label htmlFor="zip">Zip</label>
-        <input id="zip" list="property-pilot-zips" name="zip" onChange={(event) => setZip(event.target.value)} placeholder="91423" value={zip} />
-        <datalist id="property-pilot-zips">
-          {activePilotAreas.map((area) => (
-            <option key={area.zip} value={area.zip}>{area.label}</option>
+        <input id="zip" list="property-service-area-zips" name="zip" onChange={(event) => setZip(event.target.value)} placeholder="91423" value={zip} />
+        <datalist id="property-service-area-zips">
+          {zipSuggestions.map((area) => (
+            <option key={area.slug} value={area.postalCode ?? ""}>{serviceAreaDisplayLabel(area)}</option>
           ))}
         </datalist>
       </div>

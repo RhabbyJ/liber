@@ -7,6 +7,7 @@ import {
   grantBadge,
   hideBuyerProfile,
   previousBuyerAvatarVariant,
+  publishBuyerProfile,
   regenerateBuyerAlias,
   respondToInvite,
   reviewDocument,
@@ -15,15 +16,12 @@ import {
   sendInvite,
   shuffleBuyerAvatarVariant,
   suspendUser,
-  updateBuyerProfile,
   updateSellerProperty,
   uploadBuyerVerificationDocumentFile,
   uploadOwnershipDocumentFile,
   uploadPropertyImageFile,
-  upsertBuyerCriteria,
 } from "./contracts";
 import { requireApprovedSellerAccess } from "./access";
-import { propertySubtypeFromSeekingPropertyType } from "../lib/property-types";
 
 function isSubmittedFile(value: FormDataEntryValue): value is File {
   return (
@@ -42,15 +40,7 @@ function safeSellerNext(formData: FormData) {
 }
 
 export async function submitBuyerProfile(formData: FormData) {
-  formData.set("visibilityStatus", "ACTIVE");
-  const { data: buyer } = await updateBuyerProfile(formData);
-
-  // The profile form's home-fit section doubles as the buyer's search criteria.
-  formData.set("buyerProfileId", buyer.id);
-  formData.set("propertySubtype", propertySubtypeFromSeekingPropertyType(formData.get("buyingPurpose")));
-  formData.set("priceMin", String(formData.get("budgetMin") ?? ""));
-  formData.set("priceMax", String(formData.get("budgetMax") ?? ""));
-  await upsertBuyerCriteria(formData);
+  const { data: buyer } = await publishBuyerProfile(formData);
 
   revalidatePath("/buyer/profile");
   revalidatePath(`/buyers/${buyer.id}`);
@@ -58,6 +48,7 @@ export async function submitBuyerProfile(formData: FormData) {
 }
 
 export async function shuffleBuyerAvatar(_formData: FormData) {
+  void _formData;
   const { data } = await shuffleBuyerAvatarVariant();
   revalidatePath("/buyer/profile");
   if (data.buyerProfileId) revalidatePath(`/buyers/${data.buyerProfileId}`);
@@ -65,6 +56,7 @@ export async function shuffleBuyerAvatar(_formData: FormData) {
 }
 
 export async function previousBuyerAvatar(_formData: FormData) {
+  void _formData;
   const { data } = await previousBuyerAvatarVariant();
   revalidatePath("/buyer/profile");
   if (data.buyerProfileId) revalidatePath(`/buyers/${data.buyerProfileId}`);
@@ -72,6 +64,7 @@ export async function previousBuyerAvatar(_formData: FormData) {
 }
 
 export async function regenerateBuyerPublicAlias(_formData: FormData) {
+  void _formData;
   const { data } = await regenerateBuyerAlias();
   revalidatePath("/buyer/profile");
   revalidatePath(`/buyers/${data.buyerProfileId}`);

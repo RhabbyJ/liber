@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AUTH_RATE_LIMIT_PEPPER: ci-only-not-a-secret-at-least-32-characters
+  DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/liber_ci
+  DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/liber_ci
+  LIBER_USE_SERVICE_AREA_FIXTURES: "true"
+  NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_only_not_real
+  NEXT_PUBLIC_SUPABASE_URL: https://ci.supabase.co
+  SITE_URL: http://127.0.0.1:3000
+  SUPABASE_SERVICE_ROLE_KEY: sb_secret_ci_only_not_real
+
+jobs:
+  verify:
+    name: Static, test, build, and smoke gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          cache: npm
+          node-version: 24
+      - name: Use repository npm version
+        run: npm install --global npm@10.9.0
+      - run: npm ci
+      - name: Reject high or critical dependency advisories
+        run: npm audit --audit-level=high
+      - run: npm run db:generate
+      - run: npm run db:validate
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run smoke:no-auth-bypass
+      - run: npm run smoke:routes
+      - run: npm run smoke:security
+      - run: npm run build
+      - name: Validate non-production environment contract
+        run: npm run readiness:env
+
+  synthetic-search-plan:
+    name: Synthetic 25K seller-search regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: liber_benchmark
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres -d liber_benchmark"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+        ports:
+          - 5432:5432
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/liber_benchmark
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/liber_benchmark
+      SELLER_SEARCH_TEMP_BENCHMARK: "true"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          cache: npm
+          node-version: 24
+      - run: npm install --global npm@10.9.0
+      - run: npm ci
+      - run: npm run db:generate
+      - name: Run synthetic plan regression only
+        run: npm run test -w @liber/web -- server/seller-search-query.benchmark.test.ts

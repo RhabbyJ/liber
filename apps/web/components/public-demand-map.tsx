@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { loadMapboxGl } from "../lib/mapbox-gl-loader";
-import { activePilotAreas } from "../lib/launch-market";
-import { selectedAreaBounds, type SelectedMapArea } from "../lib/map-area";
-import type { PublicBuyerPreview } from "../server/buyer-preview";
+import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
+import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
+import { marketMapBounds, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
 
 type Props = {
+  market: MarketMapContext;
   primaryCtaHref: string;
   primaryCtaLabel: string;
-  previews: PublicBuyerPreview[];
+  previews: PublicBuyerPreviewDto[];
   secondaryCtaHref?: string;
   secondaryCtaLabel?: string;
   selectedArea?: SelectedMapArea | null;
@@ -21,7 +21,7 @@ type PreviewPoint = {
   index: number;
   lat: number;
   lng: number;
-  preview: PublicBuyerPreview;
+  preview: PublicBuyerPreviewDto;
 };
 
 /**
@@ -30,6 +30,7 @@ type PreviewPoint = {
  * links here. Calls to action route users into the authenticated seller workflow.
  */
 export function PublicDemandMap({
+  market,
   previews,
   primaryCtaHref,
   primaryCtaLabel,
@@ -40,9 +41,8 @@ export function PublicDemandMap({
   token,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const [status, setStatus] = useState("");
+  const mapRef = useRef<MapboxMap | null>(null);
+  const markersRef = useRef<MapboxMarker[]>([]);
   const [didFail, setDidFail] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [hasLiveMarkers, setHasLiveMarkers] = useState(false);
@@ -51,7 +51,12 @@ export function PublicDemandMap({
   const points = useMemo<PreviewPoint[]>(
     () =>
       previews
-        .map((preview, index) => ({ index, lat: preview.lat ?? NaN, lng: preview.lng ?? NaN, preview }))
+        .map((preview, index) => ({
+          index,
+          lat: preview.pin?.latitude ?? NaN,
+          lng: preview.pin?.longitude ?? NaN,
+          preview,
+        }))
         .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng)),
     [previews],
   );
@@ -59,7 +64,13 @@ export function PublicDemandMap({
   const shouldUseMapbox = Boolean(mapboxToken);
 
   useEffect(() => {
+    setDidFail(false);
+  }, [mapboxToken, market]);
+
+  useEffect(() => {
+    if (didFail) return;
     let canceled = false;
+    setIsReady(false);
 
     async function setupMap() {
       if (!containerRef.current || !shouldUseMapbox) return;
@@ -72,10 +83,10 @@ export function PublicDemandMap({
         mapRef.current = new mapboxgl.Map({
           antialias: true,
           attributionControl: true,
-          center: [pilotCenter.lng, pilotCenter.lat],
+          center: [market.center.lng, market.center.lat],
           container: containerRef.current,
           cooperativeGestures: false,
-          maxBounds: [[-118.75, 34.08], [-118.15, 34.37]],
+          maxBounds: marketMapBounds(market),
           style: "mapbox://styles/mapbox/streets-v12",
           zoom: 10.6,
         });
@@ -86,7 +97,6 @@ export function PublicDemandMap({
           if (canceled) return;
           loaded = true;
           setIsReady(true);
-          setStatus("");
         });
         // Only treat errors before first load as fatal; later tile hiccups are recoverable.
         mapRef.current.on("error", () => {
@@ -107,7 +117,7 @@ export function PublicDemandMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [mapboxToken, shouldUseMapbox]);
+  }, [didFail, mapboxToken, market, shouldUseMapbox]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current || !window.mapboxgl) return;
@@ -163,8 +173,8 @@ export function PublicDemandMap({
     let canceled = false;
 
     async function loadSelectedArea() {
+      setSelectedAreaGeojson(null);
       if (!selectedArea) {
-        setSelectedAreaGeojson(null);
         return;
       }
 
@@ -185,7 +195,7 @@ export function PublicDemandMap({
   }, [selectedArea]);
 
   if (!shouldUseMapbox || didFail) {
-    return <PublicStaticDemandMap points={points} selectedArea={selectedArea} />;
+    return <PublicStaticDemandMap points={points} />;
   }
 
   return (
@@ -193,27 +203,25 @@ export function PublicDemandMap({
       aria-label={selectedAreaLabel ? `Buyer demand preview map around ${selectedAreaLabel}` : "Buyer demand preview map"}
       className="public-map-shell"
     >
-      {hasLiveMarkers ? null : <StaticDemandLayer points={points} selectedArea={selectedArea} />}
+      {hasLiveMarkers ? null : <StaticDemandLayer points={points} />}
       <div className="map-canvas" ref={containerRef} />
-      {status ? <div className="map-status">{status}</div> : null}
       <div className="public-map-note">Approximate service area - anonymized preview</div>
     </div>
   );
 }
 
-function PublicStaticDemandMap({ points, selectedArea }: { points: PreviewPoint[]; selectedArea: SelectedMapArea | null }) {
+function PublicStaticDemandMap({ points }: { points: PreviewPoint[] }) {
   return (
     <div className="public-map-shell fallback" aria-label="Buyer demand preview map">
-      <StaticDemandLayer points={points} selectedArea={selectedArea} />
+      <StaticDemandLayer points={points} />
       <div className="public-map-note">Approximate service area - privacy-safe preview</div>
     </div>
   );
 }
 
-function StaticDemandLayer({ points, selectedArea }: { points: PreviewPoint[]; selectedArea: SelectedMapArea | null }) {
+function StaticDemandLayer({ points }: { points: PreviewPoint[] }) {
   return (
     <div className="public-map-static-grid">
-      {selectedArea ? <span aria-hidden="true" className="public-map-selected-area-static" /> : null}
       {points.length === 0 ? (
         <div className="public-map-static-empty">
           <strong>Buyer demand map</strong>
@@ -238,13 +246,8 @@ function StaticDemandLayer({ points, selectedArea }: { points: PreviewPoint[]; s
   );
 }
 
-const pilotCenter = activePilotAreas.reduce(
-  (sum, area, _, list) => ({ lat: sum.lat + area.lat / list.length, lng: sum.lng + area.lng / list.length }),
-  { lat: 0, lng: 0 },
-);
-
 function previewPopupHtml(
-  preview: PublicBuyerPreview,
+  preview: PublicBuyerPreviewDto,
   cta: {
     primaryHref: string;
     primaryLabel: string;
@@ -317,7 +320,7 @@ const selectedAreaSourceId = "liber-selected-service-area-source";
 const selectedAreaFillLayerId = "liber-selected-service-area-fill";
 const selectedAreaLineLayerId = "liber-selected-service-area-outline";
 
-function syncSelectedAreaLayer(map: any, data: Record<string, unknown> | null) {
+function syncSelectedAreaLayer(map: MapboxMap, data: Record<string, unknown> | null) {
   if (!data) {
     removeSelectedAreaLayer(map);
     return;
@@ -352,7 +355,7 @@ function syncSelectedAreaLayer(map: any, data: Record<string, unknown> | null) {
   });
 }
 
-function removeSelectedAreaLayer(map: any) {
+function removeSelectedAreaLayer(map: MapboxMap) {
   if (map.getLayer(selectedAreaLineLayerId)) map.removeLayer(selectedAreaLineLayerId);
   if (map.getLayer(selectedAreaFillLayerId)) map.removeLayer(selectedAreaFillLayerId);
   if (map.getSource(selectedAreaSourceId)) map.removeSource(selectedAreaSourceId);

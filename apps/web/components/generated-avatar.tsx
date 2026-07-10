@@ -32,6 +32,8 @@ export function GeneratedAvatar({ alt, className, seed, size = "md", variant }: 
 
   return (
     <span aria-label={alt || "Generated buyer avatar"} className={classes} role="img">
+      {/* This generated data URI has no remote image for Next.js to optimize. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img alt="" aria-hidden="true" src={src} />
     </span>
   );

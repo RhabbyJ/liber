@@ -36,9 +36,9 @@ The public or unauthenticated experience can:
 
 - show a small fixed set of privacy-safe buyer preview records, currently up to 6, as map pins and preview cards,
 - use active, non-hidden, non-suspended buyer demand records whose preview fields are approved or derived from preview-safe criteria,
-- place pins only at approximate locations (pilot-area centers or similarly coarse coordinates with a display offset), never at precise buyer locations,
+- place pins only at approximate active service-area centers with a display offset, never at precise buyer locations,
 - show coarse buyer-demand context in preview cards, such as broad geography, budget band, property type, size needs, room needs, amenities, condition preference, and display-safe trust signals,
-- let visitors select an active pilot ZIP/city/neighborhood service area to pan the public map, draw an approximate selected-area polygon, and scope the limited preview cards to that selected area, without exposing full search,
+- let visitors select an active ZIP/city/neighborhood service area to pan the public map, draw an approximate selected-area polygon, and scope the limited preview cards to that selected area, without exposing full search,
 - use anonymized or privacy-safe buyer labels,
 - invite the visitor to sign up or request seller access before viewing full search results or profiles.
 
@@ -46,7 +46,7 @@ The public or unauthenticated experience must not:
 
 - expose full buyer profiles,
 - expose exact buyer locations, precise pin coordinates, home addresses, private documents, lender documents, financial files, contact information, or storage paths,
-- expose a fully searchable buyer directory or public search filters beyond the limited active-pilot service-area selector,
+- expose a fully searchable buyer directory or public search filters beyond the limited active service-area selector,
 - expose real buyer profile URLs as public SEO/crawlable pages,
 - allow unauthenticated users to message, invite, contact, save, export, or otherwise act on a buyer,
 - use fake production buyers or fake trust signals outside the CEO demo / private preview data policy below,
@@ -64,7 +64,7 @@ Demo/test buyer data must:
 - be seeded only through an explicit test/demo seed command or script,
 - be safe to delete and recreate,
 - avoid real private documents, real financial documents, real IDs, real lender documents, and real contact information,
-- use approximate pilot-area locations only,
+- use approximate active service-area locations only,
 - keep any trust/badge labels clearly demo-safe unless backed by real reviewed evidence,
 - be removed or replaced before a true public production launch.
 
@@ -132,11 +132,38 @@ An admin can:
 
 Admin role assignment is not self-service.
 
+## V1 account identity and deletion rules
+
+- A Liber account is owned by its immutable Supabase Auth UUID, not by email.
+- Signup and email changes must never transfer buyer data, seller approval,
+  properties, documents, invites, or ADMIN role between UUIDs.
+- An email tied to another application UUID is an account-recovery case. It
+  must fail closed instead of creating or relinking a usable account.
+- Customer-facing hard deletion is not available until session revocation,
+  Storage cleanup, pending-email handling, evidence retention, and audit policy
+  are complete. Until then, deletion requests remain suspended/tombstoned on
+  the original UUID and raw Auth deletion is blocked.
+- After an explicitly reviewed full purge, same-email registration creates a
+  fresh UUID with no inherited roles, ownership, approval, or private access.
+- Buyer/seller role initialization occurs only after Supabase establishes a
+  verified identity and the user submits a validated application role form. A
+  verified callback never derives roles from Auth metadata; it sends an
+  empty-role user to authenticated onboarding. An immediate verified-session
+  signup may use the validated signup form. An unconfirmed signup never receives
+  application roles or seller access.
+- Suspension immediately blocks application and Storage authorization, suspends
+  seller access and buyer visibility, revokes Auth sessions, bans new Auth
+  sessions, and cancels unsent email jobs addressed to that application UUID.
+
 ## V1 buyer profile rules
 
 Buyer profiles are the marketplace asset.
 
 The buyer's account name is private account identity for the buyer portal only. It may personalize owner-only dashboard copy, but it must not be used as the seller/public buyer identity. Seller-facing buyer identity uses a generated neutral alias plus a generated avatar.
+
+`User.name` is the authoritative private account name. Signup Auth metadata may
+initialize it only after a verified callback/session; later user-editable Auth
+metadata does not overwrite the application value.
 
 A searchable buyer profile may include:
 
@@ -150,6 +177,10 @@ A searchable buyer profile may include:
 - criteria records,
 - active trust badges,
 - rating/review count if supported by real eligible interactions.
+
+A buyer profile may become or remain searchable only when it has exactly one primary, buyer-confirmed service-area selection in an active market. The server derives location display fields and approximate coordinates from that canonical service-area row. Clearing the selection, selecting an unsupported/out-of-market area, or deactivating its market keeps the profile out of seller search and public previews.
+
+V1 has exactly one property-fit criteria record per buyer. Publishing the buyer form is a full-snapshot operation: profile fields, cleared optional values, canonical service-area selection, derived location fields, criteria, and `ACTIVE` visibility commit in one transaction. Separate profile, criteria, and activation writes are not supported.
 
 Buyer profile intent is purchase-only in v1. Rental/tenant demand is out of scope and must not be offered as a buyer signup or profile purpose.
 
@@ -175,6 +206,7 @@ Seller search must:
 - default approved sellers into a map-first buyer-demand workspace,
 - use the same result set for list and map views,
 - support location/geography filtering by Liber-supported service areas,
+- scope geography by an explicit active market and canonical service-area selection,
 - support structured property-fit filters,
 - support active trust-badge filters,
 - rate-limit abuse-prone usage,
@@ -245,6 +277,8 @@ Seller ownership verification requires private admin review of both:
 - a government-issued photo ID matching the exact name on the title record, or the decision maker for an owning entity,
 - a utility bill, tax bill, or mortgage bill matching the owner/entity name and property address.
 
+Ownership approval applies to the exact private property identity `(property id, ownership version)`, and the V1 owner UUID is immutable. Changing either address line, city, state, ZIP, latitude, or longitude increments the ownership version and returns the property to `PENDING`. Evidence from an earlier version remains private audit history and cannot approve the current property state. Because historical property identity was not versioned, every legacy ownership decision is reopened as permanently unbound, audit-only evidence. Admins may classify or reject those records, but approval requires new evidence uploaded against the current version.
+
 The whiteboard notes include deeper owner/buyer verification flow ideas around proof of funds, lender connections, IDs, and multi-day verification. Those purple-board verification workflow details are not part of this immediate v1 UI update unless separately approved and specified.
 
 ## V1 invite rules
@@ -270,6 +304,8 @@ An invite must not:
 - bind the buyer or seller to terms,
 - represent legal acceptance,
 - or automate transaction execution.
+
+Invite validity is checked whenever an invite is listed, responded to, or reused; reaching `expiresAt` makes an otherwise sent/viewed invite expired even before maintenance persists the status. Only one unexpired sent/viewed invite may exist for the exact seller, buyer profile, and seller-owned property, and self-invites are denied at the server and database boundaries.
 
 Required invite disclaimer language should remain plain-English and close to the send/response actions:
 

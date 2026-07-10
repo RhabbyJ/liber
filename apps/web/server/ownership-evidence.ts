@@ -4,6 +4,50 @@ export const requiredOwnershipEvidenceKinds = ownershipEvidenceKinds;
 export type OwnershipEvidenceKind = (typeof ownershipEvidenceKinds)[number];
 export type OwnershipReviewStatus = "PENDING" | "APPROVED" | "REJECTED";
 
+export type VersionedOwnershipDocument = {
+  ownershipEvidenceKind?: string | null;
+  propertyOwnershipVersion?: number | null;
+  reviewStatus: string;
+  userId: string;
+};
+
+export function isOwnershipEvidenceAuditOnly(
+  documentType: string,
+  propertyOwnershipVersion?: number | null,
+) {
+  return documentType === "OWNERSHIP" && propertyOwnershipVersion == null;
+}
+
+export function isOwnershipEvidenceStale(
+  documentType: string,
+  propertyOwnershipVersion?: number | null,
+  currentPropertyOwnershipVersion?: number | null,
+) {
+  return documentType === "OWNERSHIP" && (
+    propertyOwnershipVersion == null ||
+    currentPropertyOwnershipVersion == null ||
+    propertyOwnershipVersion !== currentPropertyOwnershipVersion
+  );
+}
+
+export function assertOwnershipEvidenceApprovalAllowed(
+  documentType: string,
+  decision: "APPROVED" | "REJECTED",
+  propertyOwnershipVersion?: number | null,
+  currentPropertyOwnershipVersion?: number | null,
+) {
+  if (documentType !== "OWNERSHIP" || decision !== "APPROVED") return;
+  if (propertyOwnershipVersion == null) {
+    throw new Error("Legacy ownership evidence is audit-only and cannot be approved.");
+  }
+  if (
+    currentPropertyOwnershipVersion == null ||
+    propertyOwnershipVersion !== currentPropertyOwnershipVersion
+  ) {
+    throw new Error("Ownership evidence belongs to a previous property version.");
+  }
+}
+
 export function ownershipEvidenceKindForInput(value: unknown): OwnershipEvidenceKind {
   if (typeof value === "string" && ownershipEvidenceKinds.includes(value as OwnershipEvidenceKind)) {
     return value as OwnershipEvidenceKind;
@@ -26,11 +70,15 @@ export function verificationDocumentTypeLabel(documentType: string, ownershipEvi
 }
 
 export function nextOwnershipVerificationStatus(
-  documents: Array<{ ownershipEvidenceKind?: string | null; reviewStatus: string }>,
-  fallbackDecision: OwnershipReviewStatus,
+  documents: VersionedOwnershipDocument[],
+  propertyOwnershipVersion: number,
+  propertyOwnerUserId: string,
 ): OwnershipReviewStatus {
-  const kindedDocuments = documents.filter((document) => document.ownershipEvidenceKind);
-  if (kindedDocuments.length === 0) return fallbackDecision;
+  const kindedDocuments = documents.filter((document) =>
+    document.ownershipEvidenceKind &&
+    document.propertyOwnershipVersion === propertyOwnershipVersion &&
+    document.userId === propertyOwnerUserId,
+  );
 
   const statusesForKind = (kind: OwnershipEvidenceKind) =>
     kindedDocuments

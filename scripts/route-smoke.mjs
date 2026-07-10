@@ -12,6 +12,7 @@ const child = externalBaseUrl
       npmCommand,
       ["run", "dev", "-w", "@liber/web", "--", "--port", String(port)],
       {
+        detached: process.platform !== "win32",
         env: process.env,
         shell: process.platform === "win32",
         stdio: ["ignore", "pipe", "pipe"],
@@ -31,7 +32,11 @@ function stopServer() {
   if (process.platform === "win32") {
     spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
   } else {
-    child.kill("SIGTERM");
+    try {
+      process.kill(-child.pid, "SIGTERM");
+    } catch (error) {
+      if (error?.code !== "ESRCH") throw error;
+    }
   }
   child.stdout.destroy();
   child.stderr.destroy();
@@ -133,6 +138,10 @@ try {
   await expectPage("/login?status=auth-error", ["Confirmation failed"]);
   await expectPage("/login?status=missing-credentials", ["Email and password required"]);
   await expectPage("/login?status=invalid-login&email=test%40gmail.com", ["Login failed", "test@gmail.com"]);
+  await expectPage("/login?status=identity-recovery-required&email=test%40gmail.com", [
+    "Account recovery required",
+    "test@gmail.com",
+  ]);
   await expectPostRedirect("/api/auth/login", { email: "", password: "", next: "/" }, "/login", "missing-credentials");
   await expectPage("/signup", ["What brings you to Liber"]);
   await expectPage("/signup/verify?email=test%40gmail.com&next=/buyer/profile", [

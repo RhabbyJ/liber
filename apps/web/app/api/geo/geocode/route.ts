@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { findPilotArea, sfvBoundingBox } from "../../../../lib/launch-market";
-import { checkRateLimit, clientIpFromRequest } from "../../../../server/rate-limit";
+import { mapboxServiceAreaQueries } from "../../../../lib/mapbox";
+import { serviceAreaDisplayLabel, type ServiceArea } from "../../../../lib/service-areas";
+import {
+  GeographyUnavailableError,
+  getActiveMarketBySlug,
+  marketBboxParam,
+  resolveActiveServiceArea,
+} from "../../../../server/service-areas";
+import { clientIpFromRequest } from "../../../../server/rate-limit";
+import { consumeSharedRateLimit } from "../../../../server/shared-rate-limit";
 import { getSessionUser } from "../../../../server/session";
 
 type GeocodeResult = {
@@ -9,14 +17,14 @@ type GeocodeResult = {
   label: string;
   lat: number;
   lng: number;
-  radiusMiles: number;
-  state: "CA";
+  state: string;
   zip: string;
 };
 
 const geocodeQuerySchema = z.object({
   intent: z.enum(["search", "store"]).default("search"),
   kind: z.enum(["address", "place"]).default("place"),
+  market: z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/),
   query: z.string().trim().min(3).max(160),
 });
 
@@ -24,8 +32,20 @@ export async function GET(request: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Authentication required.", results: [] }, { status: 401 });
 
-  const ipLimit = checkRateLimit(`geocode:ip:${clientIpFromRequest(request)}`, 60, 60_000);
-  const userLimit = checkRateLimit(`geocode:user:${user.id}`, 40, 60_000);
+  const ipLimit = await consumeSharedRateLimit({
+    identifier: clientIpFromRequest(request),
+    limit: 60,
+    namespace: "geocode:ip",
+    windowSeconds: 60,
+  });
+  const userLimit = ipLimit.allowed
+    ? await consumeSharedRateLimit({
+        identifier: user.id,
+        limit: 40,
+        namespace: "geocode:user",
+        windowSeconds: 60,
+      })
+    : ipLimit;
   if (!ipLimit.allowed || !userLimit.allowed) {
     const retryAfter = Math.max(ipLimit.retryAfterSeconds, userLimit.retryAfterSeconds);
     return NextResponse.json(
@@ -38,25 +58,24 @@ export async function GET(request: Request) {
   const parsed = geocodeQuerySchema.safeParse({
     intent: searchParams.get("intent") || undefined,
     kind: searchParams.get("kind") || undefined,
+    market: searchParams.get("market"),
     query: searchParams.get("query"),
   });
 
   if (!parsed.success) {
     return NextResponse.json({ error: "Enter at least 3 characters.", results: [] }, { status: 400 });
   }
-  const { intent, kind, query } = parsed.data;
+  const { intent, kind, market: marketSlug, query } = parsed.data;
 
-  const localArea = findPilotArea(query);
+  let localResolution;
+  try {
+    localResolution = await resolveActiveServiceArea(query, marketSlug);
+  } catch (error) {
+    return geographyErrorResponse(error);
+  }
+  const localArea = localResolution.status === "resolved" ? localResolution.area : null;
   if (localArea) {
     return NextResponse.json({ error: null, results: [areaToResult(localArea)] });
-  }
-
-  const nextArea = findPilotArea(query, { includeNext: true });
-  if (nextArea) {
-    return NextResponse.json(
-      { error: `${nextArea.label} is marked as a next pilot ZIP, not active yet.`, results: [] },
-      { status: 422 },
-    );
   }
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -64,10 +83,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Mapbox is not configured.", results: [] }, { status: 503 });
   }
 
+  let market;
+  try {
+    market = await getActiveMarketBySlug(marketSlug);
+  } catch (error) {
+    return geographyErrorResponse(error);
+  }
   const params = new URLSearchParams({
     access_token: token,
-    bbox: sfvBoundingBox,
-    country: "us",
+    bbox: marketBboxParam(market),
+    country: market.country.toLowerCase(),
     language: "en",
     limit: "3",
     permanent: intent === "store" ? "true" : "false",
@@ -84,41 +109,40 @@ export async function GET(request: Request) {
   }
 
   const payload = await response.json();
-  const results = (payload?.features ?? [])
-    .map(featureToPilotResult)
-    .filter((result: GeocodeResult | null): result is GeocodeResult => Boolean(result));
+  const mappedResults = await Promise.all(
+    (payload?.features ?? []).map((feature: Record<string, unknown>) => featureToMarketResult(feature, marketSlug)),
+  );
+  const results = mappedResults.filter((result: GeocodeResult | null): result is GeocodeResult => Boolean(result));
 
   if (results.length === 0) {
-    return NextResponse.json({ error: "That area is outside the active pilot.", results: [] }, { status: 404 });
+    return NextResponse.json({ error: "That area is outside active Liber service areas.", results: [] }, { status: 404 });
   }
 
   return NextResponse.json({ error: null, results });
 }
 
-function featureToPilotResult(feature: Record<string, any>) {
-  const properties = feature.properties ?? {};
-  const context = properties.context ?? {};
-  const text = [
-    properties.name,
-    properties.full_address,
-    properties.place_formatted,
-    context.place?.name,
-    context.postcode?.name,
-  ].filter(Boolean).join(" ");
-  const area = findPilotArea(text);
-  if (!area) return null;
-
-  return areaToResult(area);
+async function featureToMarketResult(feature: Record<string, unknown>, marketSlug: string) {
+  for (const value of mapboxServiceAreaQueries(feature)) {
+    const resolution = await resolveActiveServiceArea(value, marketSlug);
+    if (resolution.status === "resolved") return areaToResult(resolution.area);
+  }
+  return null;
 }
 
-function areaToResult(area: { city: string; label: string; lat: number; lng: number; radiusMiles: number; state: "CA"; zip: string }) {
+function geographyErrorResponse(error: unknown) {
+  const message = error instanceof GeographyUnavailableError
+    ? error.message
+    : "Liber service-area data is temporarily unavailable.";
+  return NextResponse.json({ error: message, results: [] }, { status: 503 });
+}
+
+function areaToResult(area: ServiceArea) {
   return {
-    city: area.city,
-    label: area.label,
-    lat: area.lat,
-    lng: area.lng,
-    radiusMiles: area.radiusMiles,
+    city: area.type === "neighborhood" ? area.label : area.city ?? area.label,
+    label: serviceAreaDisplayLabel(area),
+    lat: area.center.lat,
+    lng: area.center.lng,
     state: area.state,
-    zip: area.zip,
+    zip: area.postalCode ?? "",
   };
 }

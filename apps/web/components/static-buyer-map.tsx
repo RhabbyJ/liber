@@ -1,16 +1,16 @@
 import Link from "next/link";
-import type { SelectedMapArea } from "../lib/map-area";
-import type { Buyer } from "../lib/mock-data";
+import type { SellerBuyerSearchDto } from "../lib/buyer-dto-types";
+import type { MarketMapContext, SelectedMapArea } from "../lib/map-area";
 import { mapPinPosition } from "../lib/mapbox";
 
 type Props = {
-  buyers: Buyer[];
+  buyers: SellerBuyerSearchDto[];
   label?: string;
+  market: MarketMapContext;
   selectedServiceArea?: SelectedMapArea | null;
 };
 
-export function StaticBuyerMap({ buyers, label = "Approximate pins", selectedServiceArea = null }: Props) {
-  const hasSelectedArea = Boolean(selectedServiceArea);
+export function StaticBuyerMap({ buyers, label = "Approximate pins", market, selectedServiceArea = null }: Props) {
   const areaLabel = selectedServiceArea ? selectedServiceArea.label : label;
 
   return (
@@ -18,7 +18,7 @@ export function StaticBuyerMap({ buyers, label = "Approximate pins", selectedSer
       <div className="map-toolbar">
         <div>
           <strong>Buyer demand map</strong>
-          <span className="muted">{buyers.length} active buyers in the San Fernando Valley pilot</span>
+          <span className="muted">{buyers.length} active buyers in {market.label} service areas</span>
         </div>
         <div className="map-toolbar-pills">
           <span>{areaLabel}</span>
@@ -26,18 +26,18 @@ export function StaticBuyerMap({ buyers, label = "Approximate pins", selectedSer
         </div>
       </div>
       <div className="map-pins">
-        {hasSelectedArea ? <span aria-hidden="true" className="map-selected-area-static" /> : null}
         {buyers.map((buyer) => {
           const position = mapPinPosition(buyer, buyers);
+          if (!position) return null;
           return (
             <Link
-              aria-label={`Open ${buyer.name}`}
+              aria-label={`Open ${buyer.alias}`}
               className="map-pin"
-              href={`/buyers/${buyer.id}`}
-              key={buyer.id}
+              href={`/buyers/${buyer.buyerProfileId}`}
+              key={buyer.buyerProfileId}
               style={{ left: `${position.left}%`, top: `${position.top}%` }}
             >
-              <span>{buyer.name.slice(0, 1)}</span>
+              <span>{buyer.alias.slice(0, 1)}</span>
             </Link>
           );
         })}

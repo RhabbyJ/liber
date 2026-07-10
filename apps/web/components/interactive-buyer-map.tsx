@@ -1,22 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { SellerBuyerSearchDto } from "../lib/buyer-dto-types";
 import { formatRange } from "../lib/format";
-import { activePilotAreas, approximateBuyerPoint } from "../lib/launch-market";
-import { selectedAreaBounds, type SelectedMapArea } from "../lib/map-area";
-import { loadMapboxGl } from "../lib/mapbox-gl-loader";
-import type { Buyer } from "../lib/mock-data";
+import { approximateBuyerPoint } from "../lib/buyer-map-point";
+import { marketMapBounds, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
+import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
 import { StaticBuyerMap } from "./static-buyer-map";
 
 type Props = {
-  buyers: Buyer[];
+  buyers: SellerBuyerSearchDto[];
+  market: MarketMapContext;
   selectedServiceArea?: SelectedMapArea | null;
   token: string;
-  viewerUserId?: string;
 };
 
 type BuyerPoint = {
-  buyer: Buyer;
+  buyer: SellerBuyerSearchDto;
   lat: number;
   lng: number;
 };
@@ -25,10 +25,10 @@ type MarkerBuyerPoint = BuyerPoint & {
   markerOffset: [number, number];
 };
 
-export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token, viewerUserId }: Props) {
+export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null, token }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<Map<string, any>>(new Map());
+  const mapRef = useRef<MapboxMap | null>(null);
+  const markersRef = useRef<Map<string, MapboxMarker>>(new Map());
   const markerNodesRef = useRef<Map<string, HTMLElement>>(new Map());
   const suppressMoveEndRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
@@ -39,16 +39,34 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token,
   const buyerPoints = useMemo(
     () =>
       buyers
-        .map((buyer) => ({ buyer, ...approximateBuyerPoint(buyer) }))
-        .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng)),
+        .map((buyer) => {
+          const point = approximateBuyerPoint(buyer);
+          return point ? { buyer, ...point } : null;
+        })
+        .filter((point): point is BuyerPoint => point !== null),
     [buyers],
   );
   const markerPoints = useMemo(() => withMarkerOffsets(buyerPoints), [buyerPoints]);
   const selectedArea = selectedServiceArea;
-  const initialCenter = useMemo(() => mapCenter(buyerPoints, selectedArea), [buyerPoints, selectedArea]);
+  const initialCenter = useMemo(() => mapCenter(buyerPoints, selectedArea, market), [buyerPoints, selectedArea, market]);
+  const highlightBuyer = useCallback((buyerId: string, active: boolean) => {
+    markerNodesRef.current.get(buyerId)?.classList.toggle("active", active);
+    document
+      .querySelector<HTMLElement>(`.buyer-card[data-buyer-id="${cssEscape(buyerId)}"], .buyer-row[data-buyer-id="${cssEscape(buyerId)}"]`)
+      ?.classList.toggle("active", active);
+  }, []);
 
   useEffect(() => {
+    setDidFail(false);
+  }, [buyerPoints.length, initialCenter.lat, initialCenter.lng, market, token]);
+
+  useEffect(() => {
+    if (didFail) return;
     let canceled = false;
+    const markers = markersRef.current;
+    const markerNodes = markerNodesRef.current;
+    setIsReady(false);
+    setStatus("Loading interactive map");
 
     function fallBackToStaticMap() {
       if (canceled) return;
@@ -75,7 +93,7 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token,
           center: [initialCenter.lng, initialCenter.lat],
           cooperativeGestures: true,
           container: containerRef.current,
-          maxBounds: [[-118.75, 34.08], [-118.15, 34.37]],
+          maxBounds: marketMapBounds(market),
           style: "mapbox://styles/mapbox/streets-v12",
           zoom: buyerPoints.length > 1 ? 10.4 : 11.4,
         });
@@ -104,13 +122,13 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token,
 
     return () => {
       canceled = true;
-      markersRef.current.forEach((marker) => marker.remove());
-      markersRef.current.clear();
-      markerNodesRef.current.clear();
+      markers.forEach((marker) => marker.remove());
+      markers.clear();
+      markerNodes.clear();
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [buyerPoints.length, initialCenter.lat, initialCenter.lng, token]);
+  }, [buyerPoints.length, didFail, initialCenter.lat, initialCenter.lng, market, token]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current || !window.mapboxgl) return;
@@ -124,21 +142,21 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token,
       const markerNode = document.createElement("button");
       markerNode.type = "button";
       markerNode.className = "buyer-map-marker";
-      markerNode.setAttribute("aria-label", `Open ${point.buyer.name} map marker`);
-      markerNode.dataset.buyerId = point.buyer.id;
+      markerNode.setAttribute("aria-label", `Open ${point.buyer.alias} map marker`);
+      markerNode.dataset.buyerId = point.buyer.buyerProfileId;
       // Budget-first pins: buyer demand reads like price pins, but represents buyers.
       markerNode.innerHTML = `<span>${escapeHtml(budgetPinLabel(point.buyer))}</span>`;
-      markerNode.addEventListener("mouseenter", () => highlightBuyer(point.buyer.id, true));
-      markerNode.addEventListener("mouseleave", () => highlightBuyer(point.buyer.id, false));
+      markerNode.addEventListener("mouseenter", () => highlightBuyer(point.buyer.buyerProfileId, true));
+      markerNode.addEventListener("mouseleave", () => highlightBuyer(point.buyer.buyerProfileId, false));
 
-      const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(popupHtml(point.buyer, viewerUserId));
+      const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(popupHtml(point.buyer));
       const marker = new window.mapboxgl.Marker({ element: markerNode, offset: point.markerOffset })
         .setLngLat([point.lng, point.lat])
         .setPopup(popup)
         .addTo(mapRef.current);
 
-      markersRef.current.set(point.buyer.id, marker);
-      markerNodesRef.current.set(point.buyer.id, markerNode);
+      markersRef.current.set(point.buyer.buyerProfileId, marker);
+      markerNodesRef.current.set(point.buyer.buyerProfileId, markerNode);
     }
 
     if (selectedArea) {
@@ -154,14 +172,14 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token,
       mapRef.current.flyTo({ center: [initialCenter.lng, initialCenter.lat], zoom: buyerPoints.length === 1 ? 11.5 : 10.4 });
     }
 
-  }, [buyerPoints, initialCenter.lat, initialCenter.lng, isReady, markerPoints, selectedArea, selectedAreaGeojson, viewerUserId]);
+  }, [buyerPoints, highlightBuyer, initialCenter.lat, initialCenter.lng, isReady, markerPoints, selectedArea, selectedAreaGeojson]);
 
   useEffect(() => {
     let canceled = false;
 
     async function loadSelectedArea() {
+      setSelectedAreaGeojson(null);
       if (!selectedArea) {
-        setSelectedAreaGeojson(null);
         return;
       }
 
@@ -203,17 +221,10 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token,
     }
 
     return () => cleanup.forEach((callback) => callback());
-  }, [buyers]);
-
-  function highlightBuyer(buyerId: string, active: boolean) {
-    markerNodesRef.current.get(buyerId)?.classList.toggle("active", active);
-    document
-      .querySelector<HTMLElement>(`.buyer-card[data-buyer-id="${cssEscape(buyerId)}"], .buyer-row[data-buyer-id="${cssEscape(buyerId)}"]`)
-      ?.classList.toggle("active", active);
-  }
+  }, [buyers, highlightBuyer]);
 
   if (didFail) {
-    return <StaticBuyerMap buyers={buyers} label="Mapbox unavailable" selectedServiceArea={selectedArea} />;
+    return <StaticBuyerMap buyers={buyers} label="Mapbox unavailable" market={market} selectedServiceArea={selectedArea} />;
   }
 
   return (
@@ -221,7 +232,7 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token,
       <div className="map-toolbar">
         <div>
           <strong>Buyer demand map</strong>
-          <span className="muted">{buyers.length} active buyers in the San Fernando Valley pilot</span>
+          <span className="muted">{buyers.length} active buyers in {market.label} service areas</span>
         </div>
         <div className="map-toolbar-pills">
           <span>{selectedArea ? selectedArea.label : "All service areas"}</span>
@@ -243,7 +254,7 @@ export function InteractiveBuyerMap({ buyers, selectedServiceArea = null, token,
   );
 }
 
-function mapCenter(points: BuyerPoint[], selectedArea: SelectedMapArea | null) {
+function mapCenter(points: BuyerPoint[], selectedArea: SelectedMapArea | null, market: MarketMapContext) {
   if (selectedArea) {
     return selectedArea.center;
   }
@@ -253,8 +264,7 @@ function mapCenter(points: BuyerPoint[], selectedArea: SelectedMapArea | null) {
     return { lat: total.lat / points.length, lng: total.lng / points.length };
   }
 
-  const total = activePilotAreas.reduce((sum, area) => ({ lat: sum.lat + area.lat, lng: sum.lng + area.lng }), { lat: 0, lng: 0 });
-  return { lat: total.lat / activePilotAreas.length, lng: total.lng / activePilotAreas.length };
+  return market.center;
 }
 
 function withMarkerOffsets(points: BuyerPoint[]): MarkerBuyerPoint[] {
@@ -266,7 +276,7 @@ function withMarkerOffsets(points: BuyerPoint[]): MarkerBuyerPoint[] {
 
   return points.map((point) => {
     const group = groups.get(`${point.lat.toFixed(5)},${point.lng.toFixed(5)}`) ?? [point];
-    const index = group.findIndex((item) => item.buyer.id === point.buyer.id);
+    const index = group.findIndex((item) => item.buyer.buyerProfileId === point.buyer.buyerProfileId);
     return {
       ...point,
       markerOffset: markerOffset(index, group.length),
@@ -282,7 +292,7 @@ function markerOffset(index: number, count: number): [number, number] {
   return [Math.round(Math.cos(angle) * radius), Math.round(Math.sin(angle) * radius)];
 }
 
-function budgetPinLabel(buyer: Buyer) {
+function budgetPinLabel(buyer: SellerBuyerSearchDto) {
   const budget = buyer.budgetMax || buyer.budgetMin;
   if (!budget) return "Buyer";
   if (budget >= 1_000_000) {
@@ -292,20 +302,19 @@ function budgetPinLabel(buyer: Buyer) {
   return `$${Math.round(budget / 1000)}K`;
 }
 
-function popupHtml(buyer: Buyer, viewerUserId?: string) {
+function popupHtml(buyer: SellerBuyerSearchDto) {
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active").map((badge) => badge.label).slice(0, 2);
-  const canInvite = buyer.userId !== viewerUserId;
 
   return `
     <div class="buyer-map-popup">
-      <strong>${escapeHtml(buyer.name)}</strong>
-      <span>${escapeHtml(buyer.type)}</span>
+      <strong>${escapeHtml(buyer.alias)}</strong>
+      <span>${escapeHtml(buyer.purchaseType)}</span>
       <span>${escapeHtml(buyer.location)}</span>
       <span>${escapeHtml(formatRange(buyer.budgetMin, buyer.budgetMax))}</span>
       ${activeBadges.length > 0 ? `<span>${escapeHtml(activeBadges.join(", "))}</span>` : ""}
       <div>
-        <a href="/buyers/${encodeURIComponent(buyer.id)}">View profile</a>
-        ${canInvite ? `<a href="/seller/invite/${encodeURIComponent(buyer.id)}">Send invite</a>` : ""}
+        <a href="/buyers/${encodeURIComponent(buyer.buyerProfileId)}">View profile</a>
+        ${buyer.canInvite ? `<a href="/seller/invite/${encodeURIComponent(buyer.buyerProfileId)}">Send invite</a>` : ""}
       </div>
     </div>
   `;
@@ -329,7 +338,7 @@ const selectedAreaSourceId = "liber-selected-service-area-source";
 const selectedAreaFillLayerId = "liber-selected-service-area-fill";
 const selectedAreaLineLayerId = "liber-selected-service-area-outline";
 
-function syncSelectedAreaLayer(map: any, data: Record<string, unknown> | null) {
+function syncSelectedAreaLayer(map: MapboxMap, data: Record<string, unknown> | null) {
   if (!data) {
     removeSelectedAreaLayer(map);
     return;
@@ -364,7 +373,7 @@ function syncSelectedAreaLayer(map: any, data: Record<string, unknown> | null) {
   });
 }
 
-function removeSelectedAreaLayer(map: any) {
+function removeSelectedAreaLayer(map: MapboxMap) {
   if (map.getLayer(selectedAreaLineLayerId)) map.removeLayer(selectedAreaLineLayerId);
   if (map.getLayer(selectedAreaFillLayerId)) map.removeLayer(selectedAreaFillLayerId);
   if (map.getSource(selectedAreaSourceId)) map.removeSource(selectedAreaSourceId);

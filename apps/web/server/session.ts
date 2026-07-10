@@ -2,6 +2,7 @@ import { prisma } from "@liber/db";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { cache } from "react";
+import { normalizeIdentityEmail } from "./auth-identity";
 import { hasRole, type AppRole, type SessionUser } from "./authz";
 export { defaultPathForSessionUser, pathForSignedInAuthIntent } from "./auth-intent";
 import { createSupabaseServerClient } from "./supabase";
@@ -19,10 +20,16 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
 
   const dbUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { roles: true, status: true },
+    select: { email: true, roles: true, status: true },
   });
 
-  if (!dbUser || dbUser.status === "SUSPENDED") return null;
+  if (
+    !dbUser ||
+    dbUser.status !== "ACTIVE" ||
+    normalizeIdentityEmail(dbUser.email) !== normalizeIdentityEmail(data.user.email)
+  ) {
+    return null;
+  }
   return { id: userId, roles: dbUser.roles };
 });
 

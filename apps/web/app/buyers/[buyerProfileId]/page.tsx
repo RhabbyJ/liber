@@ -40,9 +40,8 @@ export default async function PublicBuyerProfilePage({
   }
 
   const buyer = result.data;
-  const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
-  const otherBadges = buyer.badges.filter((badge) => badge.status !== "active");
-  const invitePath = `/seller/invite/${buyer.id}`;
+  const activeBadges = buyer.badges;
+  const invitePath = `/seller/invite/${buyer.buyerProfileId}`;
   const inviteHref = buyer.viewerCanInvite
     ? user ? invitePath : `/login?next=${encodeURIComponent(invitePath)}`
     : null;
@@ -68,13 +67,13 @@ export default async function PublicBuyerProfilePage({
         <aside className="public-profile-aside buyer-reference-aside">
           <div className="buyer-reference-photo">
             <div className="profile-avatar-mark">
-              <GeneratedAvatar seed={buyer.userId || buyer.id} size="xl" variant={buyer.avatarVariant} />
+              <GeneratedAvatar seed={buyer.buyerProfileId} size="xl" variant={buyer.avatarVariant} />
             </div>
           </div>
 
           <section className="buyer-reference-bio">
-            <h3>Bio:</h3>
-            <p>{buyer.bio || "No bio added yet."}</p>
+            <h3>Privacy:</h3>
+            <p>Buyer identity and contact details stay private.</p>
           </section>
         </aside>
 
@@ -82,13 +81,13 @@ export default async function PublicBuyerProfilePage({
           <section className="buyer-reference-hero">
             <div className="buyer-reference-head">
               <div className="buyer-reference-name-line">
-                <h1>{buyer.name}</h1>
+                <h1>{buyer.alias}</h1>
                 <span className="buyer-reference-location">
                   <Icon name="map-pin" size={16} />
                   {buyer.location}
                 </span>
               </div>
-              <p className="buyer-reference-type">{buyer.type || "Purchase type not set"}</p>
+              <p className="buyer-reference-type">{buyer.purchaseType || "Purchase type not set"}</p>
             </div>
 
             {primaryBadge ? (
@@ -104,17 +103,14 @@ export default async function PublicBuyerProfilePage({
             ) : null}
 
             <div className="buyer-reference-facts">
-              <ProfileFact label="Seeking property type" value={buyer.purpose} />
+              <ProfileFact label="Seeking property type" value={buyer.propertyType} />
               <ProfileFact label="Down payment" value={formatRange(buyer.downPaymentMin, buyer.downPaymentMax)} />
               <ProfileFact label="Budget" value={formatRange(buyer.budgetMin, buyer.budgetMax)} />
             </div>
 
-            {activeBadges.length > 1 || otherBadges.length > 0 ? (
+            {activeBadges.length > 1 ? (
               <div className="buyer-reference-badge-row">
                 {activeBadges.slice(primaryBadge ? 1 : 0).map((badge) => (
-                  <BadgePill badge={badge} key={badge.label} />
-                ))}
-                {otherBadges.map((badge) => (
                   <BadgePill badge={badge} key={badge.label} />
                 ))}
               </div>

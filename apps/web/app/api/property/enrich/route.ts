@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { enrichPropertyByAddress } from "../../../../server/attom";
 import { hasRole } from "../../../../server/authz";
-import { checkRateLimit, clientIpFromRequest } from "../../../../server/rate-limit";
+import { clientIpFromRequest } from "../../../../server/rate-limit";
+import { consumeSharedRateLimit } from "../../../../server/shared-rate-limit";
 import { getSessionUser } from "../../../../server/session";
 
 const enrichQuerySchema = z.object({
   addressLine1: z.string().trim().min(1).max(160),
   city: z.string().trim().max(80).optional(),
+  market: z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/),
   state: z.string().trim().length(2).optional(),
   zip: z.string().trim().min(5).max(16),
 });
@@ -19,8 +21,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Seller role required.", property: null }, { status: 403 });
   }
 
-  const ipLimit = checkRateLimit(`property-enrich:ip:${clientIpFromRequest(request)}`, 30, 60_000);
-  const userLimit = checkRateLimit(`property-enrich:user:${user.id}`, 20, 60_000);
+  const ipLimit = await consumeSharedRateLimit({
+    identifier: clientIpFromRequest(request),
+    limit: 30,
+    namespace: "property-enrich:ip",
+    windowSeconds: 60,
+  });
+  const userLimit = ipLimit.allowed
+    ? await consumeSharedRateLimit({
+        identifier: user.id,
+        limit: 20,
+        namespace: "property-enrich:user",
+        windowSeconds: 60,
+      })
+    : ipLimit;
   if (!ipLimit.allowed || !userLimit.allowed) {
     const retryAfter = Math.max(ipLimit.retryAfterSeconds, userLimit.retryAfterSeconds);
     return NextResponse.json(
@@ -33,12 +47,13 @@ export async function GET(request: Request) {
   const parsed = enrichQuerySchema.safeParse({
     addressLine1: searchParams.get("addressLine1"),
     city: searchParams.get("city") || undefined,
+    market: searchParams.get("market"),
     state: searchParams.get("state")?.trim().toUpperCase() || undefined,
     zip: searchParams.get("zip"),
   });
 
   if (!parsed.success) {
-    return NextResponse.json({ error: "Address and active pilot ZIP are required.", property: null }, { status: 400 });
+    return NextResponse.json({ error: "Address and active service-area ZIP are required.", property: null }, { status: 400 });
   }
 
   const result = await enrichPropertyByAddress(parsed.data);

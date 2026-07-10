@@ -105,6 +105,19 @@ enum EmailOutboxStatus {
   FAILED
 }
 
+enum BuyerDesiredServiceAreaSource {
+  SELECTED
+  DERIVED
+  MIGRATED
+}
+
+enum ServiceAreaRelationType {
+  CONTAINS
+  OVERLAPS
+  DISPLAY_PARENT
+  SEARCH_ROLLUP
+}
+
 model User {
   id            String     @id @db.Uuid
   email         String     @unique
@@ -128,17 +141,15 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@index([email])
 }
 
 model SellerAccess {
   id               String             @id @default(cuid())
   userId           String             @unique @db.Uuid
-  user             User               @relation("SellerAccessUser", fields: [userId], references: [id], onDelete: Cascade)
+  user             User               @relation("SellerAccessUser", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   status           SellerAccessStatus @default(PENDING)
   reviewedByUserId String?            @db.Uuid
-  reviewedBy       User?              @relation("SellerAccessReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedBy       User?              @relation("SellerAccessReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   reviewedAt       DateTime?
 
   createdAt DateTime @default(now())
@@ -151,7 +162,7 @@ model SellerAccess {
 model BuyerProfile {
   id     String @id @default(cuid())
   userId String @unique @db.Uuid
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
   displayName         String
   buyerType           String?
@@ -172,30 +183,52 @@ model BuyerProfile {
   profileCompleteness Int                   @default(0)
   lastRefreshedAt     DateTime?
 
-  criteria  BuyerCriteria[]
-  badges    BuyerBadge[]
-  invites   Invite[]
-  documents VerificationDocument[]
+  criteria            BuyerCriteria?
+  badges              BuyerBadge[]
+  invites             Invite[]
+  documents           VerificationDocument[]
+  desiredServiceAreas BuyerDesiredServiceArea[]
+  geographyQuarantine ServiceAreaMigrationQuarantine?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([visibilityStatus])
-  @@index([desiredPostalCode])
-  @@index([desiredNeighborhood])
-  @@index([desiredCity, desiredState])
   @@index([budgetMin, budgetMax])
+}
+
+model Market {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug      String   @unique
+  label     String
+  state     String
+  country   String
+  centerLat Float    @map("center_lat")
+  centerLng Float    @map("center_lng")
+  bboxWest  Float    @map("bbox_west")
+  bboxSouth Float    @map("bbox_south")
+  bboxEast  Float    @map("bbox_east")
+  bboxNorth Float    @map("bbox_north")
+  active    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  serviceAreas ServiceArea[]
+
+  @@map("markets")
 }
 
 model ServiceArea {
   id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug          String   @unique
+  marketId      String   @map("market_id") @db.Uuid
+  market        Market   @relation(fields: [marketId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  slug          String
   label         String
   type          String
   postalCode    String?  @map("postal_code")
   city          String?
   county        String?
-  state         String   @default("CA")
+  state         String
   centerLat     Float    @map("center_lat")
   centerLng     Float    @map("center_lng")
   bboxWest      Float    @map("bbox_west")
@@ -205,19 +238,81 @@ model ServiceArea {
   geojsonPath   String   @map("geojson_path")
   source        String
   sourceVersion String   @map("source_version")
-  active        Boolean  @default(true)
-  isPilot       Boolean  @default(true) @map("is_pilot")
+  sourceLicense String?  @map("source_license")
+  sourceUrl     String?  @map("source_url")
+  geojsonSha256 String?  @map("geojson_sha256")
+  searchTerms   String[] @default([]) @map("search_terms")
+  active        Boolean  @default(false)
+  isPilot       Boolean  @default(false) @map("is_pilot")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
+  buyerDesiredAreas   BuyerDesiredServiceArea[]
+  childRelationships  ServiceAreaRelationship[] @relation("ServiceAreaRelationshipChild")
+  parentRelationships ServiceAreaRelationship[] @relation("ServiceAreaRelationshipParent")
+
+  @@unique([marketId, slug])
+  @@unique([marketId, postalCode])
+  @@index([marketId, active, type])
   @@index([active, type])
   @@index([postalCode])
   @@map("service_areas")
 }
 
+model ServiceAreaRelationship {
+  parentServiceAreaId String                  @map("parent_service_area_id") @db.Uuid
+  childServiceAreaId  String                  @map("child_service_area_id") @db.Uuid
+  relationType        ServiceAreaRelationType @default(DISPLAY_PARENT) @map("relation_type")
+  source              String
+  reviewedAt          DateTime?               @map("reviewed_at")
+  createdAt           DateTime                @default(now()) @map("created_at")
+  updatedAt           DateTime                @default(now()) @updatedAt @map("updated_at")
+
+  parentServiceArea ServiceArea @relation("ServiceAreaRelationshipParent", fields: [parentServiceAreaId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  childServiceArea  ServiceArea @relation("ServiceAreaRelationshipChild", fields: [childServiceAreaId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@id([parentServiceAreaId, childServiceAreaId, relationType])
+  @@index([childServiceAreaId, relationType, reviewedAt])
+  @@index([parentServiceAreaId, relationType, reviewedAt])
+  @@map("service_area_relationships")
+}
+
+model BuyerDesiredServiceArea {
+  buyerProfileId String                        @map("buyer_profile_id")
+  serviceAreaId  String                        @map("service_area_id") @db.Uuid
+  source         BuyerDesiredServiceAreaSource @default(SELECTED)
+  isPrimary      Boolean                       @default(true) @map("is_primary")
+  createdAt      DateTime                      @default(now()) @map("created_at")
+  updatedAt      DateTime                      @default(now()) @updatedAt @map("updated_at")
+
+  buyerProfile BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  serviceArea  ServiceArea  @relation(fields: [serviceAreaId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@id([buyerProfileId, serviceAreaId])
+  @@unique([buyerProfileId])
+  @@index([serviceAreaId, buyerProfileId])
+  @@map("buyer_desired_service_areas")
+}
+
+model ServiceAreaMigrationQuarantine {
+  id                      String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  buyerProfileId          String       @unique @map("buyer_profile_id")
+  buyerProfile            BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  reason                  String
+  candidateServiceAreaIds Json         @default("[]") @map("candidate_service_area_ids")
+  legacyLocation          Json         @default("{}") @map("legacy_location")
+  resolution              Json?
+  resolvedAt              DateTime?    @map("resolved_at")
+  createdAt               DateTime     @default(now()) @map("created_at")
+  updatedAt               DateTime     @default(now()) @updatedAt @map("updated_at")
+
+  @@index([reason, resolvedAt])
+  @@map("service_area_migration_quarantine")
+}
+
 model BuyerCriteria {
   id             String       @id @default(cuid())
-  buyerProfileId String
+  buyerProfileId String       @unique
   buyerProfile   BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
 
   propertyCategory PropertyCategory
@@ -237,7 +332,6 @@ model BuyerCriteria {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([buyerProfileId])
   @@index([propertyCategory, propertySubtype])
   @@index([priceMin, priceMax])
 }
@@ -252,7 +346,7 @@ model BuyerBadge {
   issuedAt           DateTime?
   expiresAt          DateTime?
   grantedByUserId    String?               @db.Uuid
-  grantedBy          User?                 @relation("BadgeGranter", fields: [grantedByUserId], references: [id], onDelete: SetNull)
+  grantedBy          User?                 @relation("BadgeGranter", fields: [grantedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   grantedAt          DateTime?
   evidenceDocumentId String?
   evidenceDocument   VerificationDocument? @relation("BadgeEvidence", fields: [evidenceDocumentId], references: [id], onDelete: SetNull)
@@ -273,7 +367,7 @@ model BuyerBadge {
 model SellerProperty {
   id          String @id @default(cuid())
   ownerUserId String @db.Uuid
-  owner       User   @relation("SellerProperties", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  owner       User   @relation("SellerProperties", fields: [ownerUserId], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
   addressLine1                String?
   addressLine2                String?
@@ -292,6 +386,7 @@ model SellerProperty {
   features                    String[]                   @default([])
   description                 String?
   price                       Decimal?                   @db.Decimal(12, 2)
+  ownershipVersion            Int                        @default(1)
   ownershipVerificationStatus PropertyVerificationStatus @default(NOT_SUBMITTED)
   flaggedForReviewAt          DateTime?
 
@@ -322,29 +417,30 @@ model PropertyImage {
 model VerificationDocument {
   id               String          @id @default(cuid())
   userId           String          @db.Uuid
-  user             User            @relation("UserDocuments", fields: [userId], references: [id], onDelete: Cascade)
+  user             User            @relation("UserDocuments", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   uploadedByUserId String?         @db.Uuid
-  uploadedBy       User?           @relation("DocumentUploader", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  uploadedBy       User?           @relation("DocumentUploader", fields: [uploadedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   buyerProfileId   String?
   buyerProfile     BuyerProfile?   @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
   propertyId       String?
   property         SellerProperty? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  documentType          DocumentType
-  fileSha256            String?
-  fileSizeBytes         Int?
-  mimeType              String?
-  storageBucket         String                 @default("verification-documents")
-  storagePath           String
-  originalFilename      String?
-  uploadedAt            DateTime               @default(now())
-  reviewStatus          DocumentStatus         @default(PENDING)
-  reviewedByUserId      String?                @db.Uuid
-  reviewedBy            User?                  @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
-  reviewedAt            DateTime?
-  reviewNotes           String?
-  rejectionReason       String?
-  ownershipEvidenceKind OwnershipEvidenceKind?
+  documentType             DocumentType
+  fileSha256               String?
+  fileSizeBytes            Int?
+  mimeType                 String?
+  storageBucket            String                 @default("verification-documents")
+  storagePath              String
+  originalFilename         String?
+  uploadedAt               DateTime               @default(now())
+  reviewStatus             DocumentStatus         @default(PENDING)
+  reviewedByUserId         String?                @db.Uuid
+  reviewedBy               User?                  @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  reviewedAt               DateTime?
+  reviewNotes              String?
+  rejectionReason          String?
+  ownershipEvidenceKind    OwnershipEvidenceKind?
+  propertyOwnershipVersion Int?
 
   badgeEvidence BuyerBadge[] @relation("BadgeEvidence")
 
@@ -356,7 +452,7 @@ model VerificationDocument {
   @@index([uploadedByUserId])
   @@index([buyerProfileId])
   @@index([propertyId])
-  @@index([propertyId, ownershipEvidenceKind])
+  @@index([propertyId, propertyOwnershipVersion, ownershipEvidenceKind, reviewStatus])
   @@index([reviewedByUserId])
   @@index([reviewStatus])
 }
@@ -364,7 +460,7 @@ model VerificationDocument {
 model Invite {
   id             String         @id @default(cuid())
   sellerId       String         @db.Uuid
-  seller         User           @relation("SellerInvites", fields: [sellerId], references: [id], onDelete: Cascade)
+  seller         User           @relation("SellerInvites", fields: [sellerId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   buyerProfileId String
   buyerProfile   BuyerProfile   @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
   propertyId     String
@@ -376,7 +472,7 @@ model Invite {
   sentAt      DateTime     @default(now())
   viewedAt    DateTime?
   respondedAt DateTime?
-  expiresAt   DateTime?
+  expiresAt   DateTime     @default(dbgenerated("(now() + '30 days'::interval)"))
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -385,12 +481,13 @@ model Invite {
   @@index([buyerProfileId])
   @@index([propertyId])
   @@index([status])
+  @@index([status, expiresAt])
 }
 
 model Notification {
   id       String    @id @default(cuid())
   userId   String    @db.Uuid
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   type     String
   title    String
   body     String
@@ -405,7 +502,7 @@ model Notification {
 model AdminAuditLog {
   id          String   @id @default(cuid())
   actorUserId String?  @db.Uuid
-  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   action      String
   targetType  String
   targetId    String
@@ -418,21 +515,26 @@ model AdminAuditLog {
 }
 
 model EmailOutbox {
-  id            String            @id @default(cuid())
-  type          String
-  to            String
-  subject       String?
-  templateName  String?
-  payload       Json
-  status        EmailOutboxStatus @default(PENDING)
-  attempts      Int               @default(0)
-  lastError     String?
-  nextAttemptAt DateTime?
-  sentAt        DateTime?
+  id              String            @id @default(cuid())
+  type            String
+  to              String
+  recipientUserId String?           @db.Uuid
+  subject         String?
+  templateName    String?
+  payload         Json
+  status          EmailOutboxStatus @default(PENDING)
+  attempts        Int               @default(0)
+  lastError       String?
+  nextAttemptAt   DateTime?
+  sentAt          DateTime?
+  cancelledAt     DateTime?
+  leaseToken      String?           @db.Uuid
+  leaseExpiresAt  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status, nextAttemptAt])
+  @@index([recipientUserId, cancelledAt])
   @@index([createdAt])
 }

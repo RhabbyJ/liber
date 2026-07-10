@@ -89,8 +89,16 @@ function authNotice(status: string, email: string) {
 
   if (status === "account-unavailable") {
     return {
-      body: "Your Supabase login exists, but this Liber account is not active. Contact an admin or sign up again.",
+      body: "Your login exists, but this Liber account is not active. Contact Liber support before trying another signup.",
       title: "Account unavailable",
+      tone: "info",
+    };
+  }
+
+  if (status === "identity-recovery-required") {
+    return {
+      body: "This email is already tied to a different Liber identity. Contact Liber support to recover or explicitly purge that account; a new login cannot inherit it.",
+      title: "Account recovery required",
       tone: "info",
     };
   }
@@ -107,6 +115,14 @@ function authNotice(status: string, email: string) {
     return {
       body: "Enter your email and password to log in.",
       title: "Email and password required",
+      tone: "info",
+    };
+  }
+
+  if (status === "rate-limited") {
+    return {
+      body: "Too many authentication attempts were received. Wait before trying again.",
+      title: "Try again later",
       tone: "info",
     };
   }

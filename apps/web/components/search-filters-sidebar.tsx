@@ -3,10 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 import {
-  findServiceArea,
   serviceAreaDisplayLabel,
   type ServiceArea,
 } from "../lib/service-areas";
+import {
+  hasSearchSuggestions,
+  resolvedAreaFromSearchPayload,
+  type ServiceAreaSearchResponse,
+} from "../lib/service-area-api";
 import { propertyTypeOptions } from "../lib/property-types";
 import { Icon } from "./icon";
 
@@ -18,57 +22,16 @@ type Props = {
   defaultBedrooms?: string;
   defaultBudgetMax?: string | number;
   defaultBudgetMin?: string | number;
-  defaultCity?: string;
   defaultCondition?: string;
   defaultPropertySubtype?: string;
   defaultServiceArea?: string;
   defaultSort?: string;
   defaultSquareFeet?: string;
-  defaultState?: string;
-};
-
-type ServiceAreaApiResult = {
-  bbox: [number, number, number, number];
-  center: [number, number];
-  city: string | null;
-  county: string | null;
-  disclaimer: string;
-  geojson_path: string;
-  is_pilot: boolean;
-  label: string;
-  postal_code: string | null;
-  slug: string;
-  source: string;
-  source_version: string;
-  state: "CA";
-  type: ServiceArea["type"];
+  marketSlug: string;
 };
 
 const amenityOptions = ["Pool", "Parking", "ADU", "Yard", "Garage"] as const;
 const conditionOptions = ["Move-in ready", "Mild fixer", "Fixer"] as const;
-
-const minBudgetOptions = [
-  { label: "No min", value: "" },
-  { label: "$300k", value: "300000" },
-  { label: "$400k", value: "400000" },
-  { label: "$500k", value: "500000" },
-  { label: "$600k", value: "600000" },
-  { label: "$700k", value: "700000" },
-  { label: "$800k", value: "800000" },
-  { label: "$900k", value: "900000" },
-  { label: "$1M", value: "1000000" },
-];
-
-const maxBudgetOptions = [
-  { label: "No max", value: "" },
-  { label: "$500k", value: "500000" },
-  { label: "$750k", value: "750000" },
-  { label: "$1M", value: "1000000" },
-  { label: "$1.2M", value: "1200000" },
-  { label: "$1.5M", value: "1500000" },
-  { label: "$2M", value: "2000000" },
-  { label: "$3M", value: "3000000" },
-];
 
 const trustOptions = [
   { label: "Pre-approved", value: "PRE_APPROVED" },
@@ -85,19 +48,16 @@ export function SearchFiltersSidebar({
   defaultBedrooms = "",
   defaultBudgetMax = "",
   defaultBudgetMin = "",
-  defaultCity = "",
   defaultCondition = "",
   defaultPropertySubtype = "",
   defaultServiceArea = "",
   defaultSort = "recommended",
   defaultSquareFeet = "",
-  defaultState = "CA",
+  marketSlug,
 }: Props) {
   const router = useRouter();
   const [area, setArea] = useState(defaultArea);
   const [serviceArea, setServiceArea] = useState(defaultServiceArea);
-  const [city, setCity] = useState(defaultCity);
-  const [state, setState] = useState(defaultState);
   const [locationMessage, setLocationMessage] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [minBudget, setMinBudget] = useState(String(defaultBudgetMin || ""));
@@ -114,26 +74,12 @@ export function SearchFiltersSidebar({
     setArea(value);
     setLocationMessage("");
 
-    const matchedArea = findServiceArea(value);
-    if (matchedArea) {
-      applyServiceArea(matchedArea);
-      return;
-    }
-
     setServiceArea("");
-    setCity("");
-    setState("CA");
   }
 
   async function handleLocationLookup() {
     if (!area.trim()) return;
     setLocationMessage("");
-
-    const localArea = findServiceArea(area);
-    if (localArea) {
-      applyServiceArea(localArea);
-      return;
-    }
 
     if (area.trim().length < 3) {
       setLocationMessage("Enter a supported city, neighborhood, or ZIP.");
@@ -142,18 +88,26 @@ export function SearchFiltersSidebar({
 
     setIsLookingUp(true);
     try {
-      const params = new URLSearchParams({ q: area });
+      const params = new URLSearchParams({ market: marketSlug, q: area });
       const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
-      const results = await response.json() as ServiceAreaApiResult[];
-      const result = results[0];
+      const payload = await response.json() as ServiceAreaSearchResponse;
 
-      if (!response.ok || !result) {
+      if (!response.ok) {
         setLocationMessage("We're not active there yet.");
         return;
       }
+      const resolvedArea = resolvedAreaFromSearchPayload(payload);
+      if (resolvedArea) {
+        applyServiceArea(resolvedArea);
+        setLocationMessage(`${resolvedArea.label} verified.`);
+        return;
+      }
+      if (hasSearchSuggestions(payload)) {
+        setLocationMessage("Choose a specific supported city, neighborhood, or ZIP.");
+        return;
+      }
 
-      applyServiceArea(apiResultToServiceArea(result));
-      setLocationMessage(`${result.label} verified.`);
+      setLocationMessage("We're not active there yet.");
     } catch {
       setLocationMessage("Location lookup failed.");
     } finally {
@@ -170,16 +124,12 @@ export function SearchFiltersSidebar({
   function handleClearLocation() {
     setArea("");
     setServiceArea("");
-    setCity("");
-    setState("CA");
     setLocationMessage("");
   }
 
   function applyServiceArea(matchedArea: ServiceArea) {
     setArea(serviceAreaDisplayLabel(matchedArea));
     setServiceArea(matchedArea.slug);
-    setCity(matchedArea.type === "neighborhood" ? matchedArea.label : matchedArea.city ?? matchedArea.label);
-    setState(matchedArea.state);
   }
 
   function toggleBadge(badge: string) {
@@ -195,17 +145,18 @@ export function SearchFiltersSidebar({
   }
 
   function handleClearFilters() {
-    router.push(queryPath(new URLSearchParams(defaultSort === "recommended" ? "" : `sort=${defaultSort}`)));
+    const nextParams = new URLSearchParams({ market: marketSlug });
+    if (defaultSort !== "recommended") nextParams.set("sort", defaultSort);
+    router.push(queryPath(nextParams));
   }
 
   function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const nextParams = new URLSearchParams();
-    if (area) nextParams.set("area", area);
-    if (serviceArea) nextParams.set("serviceArea", serviceArea);
-    if (city) nextParams.set("city", city);
-    if (state) nextParams.set("state", state);
+    const nextParams = new URLSearchParams({ market: marketSlug });
+    if (serviceArea) {
+      nextParams.set("serviceArea", serviceArea);
+    }
     if (minBudget) nextParams.set("budgetMin", minBudget);
     if (maxBudget) nextParams.set("budgetMax", maxBudget);
     if (bedrooms) nextParams.set("bedrooms", bedrooms);
@@ -261,25 +212,27 @@ export function SearchFiltersSidebar({
         <div className="filter-section">
           <h4 className="filter-section-title">Budget</h4>
           <div className="budget-select-row">
-            <div className="select-wrapper">
-              <select aria-label="Minimum budget" onChange={(event) => setMinBudget(event.target.value)} value={minBudget}>
-                {minBudgetOptions.map((option) => (
-                  <option key={option.label} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <input
+              aria-label="Minimum budget"
+              inputMode="numeric"
+              min="0"
+              onChange={(event) => setMinBudget(event.target.value)}
+              placeholder="No min"
+              step="1000"
+              type="number"
+              value={minBudget}
+            />
             <span className="budget-separator">to</span>
-            <div className="select-wrapper">
-              <select aria-label="Maximum budget" onChange={(event) => setMaxBudget(event.target.value)} value={maxBudget}>
-                {maxBudgetOptions.map((option) => (
-                  <option key={option.label} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <input
+              aria-label="Maximum budget"
+              inputMode="numeric"
+              min="0"
+              onChange={(event) => setMaxBudget(event.target.value)}
+              placeholder="No max"
+              step="1000"
+              type="number"
+              value={maxBudget}
+            />
           </div>
         </div>
 
@@ -296,36 +249,36 @@ export function SearchFiltersSidebar({
                 ))}
               </select>
             </div>
-            <div className="select-wrapper">
-              <select aria-label="Bedrooms" onChange={(event) => setBedrooms(event.target.value)} value={bedrooms}>
-                <option value="">Any beds</option>
-                <option value="1">1+ bed</option>
-                <option value="2">2+ beds</option>
-                <option value="3">3+ beds</option>
-                <option value="4">4+ beds</option>
-                <option value="5">5+ beds</option>
-              </select>
-            </div>
-            <div className="select-wrapper">
-              <select aria-label="Bathrooms" onChange={(event) => setBathrooms(event.target.value)} value={bathrooms}>
-                <option value="">Any baths</option>
-                <option value="1">1+ bath</option>
-                <option value="2">2+ baths</option>
-                <option value="3">3+ baths</option>
-                <option value="4">4+ baths</option>
-              </select>
-            </div>
-            <div className="select-wrapper">
-              <select aria-label="Square feet" onChange={(event) => setSquareFeet(event.target.value)} value={squareFeet}>
-                <option value="">Any sqft</option>
-                <option value="1000">1,000+ sqft</option>
-                <option value="1200">1,200+ sqft</option>
-                <option value="1500">1,500+ sqft</option>
-                <option value="2000">2,000+ sqft</option>
-                <option value="2500">2,500+ sqft</option>
-                <option value="3000">3,000+ sqft</option>
-              </select>
-            </div>
+            <input
+              aria-label="Bedrooms"
+              inputMode="numeric"
+              min="0"
+              onChange={(event) => setBedrooms(event.target.value)}
+              placeholder="Any beds"
+              step="1"
+              type="number"
+              value={bedrooms}
+            />
+            <input
+              aria-label="Bathrooms"
+              inputMode="numeric"
+              min="0"
+              onChange={(event) => setBathrooms(event.target.value)}
+              placeholder="Any baths"
+              step="1"
+              type="number"
+              value={bathrooms}
+            />
+            <input
+              aria-label="Square feet"
+              inputMode="numeric"
+              min="0"
+              onChange={(event) => setSquareFeet(event.target.value)}
+              placeholder="Any sqft"
+              step="1"
+              type="number"
+              value={squareFeet}
+            />
             <div className="select-wrapper">
               <select aria-label="Condition" onChange={(event) => setCondition(event.target.value)} value={condition}>
                 <option value="">Any condition</option>
@@ -385,29 +338,6 @@ export function SearchFiltersSidebar({
       </form>
     </aside>
   );
-}
-
-function apiResultToServiceArea(result: ServiceAreaApiResult): ServiceArea {
-  return {
-    active: true,
-    bbox: result.bbox,
-    center: {
-      lat: result.center[1],
-      lng: result.center[0],
-    },
-    city: result.city,
-    county: result.county,
-    disclaimer: result.disclaimer,
-    geojsonPath: result.geojson_path,
-    isPilot: result.is_pilot,
-    label: result.label,
-    postalCode: result.postal_code,
-    slug: result.slug,
-    source: result.source,
-    sourceVersion: result.source_version,
-    state: result.state,
-    type: result.type,
-  };
 }
 
 function queryPath(params: URLSearchParams) {

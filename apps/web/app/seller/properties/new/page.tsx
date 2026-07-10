@@ -2,7 +2,9 @@ import Link from "next/link";
 import { Icon } from "../../../../components/icon";
 import { PropertyAddressLookup } from "../../../../components/property-address-lookup";
 import { propertyTypeOptions } from "../../../../lib/property-types";
+import { DEFAULT_MARKET_SLUG } from "../../../../lib/service-areas";
 import { submitSellerProperty } from "../../../../server/form-actions";
+import { getActiveMarketBySlug } from "../../../../server/service-areas";
 
 export default async function NewSellerPropertyPage({
   searchParams,
@@ -10,6 +12,7 @@ export default async function NewSellerPropertyPage({
   searchParams: Promise<{ next?: string }>;
 }) {
   const { next } = await searchParams;
+  const market = await getActiveMarketBySlug(DEFAULT_MARKET_SLUG);
   const safeNext = typeof next === "string" && next.startsWith("/seller/") ? next : null;
 
   return (
@@ -66,7 +69,7 @@ export default async function NewSellerPropertyPage({
             <span className="field-hint">Used only for matching; never displayed publicly.</span>
           </div>
 
-          <PropertyAddressLookup />
+          <PropertyAddressLookup marketSlug={market.slug} marketState={market.state} />
 
           <div className="field">
             <label htmlFor="garage">Garage area</label>

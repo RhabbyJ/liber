@@ -6,12 +6,18 @@
     "apps/*",
     "packages/*"
   ],
+  "overrides": {
+    "@hono/node-server": "1.19.13",
+    "hono": "4.12.25",
+    "vite": "8.0.16"
+  },
   "scripts": {
     "dev": "npm run dev -w @liber/web",
     "build": "npm run build -w @liber/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run test:database-target && npm run test --workspaces --if-present",
+    "test:database-target": "node --test scripts/database-target.test.mjs",
     "smoke:routes": "node scripts/route-smoke.mjs",
     "smoke:security": "node scripts/security-smoke.mjs",
     "smoke:no-auth-bypass": "node scripts/forbidden-auth-bypass-smoke.mjs",
@@ -19,7 +25,13 @@
     "readiness:env": "node scripts/readiness-check.mjs",
     "readiness:production": "node scripts/readiness-check.mjs --production",
     "db:generate": "prisma generate --schema packages/db/prisma/schema.prisma",
-    "db:validate": "prisma validate --schema packages/db/prisma/schema.prisma"
+    "db:validate": "prisma validate --schema packages/db/prisma/schema.prisma",
+    "db:test-geography:fresh": "node scripts/test-geography-migration-fresh.mjs",
+    "db:test-geography:upgrade": "node scripts/test-geography-migration-upgrade.mjs",
+    "db:test-identity": "node scripts/test-identity-migration.mjs",
+    "db:test-buyer-profile-atomicity": "node scripts/test-buyer-profile-atomicity.mjs",
+    "db:test-seller-property-integrity": "node scripts/test-seller-property-integrity.mjs",
+    "db:test-auth-security:staging": "node scripts/test-auth-security-staging.mjs"
   },
   "devDependencies": {
     "prisma": "7.8.0",

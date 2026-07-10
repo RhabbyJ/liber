@@ -2097,7 +2097,7 @@ main {
   padding: 0 10px 8px 38px;
 }
 
-.pilot-zip-suggestions {
+.service-area-suggestions {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -2110,7 +2110,7 @@ main {
   z-index: 30;
 }
 
-.pilot-zip-suggestions-head {
+.service-area-suggestions-head {
   color: var(--ink-muted);
   font-size: 11px;
   font-weight: 800;
@@ -2118,13 +2118,13 @@ main {
   text-transform: uppercase;
 }
 
-.pilot-zip-suggestions-grid {
+.service-area-suggestions-grid {
   display: grid;
   gap: 6px;
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
-.pilot-zip-suggestion {
+.service-area-suggestion {
   align-items: flex-start;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -2138,19 +2138,19 @@ main {
   text-align: left;
 }
 
-.pilot-zip-suggestion:hover,
-.pilot-zip-suggestion:focus-visible {
+.service-area-suggestion:hover,
+.service-area-suggestion:focus-visible {
   background: #fff;
   border-color: var(--sage-strong);
   box-shadow: 0 0 0 3px rgba(44, 121, 86, 0.12);
   outline: 0;
 }
 
-.pilot-zip-suggestion strong {
+.service-area-suggestion strong {
   font-size: 13.5px;
 }
 
-.pilot-zip-suggestion span {
+.service-area-suggestion span {
   color: var(--ink-muted);
   font-size: 11px;
   font-weight: 700;
@@ -2262,21 +2262,6 @@ body:has(.map-landing) .site-footer {
   min-height: 100%;
   position: relative;
   width: 100%;
-}
-
-.public-map-selected-area-static {
-  background: rgba(22, 131, 76, 0.08);
-  border: 3px dashed rgba(14, 95, 56, 0.78);
-  box-shadow: 0 16px 45px rgba(14, 95, 56, 0.12);
-  clip-path: polygon(15% 18%, 58% 9%, 86% 29%, 82% 69%, 54% 91%, 18% 78%, 6% 42%);
-  height: min(56%, 390px);
-  left: 50%;
-  pointer-events: none;
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: min(64%, 520px);
-  z-index: 1;
 }
 
 .public-map-static-grid::before,
@@ -2684,7 +2669,7 @@ body:has(.map-landing) .site-footer {
     max-width: none;
   }
 
-  .pilot-zip-suggestions-grid {
+  .service-area-suggestions-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
@@ -3747,21 +3732,6 @@ body:has(.map-landing) .site-footer {
   min-height: 520px;
   padding-top: 96px;
   position: relative;
-}
-
-.map-selected-area-static {
-  background: rgba(22, 131, 76, 0.08);
-  border: 3px dashed rgba(14, 95, 56, 0.78);
-  box-shadow: 0 16px 45px rgba(14, 95, 56, 0.12);
-  clip-path: polygon(15% 18%, 58% 9%, 86% 29%, 82% 69%, 54% 91%, 18% 78%, 6% 42%);
-  height: min(58%, 360px);
-  left: 50%;
-  pointer-events: none;
-  position: absolute;
-  top: 52%;
-  transform: translate(-50%, -50%);
-  width: min(72%, 460px);
-  z-index: 1;
 }
 
 .map-pin {
@@ -5366,7 +5336,7 @@ body:has(.map-landing) .site-footer {
     padding: 0 12px;
   }
 
-  .pilot-zip-suggestions-grid {
+  .service-area-suggestions-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

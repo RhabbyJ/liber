@@ -9,6 +9,7 @@ const globalForRateLimit = globalThis as typeof globalThis & {
 
 const buckets = globalForRateLimit.__liberRateLimitBuckets ?? new Map<string, Bucket>();
 globalForRateLimit.__liberRateLimitBuckets = buckets;
+const MAX_LOCAL_BUCKETS = 10_000;
 
 export type RateLimitResult = {
   allowed: boolean;
@@ -17,8 +18,12 @@ export type RateLimitResult = {
 };
 
 export function clientIpFromRequest(request: Request) {
-  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwardedFor || request.headers.get("x-real-ip") || "unknown-ip";
+  return clientIpFromHeaders(request.headers);
+}
+
+export function clientIpFromHeaders(headers: Headers) {
+  const forwardedFor = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwardedFor || headers.get("x-real-ip") || "unknown-ip";
 }
 
 export function checkRateLimit(key: string, limit: number, windowMs: number): RateLimitResult {
@@ -26,6 +31,8 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): Ra
   const bucket = buckets.get(key);
 
   if (!bucket || bucket.resetAt <= now) {
+    if (bucket) buckets.delete(key);
+    pruneLocalBuckets(now);
     buckets.set(key, { count: 1, resetAt: now + windowMs });
     return { allowed: true, limit, retryAfterSeconds: 0 };
   }
@@ -42,10 +49,13 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): Ra
   return { allowed: true, limit, retryAfterSeconds: 0 };
 }
 
-export function assertRateLimit(key: string, limit: number, windowMs: number) {
-  const result = checkRateLimit(key, limit, windowMs);
-  if (!result.allowed) {
-    throw new Error("Rate limit reached. Try again later.");
+function pruneLocalBuckets(now: number) {
+  for (const [bucketKey, bucket] of buckets) {
+    if (bucket.resetAt <= now) buckets.delete(bucketKey);
   }
-  return result;
+  while (buckets.size >= MAX_LOCAL_BUCKETS) {
+    const oldestKey = buckets.keys().next().value;
+    if (typeof oldestKey !== "string") break;
+    buckets.delete(oldestKey);
+  }
 }

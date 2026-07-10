@@ -8,9 +8,9 @@ import { defaultPathForSessionUser, getSessionUser } from "../../../server/sessi
 export default async function VerifySignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ email?: string; next?: string; resent?: string }>;
+  searchParams: Promise<{ email?: string; next?: string; resent?: string; status?: string }>;
 }) {
-  const { email = "", next = "", resent = "" } = await searchParams;
+  const { email = "", next = "", resent = "", status = "" } = await searchParams;
   const safeNext = safeInternalPath(next, "");
   const user = await getSessionUser();
   if (user) redirect(defaultPathForSessionUser(user));
@@ -37,6 +37,13 @@ export default async function VerifySignupPage({
           <div className="auth-alert success">
             <strong>Verification email resent</strong>
             <span>Use the newest email if more than one message arrives.</span>
+          </div>
+        ) : null}
+
+        {status === "rate-limited" ? (
+          <div className="auth-alert info">
+            <strong>Resend limit reached</strong>
+            <span>Wait before requesting another verification email.</span>
           </div>
         ) : null}
 

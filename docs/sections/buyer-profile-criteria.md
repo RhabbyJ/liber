@@ -14,6 +14,8 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - `apps/web/components/buyer-profile-wizard.tsx`
 - `apps/web/server/form-actions.ts`
 - `apps/web/server/contracts.ts`
+- `apps/web/server/buyer-dtos.ts`
+- `apps/web/lib/buyer-dto-types.ts`
 
 ## Invariants
 
@@ -21,11 +23,27 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - Full buyer profiles are not public pages.
 - Public pre-signup buyer previews must be limited, privacy-safe teaser cards only (`apps/web/server/buyer-preview.ts`).
 - Buyer documents are never shown to sellers.
+- Seller-view profile responses use a dedicated projection/DTO and require an
+  active owning User, active profile, active canonical service area, and active
+  market. Auth UUIDs, internal criteria/service-area IDs, raw coordinates,
+  contact data, documents, Storage paths, and inactive badges are excluded.
+  `buyerProfileId` is intentionally exposed as the authorized routing ID.
 - Criteria should describe property fit, not protected-class attributes.
 - Amenity needs use canonical feature tokens (Pool, Parking, ADU, Yard, Garage) so seller amenity filters can match; condition uses Move-in ready / Mild fixer / Fixer.
 - Buyer setup is one form on `/buyer/profile`: buyer info, criteria, size, details, and location. Criteria save in the same submit as the profile.
+- Profile, canonical service-area selection, visibility activation, and criteria must commit atomically; a partial save must not publish stale or mismatched buyer demand.
+- The profile form publishes a complete snapshot. Blank optional profile and criteria controls clear persisted values; they are not patch semantics.
+- The database must enforce exactly one criteria row per buyer unless an approved product change introduces named alternative criteria sets.
+- Concurrent buyer saves serialize on the immutable Auth UUID owner row and
+  recheck that the application User is ACTIVE under the lock. The last
+  committed save must be internally consistent across profile, criteria,
+  derived location, selection, and visibility rather than mixing fields from
+  two submissions.
+- Activation fails unless the exact owning UUID has one criteria row and one active primary `SELECTED` service area. Ownership filters belong on reads and writes, not only in the form payload.
 - Buyer info uses allowlisted purchase type values (`Cash`, `Conventional financing`, `Other`) and allowlisted seeking property type values (`House`, `Condo`, `Townhouse`, `Manufactured`, `Land`). The persisted fields are still `buyerType` and `buyingPurpose` for schema compatibility.
-- Buyer desired location is selected as a supported Liber service area when possible; derived postal/neighborhood fields support seller geography filtering without exposing exact addresses.
+- Buyer desired location is exactly one primary service-area UUID in an active market. Active profiles require a buyer-confirmed `SELECTED` row.
+- Profile saves resolve market + slug on the server and derive location text, city, neighborhood, postal code, state, and approximate coordinates from the canonical service-area row. Client copies of those fields are not authoritative.
+- Clearing the canonical selection clears derived fields and moves a buyer-controlled active profile to draft; unsupported or inactive-market selections cannot activate.
 - Buyer verification upload UI appears only after the buyer has submitted the profile; draft setup should not show the pre-approval card.
 - Budget, down payment, square-feet, and lot-size ranges accept custom numeric amounts; the UI must not force fixed increments before submit.
 - Buyer profile purpose is purchase-only; do not add rental/tenant intent to signup, profile, criteria, or seller-search surfaces.
@@ -37,3 +55,5 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 ## Agent notes
 
 Keep buyer profile UX focused on becoming searchable and trusted. Do not add public SEO profile behavior; limited preview cards are allowed only to support pre-signup marketplace understanding.
+
+The constraint and deferred-trigger SQL in `packages/db/prisma/proposals/buyer-profile-atomicity.sql` is reserved for `00018`; reservation is not deployment authorization. Source-shape tests are not database proof; the integrated publication service must pass the disposable two-connection harness.
