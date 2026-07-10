@@ -24,7 +24,7 @@ export default async function BuyerBadgesPage() {
       <section className="stack tight verification-benefit">
         <h2>Why get verified?</h2>
         <p>
-          Getting verified shows sellers you're serious and approved to purchase. Serious sellers look for the
+          Getting verified shows sellers you’re serious and approved to purchase. Serious sellers look for the
           verified badge on your profile and can filter by verified buyers, which can help increase the invites
           you receive from sellers.
         </p>

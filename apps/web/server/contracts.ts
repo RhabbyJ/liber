@@ -122,7 +122,7 @@ function propertyStatusLabel(value: string) {
 }
 
 // V1 keeps one broad category while property subtype captures House/Condo/etc.
-function categoryForSubtype(_subtype: Property["propertyType"]): "HOME" {
+function defaultPropertyCategory(): "HOME" {
   return "HOME";
 }
 
@@ -614,8 +614,6 @@ const evidenceRequiredBadgeTypes = new Set<Badge["type"]>([
 
 type BuyerVerificationDocumentType = "PRE_APPROVAL" | "VERIFIED_FUNDS" | "IDENTITY" | "OTHER";
 
-type DbBuyerProfile = Parameters<typeof buyerFromDb>[0];
-
 async function assertAuditRateLimit(user: SessionUser, action: string, limit: number, windowMs: number) {
   const createdAt = { gte: new Date(Date.now() - windowMs) };
   const count = await prisma.adminAuditLog.count({
@@ -887,7 +885,7 @@ export async function regenerateBuyerAlias() {
 export async function upsertBuyerCriteria(input: unknown) {
   const user = await requireCurrentUser("BUYER");
   const data = upsertBuyerCriteriaSchema.parse(normalizeInput(input));
-  const propertyCategory = categoryForSubtype(data.propertySubtype);
+  const propertyCategory = defaultPropertyCategory();
   const profile = await prisma.buyerProfile.findUnique({ where: { userId: user.id }, select: { id: true } });
   if (!profile || data.buyerProfileId !== profile.id) {
     throw new Error("Criteria must target the current buyer profile.");

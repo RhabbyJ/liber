@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SellerBuyerSearchDto } from "../lib/buyer-dto-types";
 import { formatRange } from "../lib/format";
 import { approximateBuyerPoint } from "../lib/buyer-map-point";
 import { marketMapBounds, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
-import { loadMapboxGl } from "../lib/mapbox-gl-loader";
+import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
 import { StaticBuyerMap } from "./static-buyer-map";
 
 type Props = {
@@ -27,8 +27,8 @@ type MarkerBuyerPoint = BuyerPoint & {
 
 export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null, token }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<Map<string, any>>(new Map());
+  const mapRef = useRef<MapboxMap | null>(null);
+  const markersRef = useRef<Map<string, MapboxMarker>>(new Map());
   const markerNodesRef = useRef<Map<string, HTMLElement>>(new Map());
   const suppressMoveEndRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
@@ -49,6 +49,12 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
   const markerPoints = useMemo(() => withMarkerOffsets(buyerPoints), [buyerPoints]);
   const selectedArea = selectedServiceArea;
   const initialCenter = useMemo(() => mapCenter(buyerPoints, selectedArea, market), [buyerPoints, selectedArea, market]);
+  const highlightBuyer = useCallback((buyerId: string, active: boolean) => {
+    markerNodesRef.current.get(buyerId)?.classList.toggle("active", active);
+    document
+      .querySelector<HTMLElement>(`.buyer-card[data-buyer-id="${cssEscape(buyerId)}"], .buyer-row[data-buyer-id="${cssEscape(buyerId)}"]`)
+      ?.classList.toggle("active", active);
+  }, []);
 
   useEffect(() => {
     setDidFail(false);
@@ -57,6 +63,8 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
   useEffect(() => {
     if (didFail) return;
     let canceled = false;
+    const markers = markersRef.current;
+    const markerNodes = markerNodesRef.current;
     setIsReady(false);
     setStatus("Loading interactive map");
 
@@ -114,9 +122,9 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
 
     return () => {
       canceled = true;
-      markersRef.current.forEach((marker) => marker.remove());
-      markersRef.current.clear();
-      markerNodesRef.current.clear();
+      markers.forEach((marker) => marker.remove());
+      markers.clear();
+      markerNodes.clear();
       mapRef.current?.remove();
       mapRef.current = null;
     };
@@ -164,7 +172,7 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
       mapRef.current.flyTo({ center: [initialCenter.lng, initialCenter.lat], zoom: buyerPoints.length === 1 ? 11.5 : 10.4 });
     }
 
-  }, [buyerPoints, initialCenter.lat, initialCenter.lng, isReady, markerPoints, selectedArea, selectedAreaGeojson]);
+  }, [buyerPoints, highlightBuyer, initialCenter.lat, initialCenter.lng, isReady, markerPoints, selectedArea, selectedAreaGeojson]);
 
   useEffect(() => {
     let canceled = false;
@@ -213,14 +221,7 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
     }
 
     return () => cleanup.forEach((callback) => callback());
-  }, [buyers]);
-
-  function highlightBuyer(buyerId: string, active: boolean) {
-    markerNodesRef.current.get(buyerId)?.classList.toggle("active", active);
-    document
-      .querySelector<HTMLElement>(`.buyer-card[data-buyer-id="${cssEscape(buyerId)}"], .buyer-row[data-buyer-id="${cssEscape(buyerId)}"]`)
-      ?.classList.toggle("active", active);
-  }
+  }, [buyers, highlightBuyer]);
 
   if (didFail) {
     return <StaticBuyerMap buyers={buyers} label="Mapbox unavailable" market={market} selectedServiceArea={selectedArea} />;
@@ -337,7 +338,7 @@ const selectedAreaSourceId = "liber-selected-service-area-source";
 const selectedAreaFillLayerId = "liber-selected-service-area-fill";
 const selectedAreaLineLayerId = "liber-selected-service-area-outline";
 
-function syncSelectedAreaLayer(map: any, data: Record<string, unknown> | null) {
+function syncSelectedAreaLayer(map: MapboxMap, data: Record<string, unknown> | null) {
   if (!data) {
     removeSelectedAreaLayer(map);
     return;
@@ -372,7 +373,7 @@ function syncSelectedAreaLayer(map: any, data: Record<string, unknown> | null) {
   });
 }
 
-function removeSelectedAreaLayer(map: any) {
+function removeSelectedAreaLayer(map: MapboxMap) {
   if (map.getLayer(selectedAreaLineLayerId)) map.removeLayer(selectedAreaLineLayerId);
   if (map.getLayer(selectedAreaFillLayerId)) map.removeLayer(selectedAreaFillLayerId);
   if (map.getSource(selectedAreaSourceId)) map.removeSource(selectedAreaSourceId);

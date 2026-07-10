@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
-import { loadMapboxGl } from "../lib/mapbox-gl-loader";
+import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
 import { marketMapBounds, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
 
 type Props = {
@@ -41,8 +41,8 @@ export function PublicDemandMap({
   token,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  const mapRef = useRef<MapboxMap | null>(null);
+  const markersRef = useRef<MapboxMarker[]>([]);
   const [didFail, setDidFail] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [hasLiveMarkers, setHasLiveMarkers] = useState(false);
@@ -320,7 +320,7 @@ const selectedAreaSourceId = "liber-selected-service-area-source";
 const selectedAreaFillLayerId = "liber-selected-service-area-fill";
 const selectedAreaLineLayerId = "liber-selected-service-area-outline";
 
-function syncSelectedAreaLayer(map: any, data: Record<string, unknown> | null) {
+function syncSelectedAreaLayer(map: MapboxMap, data: Record<string, unknown> | null) {
   if (!data) {
     removeSelectedAreaLayer(map);
     return;
@@ -355,7 +355,7 @@ function syncSelectedAreaLayer(map: any, data: Record<string, unknown> | null) {
   });
 }
 
-function removeSelectedAreaLayer(map: any) {
+function removeSelectedAreaLayer(map: MapboxMap) {
   if (map.getLayer(selectedAreaLineLayerId)) map.removeLayer(selectedAreaLineLayerId);
   if (map.getLayer(selectedAreaFillLayerId)) map.removeLayer(selectedAreaFillLayerId);
   if (map.getSource(selectedAreaSourceId)) map.removeSource(selectedAreaSourceId);

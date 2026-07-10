@@ -16,6 +16,10 @@ vi.mock("../../../../server/contracts", () => ({
   searchBuyers: mocks.searchBuyers,
 }));
 
+vi.mock("../../../../server/seller-search-query", () => ({
+  SellerSearchCursorError: class SellerSearchCursorError extends Error {},
+}));
+
 vi.mock("../../../../server/session", () => ({
   getSessionUser: mocks.getSessionUser,
 }));

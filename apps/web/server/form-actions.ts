@@ -58,6 +58,7 @@ export async function submitBuyerProfile(formData: FormData) {
 }
 
 export async function shuffleBuyerAvatar(_formData: FormData) {
+  void _formData;
   const { data } = await shuffleBuyerAvatarVariant();
   revalidatePath("/buyer/profile");
   if (data.buyerProfileId) revalidatePath(`/buyers/${data.buyerProfileId}`);
@@ -65,6 +66,7 @@ export async function shuffleBuyerAvatar(_formData: FormData) {
 }
 
 export async function previousBuyerAvatar(_formData: FormData) {
+  void _formData;
   const { data } = await previousBuyerAvatarVariant();
   revalidatePath("/buyer/profile");
   if (data.buyerProfileId) revalidatePath(`/buyers/${data.buyerProfileId}`);
@@ -72,6 +74,7 @@ export async function previousBuyerAvatar(_formData: FormData) {
 }
 
 export async function regenerateBuyerPublicAlias(_formData: FormData) {
+  void _formData;
   const { data } = await regenerateBuyerAlias();
   revalidatePath("/buyer/profile");
   revalidatePath(`/buyers/${data.buyerProfileId}`);
