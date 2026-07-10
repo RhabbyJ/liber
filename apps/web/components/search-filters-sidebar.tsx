@@ -33,29 +33,6 @@ type Props = {
 const amenityOptions = ["Pool", "Parking", "ADU", "Yard", "Garage"] as const;
 const conditionOptions = ["Move-in ready", "Mild fixer", "Fixer"] as const;
 
-const minBudgetOptions = [
-  { label: "No min", value: "" },
-  { label: "$300k", value: "300000" },
-  { label: "$400k", value: "400000" },
-  { label: "$500k", value: "500000" },
-  { label: "$600k", value: "600000" },
-  { label: "$700k", value: "700000" },
-  { label: "$800k", value: "800000" },
-  { label: "$900k", value: "900000" },
-  { label: "$1M", value: "1000000" },
-];
-
-const maxBudgetOptions = [
-  { label: "No max", value: "" },
-  { label: "$500k", value: "500000" },
-  { label: "$750k", value: "750000" },
-  { label: "$1M", value: "1000000" },
-  { label: "$1.2M", value: "1200000" },
-  { label: "$1.5M", value: "1500000" },
-  { label: "$2M", value: "2000000" },
-  { label: "$3M", value: "3000000" },
-];
-
 const trustOptions = [
   { label: "Pre-approved", value: "PRE_APPROVED" },
   { label: "Verified funds", value: "VERIFIED_FUNDS" },
@@ -235,25 +212,27 @@ export function SearchFiltersSidebar({
         <div className="filter-section">
           <h4 className="filter-section-title">Budget</h4>
           <div className="budget-select-row">
-            <div className="select-wrapper">
-              <select aria-label="Minimum budget" onChange={(event) => setMinBudget(event.target.value)} value={minBudget}>
-                {minBudgetOptions.map((option) => (
-                  <option key={option.label} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <input
+              aria-label="Minimum budget"
+              inputMode="numeric"
+              min="0"
+              onChange={(event) => setMinBudget(event.target.value)}
+              placeholder="No min"
+              step="1000"
+              type="number"
+              value={minBudget}
+            />
             <span className="budget-separator">to</span>
-            <div className="select-wrapper">
-              <select aria-label="Maximum budget" onChange={(event) => setMaxBudget(event.target.value)} value={maxBudget}>
-                {maxBudgetOptions.map((option) => (
-                  <option key={option.label} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <input
+              aria-label="Maximum budget"
+              inputMode="numeric"
+              min="0"
+              onChange={(event) => setMaxBudget(event.target.value)}
+              placeholder="No max"
+              step="1000"
+              type="number"
+              value={maxBudget}
+            />
           </div>
         </div>
 
@@ -270,36 +249,36 @@ export function SearchFiltersSidebar({
                 ))}
               </select>
             </div>
-            <div className="select-wrapper">
-              <select aria-label="Bedrooms" onChange={(event) => setBedrooms(event.target.value)} value={bedrooms}>
-                <option value="">Any beds</option>
-                <option value="1">1+ bed</option>
-                <option value="2">2+ beds</option>
-                <option value="3">3+ beds</option>
-                <option value="4">4+ beds</option>
-                <option value="5">5+ beds</option>
-              </select>
-            </div>
-            <div className="select-wrapper">
-              <select aria-label="Bathrooms" onChange={(event) => setBathrooms(event.target.value)} value={bathrooms}>
-                <option value="">Any baths</option>
-                <option value="1">1+ bath</option>
-                <option value="2">2+ baths</option>
-                <option value="3">3+ baths</option>
-                <option value="4">4+ baths</option>
-              </select>
-            </div>
-            <div className="select-wrapper">
-              <select aria-label="Square feet" onChange={(event) => setSquareFeet(event.target.value)} value={squareFeet}>
-                <option value="">Any sqft</option>
-                <option value="1000">1,000+ sqft</option>
-                <option value="1200">1,200+ sqft</option>
-                <option value="1500">1,500+ sqft</option>
-                <option value="2000">2,000+ sqft</option>
-                <option value="2500">2,500+ sqft</option>
-                <option value="3000">3,000+ sqft</option>
-              </select>
-            </div>
+            <input
+              aria-label="Bedrooms"
+              inputMode="numeric"
+              min="0"
+              onChange={(event) => setBedrooms(event.target.value)}
+              placeholder="Any beds"
+              step="1"
+              type="number"
+              value={bedrooms}
+            />
+            <input
+              aria-label="Bathrooms"
+              inputMode="numeric"
+              min="0"
+              onChange={(event) => setBathrooms(event.target.value)}
+              placeholder="Any baths"
+              step="1"
+              type="number"
+              value={bathrooms}
+            />
+            <input
+              aria-label="Square feet"
+              inputMode="numeric"
+              min="0"
+              onChange={(event) => setSquareFeet(event.target.value)}
+              placeholder="Any sqft"
+              step="1"
+              type="number"
+              value={squareFeet}
+            />
             <div className="select-wrapper">
               <select aria-label="Condition" onChange={(event) => setCondition(event.target.value)} value={condition}>
                 <option value="">Any condition</option>

@@ -121,6 +121,7 @@ export function buildSellerSearchQuery(
     Prisma.sql`buyer."visibilityStatus"::text = 'ACTIVE'`,
     Prisma.sql`account.status::text = 'ACTIVE'`,
     Prisma.sql`buyer."createdAt" <= ${snapshotAt}`,
+    Prisma.sql`buyer."updatedAt" <= ${snapshotAt}`,
   ];
   if (filters.serviceArea) {
     predicates.push(Prisma.sql`buyer_area.id IN (SELECT id FROM coverage)`);
@@ -178,6 +179,8 @@ export function buildSellerSearchQuery(
         WHERE required_badge."buyerProfileId" = buyer.id
           AND required_badge."badgeType"::text = ${badge}
           AND required_badge.status::text = 'ACTIVE'
+          AND required_badge."createdAt" <= ${snapshotAt}
+          AND required_badge."updatedAt" <= ${snapshotAt}
           AND (required_badge."expiresAt" IS NULL OR required_badge."expiresAt" > ${snapshotAt})
       )
     `);
@@ -231,6 +234,8 @@ export function buildSellerSearchQuery(
         FROM ${schema}."BuyerBadge" badge
         WHERE badge."buyerProfileId" = buyer.id
           AND badge.status::text = 'ACTIVE'
+          AND badge."createdAt" <= ${snapshotAt}
+          AND badge."updatedAt" <= ${snapshotAt}
           AND (badge."expiresAt" IS NULL OR badge."expiresAt" > ${snapshotAt})
       ) active_badges ON TRUE
       WHERE ${Prisma.join(predicates, " AND ")}

@@ -18,6 +18,8 @@ import { activePrimaryServiceAreaWhere } from "./service-area-matching";
 
 const activeBadgeWhere = (now: Date) => ({
   status: "ACTIVE" as const,
+  createdAt: { lte: now },
+  updatedAt: { lte: now },
   OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
 });
 

@@ -210,7 +210,10 @@ export default async function SellerSearchPage({
             <div className="actions" style={{ justifyContent: "flex-end", paddingTop: 16 }}>
               <Link
                 className="button secondary"
-                href={sellerSearchHrefWithCursor(params, resultPage.pageInfo.nextCursor)}
+                href={sellerSearchHrefWithCursor(
+                  { ...params, market: market.slug },
+                  resultPage.pageInfo.nextCursor,
+                )}
               >
                 Next buyers
                 <Icon name="arrow-right" size={14} />

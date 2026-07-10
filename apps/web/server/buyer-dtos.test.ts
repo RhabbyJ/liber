@@ -166,6 +166,8 @@ describe("buyer response eligibility", () => {
     ]) {
       expect(select.badges.where).toEqual({
         status: "ACTIVE",
+        createdAt: { lte: now },
+        updatedAt: { lte: now },
         OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
       });
     }

@@ -162,10 +162,9 @@ export function BuyerProfileWizard({
       <ProfileFormSection eyebrow="Property criteria" title="Criteria">
         <div className="form-grid">
           <NumberRangeField
-            defaultMax={String(buyer.budgetMax || "1000000")}
+            defaultMax={String(buyer.budgetMax || "")}
             defaultMin={String(buyer.budgetMin || "")}
             label="Budget range"
-            max={3_000_000}
             maxId="budgetMax"
             maxName="budgetMax"
             min={0}
@@ -175,10 +174,9 @@ export function BuyerProfileWizard({
             step="any"
           />
           <NumberRangeField
-            defaultMax={String(buyer.downPaymentMax || "200000")}
+            defaultMax={String(buyer.downPaymentMax || "")}
             defaultMin={String(buyer.downPaymentMin || "")}
             label="Down payment range"
-            max={1_000_000}
             maxId="downPaymentMax"
             maxName="downPaymentMax"
             min={0}
@@ -237,7 +235,6 @@ export function BuyerProfileWizard({
             defaultMax={String(criteria?.squareFeetMax || "")}
             defaultMin={String(criteria?.squareFeetMin || "")}
             label="Square feet"
-            max={6_000}
             maxId="squareFeetMax"
             maxName="squareFeetMax"
             min={0}
@@ -250,7 +247,6 @@ export function BuyerProfileWizard({
             defaultMax={String(criteria?.lotSizeMax || "")}
             defaultMin={String(criteria?.lotSizeMin || "")}
             label="Lot size"
-            max={20_000}
             maxId="lotSizeMax"
             maxName="lotSizeMax"
             min={0}
@@ -329,7 +325,6 @@ type NumberRangeFieldProps = {
   defaultMax: string;
   defaultMin: string;
   label: string;
-  max: number;
   maxId: string;
   maxName: string;
   min: number;
@@ -344,7 +339,6 @@ function NumberRangeField({
   defaultMax,
   defaultMin,
   label,
-  max,
   maxId,
   maxName,
   min,
@@ -367,7 +361,6 @@ function NumberRangeField({
               defaultValue={defaultMin}
               id={minId}
               inputMode="numeric"
-              max={max}
               min={min}
               name={minName}
               placeholder="No min"
@@ -387,7 +380,6 @@ function NumberRangeField({
               defaultValue={defaultMax}
               id={maxId}
               inputMode="numeric"
-              max={max}
               min={min}
               name={maxName}
               placeholder="No max"
