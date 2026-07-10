@@ -21,7 +21,8 @@
     "db:generate": "prisma generate --schema packages/db/prisma/schema.prisma",
     "db:validate": "prisma validate --schema packages/db/prisma/schema.prisma",
     "db:test-geography:fresh": "node scripts/test-geography-migration-fresh.mjs",
-    "db:test-geography:upgrade": "node scripts/test-geography-migration-upgrade.mjs"
+    "db:test-geography:upgrade": "node scripts/test-geography-migration-upgrade.mjs",
+    "db:test-identity": "node scripts/test-identity-migration.mjs"
   },
   "devDependencies": {
     "prisma": "7.8.0",

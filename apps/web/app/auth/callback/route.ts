@@ -1,8 +1,12 @@
-import { prisma } from "@liber/db";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { safeInternalPath } from "../../../lib/redirect";
 import { ensureSellerAccessRequested } from "../../../server/access";
+import {
+  AuthIdentityLinkError,
+  persistUserRolesForAuthIdentity,
+  resolveAuthIdentity,
+} from "../../../server/auth-identity";
 import { pathForSignedInAuthIntent } from "../../../server/auth-intent";
 import type { AppRole } from "../../../server/authz";
 import { createSupabaseServerClient } from "../../../server/supabase";
@@ -33,40 +37,38 @@ export async function GET(request: NextRequest) {
   if (error || !data.user) return authErrorRedirect(request);
 
   const selectedRoles = rolesFromMetadata(data.user.user_metadata?.role);
-  let user = await prisma.user.findUnique({
-    where: { id: data.user.id },
-    select: { roles: true, status: true },
-  });
+  const resolution = await resolveAuthIdentity({ email: data.user.email, id: data.user.id });
+  if (resolution.kind !== "linked") {
+    await supabase.auth.signOut();
+    return authRedirect(request, "/login?status=identity-recovery-required");
+  }
 
-  if (!user && selectedRoles.length > 0) {
-    user = await prisma.user.create({
-      data: {
-        email: data.user.email ?? "",
-        id: data.user.id,
-        name: typeof data.user.user_metadata?.name === "string" ? data.user.user_metadata.name : data.user.email ?? "",
+  let user = resolution.user;
+  if (user.status !== "ACTIVE") {
+    await supabase.auth.signOut();
+    return authRedirect(request, "/login?status=account-unavailable");
+  }
+
+  if (user.roles.length === 0 && selectedRoles.length > 0) {
+    try {
+      user = await persistUserRolesForAuthIdentity({
+        authUser: { email: data.user.email, id: data.user.id },
+        mode: "initialize",
+        name: typeof data.user.user_metadata?.name === "string" ? data.user.user_metadata.name : data.user.email,
         roles: selectedRoles,
-      },
-      select: { roles: true, status: true },
-    });
-  } else if (user && user.roles.length === 0 && selectedRoles.length > 0) {
-    user = await prisma.user.update({
-      where: { id: data.user.id },
-      data: {
-        email: data.user.email ?? undefined,
-        name: typeof data.user.user_metadata?.name === "string" ? data.user.user_metadata.name : undefined,
-        roles: selectedRoles,
-      },
-      select: { roles: true, status: true },
-    });
+      });
+    } catch (error) {
+      if (error instanceof AuthIdentityLinkError) {
+        await supabase.auth.signOut();
+        const status = error.code === "inactive" ? "account-unavailable" : "identity-recovery-required";
+        return authRedirect(request, `/login?status=${status}`);
+      }
+      throw error;
+    }
   }
 
   if (user?.roles.includes("SELLER")) {
     await ensureSellerAccessRequested(data.user.id);
-  }
-
-  if (!user || user.status === "SUSPENDED") {
-    await supabase.auth.signOut();
-    return authRedirect(request, "/login?status=account-unavailable");
   }
 
   return authRedirect(request, pathForSignedInAuthIntent({ id: data.user.id, roles: user.roles }, { next }));

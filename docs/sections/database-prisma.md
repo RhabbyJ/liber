@@ -16,6 +16,11 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 
 - Schema changes require migrations.
 - User IDs must remain Supabase Auth UUID-compatible.
+- `User.id` is immutable and validated against the `auth.users` primary key.
+  Auth deletion and all ownership-key updates are restricted until the explicit
+  account-retention workflow completes.
+- Auth signup inserts a fresh empty-role User by UUID. A normalized email
+  collision raises recovery-required and never updates a primary key.
 - RLS/storage policies are security boundaries.
 - Do not weaken constraints to bypass application bugs.
 - Keep indexes aligned with search and ownership checks.

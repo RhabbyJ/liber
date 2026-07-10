@@ -49,7 +49,10 @@ Primary models:
 - `AdminAuditLog`
 - `EmailOutbox`
 
-User IDs mirror Supabase Auth UUIDs.
+User IDs are the immutable Supabase Auth UUID. The database validates
+`public."User".id -> auth.users.id`, rejects Auth and application UUID updates,
+and restricts raw Auth deletion while a Liber identity still exists. Email is
+never an ownership key.
 
 The schema is intentionally trimmed to the v1 flow: one broad `PropertyCategory.HOME` bucket with allowlisted `PropertySubtype` values for house (`HOME` legacy value), condo, townhouse, manufactured, and land; no review/rating system; no commercial criteria fields (cap rate, units, zoning). Do not re-add speculative tables or columns without a v1-approved feature behind them.
 
@@ -80,6 +83,24 @@ Key concepts:
 - Admin status is not self-service.
 - Auth POST routes preserve the incoming request host/protocol for same-origin checks and redirects so local `127.0.0.1` and `localhost` sessions do not cross origins under the CSP `form-action` rule.
 - Login and signed-in auth entry points resolve `next` through a role-aware intent helper. Stale auth-flow destinations such as `/signup` or `/login` must fall back to the user's default role path or onboarding instead of looping through the auth wizard.
+- The Auth insert trigger creates a new application User only for the same Auth
+  UUID and always starts with empty roles. It never resolves an email conflict
+  by changing a User ID.
+- Session, login, callback, and role-onboarding paths require the same UUID and
+  normalized email in Auth and the application User. A different UUID owning
+  the email is an explicit recovery case and receives no roles or data.
+- Application User UUIDs and every ownership/reviewer foreign key use
+  `ON UPDATE RESTRICT`. Dashboard/Admin API Auth deletion is restricted until
+  application retention and Storage cleanup are complete.
+- Customer-facing hard deletion is not enabled. Deletion requests remain
+  suspended/tombstoned on the original UUID until sessions, Storage, outbox,
+  evidence, and retention are handled. A completed purge may then remove the
+  application identity followed by Auth; later same-email registration is a
+  fresh empty account, never restoration by email.
+
+Operational proof and rollback are in
+`docs/engineering/AUTH_IDENTITY_OWNERSHIP_RUNBOOK.md` and
+`docs/engineering/AUTH_IDENTITY_OWNERSHIP_EVIDENCE_2026-07-09.md`.
 
 Relevant files:
 

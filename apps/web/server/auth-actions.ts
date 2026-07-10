@@ -4,6 +4,12 @@ import { prisma } from "@liber/db";
 import { redirect } from "next/navigation";
 import { safeInternalPath } from "../lib/redirect";
 import { ensureSellerAccessRequested } from "./access";
+import {
+  appIdentityExistsForEmail,
+  AuthIdentityLinkError,
+  normalizeIdentityEmail,
+  persistUserRolesForAuthIdentity,
+} from "./auth-identity";
 import { pathForSignedInAuthIntent } from "./auth-intent";
 import type { AppRole } from "./authz";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
@@ -40,52 +46,6 @@ function nextForRoles(roles: AppRole[]) {
   if (roles.includes("BUYER")) return "/buyer/profile";
   if (roles.includes("SELLER")) return "/seller/properties";
   return "/onboarding/role";
-}
-
-async function persistUserRoles(args: {
-  email?: string | null;
-  name?: string | null;
-  roles: AppRole[];
-  userId: string;
-}) {
-  const email = args.email ?? "";
-  const existingById = await prisma.user.findUnique({
-    where: { id: args.userId },
-    select: { id: true },
-  });
-  const emailOwner = email
-    ? await prisma.user.findUnique({
-        where: { email },
-        select: { id: true },
-      })
-    : null;
-  const writableEmail = email && (!emailOwner || emailOwner.id === args.userId) ? email : undefined;
-  const userData = {
-    ...(writableEmail ? { email: writableEmail } : {}),
-    name: args.name ?? "",
-    roles: args.roles,
-  };
-
-  if (existingById) {
-    await prisma.user.update({
-      where: { id: args.userId },
-      data: userData,
-    });
-    return;
-  }
-
-  if (emailOwner && emailOwner.id !== args.userId) {
-    throw new Error("A different app user already owns this email address.");
-  }
-
-  await prisma.user.create({
-    data: {
-      id: args.userId,
-      email,
-      name: args.name ?? "",
-      roles: args.roles,
-    },
-  });
 }
 
 export async function loginWithPassword(formData: FormData) {
@@ -125,10 +85,14 @@ export async function loginWithPassword(formData: FormData) {
 
   const appUser = await prisma.user.findUnique({
     where: { id: authData.user.id },
-    select: { roles: true, status: true },
+    select: { email: true, roles: true, status: true },
   });
 
-  if (!appUser || appUser.status === "SUSPENDED") {
+  if (
+    !appUser ||
+    appUser.status !== "ACTIVE" ||
+    normalizeIdentityEmail(appUser.email) !== normalizeIdentityEmail(authData.user.email)
+  ) {
     await supabase.auth.signOut();
     redirect("/login?status=account-unavailable");
   }
@@ -157,6 +121,10 @@ export async function signupWithPassword(formData: FormData) {
     redirect(signupRedirectPath(formData, "weak-password", email));
   }
 
+  if (await appIdentityExistsForEmail(email)) {
+    redirect(existingAccountLoginPath(formData, email, next ?? nextForRoles(roles)));
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -174,18 +142,29 @@ export async function signupWithPassword(formData: FormData) {
     if (status === "account-exists") {
       redirect(existingAccountLoginPath(formData, email, next ?? nextForRoles(roles)));
     }
+    if (status === "identity-recovery-required") {
+      redirect(identityRecoveryLoginPath(email));
+    }
     redirect(signupRedirectPath(formData, status, email));
   }
 
   const hasRealSignupIdentity = Boolean(data.session || data.user?.identities?.length);
 
   if (data.user && hasRealSignupIdentity) {
-    await persistUserRoles({
-      email: data.user.email ?? email,
-      name,
-      roles,
-      userId: data.user.id,
-    });
+    try {
+      await persistUserRolesForAuthIdentity({
+        authUser: { email: data.user.email ?? email, id: data.user.id },
+        mode: "initialize",
+        name,
+        roles,
+      });
+    } catch (error) {
+      if (error instanceof AuthIdentityLinkError) {
+        await supabase.auth.signOut();
+        redirect(identityFailureLoginPath(error, email));
+      }
+      throw error;
+    }
     if (roles.includes("SELLER")) {
       await ensureSellerAccessRequested(data.user.id);
     }
@@ -273,6 +252,9 @@ function signupRoleValue(formData: FormData) {
 
 function signupStatusForError(message: string) {
   const value = message.toLowerCase();
+  if (value.includes("liber_identity") || value.includes("identity recovery")) {
+    return "identity-recovery-required";
+  }
   if (value.includes("already") || value.includes("registered") || value.includes("exists")) return "account-exists";
   if (value.includes("rate limit")) return "rate-limited";
   if (value.includes("password")) return "weak-password";
@@ -289,6 +271,15 @@ function existingAccountLoginPath(formData: FormData, email: string, next: strin
   const role = signupRoleValue(formData);
   if (role !== "buyer") params.set("role", role);
   return `/login?${params.toString()}`;
+}
+
+function identityRecoveryLoginPath(email: string) {
+  const params = new URLSearchParams({ email, status: "identity-recovery-required" });
+  return `/login?${params.toString()}`;
+}
+
+function identityFailureLoginPath(error: AuthIdentityLinkError, email: string) {
+  return error.code === "inactive" ? "/login?status=account-unavailable" : identityRecoveryLoginPath(email);
 }
 
 function isEmailNotConfirmedError(message: string) {
@@ -312,20 +303,25 @@ export async function chooseRole(formData: FormData) {
   if (supabase) {
     const { data } = await supabase.auth.getUser();
     if (data.user) {
-      const existingUser = await prisma.user.findUnique({
-        where: { id: data.user.id },
-        select: { roles: true },
-      });
-      const roles = Array.from(new Set([...(existingUser?.roles ?? []), ...selected]));
-      await persistUserRoles({
-        email: data.user.email,
-        name:
-          typeof data.user.user_metadata?.name === "string"
-            ? data.user.user_metadata.name
-            : data.user.email,
-        roles,
-        userId: data.user.id,
-      });
+      let appUser: Awaited<ReturnType<typeof persistUserRolesForAuthIdentity>>;
+      try {
+        appUser = await persistUserRolesForAuthIdentity({
+          authUser: { email: data.user.email, id: data.user.id },
+          mode: "merge",
+          name:
+            typeof data.user.user_metadata?.name === "string"
+              ? data.user.user_metadata.name
+              : data.user.email,
+          roles: selected,
+        });
+      } catch (error) {
+        if (error instanceof AuthIdentityLinkError) {
+          await supabase.auth.signOut();
+          redirect(identityFailureLoginPath(error, data.user.email ?? ""));
+        }
+        throw error;
+      }
+      const roles = appUser.roles;
       if (roles.includes("SELLER")) {
         await ensureSellerAccessRequested(data.user.id);
       }

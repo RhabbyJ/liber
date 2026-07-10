@@ -132,6 +132,20 @@ An admin can:
 
 Admin role assignment is not self-service.
 
+## V1 account identity and deletion rules
+
+- A Liber account is owned by its immutable Supabase Auth UUID, not by email.
+- Signup and email changes must never transfer buyer data, seller approval,
+  properties, documents, invites, or ADMIN role between UUIDs.
+- An email tied to another application UUID is an account-recovery case. It
+  must fail closed instead of creating or relinking a usable account.
+- Customer-facing hard deletion is not available until session revocation,
+  Storage cleanup, pending-email handling, evidence retention, and audit policy
+  are complete. Until then, deletion requests remain suspended/tombstoned on
+  the original UUID and raw Auth deletion is blocked.
+- After an explicitly reviewed full purge, same-email registration creates a
+  fresh UUID with no inherited roles, ownership, approval, or private access.
+
 ## V1 buyer profile rules
 
 Buyer profiles are the marketplace asset.

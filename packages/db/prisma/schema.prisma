@@ -142,16 +142,15 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([email])
 }
 
 model SellerAccess {
   id               String             @id @default(cuid())
   userId           String             @unique @db.Uuid
-  user             User               @relation("SellerAccessUser", fields: [userId], references: [id], onDelete: Cascade)
+  user             User               @relation("SellerAccessUser", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   status           SellerAccessStatus @default(PENDING)
   reviewedByUserId String?            @db.Uuid
-  reviewedBy       User?              @relation("SellerAccessReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedBy       User?              @relation("SellerAccessReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   reviewedAt       DateTime?
 
   createdAt DateTime @default(now())
@@ -164,7 +163,7 @@ model SellerAccess {
 model BuyerProfile {
   id     String @id @default(cuid())
   userId String @unique @db.Uuid
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
   displayName         String
   buyerType           String?
@@ -349,7 +348,7 @@ model BuyerBadge {
   issuedAt           DateTime?
   expiresAt          DateTime?
   grantedByUserId    String?               @db.Uuid
-  grantedBy          User?                 @relation("BadgeGranter", fields: [grantedByUserId], references: [id], onDelete: SetNull)
+  grantedBy          User?                 @relation("BadgeGranter", fields: [grantedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   grantedAt          DateTime?
   evidenceDocumentId String?
   evidenceDocument   VerificationDocument? @relation("BadgeEvidence", fields: [evidenceDocumentId], references: [id], onDelete: SetNull)
@@ -370,7 +369,7 @@ model BuyerBadge {
 model SellerProperty {
   id          String @id @default(cuid())
   ownerUserId String @db.Uuid
-  owner       User   @relation("SellerProperties", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  owner       User   @relation("SellerProperties", fields: [ownerUserId], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
   addressLine1                String?
   addressLine2                String?
@@ -419,9 +418,9 @@ model PropertyImage {
 model VerificationDocument {
   id               String          @id @default(cuid())
   userId           String          @db.Uuid
-  user             User            @relation("UserDocuments", fields: [userId], references: [id], onDelete: Cascade)
+  user             User            @relation("UserDocuments", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   uploadedByUserId String?         @db.Uuid
-  uploadedBy       User?           @relation("DocumentUploader", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  uploadedBy       User?           @relation("DocumentUploader", fields: [uploadedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   buyerProfileId   String?
   buyerProfile     BuyerProfile?   @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
   propertyId       String?
@@ -437,7 +436,7 @@ model VerificationDocument {
   uploadedAt            DateTime               @default(now())
   reviewStatus          DocumentStatus         @default(PENDING)
   reviewedByUserId      String?                @db.Uuid
-  reviewedBy            User?                  @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedBy            User?                  @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   reviewedAt            DateTime?
   reviewNotes           String?
   rejectionReason       String?
@@ -461,7 +460,7 @@ model VerificationDocument {
 model Invite {
   id             String         @id @default(cuid())
   sellerId       String         @db.Uuid
-  seller         User           @relation("SellerInvites", fields: [sellerId], references: [id], onDelete: Cascade)
+  seller         User           @relation("SellerInvites", fields: [sellerId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   buyerProfileId String
   buyerProfile   BuyerProfile   @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
   propertyId     String
@@ -487,7 +486,7 @@ model Invite {
 model Notification {
   id       String    @id @default(cuid())
   userId   String    @db.Uuid
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   type     String
   title    String
   body     String
@@ -502,7 +501,7 @@ model Notification {
 model AdminAuditLog {
   id          String   @id @default(cuid())
   actorUserId String?  @db.Uuid
-  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   action      String
   targetType  String
   targetId    String

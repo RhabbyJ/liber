@@ -133,6 +133,10 @@ try {
   await expectPage("/login?status=auth-error", ["Confirmation failed"]);
   await expectPage("/login?status=missing-credentials", ["Email and password required"]);
   await expectPage("/login?status=invalid-login&email=test%40gmail.com", ["Login failed", "test@gmail.com"]);
+  await expectPage("/login?status=identity-recovery-required&email=test%40gmail.com", [
+    "Account recovery required",
+    "test@gmail.com",
+  ]);
   await expectPostRedirect("/api/auth/login", { email: "", password: "", next: "/" }, "/login", "missing-credentials");
   await expectPage("/signup", ["What brings you to Liber"]);
   await expectPage("/signup/verify?email=test%40gmail.com&next=/buyer/profile", [

@@ -1,6 +1,7 @@
 import { prisma } from "@liber/db";
 import { NextResponse, type NextRequest } from "next/server";
 import { safeInternalPath } from "../../../../lib/redirect";
+import { normalizeIdentityEmail } from "../../../../server/auth-identity";
 import { pathForSignedInAuthIntent } from "../../../../server/auth-intent";
 import { checkRateLimit, clientIpFromRequest } from "../../../../server/rate-limit";
 import { isRequestSameOrigin, requestUrl } from "../../../../server/request-origin";
@@ -47,10 +48,14 @@ export async function POST(request: NextRequest) {
 
   const appUser = await prisma.user.findUnique({
     where: { id: authData.user.id },
-    select: { roles: true, status: true },
+    select: { email: true, roles: true, status: true },
   });
 
-  if (!appUser || appUser.status === "SUSPENDED") {
+  if (
+    !appUser ||
+    appUser.status !== "ACTIVE" ||
+    normalizeIdentityEmail(appUser.email) !== normalizeIdentityEmail(authData.user.email)
+  ) {
     await supabase.auth.signOut();
     return redirectTo(request, "/login?status=account-unavailable");
   }
