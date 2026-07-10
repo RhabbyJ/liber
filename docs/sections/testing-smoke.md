@@ -41,6 +41,12 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - After auth, nav, or protected-route changes, run a focused browser auth pass covering signed-out CTAs, buyer signup/login/logout, buyer-to-seller intent, seller signup/access gating, both-role signup when supported, and mobile nav/logout.
 - Browser auth QA failures or inconclusive results should include a screenshot or compact state dump with URL, relevant DOM attributes, visible text excerpt, and console errors.
 - Public and seller DTO tests must snapshot serialized responses and recursively reject forbidden identity, coordinate, criteria-ID, service-area-ID, badge, document, and Storage fields.
+- DTO mapper tests cover suspended users, hidden/draft/suspended profiles,
+  inactive areas/markets, unapproved preview values, expired badges, seller
+  self-visibility, and forbidden serialized fields. Separate seller-route tests
+  cover authorization, the serialized envelope, and controlled errors; the
+  public-preview controller test verifies the mocked Prisma projection and
+  serialized response.
 - Release CI must execute real ESLint, exact fresh and representative upgrade migrations, typecheck, tests, production build, RLS/Storage security tests, readiness validation, and realistic seller-search query plans.
 - Add concurrency tests for buyer save cardinality, distributed rate limits, outbox claim leases, and invite/property state transitions.
 

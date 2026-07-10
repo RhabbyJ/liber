@@ -1,4 +1,4 @@
-import type { Buyer } from "./mock-data";
+import type { SellerBuyerSearchDto } from "./buyer-dto-types";
 import { approximateBuyerPoint } from "./buyer-map-point";
 
 export function mapboxServiceAreaQueries(feature: Record<string, any>) {
@@ -11,7 +11,7 @@ export function mapboxServiceAreaQueries(feature: Record<string, any>) {
     .map((value) => value.trim());
 }
 
-export function mapPinPosition(buyer: Buyer, buyers: Buyer[]) {
+export function mapPinPosition(buyer: SellerBuyerSearchDto, buyers: SellerBuyerSearchDto[]) {
   const buyerPoint = approximateBuyerPoint(buyer);
   if (!buyerPoint) return null;
   const points = buyers

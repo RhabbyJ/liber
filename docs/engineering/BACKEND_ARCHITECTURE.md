@@ -197,6 +197,27 @@ Budget filters are treated as range-overlap filters: a buyer matches when the bu
 
 Do not add search filters based on protected-class proxies or unnecessary personal attributes.
 
+Seller buyer reads use two explicit response contracts in
+`apps/web/server/buyer-dtos.ts`, with browser-safe type definitions in
+`apps/web/lib/buyer-dto-types.ts`:
+
+- seller search returns the buyer profile routing ID, generated alias/avatar,
+  approved purchase/property types, broad canonical location, budget/down
+  payment ranges, approved criteria, active unexpired badges, a canonical
+  service-area map point, refresh date, and a server-derived invite flag;
+- seller-view profile returns the buyer profile routing ID, generated
+  alias/avatar, approved purchase/property types, broad canonical location,
+  budget/down payment ranges, approved needs/wants, active unexpired
+  badges, and server-derived viewer flags.
+
+Both contracts are built from dedicated Prisma `select` projections. Auth
+UUIDs may be selected only for server-side alias fallback and ownership checks;
+they are never serialized. Criteria/service-area IDs, raw buyer coordinates,
+account names/contact data, documents, Storage paths, and inactive badges are
+not response fields. Runtime queries and DTO mapping both fail closed unless
+the application user, buyer profile, selected canonical service area, and its
+market are active.
+
 Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN` on the buyer search query against realistic data volume. Legacy city/state/ZIP lookup indexes are removed by the canonical cutover. Public launch requires measured indexes for the active canonical-area join, budget overlap, badge status, criteria filters, and sort/cursor patterns.
 
 ## Public buyer-demand preview
@@ -204,6 +225,8 @@ Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN
 `apps/web/server/buyer-preview.ts` powers the unauthenticated map-first homepage (V1 public preview rules). The homepage renders a public Zillow-style demand map (`apps/web/components/public-demand-map.tsx`) with budget-band pins plus preview cards and a signup wall.
 
 - reads at most 6 `ACTIVE` buyer profiles,
+- also requires an `ACTIVE` owning User, one active canonical selected area,
+  at least one criteria row, and allowlisted purchase/property types,
 - returns only privacy-safe fields: anonymized buyer-type label, coarse city/state, $50K-banded budget, structured criteria facts, active badge labels,
 - pin coordinates are approximate only: canonical service-area centers plus a deterministic display offset — never raw `desiredLat`/`desiredLng`,
 - never returns ids, names, avatars, exact locations, documents, or storage paths,
@@ -213,6 +236,11 @@ Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN
 - has no full public search/filter API and no buyer profile links; the only action is signup,
 - is best-effort: failures return an empty list / hide the map and must not break the homepage,
 - must not grow into public search or expose buyer profile URLs.
+
+`apps/web/server/buyer-dtos.ts` owns the dedicated public projection and DTO.
+The public `pin` is calculated on the server from the canonical service-area
+center plus a deterministic offset; neither raw buyer coordinates nor raw
+service-area coordinate field names are serialized.
 
 In a CEO demo / private preview environment, these records may come from clearly marked demo buyer seed data. In true production, preview records must come from real active buyer demand only.
 

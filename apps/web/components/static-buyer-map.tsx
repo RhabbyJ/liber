@@ -1,10 +1,10 @@
 import Link from "next/link";
+import type { SellerBuyerSearchDto } from "../lib/buyer-dto-types";
 import type { MarketMapContext, SelectedMapArea } from "../lib/map-area";
-import type { Buyer } from "../lib/mock-data";
 import { mapPinPosition } from "../lib/mapbox";
 
 type Props = {
-  buyers: Buyer[];
+  buyers: SellerBuyerSearchDto[];
   label?: string;
   market: MarketMapContext;
   selectedServiceArea?: SelectedMapArea | null;
@@ -31,13 +31,13 @@ export function StaticBuyerMap({ buyers, label = "Approximate pins", market, sel
           if (!position) return null;
           return (
             <Link
-              aria-label={`Open ${buyer.name}`}
+              aria-label={`Open ${buyer.alias}`}
               className="map-pin"
-              href={`/buyers/${buyer.id}`}
-              key={buyer.id}
+              href={`/buyers/${buyer.buyerProfileId}`}
+              key={buyer.buyerProfileId}
               style={{ left: `${position.left}%`, top: `${position.top}%` }}
             >
-              <span>{buyer.name.slice(0, 1)}</span>
+              <span>{buyer.alias.slice(0, 1)}</span>
             </Link>
           );
         })}

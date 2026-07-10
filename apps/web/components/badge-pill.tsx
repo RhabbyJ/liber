@@ -11,7 +11,7 @@ const badgeIcon: Record<Badge["type"], "shield" | "money" | "diamond" | "star" |
   COMPLETED_TRANSACTION: "star",
 };
 
-export function BadgePill({ badge }: { badge: Badge }) {
+export function BadgePill({ badge }: { badge: Omit<Badge, "id"> }) {
   const status = badge.status === "active" ? "active" : badge.status === "expired" ? "expired" : "pending";
   const meta = badge.expiresInDays !== undefined
     ? badge.expiresInDays < 0

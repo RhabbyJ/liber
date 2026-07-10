@@ -14,6 +14,8 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - `apps/web/components/buyer-profile-wizard.tsx`
 - `apps/web/server/form-actions.ts`
 - `apps/web/server/contracts.ts`
+- `apps/web/server/buyer-dtos.ts`
+- `apps/web/lib/buyer-dto-types.ts`
 
 ## Invariants
 
@@ -21,6 +23,11 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - Full buyer profiles are not public pages.
 - Public pre-signup buyer previews must be limited, privacy-safe teaser cards only (`apps/web/server/buyer-preview.ts`).
 - Buyer documents are never shown to sellers.
+- Seller-view profile responses use a dedicated projection/DTO and require an
+  active owning User, active profile, active canonical service area, and active
+  market. Auth UUIDs, internal criteria/service-area IDs, raw coordinates,
+  contact data, documents, Storage paths, and inactive badges are excluded.
+  `buyerProfileId` is intentionally exposed as the authorized routing ID.
 - Criteria should describe property fit, not protected-class attributes.
 - Amenity needs use canonical feature tokens (Pool, Parking, ADU, Yard, Garage) so seller amenity filters can match; condition uses Move-in ready / Mild fixer / Fixer.
 - Buyer setup is one form on `/buyer/profile`: buyer info, criteria, size, details, and location. Criteria save in the same submit as the profile.

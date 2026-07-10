@@ -62,7 +62,7 @@ export default async function InviteBuyerPage({
 
   const { data: buyer } = await getBuyerProfileForSeller(buyerProfileId);
 
-  if (buyer.userId === user?.id) {
+  if (buyer.viewerIsOwner) {
     return (
       <div className="page stack loose">
         <PageTitle
@@ -78,7 +78,7 @@ export default async function InviteBuyerPage({
             Use the buyer profile preview to see what approved sellers can see, or return to buyer search.
           </p>
           <div className="actions">
-            <Link className="button primary" href={`/buyers/${buyer.id}`}>
+            <Link className="button primary" href={`/buyers/${buyer.buyerProfileId}`}>
               <Icon name="user" size={14} />
               View profile
             </Link>
@@ -96,13 +96,13 @@ export default async function InviteBuyerPage({
   const property = properties[0];
 
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
-  const buyerSummary = [buyer.type, buyer.purpose, buyer.location].filter(Boolean).join(" - ") || "Buyer";
+  const buyerSummary = [buyer.purchaseType, buyer.propertyType, buyer.location].filter(Boolean).join(" - ") || "Buyer";
 
   if (!property) {
     return (
       <div className="page stack loose">
         <PageTitle
-          eyebrow={`Invite ${buyer.name}`}
+          eyebrow={`Invite ${buyer.alias}`}
           title="Add a property first"
           tone="seller"
           badge={<ModeChip mode="seller" />}
@@ -121,13 +121,13 @@ export default async function InviteBuyerPage({
             </span>
           </div>
           <p>
-            Liber needs a private property record so {buyer.name} knows what you're inviting them to review.
+            Liber needs a private property record so {buyer.alias} knows what you're inviting them to review.
             Your property is not listed publicly.
           </p>
           <div className="actions">
             <Link
               className="button primary"
-              href={`/seller/properties/new?next=${encodeURIComponent(`/seller/invite/${buyer.id}`)}`}
+              href={`/seller/properties/new?next=${encodeURIComponent(`/seller/invite/${buyer.buyerProfileId}`)}`}
             >
               <Icon name="plus" size={14} />
               Add private property
@@ -148,11 +148,11 @@ export default async function InviteBuyerPage({
     <div className="page wide stack loose invite-compose-page">
       <PageTitle
         eyebrow="Manual outreach"
-        title={`Invite ${buyer.name}`}
+        title={`Invite ${buyer.alias}`}
         tone="seller"
         badge={<ModeChip mode="seller" />}
         actions={
-          <Link className="button ghost" href={`/buyers/${buyer.id}`}>
+          <Link className="button ghost" href={`/buyers/${buyer.buyerProfileId}`}>
             <Icon name="user" size={14} />
             Back to profile
           </Link>
@@ -163,11 +163,11 @@ export default async function InviteBuyerPage({
 
       <section className="invite-compose-grid">
         <form action={submitInvite} className="invite-compose-form" encType="multipart/form-data">
-          <input name="buyerProfileId" type="hidden" value={buyer.id} />
+          <input name="buyerProfileId" type="hidden" value={buyer.buyerProfileId} />
 
           <div className="invite-compose-heading">
             <p className="eyebrow seller">Manual invite</p>
-            <h2>Send Message to {buyer.name}</h2>
+            <h2>Send Message to {buyer.alias}</h2>
           </div>
           <div className="field">
             <label htmlFor="property">Property</label>
@@ -190,9 +190,9 @@ export default async function InviteBuyerPage({
               <textarea
                 id="message"
                 name="message"
-                defaultValue={`Hi ${buyer.name}, I'm inviting you to review my property because it appears to fit your preferred location, budget, and home needs.`}
+                defaultValue={`Hi ${buyer.alias}, I'm inviting you to review my property because it appears to fit your preferred location, budget, and home needs.`}
               />
-              <span className="field-hint">Keep it short. {buyer.name} will see this in their invite inbox.</span>
+              <span className="field-hint">Keep it short. {buyer.alias} will see this in their invite inbox.</span>
             </div>
           </div>
 
@@ -201,7 +201,7 @@ export default async function InviteBuyerPage({
           <div className="reference-form-section">
             <div className="section-stack">
               <h3>Details of Your Home</h3>
-              <p className="muted small">These are shown to {buyer.name} inside the invite. Update them if anything changed.</p>
+              <p className="muted small">These are shown to {buyer.alias} inside the invite. Update them if anything changed.</p>
             </div>
             <div className="reference-map-strip" aria-hidden="true">
               <Icon name="map-pin" size={28} />
@@ -277,7 +277,7 @@ export default async function InviteBuyerPage({
           </label>
 
           <div className="actions between">
-            <Link className="button ghost" href={`/buyers/${buyer.id}`}>
+            <Link className="button ghost" href={`/buyers/${buyer.buyerProfileId}`}>
               Cancel
             </Link>
             <button className="button primary lg" type="submit">
@@ -291,9 +291,9 @@ export default async function InviteBuyerPage({
           <article className="card stack invite-recipient-card">
             <p className="eyebrow">Recipient</p>
             <div style={{ alignItems: "center", display: "flex", gap: 12 }}>
-              <GeneratedAvatar seed={buyer.userId || buyer.id} size="lg" variant={buyer.avatarVariant} />
+              <GeneratedAvatar seed={buyer.buyerProfileId} size="lg" variant={buyer.avatarVariant} />
               <div>
-                <h3 style={{ margin: 0 }}>{buyer.name}</h3>
+                <h3 style={{ margin: 0 }}>{buyer.alias}</h3>
                 <p className="muted small" style={{ margin: "4px 0 0" }}>{buyerSummary}</p>
               </div>
             </div>
@@ -341,7 +341,7 @@ export default async function InviteBuyerPage({
               Private outreach
             </span>
             <p className="muted small" style={{ margin: 0 }}>
-              {buyer.name} can accept or decline. No offer or escrow is created.
+              {buyer.alias} can accept or decline. No offer or escrow is created.
             </p>
           </article>
         </aside>

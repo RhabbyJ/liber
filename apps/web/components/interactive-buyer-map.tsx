@@ -1,23 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { SellerBuyerSearchDto } from "../lib/buyer-dto-types";
 import { formatRange } from "../lib/format";
 import { approximateBuyerPoint } from "../lib/buyer-map-point";
 import { marketMapBounds, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
 import { loadMapboxGl } from "../lib/mapbox-gl-loader";
-import type { Buyer } from "../lib/mock-data";
 import { StaticBuyerMap } from "./static-buyer-map";
 
 type Props = {
-  buyers: Buyer[];
+  buyers: SellerBuyerSearchDto[];
   market: MarketMapContext;
   selectedServiceArea?: SelectedMapArea | null;
   token: string;
-  viewerUserId?: string;
 };
 
 type BuyerPoint = {
-  buyer: Buyer;
+  buyer: SellerBuyerSearchDto;
   lat: number;
   lng: number;
 };
@@ -26,7 +25,7 @@ type MarkerBuyerPoint = BuyerPoint & {
   markerOffset: [number, number];
 };
 
-export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null, token, viewerUserId }: Props) {
+export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null, token }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<Map<string, any>>(new Map());
@@ -135,21 +134,21 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
       const markerNode = document.createElement("button");
       markerNode.type = "button";
       markerNode.className = "buyer-map-marker";
-      markerNode.setAttribute("aria-label", `Open ${point.buyer.name} map marker`);
-      markerNode.dataset.buyerId = point.buyer.id;
+      markerNode.setAttribute("aria-label", `Open ${point.buyer.alias} map marker`);
+      markerNode.dataset.buyerId = point.buyer.buyerProfileId;
       // Budget-first pins: buyer demand reads like price pins, but represents buyers.
       markerNode.innerHTML = `<span>${escapeHtml(budgetPinLabel(point.buyer))}</span>`;
-      markerNode.addEventListener("mouseenter", () => highlightBuyer(point.buyer.id, true));
-      markerNode.addEventListener("mouseleave", () => highlightBuyer(point.buyer.id, false));
+      markerNode.addEventListener("mouseenter", () => highlightBuyer(point.buyer.buyerProfileId, true));
+      markerNode.addEventListener("mouseleave", () => highlightBuyer(point.buyer.buyerProfileId, false));
 
-      const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(popupHtml(point.buyer, viewerUserId));
+      const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(popupHtml(point.buyer));
       const marker = new window.mapboxgl.Marker({ element: markerNode, offset: point.markerOffset })
         .setLngLat([point.lng, point.lat])
         .setPopup(popup)
         .addTo(mapRef.current);
 
-      markersRef.current.set(point.buyer.id, marker);
-      markerNodesRef.current.set(point.buyer.id, markerNode);
+      markersRef.current.set(point.buyer.buyerProfileId, marker);
+      markerNodesRef.current.set(point.buyer.buyerProfileId, markerNode);
     }
 
     if (selectedArea) {
@@ -165,7 +164,7 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
       mapRef.current.flyTo({ center: [initialCenter.lng, initialCenter.lat], zoom: buyerPoints.length === 1 ? 11.5 : 10.4 });
     }
 
-  }, [buyerPoints, initialCenter.lat, initialCenter.lng, isReady, markerPoints, selectedArea, selectedAreaGeojson, viewerUserId]);
+  }, [buyerPoints, initialCenter.lat, initialCenter.lng, isReady, markerPoints, selectedArea, selectedAreaGeojson]);
 
   useEffect(() => {
     let canceled = false;
@@ -276,7 +275,7 @@ function withMarkerOffsets(points: BuyerPoint[]): MarkerBuyerPoint[] {
 
   return points.map((point) => {
     const group = groups.get(`${point.lat.toFixed(5)},${point.lng.toFixed(5)}`) ?? [point];
-    const index = group.findIndex((item) => item.buyer.id === point.buyer.id);
+    const index = group.findIndex((item) => item.buyer.buyerProfileId === point.buyer.buyerProfileId);
     return {
       ...point,
       markerOffset: markerOffset(index, group.length),
@@ -292,7 +291,7 @@ function markerOffset(index: number, count: number): [number, number] {
   return [Math.round(Math.cos(angle) * radius), Math.round(Math.sin(angle) * radius)];
 }
 
-function budgetPinLabel(buyer: Buyer) {
+function budgetPinLabel(buyer: SellerBuyerSearchDto) {
   const budget = buyer.budgetMax || buyer.budgetMin;
   if (!budget) return "Buyer";
   if (budget >= 1_000_000) {
@@ -302,20 +301,19 @@ function budgetPinLabel(buyer: Buyer) {
   return `$${Math.round(budget / 1000)}K`;
 }
 
-function popupHtml(buyer: Buyer, viewerUserId?: string) {
+function popupHtml(buyer: SellerBuyerSearchDto) {
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active").map((badge) => badge.label).slice(0, 2);
-  const canInvite = buyer.userId !== viewerUserId;
 
   return `
     <div class="buyer-map-popup">
-      <strong>${escapeHtml(buyer.name)}</strong>
-      <span>${escapeHtml(buyer.type)}</span>
+      <strong>${escapeHtml(buyer.alias)}</strong>
+      <span>${escapeHtml(buyer.purchaseType)}</span>
       <span>${escapeHtml(buyer.location)}</span>
       <span>${escapeHtml(formatRange(buyer.budgetMin, buyer.budgetMax))}</span>
       ${activeBadges.length > 0 ? `<span>${escapeHtml(activeBadges.join(", "))}</span>` : ""}
       <div>
-        <a href="/buyers/${encodeURIComponent(buyer.id)}">View profile</a>
-        ${canInvite ? `<a href="/seller/invite/${encodeURIComponent(buyer.id)}">Send invite</a>` : ""}
+        <a href="/buyers/${encodeURIComponent(buyer.buyerProfileId)}">View profile</a>
+        ${buyer.canInvite ? `<a href="/seller/invite/${encodeURIComponent(buyer.buyerProfileId)}">Send invite</a>` : ""}
       </div>
     </div>
   `;

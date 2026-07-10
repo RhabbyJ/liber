@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
 import { loadMapboxGl } from "../lib/mapbox-gl-loader";
 import { marketMapBounds, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
-import type { PublicBuyerPreview } from "../server/buyer-preview";
 
 type Props = {
   market: MarketMapContext;
   primaryCtaHref: string;
   primaryCtaLabel: string;
-  previews: PublicBuyerPreview[];
+  previews: PublicBuyerPreviewDto[];
   secondaryCtaHref?: string;
   secondaryCtaLabel?: string;
   selectedArea?: SelectedMapArea | null;
@@ -21,7 +21,7 @@ type PreviewPoint = {
   index: number;
   lat: number;
   lng: number;
-  preview: PublicBuyerPreview;
+  preview: PublicBuyerPreviewDto;
 };
 
 /**
@@ -51,7 +51,12 @@ export function PublicDemandMap({
   const points = useMemo<PreviewPoint[]>(
     () =>
       previews
-        .map((preview, index) => ({ index, lat: preview.lat ?? NaN, lng: preview.lng ?? NaN, preview }))
+        .map((preview, index) => ({
+          index,
+          lat: preview.pin?.latitude ?? NaN,
+          lng: preview.pin?.longitude ?? NaN,
+          preview,
+        }))
         .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng)),
     [previews],
   );
@@ -242,7 +247,7 @@ function StaticDemandLayer({ points }: { points: PreviewPoint[] }) {
 }
 
 function previewPopupHtml(
-  preview: PublicBuyerPreview,
+  preview: PublicBuyerPreviewDto,
   cta: {
     primaryHref: string;
     primaryLabel: string;

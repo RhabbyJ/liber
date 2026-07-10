@@ -67,6 +67,14 @@ import {
 } from "./service-areas";
 import { normalizeInput } from "./normalize-input";
 import { activePrimaryServiceAreaWhere } from "./service-area-matching";
+import {
+  sellerProfileBuyerSelect,
+  sellerSearchBuyerSelect,
+  sellerSearchRowToBuyer,
+  sellerVisibleBuyerWhere,
+  toSellerBuyerProfileDto,
+  toSellerSearchBuyerDto,
+} from "./buyer-dtos";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
 import { redirect } from "next/navigation";
 
@@ -504,7 +512,7 @@ async function createVerificationSignedUrl(storagePath: string) {
   return data.signedUrl;
 }
 
-async function searchDbBuyerProfiles(filters: SearchBuyersInput, excludeUserId?: string) {
+async function searchDbBuyerProfiles(filters: SearchBuyersInput, viewerUserId: string) {
   const serviceArea = filters.serviceArea
     ? await getActiveServiceAreaBySlug(filters.serviceArea, filters.market)
     : null;
@@ -513,12 +521,8 @@ async function searchDbBuyerProfiles(filters: SearchBuyersInput, excludeUserId?:
     ? await getSearchCoverageServiceAreaIds(serviceArea.id, filters.market)
     : [];
 
-  const where: Prisma.BuyerProfileWhereInput = {
-    visibilityStatus: "ACTIVE",
-    ...activePrimaryServiceAreaWhere(filters.market),
-  };
+  const where = sellerVisibleBuyerWhere(filters.market);
   const and: Prisma.BuyerProfileWhereInput[] = [];
-  if (excludeUserId) where.userId = { not: excludeUserId };
   if (serviceArea) {
     and.push(activePrimaryServiceAreaWhere(filters.market, coverageAreaIds));
   }
@@ -555,9 +559,10 @@ async function searchDbBuyerProfiles(filters: SearchBuyersInput, excludeUserId?:
   }
   if (and.length > 0) where.AND = and;
 
+  const now = new Date();
   const profiles = await prisma.buyerProfile.findMany({
     where,
-    include: buyerInclude,
+    select: sellerSearchBuyerSelect(now),
     orderBy: filters.sort === "recently_active"
       ? { lastRefreshedAt: "desc" }
       : filters.sort === "highest_budget"
@@ -567,11 +572,21 @@ async function searchDbBuyerProfiles(filters: SearchBuyersInput, excludeUserId?:
   });
 
   const directoryFilters = serviceArea ? withoutServiceAreaFilter(filters) : filters;
-  return searchBuyerDirectory(
+  const eligibleProfiles = profiles.flatMap((profile) => {
+    const buyer = sellerSearchRowToBuyer(profile, now);
+    return buyer ? [{ buyer, profile }] : [];
+  });
+  const profilesById = new Map(eligibleProfiles.map(({ profile }) => [profile.id, profile]));
+  const rankedBuyers = searchBuyerDirectory(
     directoryFilters,
-    profiles.map((profile: DbBuyerProfile) => buyerFromDb(profile)),
-    { excludeUserId },
+    eligibleProfiles.map(({ buyer }) => buyer),
   );
+  return rankedBuyers.flatMap((buyer) => {
+    const profile = profilesById.get(buyer.id);
+    if (!profile) return [];
+    const dto = toSellerSearchBuyerDto(profile, viewerUserId, now);
+    return dto ? [dto] : [];
+  });
 }
 
 function withoutServiceAreaFilter(filters: SearchBuyersInput): SearchBuyersInput {
@@ -1147,7 +1162,7 @@ export async function searchBuyers(input: unknown) {
   const seller = await requireApprovedSellerAccess();
   await assertAuditRateLimit(seller, "buyer_search", 60, 60_000);
   const data = searchBuyersSchema.parse(input);
-  const results = await searchDbBuyerProfiles(data);
+  const results = await searchDbBuyerProfiles(data, seller.id);
   await auditSecurityEvent(seller, "buyer_search", "buyer_directory", "search", {
     resultCount: results.length,
     ...(data.serviceArea ? { serviceArea: data.serviceArea } : {}),
@@ -1158,21 +1173,25 @@ export async function searchBuyers(input: unknown) {
 export async function getBuyerProfileForSeller(buyerProfileId: string) {
   const seller = await requireApprovedSellerAccess();
   await assertAuditRateLimit(seller, "buyer_profile_view", 120, 60 * 60_000);
+  const now = new Date();
   const buyer = await prisma.buyerProfile.findFirst({
-    where: { id: buyerProfileId, visibilityStatus: "ACTIVE", ...activePrimaryServiceAreaWhere() },
-    include: buyerInclude,
+    where: { id: buyerProfileId, ...sellerVisibleBuyerWhere() },
+    select: sellerProfileBuyerSelect(now),
   });
   if (!buyer) throw new Error("Buyer profile not found.");
   await auditSecurityEvent(seller, "buyer_profile_view", "buyer_profile", buyer.id);
-  return { ok: true, data: buyerFromDb(buyer) };
+  const dto = toSellerBuyerProfileDto(buyer, seller.id, true, now);
+  if (!dto) throw new Error("Buyer profile not found.");
+  return { ok: true, data: dto };
 }
 
 export async function getPublicBuyerProfile(buyerProfileId: string) {
   const user = await requireAuthenticatedUser();
   await assertAuditRateLimit(user, "buyer_profile_view", 120, 60 * 60_000);
+  const now = new Date();
   const buyer = await prisma.buyerProfile.findFirst({
-    where: { id: buyerProfileId, visibilityStatus: "ACTIVE", ...activePrimaryServiceAreaWhere() },
-    include: buyerInclude,
+    where: { id: buyerProfileId, ...sellerVisibleBuyerWhere() },
+    select: sellerProfileBuyerSelect(now),
   });
 
   if (buyer) {
@@ -1182,13 +1201,12 @@ export async function getPublicBuyerProfile(buyerProfileId: string) {
     }
 
     await auditSecurityEvent(user, "buyer_profile_view", "buyer_profile", buyer.id);
+    const viewerCanViewDirectory = await canViewBuyerDirectory(user);
+    const dto = toSellerBuyerProfileDto(buyer, user.id, viewerCanViewDirectory, now);
+    if (!dto) return { ok: false as const, error: "NOT_FOUND" as const };
     return {
       ok: true,
-      data: {
-        ...buyerFromDb(buyer),
-        viewerCanInvite: user.id !== buyer.userId && (await canViewBuyerDirectory(user)),
-        viewerIsOwner: user.id === buyer.userId,
-      },
+      data: dto,
     };
   }
   return { ok: false as const, error: "NOT_FOUND" as const };
@@ -1398,10 +1416,11 @@ export async function sendInvite(input: unknown) {
   const seller = await requireApprovedSellerAccess();
   await assertAuditRateLimit(seller, "invite_sent", 30, 60 * 60_000);
   const data = sendInviteSchema.parse(normalizeInput(input));
+  const now = new Date();
   const [buyer, property, sentInviteCountToday, activeDuplicate] = await Promise.all([
     prisma.buyerProfile.findFirst({
-      where: { id: data.buyerProfileId, visibilityStatus: "ACTIVE", ...activePrimaryServiceAreaWhere() },
-      include: buyerInclude,
+      where: { id: data.buyerProfileId, ...sellerVisibleBuyerWhere() },
+      select: sellerSearchBuyerSelect(now),
     }),
     prisma.sellerProperty.findFirst({
       where: { id: data.propertyId, ownerUserId: seller.id },
@@ -1423,14 +1442,15 @@ export async function sendInvite(input: unknown) {
     }),
   ]);
 
-  if (!buyer) throw new Error("Buyer profile must be active before receiving invites.");
+  const buyerForInvite = buyer ? sellerSearchRowToBuyer(buyer, now) : null;
+  if (!buyerForInvite) throw new Error("Buyer profile must be active before receiving invites.");
   if (!property) throw new Error("Seller must own property before sending invites.");
-  if (buyer.userId === seller.id) throw new Error("Sellers cannot invite their own buyer profile.");
+  if (buyerForInvite.userId === seller.id) throw new Error("Sellers cannot invite their own buyer profile.");
   if (property.flaggedForReviewAt) throw new Error("Property is under review and cannot send invites.");
   if (activeDuplicate) throw new Error("An active invite already exists for this buyer and property.");
 
   assertInviteAllowed({
-    buyer: buyerFromDb(buyer),
+    buyer: buyerForInvite,
     property: propertyFromDb(property),
     seller,
     sentInviteCountToday,

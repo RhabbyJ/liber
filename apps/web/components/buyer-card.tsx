@@ -1,6 +1,6 @@
 import Link from "next/link";
+import type { SellerBuyerSearchDto } from "../lib/buyer-dto-types";
 import { formatRange } from "../lib/format";
-import type { Buyer } from "../lib/mock-data";
 import { BadgePill } from "./badge-pill";
 import { GeneratedAvatar } from "./generated-avatar";
 import { Icon } from "./icon";
@@ -9,26 +9,26 @@ export function BuyerCard({
   buyer,
   variant = "row",
 }: {
-  buyer: Buyer;
+  buyer: SellerBuyerSearchDto;
   variant?: "home" | "row";
 }) {
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
-  const profileSummary = [buyer.type, buyer.purpose].filter(Boolean).join(" - ") || "Buyer";
+  const profileSummary = [buyer.purchaseType, buyer.propertyType].filter(Boolean).join(" - ") || "Buyer";
   const profileLocationSummary = [profileSummary, buyer.location].filter(Boolean).join(" - ");
 
   if (variant === "home") {
     return (
-      <article className="buyer-card" data-buyer-id={buyer.id}>
+      <article className="buyer-card" data-buyer-id={buyer.buyerProfileId}>
         <div className="buyer-card-head">
-          <GeneratedAvatar seed={buyer.userId || buyer.id} size="lg" variant={buyer.avatarVariant} />
+          <GeneratedAvatar seed={buyer.buyerProfileId} size="lg" variant={buyer.avatarVariant} />
           <div>
-            <h3>{buyer.name}</h3>
+            <h3>{buyer.alias}</h3>
             <p className="muted small" style={{ marginTop: 2 }}>
               {profileLocationSummary}
             </p>
           </div>
         </div>
-        <p className="muted">{buyer.bio}</p>
+        <p className="muted">Buyer identity and contact details stay private.</p>
         <div className="buyer-card-stats">
           <div>
             <span className="buyer-card-stat-label">Budget</span>
@@ -47,7 +47,7 @@ export function BuyerCard({
           </div>
         ) : null}
         <div className="actions inline">
-          <Link className="button secondary block" href={`/buyers/${buyer.id}`}>
+          <Link className="button secondary block" href={`/buyers/${buyer.buyerProfileId}`}>
             View profile
             <Icon name="arrow-right" size={14} />
           </Link>
@@ -60,11 +60,11 @@ export function BuyerCard({
   const preApprovalBadge = activeBadges.find((badge) => badge.type === "PRE_APPROVED");
 
   return (
-    <article className="buyer-row" data-buyer-id={buyer.id}>
+    <article className="buyer-row" data-buyer-id={buyer.buyerProfileId}>
       <div className="buyer-row-profile">
-        <GeneratedAvatar seed={buyer.userId || buyer.id} size="lg" variant={buyer.avatarVariant} />
+        <GeneratedAvatar seed={buyer.buyerProfileId} size="lg" variant={buyer.avatarVariant} />
         <div>
-          <h3>{buyer.name}</h3>
+          <h3>{buyer.alias}</h3>
           <p>{profileSummary}</p>
         </div>
       </div>
@@ -86,15 +86,15 @@ export function BuyerCard({
         <span>{fitSummary}</span>
       </div>
 
-      <Link className="buyer-row-see-more" href={`/buyers/${buyer.id}`}>
+      <Link className="buyer-row-see-more" href={`/buyers/${buyer.buyerProfileId}`}>
         See More
       </Link>
     </article>
   );
 }
 
-function buyerFitSummary(buyer: Buyer) {
-  const criteria = buyer.criteriaDetails[0];
+function buyerFitSummary(buyer: SellerBuyerSearchDto) {
+  const criteria = buyer.criteria[0];
   const facts = [
     criteria?.bedroomsMin ? `${criteria.bedroomsMin}+ bd` : null,
     criteria?.bathroomsMin ? `${criteria.bathroomsMin}+ ba` : null,

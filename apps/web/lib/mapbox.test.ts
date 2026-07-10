@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buyers } from "./mock-data";
+import type { SellerBuyerSearchDto } from "./buyer-dto-types";
 import { mapboxServiceAreaQueries, mapPinPosition } from "./mapbox";
+
+const buyers = [
+  { mapPoint: { latitude: 34.233923, longitude: -118.519279 } },
+  { mapPoint: { latitude: 34.1467, longitude: -118.433314 } },
+] as SellerBuyerSearchDto[];
 
 describe("Mapbox static map helpers", () => {
   it("uses typed postcode metadata instead of five-digit house numbers", () => {
@@ -23,9 +28,5 @@ describe("Mapbox static map helpers", () => {
     expect(position.left).toBeLessThanOrEqual(92);
     expect(position.top).toBeGreaterThanOrEqual(8);
     expect(position.top).toBeLessThanOrEqual(92);
-  });
-
-  it("does not place buyers without canonical service-area geography", () => {
-    expect(mapPinPosition(buyers[2], buyers)).toBeNull();
   });
 });

@@ -2,9 +2,10 @@ import Link from "next/link";
 import { Icon } from "../components/icon";
 import { PublicMapLocationSearch } from "../components/public-map-location-search";
 import { PublicDemandMap } from "../components/public-demand-map";
+import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
 import { DEFAULT_MARKET_SLUG, serviceAreaDisplayLabel } from "../lib/service-areas";
 import { selectedMapArea } from "../lib/map-area";
-import { getPublicBuyerPreviews, type PublicBuyerPreview } from "../server/buyer-preview";
+import { getPublicBuyerPreviews } from "../server/buyer-preview";
 import { getActiveMarketBySlug, getActiveServiceAreaBySlug, resolveActiveServiceArea } from "../server/service-areas";
 import { getSessionUser } from "../server/session";
 
@@ -120,7 +121,7 @@ function serviceAreaParam(value?: string) {
   return value && /^[a-z0-9-]+$/.test(value) ? value : undefined;
 }
 
-function BuyerPreviewCard({ preview }: { preview: PublicBuyerPreview }) {
+function BuyerPreviewCard({ preview }: { preview: PublicBuyerPreviewDto }) {
   const meta = [
     preview.bedroomsMin ? `${preview.bedroomsMin}+ bd` : null,
     preview.bathroomsMin ? `${preview.bathroomsMin}+ ba` : null,

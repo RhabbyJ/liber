@@ -134,7 +134,6 @@ export default async function SellerSearchPage({
               buyers={results}
               market={market}
               selectedServiceArea={selectedMapServiceArea}
-              viewerUserId={user?.id}
             />
           </div>
         </div>
@@ -190,7 +189,7 @@ export default async function SellerSearchPage({
               </div>
             ) : (
               results.map((buyer) => (
-                <BuyerCard buyer={buyer} key={buyer.id} variant="row" />
+                <BuyerCard buyer={buyer} key={buyer.buyerProfileId} variant="row" />
               ))
             )}
           </div>

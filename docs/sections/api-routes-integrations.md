@@ -30,6 +30,10 @@ Owns Next route handlers and external provider adapters for auth callbacks, geoc
 - Service-area database failures return controlled `503` responses and are logged without secrets; production routes never fall back to static pilot metadata.
 - Service-area search returns `{ resolution, suggestions }`; callers must not silently choose the first suggestion for ambiguous terms or unique prefixes.
 - Seller buyer APIs must require approved seller-directory access and return seller-safe buyer fields only.
+- `GET /api/seller/buyers` serializes the dedicated seller-search DTO envelope
+  from `apps/web/server/buyer-dtos.ts`; browser-safe response types live in
+  `apps/web/lib/buyer-dto-types.ts`. The route does not serialize the internal
+  `Buyer` domain model or internal exception details.
 - State-changing routes need appropriate origin/session protection.
 - Property enrichment is for private seller property prep. It requires an authenticated seller/admin role and rate limits, but not approved seller-directory access.
 

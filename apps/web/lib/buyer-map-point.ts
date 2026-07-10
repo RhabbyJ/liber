@@ -1,5 +1,8 @@
-import type { Buyer } from "./mock-data";
+import type { SellerBuyerSearchDto } from "./buyer-dto-types";
 
-export function approximateBuyerPoint(buyer: Buyer) {
-  return buyer.primaryServiceArea?.center ?? null;
+export function approximateBuyerPoint(buyer: SellerBuyerSearchDto) {
+  return {
+    lat: buyer.mapPoint.latitude,
+    lng: buyer.mapPoint.longitude,
+  };
 }

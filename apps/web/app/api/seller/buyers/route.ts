@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { canViewBuyerDirectory } from "../../../../server/access";
 import { searchBuyers } from "../../../../server/contracts";
+import { sellerBuyerSearchResponse } from "../../../../server/buyer-dtos";
 import { getSessionUser } from "../../../../server/session";
 
 export async function GET(request: Request) {
@@ -27,10 +29,38 @@ export async function GET(request: Request) {
 
   try {
     const { data } = await searchBuyers(input);
-    return NextResponse.json({ buyers: data });
+    return NextResponse.json(sellerBuyerSearchResponse(data));
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to search buyers.";
-    const status = message.toLowerCase().includes("rate limit") ? 429 : 400;
-    return NextResponse.json({ error: message, buyers: [] }, { status });
+    logSearchFailure(error);
+    if (isRateLimitError(error)) {
+      return NextResponse.json(
+        { error: "Too many buyer searches. Try again later.", buyers: [] },
+        { status: 429 },
+      );
+    }
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: "Invalid buyer search filters.", buyers: [] },
+        { status: 400 },
+      );
+    }
+    return NextResponse.json(
+      { error: "Unable to search buyers.", buyers: [] },
+      { status: 500 },
+    );
   }
+}
+
+function isRateLimitError(error: unknown) {
+  return error instanceof Error && error.message === "Rate limit reached. Try again later.";
+}
+
+function logSearchFailure(error: unknown) {
+  const details: { code?: string; name: string } = {
+    name: error instanceof Error ? error.name : "UnknownError",
+  };
+  if (error && typeof error === "object" && "code" in error && typeof error.code === "string") {
+    details.code = error.code.slice(0, 64);
+  }
+  console.error("[seller-buyers-api] search failed", details);
 }

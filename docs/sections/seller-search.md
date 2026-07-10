@@ -14,6 +14,8 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - `apps/web/components/interactive-buyer-map.tsx`
 - `apps/web/components/static-buyer-map.tsx`
 - `apps/web/server/contracts.ts`
+- `apps/web/server/buyer-dtos.ts`
+- `apps/web/lib/buyer-dto-types.ts`
 - `apps/web/server/service-areas.ts`
 
 ## Invariants
@@ -33,6 +35,14 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - Search should explain why a buyer matches where possible.
 - Search/profile-view usage should remain rate-limited/auditable.
 - A seller who also owns an active buyer profile may see that buyer demand in search; self-invite actions stay blocked elsewhere.
+- The seller's own active buyer demand remains in the shared list/map result;
+  its server-derived `canInvite` flag is false.
+- Search rows require an active owning User and use the dedicated seller-search
+  projection/DTO. Client map code receives only the approved canonical-area
+  `mapPoint` and a server-derived `canInvite` flag, never either party's Auth
+  UUID or raw buyer coordinates.
+- Seller search serializes active, unexpired badges only and never criteria or
+  canonical service-area IDs.
 - Production search filtering, sorting, and pagination belong in SQL. Do not cap a broad query and apply seller filters afterward in JavaScript.
 - Use stable cursor pagination with no silent result truncation. Validate final query plans and indexes against realistic LA-scale data.
 
