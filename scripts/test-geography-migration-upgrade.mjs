@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import pg from "pg";
+import { sameDatabaseTarget } from "./database-target.mjs";
 
 const testUrl = process.env.GEOGRAPHY_MIGRATION_TEST_DATABASE_URL;
 await assertDisposableDatabase(testUrl);
@@ -108,7 +109,7 @@ async function assertDisposableDatabase(url) {
     );
   }
   for (const sharedUrl of [process.env.DIRECT_URL, process.env.DATABASE_URL]) {
-    if (sharedUrl && normalizeDatabaseUrl(sharedUrl) === normalizeDatabaseUrl(url)) {
+    if (sharedUrl && sameDatabaseTarget(sharedUrl, url)) {
       throw new Error("Refusing to run the destructive geography upgrade test against the configured shared database.");
     }
   }
@@ -128,13 +129,6 @@ async function assertDisposableDatabase(url) {
   } finally {
     await guard.end();
   }
-}
-
-function normalizeDatabaseUrl(value) {
-  const url = new URL(value);
-  url.password = "";
-  url.search = "";
-  return url.toString();
 }
 
 async function assertUpgradeBaseline(db) {

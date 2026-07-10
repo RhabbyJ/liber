@@ -12,7 +12,7 @@ import {
   type ServiceAreaSearchResponse,
 } from "../lib/service-area-api";
 import { Icon } from "./icon";
-import { PilotZipSuggestions } from "./pilot-zip-suggestions";
+import { ServiceAreaSuggestions } from "./service-area-suggestions";
 import { UnsupportedAreaState } from "./unsupported-area-state";
 
 type Props = {
@@ -154,7 +154,7 @@ export function PublicMapLocationSearch({ defaultArea = "", marketSlug }: Props)
           Search
         </button>
       </form>
-      {isSuggestionsOpen ? <PilotZipSuggestions marketSlug={marketSlug} onSelect={pushArea} query={query} /> : null}
+      {isSuggestionsOpen ? <ServiceAreaSuggestions marketSlug={marketSlug} onSelect={pushArea} query={query} /> : null}
       {message ? <span className="public-map-search-message">{message}</span> : null}
       {isUnsupported ? <UnsupportedAreaState onSearchAnother={clearArea} /> : null}
     </div>

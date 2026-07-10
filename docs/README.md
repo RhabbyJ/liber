@@ -23,6 +23,7 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `engineering/GEOGRAPHY_CANONICAL_CUTOVER_EVIDENCE_2026-07-09.md` — disposable-branch counts, per-row quarantine review, database assertions, and the open fresh-install gate.
 - `engineering/AUTH_IDENTITY_OWNERSHIP_RUNBOOK.md` — immutable Auth UUID rules, collision recovery, account lifecycle, deployment, and rollback for identity migration 16.
 - `engineering/AUTH_IDENTITY_OWNERSHIP_EVIDENCE_2026-07-09.md` — shared read-only audit, disposable proof, and remaining identity deployment gates.
+- `engineering/SERVICE_AREA_BOUNDARIES.md` — canonical service-area, relationship, geometry, rendering, and LA import boundaries.
 
 ## Section micro-docs
 

@@ -28,6 +28,7 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - Demo/test buyer data may be used for smoke and CEO demo verification only when clearly seeded and removable.
 - Tests and smoke scripts must not depend on fake data being present in true production.
 - Before the canonical geography cutover, run both guarded migration commands against a sentinel-marked disposable database: `npm run db:test-geography:upgrade`, then reset the disposable target with `npm run db:test-geography:fresh`. The scripts verify both the sentinel and configured shared URLs. Preserve their counts/quarantine output and delete the disposable branch afterward.
+- Destructive database harnesses must reject both exact shared URLs and direct/pooler URLs that identify the same Supabase project.
 - Before activating a broader market, run the guarded database E2E with `SERVICE_AREA_E2E_DATABASE_URL`, `SERVICE_AREA_E2E_ALLOW_WRITES=true`, and the matching `GEOGRAPHY_MIGRATION_TEST_SENTINEL`; it covers stale city/ZIP conflicts, DB-only areas, inactive markets, relationship changes, bounds, RLS, seller filtering, and public/seller pins.
 - Before deploying identity migration `00016`, run `npm run db:test-identity`
   against a sentinel-marked disposable database. It verifies UUID immutability,

@@ -12,7 +12,7 @@ import {
   type ServiceAreaSearchResponse,
 } from "../lib/service-area-api";
 import { Icon } from "./icon";
-import { PilotZipSuggestions } from "./pilot-zip-suggestions";
+import { ServiceAreaSuggestions } from "./service-area-suggestions";
 
 type Props = {
   defaultArea?: string;
@@ -135,7 +135,7 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
           {isLookingUp ? "Checking" : "Search"}
         </button>
       </form>
-      {isSuggestionsOpen ? <PilotZipSuggestions marketSlug={marketSlug} onSelect={pushArea} query={query} /> : null}
+      {isSuggestionsOpen ? <ServiceAreaSuggestions marketSlug={marketSlug} onSelect={pushArea} query={query} /> : null}
       {message ? <span className="seller-map-search-message">{message}</span> : null}
     </div>
   );

@@ -43,7 +43,6 @@ export function PublicDemandMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
-  const [status, setStatus] = useState("");
   const [didFail, setDidFail] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [hasLiveMarkers, setHasLiveMarkers] = useState(false);
@@ -60,7 +59,13 @@ export function PublicDemandMap({
   const shouldUseMapbox = Boolean(mapboxToken);
 
   useEffect(() => {
+    setDidFail(false);
+  }, [mapboxToken, market]);
+
+  useEffect(() => {
+    if (didFail) return;
     let canceled = false;
+    setIsReady(false);
 
     async function setupMap() {
       if (!containerRef.current || !shouldUseMapbox) return;
@@ -87,7 +92,6 @@ export function PublicDemandMap({
           if (canceled) return;
           loaded = true;
           setIsReady(true);
-          setStatus("");
         });
         // Only treat errors before first load as fatal; later tile hiccups are recoverable.
         mapRef.current.on("error", () => {
@@ -108,7 +112,7 @@ export function PublicDemandMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [mapboxToken, market, shouldUseMapbox]);
+  }, [didFail, mapboxToken, market, shouldUseMapbox]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current || !window.mapboxgl) return;
@@ -164,8 +168,8 @@ export function PublicDemandMap({
     let canceled = false;
 
     async function loadSelectedArea() {
+      setSelectedAreaGeojson(null);
       if (!selectedArea) {
-        setSelectedAreaGeojson(null);
         return;
       }
 
@@ -186,7 +190,7 @@ export function PublicDemandMap({
   }, [selectedArea]);
 
   if (!shouldUseMapbox || didFail) {
-    return <PublicStaticDemandMap points={points} selectedArea={selectedArea} />;
+    return <PublicStaticDemandMap points={points} />;
   }
 
   return (
@@ -194,27 +198,25 @@ export function PublicDemandMap({
       aria-label={selectedAreaLabel ? `Buyer demand preview map around ${selectedAreaLabel}` : "Buyer demand preview map"}
       className="public-map-shell"
     >
-      {hasLiveMarkers ? null : <StaticDemandLayer points={points} selectedArea={selectedArea} />}
+      {hasLiveMarkers ? null : <StaticDemandLayer points={points} />}
       <div className="map-canvas" ref={containerRef} />
-      {status ? <div className="map-status">{status}</div> : null}
       <div className="public-map-note">Approximate service area - anonymized preview</div>
     </div>
   );
 }
 
-function PublicStaticDemandMap({ points, selectedArea }: { points: PreviewPoint[]; selectedArea: SelectedMapArea | null }) {
+function PublicStaticDemandMap({ points }: { points: PreviewPoint[] }) {
   return (
     <div className="public-map-shell fallback" aria-label="Buyer demand preview map">
-      <StaticDemandLayer points={points} selectedArea={selectedArea} />
+      <StaticDemandLayer points={points} />
       <div className="public-map-note">Approximate service area - privacy-safe preview</div>
     </div>
   );
 }
 
-function StaticDemandLayer({ points, selectedArea }: { points: PreviewPoint[]; selectedArea: SelectedMapArea | null }) {
+function StaticDemandLayer({ points }: { points: PreviewPoint[] }) {
   return (
     <div className="public-map-static-grid">
-      {selectedArea ? <span aria-hidden="true" className="public-map-selected-area-static" /> : null}
       {points.length === 0 ? (
         <div className="public-map-static-empty">
           <strong>Buyer demand map</strong>

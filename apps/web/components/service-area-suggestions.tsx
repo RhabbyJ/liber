@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { serviceAreaDisplayLabel, type ServiceArea } from "../lib/service-areas";
 import { apiResultToServiceArea, type ServiceAreaSearchResponse } from "../lib/service-area-api";
+import { serviceAreaDisplayLabel, type ServiceArea } from "../lib/service-areas";
 
 type Props = {
   marketSlug: string;
@@ -10,11 +10,12 @@ type Props = {
   query?: string;
 };
 
-export function PilotZipSuggestions({ marketSlug, onSelect, query = "" }: Props) {
+export function ServiceAreaSuggestions({ marketSlug, onSelect, query = "" }: Props) {
   const [areas, setAreas] = useState<ServiceArea[]>([]);
 
   useEffect(() => {
     let canceled = false;
+    setAreas([]);
 
     async function loadSuggestions() {
       try {
@@ -26,7 +27,7 @@ export function PilotZipSuggestions({ marketSlug, onSelect, query = "" }: Props)
         }
         const payload = await response.json() as ServiceAreaSearchResponse;
         const suggestions = payload.suggestions.map(apiResultToServiceArea);
-        if (!canceled && suggestions.length > 0) setAreas(suggestions);
+        if (!canceled) setAreas(suggestions);
       } catch {
         if (!canceled) setAreas([]);
       }
@@ -39,12 +40,12 @@ export function PilotZipSuggestions({ marketSlug, onSelect, query = "" }: Props)
   }, [marketSlug, query]);
 
   return (
-    <div className="pilot-zip-suggestions" aria-label="Active service-area suggestions">
-      <div className="pilot-zip-suggestions-head">Service areas</div>
-      <div className="pilot-zip-suggestions-grid">
+    <div className="service-area-suggestions" aria-label="Active service-area suggestions">
+      <div className="service-area-suggestions-head">Service areas</div>
+      <div className="service-area-suggestions-grid">
         {areas.map((area) => (
           <button
-            className="pilot-zip-suggestion"
+            className="service-area-suggestion"
             key={area.slug}
             onClick={() => onSelect(area)}
             onMouseDown={(event) => event.preventDefault()}
