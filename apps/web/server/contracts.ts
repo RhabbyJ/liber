@@ -6,7 +6,6 @@ import {
   createSellerPropertySchema,
   grantBadgeSchema,
   purchaseTypeSchema,
-  publishBuyerProfileSchema,
   respondToInviteSchema,
   reviewDocumentSchema,
   revokeBadgeSchema,
@@ -16,17 +15,11 @@ import {
   sellerAccessReviewSchema,
   updateSellerPropertySchema,
   userModerationSchema,
-  type PublishBuyerProfileInput,
   type SearchBuyersInput,
 } from "@liber/validators";
-import {
-  type Badge,
-  type Buyer,
-  type BuyerCriteriaDetail,
-  type Invite,
-  type Property,
-  type PropertyVerificationStatus,
-} from "../lib/domain-types";
+import type { OwnerBadgeDTO, OwnerBuyerProfileDTO, SellerBuyerCriteriaDTO } from "../lib/buyer-dtos";
+import type { InviteDTO, SellerPropertyDTO } from "../lib/marketplace-dtos";
+import { sellerBuyerDetail, sellerBuyerSelect, sellerBuyerSummary, type SellerBuyerRow } from "./buyer/read-models";
 import { propertySubtypeLabel } from "../lib/property-types";
 import {
   avatarVariantFromSeed,
@@ -41,10 +34,6 @@ import {
   randomBuyerAlias,
 } from "../lib/buyer-alias";
 import { buyerLocationFromSelectedServiceArea } from "./canonical-buyer-location";
-import {
-  buyerCriteriaSnapshotData,
-  buyerProfileSnapshotData,
-} from "./buyer-profile-publication";
 import { hasRole, type SessionUser } from "./authz";
 import {
   canViewBuyerDirectory,
@@ -52,33 +41,23 @@ import {
   requireApprovedSellerAccess,
   sellerAccessStatusForUser,
 } from "./access";
-import { assertInviteAllowed } from "./domain";
 import type { EmailResult } from "./email";
-import { effectiveInviteStatus } from "./invite-integrity";
 import { inviteExpiresAt } from "./maintenance";
-import {
-  assertOwnershipEvidenceApprovalAllowed,
-  isOwnershipEvidenceAuditOnly,
-  isOwnershipEvidenceStale,
-  nextOwnershipVerificationStatus,
-  ownershipEvidenceKindForInput,
-  ownershipEvidenceKindLabel,
-  verificationDocumentTypeLabel,
-} from "./ownership-evidence";
-import { assertSharedRateLimit } from "./shared-rate-limit";
+import { verificationDocumentTypeLabel } from "./ownership-evidence";
+import { assertRateLimit } from "./rate-limit";
 import { getSessionUser } from "./session";
 import { normalizeInput } from "./normalize-input";
-import {
-  sellerProfileBuyerSelect,
-  sellerSearchBuyerSelect,
-  sellerVisibleBuyerWhere,
-  toSellerBuyerProfileDto,
-  toSellerSearchBuyerDto,
-} from "./buyer-dtos";
+import { activePrimaryServiceAreaWhere } from "./service-area-matching";
 import { querySellerSearchIds } from "./seller-search-query";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
-import { suspendApplicationIdentity } from "./account-security";
 import { redirect } from "next/navigation";
+import { evidenceSupportsBadge } from "./verification/evidence-rules";
+
+type Badge = OwnerBadgeDTO;
+type Buyer = OwnerBuyerProfileDTO;
+type BuyerCriteriaDetail = SellerBuyerCriteriaDTO;
+type Invite = InviteDTO;
+type Property = SellerPropertyDTO;
 
 async function requireCurrentUser(role: "BUYER" | "SELLER" | "ADMIN") {
   const user = await getSessionUser();
@@ -102,14 +81,6 @@ function dateKey(value?: Date | string | null) {
   return new Date(value).toISOString().slice(0, 10);
 }
 
-function isUniqueConstraintError(error: unknown): error is { code: string } {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
-}
-
-function isRecordNotFoundError(error: unknown): error is { code: string } {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "P2025";
-}
-
 function expiresInDays(value?: Date | null) {
   if (!value) return undefined;
   return Math.ceil((value.getTime() - Date.now()) / 86_400_000);
@@ -129,7 +100,7 @@ function titleFromStatus(value: string): Invite["status"] {
   return "Sent";
 }
 
-function propertyStatusLabel(value: PropertyVerificationStatus) {
+function propertyStatusLabel(value: string) {
   if (value === "APPROVED") return "Ownership verified";
   if (value === "PENDING") return "Ownership pending";
   if (value === "REJECTED") return "Ownership rejected";
@@ -169,10 +140,6 @@ function badgeFromDb(badge: {
     status: isExpired ? "expired" : badge.status === "ACTIVE" ? "active" : badge.status === "PENDING" ? "pending" : "expired",
     expiresInDays: expiresInDays(badge.expiresAt),
   };
-}
-
-function buyerCanUpdateVisibility(value?: string | null) {
-  return value !== "HIDDEN" && value !== "SUSPENDED";
 }
 
 function criteriaLabels(criteria: Array<{
@@ -241,7 +208,7 @@ function buyerFromDb(profile: {
   budgetMin: unknown;
   buyerType: string | null;
   buyingPurpose: string | null;
-  criteria: {
+  criteria: Array<{
     bathroomsMin: number | null;
     bedroomsMin: number | null;
     condition: string | null;
@@ -256,7 +223,7 @@ function buyerFromDb(profile: {
     squareFeetMax: number | null;
     squareFeetMin: number | null;
     yearBuiltMin: number | null;
-  } | null;
+  }>;
   desiredServiceAreas?: Array<{
     isPrimary: boolean;
     serviceArea: {
@@ -284,12 +251,15 @@ function buyerFromDb(profile: {
   userId: string;
   visibilityStatus: string;
 }): Buyer {
-  const criteriaItems = profile.criteria ? [profile.criteria] : [];
-  const criteria = criteriaLabels(criteriaItems);
+  const criteria = criteriaLabels(profile.criteria);
   const primaryServiceArea = profile.desiredServiceAreas?.find(
     (area) => area.isPrimary && area.source === "SELECTED",
   )?.serviceArea;
   const canonicalLocation = buyerLocationFromSelectedServiceArea(primaryServiceArea);
+  const badges = profile.badges.map(badgeFromDb);
+  if (displayPurchaseType(profile.buyerType) === "Cash" && badges.some((badge) => badge.type === "VERIFIED_FUNDS" && badge.status === "active")) {
+    badges.push({ id: "derived-cash-buyer", type: "CASH_BUYER", label: "Cash buyer", status: "active" });
+  }
 
   return {
     id: profile.id,
@@ -311,10 +281,10 @@ function buyerFromDb(profile: {
     bio: profile.bio || "",
     needs: criteria.slice(0, 5),
     wants: criteria.slice(5, 10),
-    badges: profile.badges.map(badgeFromDb),
+    badges,
     criteria,
-    criteriaDetails: criteriaDetails(criteriaItems),
-    propertySubtypes: criteriaItems.map((item) => item.propertySubtype),
+    criteriaDetails: criteriaDetails(profile.criteria),
+    propertySubtypes: Array.from(new Set(profile.criteria.map((item) => item.propertySubtype))),
     refreshedAt: dateKey(profile.lastRefreshedAt ?? profile.updatedAt),
     primaryServiceArea: primaryServiceArea
       ? {
@@ -386,7 +356,9 @@ function propertyFromDb(property: {
   id: string;
   lotSize: number | null;
   ownerUserId: string;
-  ownershipVerificationStatus: PropertyVerificationStatus;
+  ownershipVerificationStatus: string;
+  status: Property["lifecycleStatus"];
+  identityVersion: number;
   price: unknown;
   propertyType: Property["propertyType"];
   squareFeet: number | null;
@@ -412,106 +384,10 @@ function propertyFromDb(property: {
     condition: property.condition || "",
     features: property.features,
     description: property.description || "",
-    ownershipVerificationStatus: property.ownershipVerificationStatus,
     status: propertyStatusLabel(property.ownershipVerificationStatus),
+    lifecycleStatus: property.status,
+    identityVersion: property.identityVersion,
   };
-}
-
-async function assertAllowedFile(
-  file: File,
-  allowedTypes: Set<string>,
-  label: string,
-  typesLabel: string,
-  maxBytes: number,
-) {
-  if (file.size <= 0) throw new Error(`${label} is empty.`);
-  if (file.size > maxBytes) throw new Error(`${label} must be ${formatBytes(maxBytes)} or smaller.`);
-
-  const detectedType = await detectMimeType(file);
-  if (!detectedType || !allowedTypes.has(detectedType)) {
-    throw new Error(`${label} must be ${typesLabel}.`);
-  }
-
-  return detectedType;
-}
-
-async function detectMimeType(file: File) {
-  const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-
-  if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) {
-    return "application/pdf";
-  }
-  if (
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47 &&
-    bytes[4] === 0x0d &&
-    bytes[5] === 0x0a &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0x0a
-  ) {
-    return "image/png";
-  }
-  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
-    return "image/jpeg";
-  }
-  if (
-    bytes[0] === 0x52 &&
-    bytes[1] === 0x49 &&
-    bytes[2] === 0x46 &&
-    bytes[3] === 0x46 &&
-    bytes[8] === 0x57 &&
-    bytes[9] === 0x45 &&
-    bytes[10] === 0x42 &&
-    bytes[11] === 0x50
-  ) {
-    return "image/webp";
-  }
-
-  return null;
-}
-
-async function fileSha256(file: File) {
-  const hash = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
-  return Array.from(new Uint8Array(hash))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function storageFileNameForMime(contentType: string) {
-  if (contentType === "application/pdf") return "document.pdf";
-  if (contentType === "image/png") return "image.png";
-  if (contentType === "image/jpeg") return "image.jpg";
-  if (contentType === "image/webp") return "image.webp";
-  return "upload.bin";
-}
-
-function formatBytes(value: number) {
-  return `${Math.round(value / 1_048_576)} MB`;
-}
-
-async function uploadToStorage(bucket: string, path: string, file: File, contentType: string) {
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) throw new Error("Supabase storage is not configured.");
-
-  const { error } = await supabase.storage.from(bucket).upload(path, file, {
-    contentType,
-    upsert: false,
-  });
-
-  if (error) throw new Error(error.message);
-}
-
-async function removeUploadedObject(bucket: string, path: string) {
-  const supabase = createSupabaseAdminClient();
-  if (!supabase) return;
-
-  try {
-    await supabase.storage.from(bucket).remove([path]);
-  } catch {
-    // Cleanup is best-effort; the private path is intentionally not logged.
-  }
 }
 
 async function createVerificationSignedUrl(storagePath: string) {
@@ -520,7 +396,7 @@ async function createVerificationSignedUrl(storagePath: string) {
 
   const { data, error } = await supabase.storage
     .from("verification-documents")
-    .createSignedUrl(storagePath, 600);
+    .createSignedUrl(storagePath, 60);
 
   if (error) return null;
   return data.signedUrl;
@@ -529,26 +405,21 @@ async function createVerificationSignedUrl(storagePath: string) {
 async function searchDbBuyerProfiles(filters: SearchBuyersInput, viewerUserId: string) {
   return prisma.$transaction(async (tx) => {
     const page = await querySellerSearchIds(tx, filters);
-    const snapshotAt = new Date(page.snapshotAt);
     const profiles = page.ids.length > 0
       ? await tx.buyerProfile.findMany({
           where: { id: { in: page.ids } },
-          select: sellerSearchBuyerSelect(snapshotAt),
+          select: sellerBuyerSelect(),
         })
       : [];
-    const profilesById = new Map(profiles.map((profile) => [profile.id, profile] as const));
+    const profilesById = new Map(
+      profiles.map((profile: SellerBuyerRow) => [profile.id, profile] as const),
+    );
     if (profilesById.size !== page.ids.length) {
       throw new Error("Seller search result changed during pagination.");
     }
 
-    const items = page.ids.map((id) => {
-      const profile = profilesById.get(id);
-      const dto = profile ? toSellerSearchBuyerDto(profile, viewerUserId, snapshotAt) : null;
-      if (!dto) throw new Error("Seller search result failed its safe DTO projection.");
-      return dto;
-    });
     return {
-      items,
+      items: page.ids.map((id) => sellerBuyerSummary(profilesById.get(id)!, viewerUserId)),
       pageInfo: {
         hasMore: page.hasMore,
         nextCursor: page.nextCursor,
@@ -567,16 +438,20 @@ function inviteFromDb(invite: {
   property: {
     addressLine1: string | null;
     city: string | null;
-    ownershipVerificationStatus: PropertyVerificationStatus;
+    identityVersion: number;
+    ownershipVerificationStatus: string;
     propertyType: Property["propertyType"];
+    images?: Array<{ id: string; propertyIdentityVersion: number }>;
   };
   propertyId: string;
+  propertyIdentityVersion: number;
   sellerId: string;
-  expiresAt: Date | null;
   sentAt: Date;
+  expiresAt: Date | null;
   status: string;
   title: string;
 }): Invite {
+  const currentIdentity = invite.propertyIdentityVersion === invite.property.identityVersion;
   return {
     id: invite.id,
     sellerId: invite.sellerId,
@@ -585,17 +460,24 @@ function inviteFromDb(invite: {
     buyer: buyerAliasForDisplay(invite.buyerProfile.displayName, invite.buyerProfile.userId),
     property: invite.property.addressLine1 || `${invite.property.city || "Property"} ${propertySubtypeLabel(invite.property.propertyType).toLowerCase()}`,
     propertyStatus: propertyStatusLabel(invite.property.ownershipVerificationStatus),
-    propertyOwnershipVerificationStatus: invite.property.ownershipVerificationStatus,
-    status: titleFromStatus(effectiveInviteStatus(invite)),
+    status: !currentIdentity || (invite.expiresAt && invite.expiresAt.getTime() <= Date.now() && ["SENT", "VIEWED"].includes(invite.status))
+      ? "Expired"
+      : titleFromStatus(invite.status),
     sentAt: dateKey(invite.sentAt) || "Now",
     sentAtDate: dateKey(invite.sentAt),
+    expiresAt: invite.expiresAt?.toISOString(),
     title: invite.title,
     message: invite.message,
+    imageIds: currentIdentity
+      ? invite.property.images
+        ?.filter((image) => image.propertyIdentityVersion === invite.property.identityVersion)
+        .map((image) => image.id) ?? []
+      : [],
   };
 }
 
 const buyerInclude = {
-  badges: true,
+  badges: { where: { badgeType: { in: ["PRE_APPROVED", "VERIFIED_IDENTITY", "VERIFIED_FUNDS"] } } },
   criteria: true,
   desiredServiceAreas: {
     select: {
@@ -619,20 +501,9 @@ const buyerInclude = {
     },
   },
   user: { select: { avatarVariant: true } },
-} as const;
+} satisfies Prisma.BuyerProfileInclude;
 
-const documentMimeTypes = new Set(["application/pdf", "image/png", "image/jpeg", "image/webp"]);
-const propertyImageMimeTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
-const buyerVerificationDocumentTypes = new Set(["PRE_APPROVAL", "VERIFIED_FUNDS", "IDENTITY", "OTHER"]);
-const evidenceRequiredBadgeTypes = new Set<Badge["type"]>([
-  "PRE_APPROVED",
-  "EARNEST_MONEY_DEPOSITED",
-  "CASH_BUYER",
-  "VERIFIED_IDENTITY",
-  "VERIFIED_FUNDS",
-]);
-
-type BuyerVerificationDocumentType = "PRE_APPROVAL" | "VERIFIED_FUNDS" | "IDENTITY" | "OTHER";
+const evidenceRequiredBadgeTypes = new Set<Badge["type"]>(["PRE_APPROVED", "VERIFIED_IDENTITY", "VERIFIED_FUNDS"]);
 
 async function auditSecurityEvent(
   user: SessionUser,
@@ -650,255 +521,6 @@ async function auditSecurityEvent(
       targetType,
     },
   });
-}
-
-function buyerVerificationDocumentType(value: unknown): BuyerVerificationDocumentType {
-  if (typeof value === "string" && buyerVerificationDocumentTypes.has(value)) {
-    return value as BuyerVerificationDocumentType;
-  }
-  throw new Error("Unsupported buyer verification document type.");
-}
-
-async function lockBuyerOwnership(tx: Prisma.TransactionClient, authUserId: string) {
-  const owners = await tx.$queryRaw<Array<{ id: string; status: string }>>(Prisma.sql`
-    SELECT id, status::text
-    FROM public."User"
-    WHERE id = ${authUserId}::uuid
-    FOR UPDATE
-  `);
-  if (owners.length !== 1) throw new Error("Buyer account ownership could not be verified.");
-  return owners[0];
-}
-
-async function lockActiveApplicationUser(tx: Prisma.TransactionClient, userId: string) {
-  const user = await lockBuyerOwnership(tx, userId);
-  if (user.status !== "ACTIVE") throw new Error("The application user is not active.");
-  return user;
-}
-
-async function upsertOwnedBuyerCriteria(
-  tx: Prisma.TransactionClient,
-  buyerProfileId: string,
-  authUserId: string,
-  data: PublishBuyerProfileInput,
-) {
-  const criteria = buyerCriteriaSnapshotData(data);
-  await tx.buyerCriteria.upsert({
-    where: {
-      buyerProfileId,
-      buyerProfile: { userId: authUserId },
-    },
-    update: criteria,
-    create: {
-      ...criteria,
-      buyerProfileId,
-    },
-  });
-}
-
-async function assertActivationPrerequisites(
-  tx: Prisma.TransactionClient,
-  buyerProfileId: string,
-  authUserId: string,
-) {
-  const selectedCount = await tx.buyerDesiredServiceArea.count({
-    where: {
-      buyerProfileId,
-      buyerProfile: { userId: authUserId },
-      isPrimary: true,
-      source: "SELECTED",
-      serviceArea: { active: true, market: { active: true } },
-    },
-  });
-  if (selectedCount !== 1) {
-    throw new Error("Choose an active Liber service area before publishing your profile.");
-  }
-
-  const criteriaCount = await tx.buyerCriteria.count({
-    where: {
-      buyerProfileId,
-      buyerProfile: { userId: authUserId },
-    },
-  });
-  if (criteriaCount !== 1) {
-    throw new Error("Complete the required buyer criteria before publishing your profile.");
-  }
-}
-
-async function publishDbBuyerProfile(
-  user: SessionUser,
-  data: PublishBuyerProfileInput,
-) {
-  const profile = await prisma.$transaction(async (tx) => {
-    await lockActiveApplicationUser(tx, user.id);
-    const existing = await tx.buyerProfile.findUnique({
-      where: { userId: user.id },
-      select: { displayName: true, id: true, visibilityStatus: true },
-    });
-    if (existing && !buyerCanUpdateVisibility(existing.visibilityStatus)) {
-      throw new Error("This profile visibility is controlled by admin review.");
-    }
-    const displayName = normalizeBuyerAlias(existing?.displayName) ?? buyerAliasFromSeed(user.id);
-    const canonicalArea = await resolveCanonicalBuyerServiceArea(
-      tx,
-      data.desiredServiceAreaSlug,
-      data.desiredMarketSlug,
-    );
-    if (!canonicalArea) {
-      throw new Error("Choose an active Liber service area before publishing your profile.");
-    }
-    const profileSnapshot = buyerProfileSnapshotData(data);
-
-    const savedProfile = await tx.buyerProfile.upsert({
-      where: { userId: user.id },
-      update: {
-        ...profileSnapshot,
-        ...canonicalBuyerLocationData(canonicalArea),
-        displayName,
-        lastRefreshedAt: new Date(),
-        visibilityStatus: "ACTIVE",
-      },
-      create: {
-        ...profileSnapshot,
-        ...canonicalBuyerLocationData(canonicalArea),
-        displayName,
-        lastRefreshedAt: new Date(),
-        userId: user.id,
-        visibilityStatus: "ACTIVE",
-      },
-      include: buyerInclude,
-    });
-
-    await syncBuyerDesiredServiceArea(tx, savedProfile.id, canonicalArea, user.id);
-    await upsertOwnedBuyerCriteria(tx, savedProfile.id, user.id, data);
-    await assertActivationPrerequisites(tx, savedProfile.id, user.id);
-
-    return tx.buyerProfile.findFirstOrThrow({
-      where: { id: savedProfile.id, userId: user.id },
-      include: buyerInclude,
-    });
-  });
-
-  return buyerFromDb(profile);
-}
-
-async function syncBuyerDesiredServiceArea(
-  tx: Prisma.TransactionClient,
-  buyerProfileId: string,
-  serviceArea: CanonicalBuyerServiceArea | null,
-  resolvedByUserId: string,
-) {
-  await tx.buyerDesiredServiceArea.deleteMany({
-    where: { buyerProfileId, buyerProfile: { userId: resolvedByUserId } },
-  });
-  if (!serviceArea) return;
-  await tx.buyerDesiredServiceArea.create({
-    data: {
-      buyerProfileId,
-      isPrimary: true,
-      serviceAreaId: serviceArea.id,
-      source: "SELECTED",
-    },
-  });
-  await tx.serviceAreaMigrationQuarantine.updateMany({
-    where: {
-      buyerProfileId,
-      buyerProfile: { userId: resolvedByUserId },
-      resolvedAt: null,
-    },
-    data: {
-      resolution: {
-        actorUserId: resolvedByUserId,
-        serviceAreaId: serviceArea.id,
-        source: "BUYER_CONFIRMED",
-      },
-      resolvedAt: new Date(),
-    },
-  });
-}
-
-type CanonicalBuyerServiceArea = {
-  centerLat: number;
-  centerLng: number;
-  city: string | null;
-  id: string;
-  label: string;
-  market: { slug: string };
-  postalCode: string | null;
-  slug: string;
-  state: string;
-  type: string;
-};
-
-const canonicalBuyerServiceAreaSelect = {
-  centerLat: true,
-  centerLng: true,
-  city: true,
-  id: true,
-  label: true,
-  market: { select: { slug: true } },
-  postalCode: true,
-  slug: true,
-  state: true,
-  type: true,
-} as const;
-
-async function resolveCanonicalBuyerServiceArea(
-  tx: Prisma.TransactionClient,
-  serviceAreaSlug: string | null | undefined,
-  marketSlug: string | null | undefined,
-): Promise<CanonicalBuyerServiceArea | null> {
-  const normalizedSlug = serviceAreaSlug?.trim().toLowerCase();
-  if (!normalizedSlug) return null;
-  const normalizedMarket = marketSlug?.trim().toLowerCase();
-  if (!normalizedMarket) throw new Error("A market is required for the selected service area.");
-
-  const serviceArea = await tx.serviceArea.findFirst({
-    where: {
-      active: true,
-      slug: normalizedSlug,
-      market: { active: true, slug: normalizedMarket },
-    },
-    select: canonicalBuyerServiceAreaSelect,
-  });
-  if (!serviceArea) throw new Error("Unsupported service area for this market.");
-  return serviceArea;
-}
-
-function canonicalBuyerLocationData(serviceArea: CanonicalBuyerServiceArea | null) {
-  if (!serviceArea) {
-    return {
-      desiredCity: null,
-      desiredLat: null,
-      desiredLng: null,
-      desiredLocationText: null,
-      desiredNeighborhood: null,
-      desiredPostalCode: null,
-      desiredState: null,
-    };
-  }
-
-  const city = serviceArea.type === "neighborhood" ? serviceArea.label : serviceArea.city ?? serviceArea.label;
-  return {
-    desiredCity: city,
-    desiredLat: serviceArea.centerLat,
-    desiredLng: serviceArea.centerLng,
-    desiredLocationText: serviceArea.type === "zip" && serviceArea.postalCode
-      ? `${city}, ${serviceArea.state} ${serviceArea.postalCode}`
-      : `${serviceArea.label}, ${serviceArea.state}`,
-    desiredNeighborhood: serviceArea.type === "neighborhood" ? serviceArea.label : null,
-    desiredPostalCode: serviceArea.postalCode,
-    desiredState: serviceArea.state,
-  };
-}
-
-export async function publishBuyerProfile(input: unknown) {
-  const user = await requireCurrentUser("BUYER");
-  const data = publishBuyerProfileSchema.parse(normalizeInput(input));
-  return {
-    ok: true,
-    data: await publishDbBuyerProfile(user, data),
-  };
 }
 
 export async function regenerateBuyerAlias() {
@@ -1008,11 +630,26 @@ export async function listBuyerInvites() {
   const user = await requireCurrentUser("BUYER");
   const buyer = await prisma.buyerProfile.findUnique({ where: { userId: user.id }, select: { id: true } });
   if (!buyer) return { ok: true, data: [] };
+  const validInviteIds = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT invite.id
+    FROM public."Invite" invite
+    WHERE invite."buyerProfileId" = ${buyer.id}
+      AND app_private.is_invite_property_access_valid(invite.id, ${user.id}::uuid)
+  `;
   const invites = await prisma.invite.findMany({
-    where: { buyerProfileId: buyer.id },
+    where: { id: { in: validInviteIds.map((invite) => invite.id) } },
     include: {
       buyerProfile: { select: { displayName: true, userId: true } },
-      property: { select: { addressLine1: true, city: true, ownershipVerificationStatus: true, propertyType: true } },
+      property: {
+        select: {
+          addressLine1: true,
+          city: true,
+          identityVersion: true,
+          ownershipVerificationStatus: true,
+          propertyType: true,
+          images: { select: { id: true, propertyIdentityVersion: true } },
+        },
+      },
     },
     orderBy: { sentAt: "desc" },
   });
@@ -1022,45 +659,23 @@ export async function listBuyerInvites() {
 export async function respondToInvite(input: unknown) {
   const user = await requireCurrentUser("BUYER");
   const data = respondToInviteSchema.parse(normalizeInput(input));
-  const buyer = await prisma.buyerProfile.findUnique({ where: { userId: user.id }, select: { id: true } });
-  if (!buyer) throw new Error("Buyer profile not found.");
-  const changed = await prisma.$transaction(async (tx) => {
-    const responded = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-      UPDATE public."Invite"
-      SET
-        status = ${data.response}::public."InviteStatus",
-        "respondedAt" = pg_catalog.clock_timestamp(),
-        "updatedAt" = pg_catalog.clock_timestamp()
-      WHERE id = ${data.inviteId}
-        AND "buyerProfileId" = ${buyer.id}
-        AND status IN ('SENT', 'VIEWED')
-        AND "expiresAt" > pg_catalog.clock_timestamp()
-      RETURNING id
-    `);
-    if (responded.length === 1) return true;
-
-    await tx.$executeRaw(Prisma.sql`
-      UPDATE public."Invite"
-      SET status = 'EXPIRED', "updatedAt" = pg_catalog.clock_timestamp()
-      WHERE id = ${data.inviteId}
-        AND "buyerProfileId" = ${buyer.id}
-        AND status IN ('SENT', 'VIEWED')
-        AND "expiresAt" <= pg_catalog.clock_timestamp()
-    `);
-    return false;
-  });
-  if (!changed) throw new Error("Invite cannot be changed after response or expiration.");
+  const changed = await prisma.$executeRaw`
+    UPDATE public."Invite"
+    SET status = CAST(${data.response} AS public."InviteStatus"),
+        "respondedAt" = now(),
+        "updatedAt" = now()
+    WHERE id = ${data.inviteId}
+      AND status IN ('SENT', 'VIEWED')
+      AND "expiresAt" > now()
+      AND app_private.is_invite_property_access_valid(id, ${user.id}::uuid)
+  `;
+  if (changed !== 1) throw new Error("Invite cannot be changed after response, identity change, or expiration.");
   return { ok: true, data };
 }
 
 export async function searchBuyers(input: unknown) {
   const seller = await requireApprovedSellerAccess();
-  await assertSharedRateLimit({
-    identifier: seller.id,
-    limit: 60,
-    namespace: "seller:buyer-search",
-    windowSeconds: 60,
-  });
+  await assertRateLimit(`buyer-search:${seller.id}`, 60, 60_000);
   const data = searchBuyersSchema.parse(input);
   const results = await searchDbBuyerProfiles(data, seller.id);
   await auditSecurityEvent(seller, "buyer_search", "buyer_directory", "search", {
@@ -1072,36 +687,22 @@ export async function searchBuyers(input: unknown) {
 
 export async function getBuyerProfileForSeller(buyerProfileId: string) {
   const seller = await requireApprovedSellerAccess();
-  await assertSharedRateLimit({
-    identifier: seller.id,
-    limit: 120,
-    namespace: "seller:buyer-profile-view",
-    windowSeconds: 60 * 60,
-  });
-  const now = new Date();
+  await assertRateLimit(`buyer-profile-view:${seller.id}`, 120, 60 * 60_000);
   const buyer = await prisma.buyerProfile.findFirst({
-    where: { id: buyerProfileId, ...sellerVisibleBuyerWhere() },
-    select: sellerProfileBuyerSelect(now),
+    where: { id: buyerProfileId, visibilityStatus: "ACTIVE", user: { status: "ACTIVE" }, ...activePrimaryServiceAreaWhere() },
+    select: sellerBuyerSelect(),
   });
   if (!buyer) throw new Error("Buyer profile not found.");
   await auditSecurityEvent(seller, "buyer_profile_view", "buyer_profile", buyer.id);
-  const dto = toSellerBuyerProfileDto(buyer, seller.id, true, now);
-  if (!dto) throw new Error("Buyer profile not found.");
-  return { ok: true, data: dto };
+  return { ok: true, data: sellerBuyerDetail(buyer, seller.id) };
 }
 
-export async function getPublicBuyerProfile(buyerProfileId: string) {
+export async function getAuthorizedBuyerProfile(buyerProfileId: string) {
   const user = await requireAuthenticatedUser();
-  await assertSharedRateLimit({
-    identifier: user.id,
-    limit: 120,
-    namespace: "user:buyer-profile-view",
-    windowSeconds: 60 * 60,
-  });
-  const now = new Date();
+  await assertRateLimit(`buyer-profile-view:${user.id}`, 120, 60 * 60_000);
   const buyer = await prisma.buyerProfile.findFirst({
-    where: { id: buyerProfileId, ...sellerVisibleBuyerWhere() },
-    select: sellerProfileBuyerSelect(now),
+    where: { id: buyerProfileId, visibilityStatus: "ACTIVE", user: { status: "ACTIVE" }, ...activePrimaryServiceAreaWhere() },
+    select: sellerBuyerSelect(),
   });
 
   if (buyer) {
@@ -1111,12 +712,13 @@ export async function getPublicBuyerProfile(buyerProfileId: string) {
     }
 
     await auditSecurityEvent(user, "buyer_profile_view", "buyer_profile", buyer.id);
-    const viewerCanViewDirectory = await canViewBuyerDirectory(user);
-    const dto = toSellerBuyerProfileDto(buyer, user.id, viewerCanViewDirectory, now);
-    if (!dto) return { ok: false as const, error: "NOT_FOUND" as const };
     return {
       ok: true,
-      data: dto,
+      data: {
+        ...sellerBuyerDetail(buyer, user.id),
+        viewerCanInvite: user.id !== buyer.userId && (await canViewBuyerDirectory(user)),
+        viewerIsOwner: user.id === buyer.userId,
+      },
     };
   }
   return { ok: false as const, error: "NOT_FOUND" as const };
@@ -1125,9 +727,51 @@ export async function getPublicBuyerProfile(buyerProfileId: string) {
 export async function createSellerProperty(input: unknown) {
   const seller = await requireCurrentUser("SELLER");
   const data = createSellerPropertySchema.parse(normalizeInput(input));
+  const property = await prisma.sellerProperty.create({
+    data: {
+      addressLine1: data.addressLine1,
+      addressLine2: data.addressLine2,
+      bathrooms: data.bathrooms,
+      bedrooms: data.bedrooms,
+      city: data.city,
+      condition: data.condition,
+      description: data.description,
+      features: data.features,
+      garageArea: data.garageArea,
+      lat: data.lat,
+      lng: data.lng,
+      lotSize: data.lotSize,
+      ownerUserId: seller.id,
+      providerPropertyId: data.providerPropertyId,
+      price: data.price,
+      propertyType: data.propertyType,
+      squareFeet: data.squareFeet,
+      state: data.state,
+      zip: data.zip,
+      status: "DRAFT",
+      authorityAttestedAt: new Date(),
+      authorityAttestedByUserId: seller.id,
+      authorityAttestedIdentityVersion: 1,
+      attestationVersion: "v1-property-authority-2026-07",
+    },
+  });
+  await auditSecurityEvent(seller, "property_ownership_confirmed", "seller_property", property.id, {
+    ownershipConfirmed: true,
+  });
+  return { ok: true, data: propertyFromDb(property) };
+}
+
+export async function updateSellerProperty(input: unknown) {
+  const seller = await requireCurrentUser("SELLER");
+  const data = updateSellerPropertySchema.parse(normalizeInput(input));
   const property = await prisma.$transaction(async (tx) => {
-    await lockActiveApplicationUser(tx, seller.id);
-    return tx.sellerProperty.create({
+    const existing = await tx.sellerProperty.findFirst({
+      where: { id: data.propertyId, ownerUserId: seller.id },
+      select: { id: true },
+    });
+    if (!existing) throw new Error("Property not found.");
+    const updated = await tx.sellerProperty.update({
+      where: { id: data.propertyId },
       data: {
         addressLine1: data.addressLine1,
         addressLine2: data.addressLine2,
@@ -1141,425 +785,170 @@ export async function createSellerProperty(input: unknown) {
         lat: data.lat,
         lng: data.lng,
         lotSize: data.lotSize,
-        ownerUserId: seller.id,
+        providerPropertyId: data.providerPropertyId,
         price: data.price,
         propertyType: data.propertyType,
         squareFeet: data.squareFeet,
         state: data.state,
         zip: data.zip,
       },
+      select: { identityVersion: true },
+    });
+    return tx.sellerProperty.update({
+      where: { id: data.propertyId },
+      data: {
+        authorityAttestedAt: new Date(),
+        authorityAttestedByUserId: seller.id,
+        authorityAttestedIdentityVersion: updated.identityVersion,
+        attestationVersion: "v1-property-authority-2026-07",
+      },
     });
   });
-  await auditSecurityEvent(seller, "property_ownership_confirmed", "seller_property", property.id, {
-    ownershipConfirmed: true,
+  await auditSecurityEvent(seller, "property_authority_reattested", "seller_property", property.id, {
+    identityVersion: property.identityVersion,
   });
   return { ok: true, data: propertyFromDb(property) };
 }
 
-export async function updateSellerProperty(input: unknown) {
-  const seller = await requireCurrentUser("SELLER");
-  const data = updateSellerPropertySchema.parse(normalizeInput(input));
-  try {
-    const property = await prisma.$transaction(async (tx) => {
-      await lockActiveApplicationUser(tx, seller.id);
-      return tx.sellerProperty.update({
-        where: { id: data.propertyId, ownerUserId: seller.id },
-        data: {
-          addressLine1: data.addressLine1,
-          addressLine2: data.addressLine2,
-          bathrooms: data.bathrooms,
-          bedrooms: data.bedrooms,
-          city: data.city,
-          condition: data.condition,
-          description: data.description,
-          features: data.features,
-          garageArea: data.garageArea,
-          lat: data.lat,
-          lng: data.lng,
-          lotSize: data.lotSize,
-          price: data.price,
-          propertyType: data.propertyType,
-          squareFeet: data.squareFeet,
-          state: data.state,
-          zip: data.zip,
-        },
-      });
-    });
-    return { ok: true, data: propertyFromDb(property) };
-  } catch (error) {
-    if (isRecordNotFoundError(error)) throw new Error("Property not found.");
-    throw error;
-  }
-}
-
-export async function uploadPropertyImageFile(propertyId: string, file: File) {
-  const seller = await requireCurrentUser("SELLER");
-  const contentType = await assertAllowedFile(file, propertyImageMimeTypes, "Property image", "a PNG, JPG, or WebP file", 10 * 1_048_576);
-
-  await assertSharedRateLimit({
-    identifier: seller.id,
-    limit: 30,
-    namespace: "upload:property-image",
-    windowSeconds: 60 * 60,
-  });
-
-  const property = await prisma.sellerProperty.findFirst({
-    where: { id: propertyId, ownerUserId: seller.id },
-    select: { id: true },
-  });
-  if (!property) throw new Error("Property not found.");
-
-  const storagePath = `${property.id}/${crypto.randomUUID()}/${storageFileNameForMime(contentType)}`;
-  await uploadToStorage("property-images", storagePath, file, contentType);
-  try {
-    await prisma.$transaction(async (tx) => {
-      await lockActiveApplicationUser(tx, seller.id);
-      const ownedProperty = await tx.sellerProperty.findUnique({
-        where: { id: property.id, ownerUserId: seller.id },
-        select: { id: true },
-      });
-      if (!ownedProperty) throw new Error("Property not found.");
-      await tx.propertyImage.create({
-        data: {
-          altText: file.name,
-          propertyId: ownedProperty.id,
-          storagePath,
-        },
-      });
-    });
-  } catch (error) {
-    await removeUploadedObject("property-images", storagePath);
-    throw error;
-  }
-
-  return { ok: true, data: { storagePath } };
-}
-
-export async function uploadOwnershipDocumentFile(
-  propertyId: string,
-  file: File,
-  ownershipEvidenceKindInput: unknown,
-) {
-  const seller = await requireCurrentUser("SELLER");
-  const ownershipEvidenceKind = ownershipEvidenceKindForInput(ownershipEvidenceKindInput);
-  const contentType = await assertAllowedFile(
-    file,
-    documentMimeTypes,
-    `Ownership ${ownershipEvidenceKindLabel(ownershipEvidenceKind)}`,
-    "a PDF, PNG, JPG, or WebP file",
-    20 * 1_048_576,
-  );
-  const sha256 = await fileSha256(file);
-
-  await assertSharedRateLimit({
-    identifier: seller.id,
-    limit: 20,
-    namespace: "upload:verification",
-    windowSeconds: 60 * 60,
-  });
-
-  const property = await prisma.sellerProperty.findFirst({
-    where: { id: propertyId, ownerUserId: seller.id },
-    select: { id: true, ownershipVersion: true },
-  });
-  if (!property) throw new Error("Property not found.");
-
-  const documentId = `doc_${crypto.randomUUID()}`;
-  const storagePath = `${seller.id}/${documentId}/${storageFileNameForMime(contentType)}`;
-  await uploadToStorage("verification-documents", storagePath, file, contentType);
-  try {
-    await prisma.$transaction(async (tx) => {
-      await lockActiveApplicationUser(tx, seller.id);
-      const boundProperty = await tx.sellerProperty.update({
-        where: {
-          id: property.id,
-          ownerUserId: seller.id,
-          ownershipVersion: property.ownershipVersion,
-        },
-        data: { ownershipVerificationStatus: "PENDING" },
-        select: { id: true, ownershipVersion: true },
-      });
-      await tx.verificationDocument.create({
-        data: {
-          documentType: "OWNERSHIP",
-          fileSha256: sha256,
-          fileSizeBytes: file.size,
-          id: documentId,
-          mimeType: contentType,
-          originalFilename: file.name,
-          ownershipEvidenceKind,
-          propertyOwnershipVersion: boundProperty.ownershipVersion,
-          propertyId: boundProperty.id,
-          reviewStatus: "PENDING",
-          storageBucket: "verification-documents",
-          storagePath,
-          uploadedByUserId: seller.id,
-          userId: seller.id,
-        },
-      });
-      await tx.adminAuditLog.create({
-        data: {
-          action: "document_upload",
-          actorUserId: seller.id,
-          metadata: {
-            documentType: "OWNERSHIP",
-            ownershipEvidenceKind,
-            propertyId: boundProperty.id,
-            propertyOwnershipVersion: boundProperty.ownershipVersion,
-          },
-          targetId: documentId,
-          targetType: "document",
-        },
-      });
-    });
-  } catch (error) {
-    await removeUploadedObject("verification-documents", storagePath);
-    if (isRecordNotFoundError(error)) {
-      throw new Error("Property changed while the ownership document was uploading. Review the property and try again.");
-    }
-    throw error;
-  }
-
-  return { ok: true, data: { documentId, status: "PENDING" as const } };
-}
-
-export async function uploadBuyerVerificationDocumentFile(documentTypeInput: unknown, file: File) {
-  const buyerUser = await requireCurrentUser("BUYER");
-  const documentType = buyerVerificationDocumentType(documentTypeInput);
-  const contentType = await assertAllowedFile(file, documentMimeTypes, "Verification document", "a PDF, PNG, JPG, or WebP file", 20 * 1_048_576);
-  const sha256 = await fileSha256(file);
-
-  await assertSharedRateLimit({
-    identifier: buyerUser.id,
-    limit: 20,
-    namespace: "upload:verification",
-    windowSeconds: 60 * 60,
-  });
-
-  const buyer = await prisma.buyerProfile.findUnique({
-    where: { userId: buyerUser.id },
-    select: { id: true },
-  });
-  if (!buyer) throw new Error("Buyer profile not found.");
-
-  const documentId = `doc_${crypto.randomUUID()}`;
-  const storagePath = `${buyerUser.id}/${documentId}/${storageFileNameForMime(contentType)}`;
-  await uploadToStorage("verification-documents", storagePath, file, contentType);
-  try {
-    await prisma.$transaction(async (tx) => {
-      await lockActiveApplicationUser(tx, buyerUser.id);
-      const ownedBuyer = await tx.buyerProfile.findUnique({
-        where: { id: buyer.id, userId: buyerUser.id },
-        select: { id: true },
-      });
-      if (!ownedBuyer) throw new Error("Buyer profile not found.");
-      await tx.verificationDocument.create({
-        data: {
-          buyerProfileId: ownedBuyer.id,
-          documentType,
-          fileSha256: sha256,
-          fileSizeBytes: file.size,
-          id: documentId,
-          mimeType: contentType,
-          originalFilename: file.name,
-          reviewStatus: "PENDING",
-          storageBucket: "verification-documents",
-          storagePath,
-          uploadedByUserId: buyerUser.id,
-          userId: buyerUser.id,
-        },
-      });
-      await tx.adminAuditLog.create({
-        data: {
-          action: "document_upload",
-          actorUserId: buyerUser.id,
-          metadata: { buyerProfileId: ownedBuyer.id, documentType },
-          targetId: documentId,
-          targetType: "document",
-        },
-      });
-    });
-  } catch (error) {
-    await removeUploadedObject("verification-documents", storagePath);
-    throw error;
-  }
-
-  return { ok: true, data: { documentId, status: "PENDING" as const } };
-}
-
 export async function sendInvite(input: unknown) {
   const seller = await requireApprovedSellerAccess();
-  await assertSharedRateLimit({
-    identifier: seller.id,
-    limit: 30,
-    namespace: "seller:invite",
-    windowSeconds: 60 * 60,
-  });
+  await assertRateLimit(`invite-send:${seller.id}`, 30, 60 * 60_000);
   const data = sendInviteSchema.parse(normalizeInput(input));
-  const now = new Date();
-  const [buyer, property, sentInviteCountToday, activeDuplicate] = await Promise.all([
-    prisma.buyerProfile.findFirst({
-      where: { id: data.buyerProfileId, ...sellerVisibleBuyerWhere() },
-      select: sellerSearchBuyerSelect(now),
-    }),
-    prisma.sellerProperty.findFirst({
-      where: { id: data.propertyId, ownerUserId: seller.id },
-    }),
-    prisma.invite.count({
-      where: {
-        sellerId: seller.id,
-        sentAt: { gte: new Date(Date.now() - 86_400_000) },
-      },
-    }),
-    prisma.invite.findFirst({
-      where: {
-        buyerProfileId: data.buyerProfileId,
-        propertyId: data.propertyId,
-        sellerId: seller.id,
-        expiresAt: { gt: now },
-        status: { in: ["SENT", "VIEWED"] },
-      },
-      select: { id: true },
-    }),
-  ]);
-
-  if (!buyer) throw new Error("Buyer profile must be active before receiving invites.");
-  if (!property) throw new Error("Seller must own property before sending invites.");
-  if (buyer.userId === seller.id) throw new Error("Sellers cannot invite their own buyer profile.");
-  if (property.flaggedForReviewAt) throw new Error("Property is under review and cannot send invites.");
-  if (activeDuplicate) throw new Error("An active invite already exists for this buyer and property.");
-
-  assertInviteAllowed({
-    buyer: { userId: buyer.userId, visibility: "active" },
-    property: {
-      ownerUserId: property.ownerUserId,
-      ownershipVerificationStatus: property.ownershipVerificationStatus,
-    },
-    seller,
-    sentInviteCountToday,
-  });
-
-  const invite = await (async () => {
-    try {
-      return await prisma.$transaction(async (tx) => {
-        await tx.invite.updateMany({
-          where: {
-            buyerProfileId: data.buyerProfileId,
-            expiresAt: { lte: now },
-            propertyId: data.propertyId,
-            sellerId: seller.id,
-            status: { in: ["SENT", "VIEWED"] },
-          },
-          data: { status: "EXPIRED" },
-        });
-        const created = await tx.invite.create({
-          data: {
-            buyerProfileId: data.buyerProfileId,
-            expiresAt: inviteExpiresAt(now),
-            message: data.message,
-            propertyId: data.propertyId,
-            sellerId: seller.id,
-            title: data.title,
-          },
-          include: {
-            buyerProfile: {
-              select: {
-                displayName: true,
-                user: { select: { email: true } },
-                userId: true,
-              },
-            },
-            property: {
-              select: {
-                addressLine1: true,
-                city: true,
-                ownershipVerificationStatus: true,
-                propertyType: true,
-                state: true,
-              },
-            },
-          },
-        });
-        await tx.notification.create({
-          data: {
-            body: "A seller sent a property invite.",
-            metadata: {
-              inviteId: created.id,
-              propertyId: created.propertyId,
-            },
-            title: data.title,
-            type: "invite_received",
-            userId: created.buyerProfile.userId,
-          },
-        });
-        await tx.notification.create({
-          data: {
-            body: "Your manual invite was sent to the buyer.",
-            metadata: {
-              buyerProfileId: created.buyerProfileId,
-              inviteId: created.id,
-              propertyId: created.propertyId,
-            },
-            title: data.title,
-            type: "invite_sent",
-            userId: seller.id,
-          },
-        });
-        const propertyTitle =
-          created.property.addressLine1 ||
-          [created.property.city, created.property.state].filter(Boolean).join(", ") ||
-          `${propertySubtypeLabel(created.property.propertyType).toLowerCase()} property`;
-        const emailPayload = {
-          buyerName: buyerAliasForDisplay(created.buyerProfile.displayName, created.buyerProfile.userId),
-          message: data.message,
-          propertyTitle,
-          title: data.title,
-          to: created.buyerProfile.user.email,
-        };
-        await tx.emailOutbox.create({
-          data: {
-            payload: emailPayload,
-            recipientUserId: created.buyerProfile.userId,
-            status: "PENDING",
-            subject: data.title,
-            templateName: "invite",
-            to: created.buyerProfile.user.email,
-            type: "INVITE",
-          },
-        });
-        await tx.adminAuditLog.create({
-          data: {
-            action: "invite_sent",
-            actorUserId: seller.id,
-            metadata: {
-              buyerProfileId: created.buyerProfileId,
-              propertyId: created.propertyId,
-            },
-            targetId: created.id,
-            targetType: "invite",
-          },
-        });
-        return created;
-      });
-    } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        throw new Error("An active invite already exists for this buyer and property.");
-      }
-      throw error;
+  const invite = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${seller.id}::text, 0))`;
+    const [buyer, property, sentInviteCount, activeDuplicate, access] = await Promise.all([
+      tx.buyerProfile.findFirst({
+        where: {
+          id: data.buyerProfileId,
+          visibilityStatus: "ACTIVE",
+          user: { status: "ACTIVE" },
+          ...activePrimaryServiceAreaWhere(),
+        },
+        select: sellerBuyerSelect(),
+      }),
+      tx.sellerProperty.findFirst({ where: { id: data.propertyId, ownerUserId: seller.id } }),
+      tx.invite.count({
+        where: { sellerId: seller.id, sentAt: { gte: new Date(Date.now() - 86_400_000) } },
+      }),
+      tx.invite.findFirst({
+        where: {
+          buyerProfileId: data.buyerProfileId,
+          propertyId: data.propertyId,
+          sellerId: seller.id,
+          status: { in: ["SENT", "VIEWED"] },
+        },
+        select: { id: true },
+      }),
+      tx.sellerAccess.findFirst({ where: { userId: seller.id, status: "APPROVED" }, select: { id: true } }),
+    ]);
+    if (!access) throw new Error("Seller directory access must be approved before sending invites.");
+    if (!buyer) throw new Error("Buyer profile must be active before receiving invites.");
+    if (!property) throw new Error("Seller must own property before sending invites.");
+    if (buyer.userId === seller.id) throw new Error("Sellers cannot invite their own buyer profile.");
+    if (
+      property.flaggedForReviewAt
+      || property.status !== "READY_FOR_INVITES"
+      || property.ownershipVerificationStatus !== "APPROVED"
+      || property.authorityAttestedByUserId !== seller.id
+      || property.authorityAttestedIdentityVersion !== property.identityVersion
+    ) {
+      throw new Error("Property must have current ownership approval before sending invites.");
     }
-  })();
-  const email: EmailResult = { provider: "outbox", queued: true };
+    if (activeDuplicate) throw new Error("An active invite already exists for this buyer and property.");
+    if (sentInviteCount >= 25) throw new Error("Seller rolling 24-hour invite limit reached.");
 
+    const created = await tx.invite.create({
+      data: {
+        buyerProfileId: data.buyerProfileId,
+        message: data.message,
+        propertyId: data.propertyId,
+        propertyIdentityVersion: property.identityVersion,
+        sellerId: seller.id,
+        title: data.title,
+        expiresAt: inviteExpiresAt(),
+      },
+      include: {
+        buyerProfile: {
+          select: {
+            displayName: true,
+            user: { select: { email: true } },
+            userId: true,
+          },
+        },
+        property: {
+          select: {
+            addressLine1: true,
+            city: true,
+            identityVersion: true,
+            ownershipVerificationStatus: true,
+            propertyType: true,
+            state: true,
+          },
+        },
+      },
+    });
+    await tx.notification.create({
+      data: {
+        body: "A seller sent a property invite.",
+        metadata: { inviteId: created.id, propertyId: created.propertyId },
+        title: data.title,
+        type: "invite_received",
+        userId: created.buyerProfile.userId,
+      },
+    });
+    await tx.notification.create({
+      data: {
+        body: "Your manual invite was sent to the buyer.",
+        metadata: { buyerProfileId: created.buyerProfileId, inviteId: created.id, propertyId: created.propertyId },
+        title: data.title,
+        type: "invite_sent",
+        userId: seller.id,
+      },
+    });
+    const propertyTitle =
+      created.property.addressLine1 ||
+      [created.property.city, created.property.state].filter(Boolean).join(", ") ||
+      `${propertySubtypeLabel(created.property.propertyType).toLowerCase()} property`;
+    const emailPayload = {
+      buyerName: buyerAliasForDisplay(created.buyerProfile.displayName, created.buyerProfile.userId),
+      message: data.message,
+      propertyTitle,
+      title: data.title,
+      to: created.buyerProfile.user.email,
+    };
+    await tx.emailOutbox.create({
+      data: {
+        idempotencyKey: `invite-email:${created.id}`,
+        inviteId: created.id,
+        payload: emailPayload,
+        status: "PENDING",
+        subject: data.title,
+        templateName: "invite",
+        to: created.buyerProfile.user.email,
+        type: "INVITE",
+      },
+    });
+    await tx.adminAuditLog.create({
+      data: {
+        action: "invite_sent",
+        actorUserId: seller.id,
+        metadata: { buyerProfileId: created.buyerProfileId, propertyId: created.propertyId },
+        targetId: created.id,
+        targetType: "invite",
+      },
+    });
+    return created;
+  });
+  const email: EmailResult = { provider: "outbox", queued: true };
   return { ok: true, data: { ...inviteFromDb(invite), email } };
 }
-
 export async function listSellerInvites() {
   const seller = await requireCurrentUser("SELLER");
   const invites = await prisma.invite.findMany({
     where: { sellerId: seller.id },
     include: {
       buyerProfile: { select: { displayName: true, userId: true } },
-      property: { select: { addressLine1: true, city: true, ownershipVerificationStatus: true, propertyType: true } },
+      property: { select: { addressLine1: true, city: true, identityVersion: true, ownershipVerificationStatus: true, propertyType: true } },
     },
     orderBy: { sentAt: "desc" },
   });
@@ -1586,6 +975,7 @@ export async function listUsers() {
 
 export async function reviewSellerAccess(input: unknown) {
   const admin = await requireCurrentUser("ADMIN");
+  await assertRateLimit(`admin-review:${admin.id}`, 120, 60 * 60_000);
   const data = sellerAccessReviewSchema.parse(normalizeInput(input));
   if (data.userId === admin.id) throw new Error("Admins cannot review their own seller access.");
 
@@ -1688,7 +1078,7 @@ export async function listAdminInvites() {
   const invites = await prisma.invite.findMany({
     include: {
       buyerProfile: { select: { displayName: true, userId: true } },
-      property: { select: { addressLine1: true, city: true, ownershipVerificationStatus: true, propertyType: true } },
+      property: { select: { addressLine1: true, city: true, identityVersion: true, ownershipVerificationStatus: true, propertyType: true } },
     },
     orderBy: { sentAt: "desc" },
   });
@@ -1701,13 +1091,31 @@ export async function listPendingDocuments() {
     where: { reviewStatus: "PENDING" },
     include: {
       buyerProfile: { select: { displayName: true, userId: true } },
-      property: { select: { addressLine1: true, city: true, ownershipVersion: true, propertyType: true } },
+      property: {
+        select: {
+          addressLine1: true,
+          authorityAttestedByUserId: true,
+          authorityAttestedIdentityVersion: true,
+          city: true,
+          identityVersion: true,
+          ownerUserId: true,
+          propertyType: true,
+        },
+      },
       user: { select: { email: true, name: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+  const reviewableDocuments = documents.filter((document) =>
+    document.documentType !== "OWNERSHIP"
+    || (
+      document.property
+      && document.propertyIdentityVersion === document.property.identityVersion
+      && document.property.authorityAttestedIdentityVersion === document.property.identityVersion
+      && document.property.authorityAttestedByUserId === document.property.ownerUserId
+    ));
   const documentsWithUrls = await Promise.all(
-    documents.map(async (document) => ({
+    reviewableDocuments.map(async (document) => ({
       document,
       signedUrl: await createVerificationSignedUrl(document.storagePath),
     })),
@@ -1715,18 +1123,7 @@ export async function listPendingDocuments() {
   return {
     ok: true,
     data: documentsWithUrls.map(({ document, signedUrl }) => ({
-      documentType: document.documentType,
       id: document.id,
-      ownershipEvidenceKind: document.ownershipEvidenceKind,
-      ownershipEvidenceAuditOnly: isOwnershipEvidenceAuditOnly(
-        document.documentType,
-        document.propertyOwnershipVersion,
-      ),
-      ownershipEvidenceStale: isOwnershipEvidenceStale(
-        document.documentType,
-        document.propertyOwnershipVersion,
-        document.property?.ownershipVersion,
-      ),
       owner: document.user.name || document.user.email,
       signedUrl,
       subject:
@@ -1737,6 +1134,7 @@ export async function listPendingDocuments() {
         document.property?.city ||
         "Verification document",
       type: verificationDocumentTypeLabel(document.documentType, document.ownershipEvidenceKind),
+      ownershipEvidenceKind: document.ownershipEvidenceKind,
       status: "Pending",
     })),
   };
@@ -1744,6 +1142,7 @@ export async function listPendingDocuments() {
 
 export async function reviewDocument(input: unknown) {
   const admin = await requireCurrentUser("ADMIN");
+  await assertRateLimit(`admin-review:${admin.id}`, 120, 60 * 60_000);
   const data = reviewDocumentSchema.parse(normalizeInput(input));
   await prisma.$transaction(async (tx) => {
     const document = await tx.verificationDocument.findUnique({
@@ -1752,80 +1151,116 @@ export async function reviewDocument(input: unknown) {
     if (!document || document.reviewStatus !== "PENDING") {
       throw new Error("Document has already been reviewed.");
     }
-
-    let property:
-      | { id: string; ownerUserId: string; ownershipVersion: number }
-      | null = null;
     if (document.documentType === "OWNERSHIP" && document.propertyId) {
-      property = await tx.sellerProperty.findUnique({
+      await tx.$queryRaw`SELECT id FROM public."SellerProperty" WHERE id = ${document.propertyId} FOR UPDATE`;
+      const property = await tx.sellerProperty.findUnique({
         where: { id: document.propertyId },
-        select: { id: true, ownerUserId: true, ownershipVersion: true },
+        select: {
+          authorityAttestedByUserId: true,
+          authorityAttestedIdentityVersion: true,
+          identityVersion: true,
+          ownerUserId: true,
+        },
       });
-      if (!property || property.ownerUserId !== document.userId) {
-        throw new Error("Ownership evidence owner does not match the exact property owner.");
-      }
-      if (!document.ownershipEvidenceKind && !data.ownershipEvidenceKind) {
-        throw new Error("Legacy ownership evidence must be classified before re-review.");
+      if (!property || document.propertyIdentityVersion !== property.identityVersion) {
+        throw new Error("Property identity changed after this evidence was uploaded.");
       }
       if (
-        document.ownershipEvidenceKind &&
-        data.ownershipEvidenceKind &&
-        document.ownershipEvidenceKind !== data.ownershipEvidenceKind
+        property.authorityAttestedIdentityVersion !== property.identityVersion
+        || property.authorityAttestedByUserId !== property.ownerUserId
       ) {
-        throw new Error("Ownership evidence type cannot be changed after classification.");
+        throw new Error("The seller must attest to the current property identity before review.");
       }
     }
 
-    assertOwnershipEvidenceApprovalAllowed(
-      document.documentType,
-      data.decision,
-      document.propertyOwnershipVersion,
-      property?.ownershipVersion,
-    );
-
-    const review = await tx.verificationDocument.updateMany({
-      where: { id: data.documentId, reviewStatus: "PENDING" },
+    const reviewedDocument = await tx.verificationDocument.update({
+      where: { id: data.documentId },
       data: {
-        ...(document.documentType === "OWNERSHIP" && !document.ownershipEvidenceKind
-          ? { ownershipEvidenceKind: data.ownershipEvidenceKind }
-          : {}),
         rejectionReason: data.decision === "REJECTED" ? data.rejectionReason : null,
         reviewedAt: new Date(),
         reviewedByUserId: admin.id,
         reviewNotes: data.rejectionReason,
+        reviewChecklist: {
+          identityMatchesOwner: data.identityMatchesOwner ?? false,
+          authorityConfirmed: data.authorityConfirmed ?? false,
+          addressMatchesProperty: data.addressMatchesProperty ?? false,
+          ownerOrEntityMatches: data.ownerOrEntityMatches ?? false,
+        },
         reviewStatus: data.decision,
       },
     });
-    if (review.count !== 1) throw new Error("Document has already been reviewed.");
-    const reviewedDocument = await tx.verificationDocument.findUniqueOrThrow({
-      where: { id: data.documentId },
-    });
 
-    if (reviewedDocument.documentType === "OWNERSHIP" && reviewedDocument.propertyId && property) {
+    if (reviewedDocument.documentType === "OWNERSHIP" && reviewedDocument.propertyId) {
+      if (data.decision === "APPROVED" && reviewedDocument.ownershipEvidenceKind === "GOVERNMENT_ID"
+        && (!data.identityMatchesOwner || !data.authorityConfirmed)) {
+        throw new Error("Confirm identity match and seller authority before approving government ID evidence.");
+      }
+      if (data.decision === "APPROVED" && reviewedDocument.ownershipEvidenceKind === "PROPERTY_ADDRESS_PROOF"
+        && (!data.addressMatchesProperty || !data.ownerOrEntityMatches)) {
+        throw new Error("Confirm address and owner/entity match before approving address evidence.");
+      }
       const ownershipDocuments = await tx.verificationDocument.findMany({
         where: {
           documentType: "OWNERSHIP",
           propertyId: reviewedDocument.propertyId,
-          propertyOwnershipVersion: property.ownershipVersion,
-          userId: property.ownerUserId,
+          propertyIdentityVersion: reviewedDocument.propertyIdentityVersion,
+          reviewStatus: "APPROVED",
         },
         select: {
+          id: true,
           ownershipEvidenceKind: true,
-          propertyOwnershipVersion: true,
-          reviewStatus: true,
-          userId: true,
         },
       });
-      const nextOwnershipStatus = nextOwnershipVerificationStatus(
-        ownershipDocuments,
-        property.ownershipVersion,
-        property.ownerUserId,
-      );
-
-      await tx.sellerProperty.update({
-        where: { id: reviewedDocument.propertyId },
-        data: { ownershipVerificationStatus: nextOwnershipStatus },
-      });
+      const governmentId = ownershipDocuments.find((item) => item.ownershipEvidenceKind === "GOVERNMENT_ID");
+      const addressEvidence = ownershipDocuments.find((item) => item.ownershipEvidenceKind === "PROPERTY_ADDRESS_PROOF");
+      if (governmentId && addressEvidence && reviewedDocument.propertyIdentityVersion) {
+        const checklist = {
+          governmentIdApproved: true,
+          addressEvidenceApproved: true,
+          identityMatchesOwner: true,
+          authorityConfirmed: true,
+          addressMatchesProperty: true,
+          ownerOrEntityMatches: true,
+        };
+        await tx.propertyVerificationDecision.upsert({
+          where: {
+            propertyId_propertyIdentityVersion: {
+              propertyId: reviewedDocument.propertyId,
+              propertyIdentityVersion: reviewedDocument.propertyIdentityVersion,
+            },
+          },
+          update: {
+            addressEvidenceDocumentId: addressEvidence.id,
+            checklist,
+            decision: "APPROVED",
+            governmentIdDocumentId: governmentId.id,
+            reviewerUserId: admin.id,
+            reviewedAt: new Date(),
+          },
+          create: {
+            addressEvidenceDocumentId: addressEvidence.id,
+            checklist,
+            decision: "APPROVED",
+            governmentIdDocumentId: governmentId.id,
+            id: `property_decision_${crypto.randomUUID()}`,
+            propertyId: reviewedDocument.propertyId,
+            propertyIdentityVersion: reviewedDocument.propertyIdentityVersion,
+            reviewerUserId: admin.id,
+          },
+        });
+        await tx.sellerProperty.update({
+          where: { id: reviewedDocument.propertyId },
+          data: { ownershipVerificationStatus: "APPROVED", status: "READY_FOR_INVITES" },
+        });
+      } else {
+        await tx.sellerProperty.update({
+          where: { id: reviewedDocument.propertyId },
+          data: {
+            ownershipVerificationStatus: data.decision === "REJECTED" ? "REJECTED" : "PENDING",
+            status: data.decision === "REJECTED" ? "DRAFT" : "READY_FOR_REVIEW",
+          },
+        });
+      }
     }
 
     await tx.notification.create({
@@ -1856,6 +1291,7 @@ export async function reviewDocument(input: unknown) {
 
 export async function grantBadge(input: unknown) {
   const admin = await requireCurrentUser("ADMIN");
+  await assertRateLimit(`admin-review:${admin.id}`, 120, 60 * 60_000);
   const data = grantBadgeSchema.parse(normalizeInput(input));
   const badge = await prisma.$transaction(async (tx) => {
     const buyerProfile = await tx.buyerProfile.findUnique({
@@ -1888,6 +1324,9 @@ export async function grantBadge(input: unknown) {
         },
       });
       if (!evidenceDocument) throw new Error("Badge evidence must be an approved document for this buyer.");
+      if (!evidenceSupportsBadge(data.badgeType, evidenceDocument.documentType)) {
+        throw new Error("Approved evidence is not compatible with this badge.");
+      }
     }
 
     if (evidenceRequiredBadgeTypes.has(data.badgeType) && !evidenceDocument) {
@@ -1983,13 +1422,57 @@ export async function revokeBadge(input: unknown) {
 
 export async function suspendUser(input: unknown) {
   const admin = await requireCurrentUser("ADMIN");
+  await assertRateLimit(`admin-moderation:${admin.id}`, 30, 60 * 60_000);
   const data = userModerationSchema.parse(normalizeInput(input));
   if (data.userId === admin.id) throw new Error("Admins cannot suspend their own account.");
-
-  await suspendApplicationIdentity({
-    actorUserId: admin.id,
-    reason: data.reason ?? "Admin suspension",
-    targetUserId: data.userId,
+  const operationId = `authop_${crypto.randomUUID()}`;
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: data.userId },
+      data: { status: "SUSPENDED", suspendedAt: new Date() },
+    });
+    await tx.buyerProfile.updateMany({
+      where: { userId: data.userId },
+      data: { visibilityStatus: "SUSPENDED" },
+    });
+    await tx.sellerAccess.updateMany({
+      where: { userId: data.userId },
+      data: { status: "SUSPENDED" },
+    });
+    await tx.sellerProperty.updateMany({
+      where: { ownerUserId: data.userId },
+      data: { flaggedForReviewAt: new Date(), status: "ARCHIVED" },
+    });
+    await tx.invite.updateMany({
+      where: {
+        OR: [
+          { sellerId: data.userId },
+          { buyerProfile: { userId: data.userId } },
+        ],
+        status: { in: ["SENT", "VIEWED", "ACCEPTED"] },
+      },
+      data: { status: "WITHDRAWN" },
+    });
+    await tx.authOperation.upsert({
+      where: { idempotencyKey: `ban-user:${data.userId}` },
+      update: {},
+      create: {
+        id: operationId,
+        idempotencyKey: `ban-user:${data.userId}`,
+        status: "PENDING",
+        type: "BAN_USER",
+        userId: data.userId,
+      },
+    });
+    await tx.adminAuditLog.create({
+      data: {
+        action: "suspend_user",
+        actorUserId: admin.id,
+        metadata: { reason: data.reason, authOperationId: operationId },
+        targetId: data.userId,
+        targetType: "user",
+      },
+    });
   });
   return { ok: true, data };
 }
@@ -1997,21 +1480,12 @@ export async function suspendUser(input: unknown) {
 export async function hideBuyerProfile(input: unknown) {
   const admin = await requireCurrentUser("ADMIN");
   const data = buyerProfileModerationSchema.parse(normalizeInput(input));
-  await prisma.$transaction(async (tx) => {
-    const profile = await tx.buyerProfile.findUnique({
+  await prisma.$transaction([
+    prisma.buyerProfile.update({
       where: { id: data.buyerProfileId },
-      select: { userId: true },
-    });
-    if (!profile) throw new Error("Buyer profile not found.");
-
-    await lockBuyerOwnership(tx, profile.userId);
-    const hidden = await tx.buyerProfile.updateMany({
-      where: { id: data.buyerProfileId, userId: profile.userId },
       data: { visibilityStatus: "HIDDEN" },
-    });
-    if (hidden.count !== 1) throw new Error("Buyer profile not found.");
-
-    await tx.adminAuditLog.create({
+    }),
+    prisma.adminAuditLog.create({
       data: {
         action: "hide_buyer_profile",
         actorUserId: admin.id,
@@ -2019,8 +1493,8 @@ export async function hideBuyerProfile(input: unknown) {
         targetId: data.buyerProfileId,
         targetType: "buyer_profile",
       },
-    });
-  });
+    }),
+  ]);
   return { ok: true, data };
 }
 
@@ -2083,14 +1557,11 @@ export async function getSellerProperty(propertyId: string) {
 }
 
 function badgeLabel(type: Badge["type"]) {
-  const labels: Record<Badge["type"], string> = {
+  const labels: Record<string, string> = {
     PRE_APPROVED: "Admin-verified pre-approval",
-    EARNEST_MONEY_DEPOSITED: "Earnest money review",
-    CASH_BUYER: "Cash buyer",
-    NON_CONTINGENT: "Non-contingent",
     VERIFIED_IDENTITY: "Verified identity",
     VERIFIED_FUNDS: "Verified funds",
-    COMPLETED_TRANSACTION: "Completed transaction",
+    CASH_BUYER: "Cash buyer",
   };
-  return labels[type];
+  return labels[type] ?? "Unsupported legacy badge";
 }

@@ -36,6 +36,8 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `engineering/SERVICE_AREA_BOUNDARIES.md` — canonical service-area, relationship, geometry, rendering, and LA import boundaries.
 - `engineering/SELLER_SEARCH_SQL_EVIDENCE_2026-07-09.md` — SQL-native seller search contract, temporary 25K-row benchmark, cursor assertions, and measured plan.
 - `engineering/SELLER_SEARCH_SQL_PROPOSAL.sql` — unnumbered CTO index proposal; not an applied migration.
+- `engineering/UPLOAD_MALWARE_SCANNING.md` — selected OPSWAT private-processing scanner and credential-blocked public-launch gate.
+- `engineering/DEPENDENCY_AUDIT_2026-07-11.md` — current dependency findings, reachability triage, and compatible-upgrade policy.
 
 ## Section micro-docs
 

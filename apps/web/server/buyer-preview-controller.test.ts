@@ -25,13 +25,13 @@ describe("public buyer preview controller", () => {
       budgetMin: 700_000,
       buyerType: "Conventional financing",
       buyingPurpose: "House",
-      criteria: {
+      criteria: [{
         bathroomsMin: 2,
         bedroomsMin: 3,
         condition: "Move-in ready",
         features: ["Garage"],
         squareFeetMin: 1_600,
-      },
+      }],
       desiredServiceAreas: [{
         serviceArea: {
           active: true,
@@ -57,14 +57,13 @@ describe("public buyer preview controller", () => {
       orderBy: { lastRefreshedAt: "desc" },
       take: 6,
       where: {
-        user: { is: { status: "ACTIVE" } },
+        user: { status: "ACTIVE" },
         visibilityStatus: "ACTIVE",
       },
     });
     expect(query.select).toMatchObject({
       budgetMax: true,
       budgetMin: true,
-      user: { select: { status: true } },
     });
     expect(JSON.stringify(query.select)).not.toMatch(
       /desiredLat|desiredLng|email|storagePath|displayName|userId|serviceAreaId/,

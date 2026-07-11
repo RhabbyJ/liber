@@ -202,7 +202,7 @@ export default async function SellerSearchPage({
               </div>
             ) : (
               results.map((buyer) => (
-                <BuyerCard buyer={buyer} key={buyer.buyerProfileId} variant="row" />
+                <BuyerCard buyer={buyer} key={buyer.id} variant="row" />
               ))
             )}
           </div>
@@ -210,10 +210,7 @@ export default async function SellerSearchPage({
             <div className="actions" style={{ justifyContent: "flex-end", paddingTop: 16 }}>
               <Link
                 className="button secondary"
-                href={sellerSearchHrefWithCursor(
-                  { ...params, market: market.slug },
-                  resultPage.pageInfo.nextCursor,
-                )}
+                href={sellerSearchHrefWithCursor(params, resultPage.pageInfo.nextCursor)}
               >
                 Next buyers
                 <Icon name="arrow-right" size={14} />
@@ -363,7 +360,6 @@ function moneyLabel(value?: string) {
 function badgeFilterLabel(value: string) {
   const labels: Record<string, string> = {
     CASH_BUYER: "Cash buyer",
-    NON_CONTINGENT: "Non-contingent",
     PRE_APPROVED: "Pre-approved",
     VERIFIED_FUNDS: "Verified funds",
   };

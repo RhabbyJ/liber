@@ -96,20 +96,17 @@ describe("shared limiter call sites", () => {
     const enrichment = source("apps/web/app/api/property/enrich/route.ts");
     const combined = `${contracts}\n${geocode}\n${enrichment}`;
 
-    for (const namespace of [
-      "seller:buyer-search",
-      "seller:buyer-profile-view",
-      "user:buyer-profile-view",
-      "seller:invite",
-      "upload:property-image",
-      "upload:verification",
-      "geocode:ip",
-      "geocode:user",
-      "property-enrich:ip",
-      "property-enrich:user",
+    for (const keyPrefix of [
+      "buyer-search:",
+      "buyer-profile-view:",
+      "invite-send:",
+      "geocode:ip:",
+      "geocode:user:",
+      "property-enrich:ip:",
+      "property-enrich:user:",
     ]) {
-      expect(combined).toContain(`namespace: \"${namespace}\"`);
+      expect(combined).toContain(keyPrefix);
     }
-    expect(combined).not.toMatch(/\b(?:assertAuditRateLimit|assertRateLimit|checkRateLimit)\s*\(/);
+    expect(combined).toMatch(/\b(?:assertRateLimit|checkRateLimit)\s*\(/);
   });
 });

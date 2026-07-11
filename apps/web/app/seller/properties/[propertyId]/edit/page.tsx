@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Icon } from "../../../../../components/icon";
+import { DirectUploadField } from "../../../../../components/direct-upload-field";
 import { PropertyAddressLookup } from "../../../../../components/property-address-lookup";
 import { propertyTypeOptions } from "../../../../../lib/property-types";
 import { DEFAULT_MARKET_SLUG } from "../../../../../lib/service-areas";
@@ -19,7 +20,7 @@ export default async function EditSellerPropertyPage({
 
   if (!property) notFound();
 
-  const verified = property.ownershipVerificationStatus === "APPROVED";
+  const verified = property.status.toLowerCase().includes("verified");
 
   return (
     <div className="page wide seller-property-reference-page">
@@ -39,7 +40,34 @@ export default async function EditSellerPropertyPage({
       </div>
 
       <section className="seller-property-reference-shell">
-        <form action={submitSellerPropertyUpdate} className="seller-property-reference-form form-grid" encType="multipart/form-data">
+        <div className="seller-property-reference-form form-grid">
+          <DirectUploadField
+            accept="application/pdf,image/png,image/jpeg,image/webp"
+            hint="Private, immutable evidence for Liber admin review; 20 MB max."
+            label="Government-issued photo ID"
+            ownershipEvidenceKind="GOVERNMENT_ID"
+            propertyId={property.id}
+            purpose="PROPERTY_OWNERSHIP"
+          />
+          <DirectUploadField
+            accept="application/pdf,image/png,image/jpeg,image/webp"
+            hint="Utility, tax, or mortgage bill matching this property; 20 MB max."
+            label="Property address evidence"
+            ownershipEvidenceKind="PROPERTY_ADDRESS_PROOF"
+            propertyId={property.id}
+            purpose="PROPERTY_OWNERSHIP"
+          />
+          <DirectUploadField
+            accept="image/png,image/jpeg,image/webp"
+            hint="Private invite images; PNG, JPEG, or WebP; 10 MB max each."
+            label="Add property images"
+            multiple
+            propertyId={property.id}
+            purpose="PROPERTY_IMAGE"
+          />
+        </div>
+
+        <form action={submitSellerPropertyUpdate} className="seller-property-reference-form form-grid">
           <input name="propertyId" type="hidden" value={property.id} />
 
           <div className="field full seller-property-verify-section">
@@ -50,21 +78,6 @@ export default async function EditSellerPropertyPage({
             </span>
           </div>
 
-          <div className="field seller-property-verify-section">
-            <label htmlFor="ownershipIdentity">Government-issued photo ID</label>
-            <div className="seller-property-file-line">
-              <input id="ownershipIdentity" name="ownershipIdentity" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
-            </div>
-            <span className="field-hint">New evidence is added; existing documents cannot be deleted.</span>
-          </div>
-
-          <div className="field seller-property-verify-section">
-            <label htmlFor="ownershipProof">Utility, tax, or mortgage bill</label>
-            <div className="seller-property-file-line">
-              <input id="ownershipProof" name="ownershipProof" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
-            </div>
-            <span className="field-hint">Must match the property address and owner or authorized entity name.</span>
-          </div>
 
           <div className="field">
             <label htmlFor="propertyType">Property type</label>
@@ -111,10 +124,13 @@ export default async function EditSellerPropertyPage({
             <textarea id="description" name="description" defaultValue={property.description} />
           </div>
 
-          <div className="field seller-property-image-upload">
-            <label htmlFor="images">Add property images</label>
-            <input id="images" name="images" type="file" accept="image/png,image/jpeg,image/webp" multiple />
-          </div>
+          <label className="checkbox-row full">
+            <input name="ownershipConfirmed" required type="checkbox" value="true" />
+            <span>
+              I confirm I currently own this property or am authorized to act for its owner. If its identity changed,
+              this records a new attestation and prior verification and invites remain invalid.
+            </span>
+          </label>
 
           <div className="actions between" style={{ gridColumn: "1 / -1" }}>
             <Link className="button ghost" href="/seller/properties">

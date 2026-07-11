@@ -145,25 +145,12 @@ Admin role assignment is not self-service.
   the original UUID and raw Auth deletion is blocked.
 - After an explicitly reviewed full purge, same-email registration creates a
   fresh UUID with no inherited roles, ownership, approval, or private access.
-- Buyer/seller role initialization occurs only after Supabase establishes a
-  verified identity and the user submits a validated application role form. A
-  verified callback never derives roles from Auth metadata; it sends an
-  empty-role user to authenticated onboarding. An immediate verified-session
-  signup may use the validated signup form. An unconfirmed signup never receives
-  application roles or seller access.
-- Suspension immediately blocks application and Storage authorization, suspends
-  seller access and buyer visibility, revokes Auth sessions, bans new Auth
-  sessions, and cancels unsent email jobs addressed to that application UUID.
 
 ## V1 buyer profile rules
 
 Buyer profiles are the marketplace asset.
 
 The buyer's account name is private account identity for the buyer portal only. It may personalize owner-only dashboard copy, but it must not be used as the seller/public buyer identity. Seller-facing buyer identity uses a generated neutral alias plus a generated avatar.
-
-`User.name` is the authoritative private account name. Signup Auth metadata may
-initialize it only after a verified callback/session; later user-editable Auth
-metadata does not overwrite the application value.
 
 A searchable buyer profile may include:
 
@@ -179,8 +166,6 @@ A searchable buyer profile may include:
 - rating/review count if supported by real eligible interactions.
 
 A buyer profile may become or remain searchable only when it has exactly one primary, buyer-confirmed service-area selection in an active market. The server derives location display fields and approximate coordinates from that canonical service-area row. Clearing the selection, selecting an unsupported/out-of-market area, or deactivating its market keeps the profile out of seller search and public previews.
-
-V1 has exactly one property-fit criteria record per buyer. Publishing the buyer form is a full-snapshot operation: profile fields, cleared optional values, canonical service-area selection, derived location fields, criteria, and `ACTIVE` visibility commit in one transaction. Separate profile, criteria, and activation writes are not supported.
 
 Buyer profile intent is purchase-only in v1. Rental/tenant demand is out of scope and must not be offered as a buyer signup or profile purpose.
 
@@ -270,6 +255,8 @@ A property may include:
 
 A property must not be treated as a public MLS-style listing in v1.
 
+Property attestations, evidence, images, and invites apply only to the property identity version on which they were created. Changing identity-relevant address/provider/location data requires a new seller attestation and ownership review, withdraws active or accepted invites, and prevents prior images from appearing in the new invite context.
+
 Seller property creation may start from an address lookup. When property facts are auto-populated, the seller must still confirm they own the property or are authorized to represent it before using that property for invites. Ownership/authority claims must not be accepted as a substitute for admin-reviewed ownership evidence where evidence is required.
 
 Seller ownership verification requires private admin review of both:
@@ -277,7 +264,7 @@ Seller ownership verification requires private admin review of both:
 - a government-issued photo ID matching the exact name on the title record, or the decision maker for an owning entity,
 - a utility bill, tax bill, or mortgage bill matching the owner/entity name and property address.
 
-Ownership approval applies to the exact private property identity `(property id, ownership version)`, and the V1 owner UUID is immutable. Changing either address line, city, state, ZIP, latitude, or longitude increments the ownership version and returns the property to `PENDING`. Evidence from an earlier version remains private audit history and cannot approve the current property state. Because historical property identity was not versioned, every legacy ownership decision is reopened as permanently unbound, audit-only evidence. Admins may classify or reject those records, but approval requires new evidence uploaded against the current version.
+Ownership approval is bound to the property's current identity version. Address or provider-identity changes increment that version, invalidate prior approval for new invites, and require a new structured admin decision. Only `READY_FOR_INVITES` properties with current approved evidence can back new invites.
 
 The whiteboard notes include deeper owner/buyer verification flow ideas around proof of funds, lender connections, IDs, and multi-day verification. Those purple-board verification workflow details are not part of this immediate v1 UI update unless separately approved and specified.
 
@@ -305,8 +292,6 @@ An invite must not:
 - represent legal acceptance,
 - or automate transaction execution.
 
-Invite validity is checked whenever an invite is listed, responded to, or reused; reaching `expiresAt` makes an otherwise sent/viewed invite expired even before maintenance persists the status. Only one unexpired sent/viewed invite may exist for the exact seller, buyer profile, and seller-owned property, and self-invites are denied at the server and database boundaries.
-
 Required invite disclaimer language should remain plain-English and close to the send/response actions:
 
 > This is a manual invite only. It is not an offer, escrow instruction, funds custody, or automated transaction.
@@ -315,15 +300,15 @@ Required invite disclaimer language should remain plain-English and close to the
 
 Trust badges are admin-reviewed signals, not self-asserted claims.
 
-Supported v1 badge concepts:
+Supported v1 evidence-backed badges:
 
 - pre-approval reviewed,
 - verified funds,
-- cash buyer,
-- non-contingent preference,
 - verified identity,
-- completed transaction when supported by real platform history,
-- earnest-money evidence only if described as reviewed third-party evidence, not Liber-held funds.
+
+Cash buyer is a derived seller-facing signal only when the buyer selected cash purchase type and has current verified-funds evidence. It is not granted independently.
+
+Earnest-money deposited, completed transaction, and non-contingent badges are disabled in v1. Earnest-money and completed-transaction signals require evidence/platform history that v1 does not have; non-contingent remains a preference rather than a verified financial badge.
 
 Financial/identity badges must be tied to approved evidence where the backend supports it.
 

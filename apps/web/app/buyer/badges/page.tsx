@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { BadgePill } from "../../../components/badge-pill";
+import { DirectUploadField } from "../../../components/direct-upload-field";
 import { Icon } from "../../../components/icon";
 import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
-import { submitBuyerVerificationDocument } from "../../../server/form-actions";
 
 export default async function BuyerBadgesPage() {
   const { data: buyer } = await getCurrentBuyerProfile();
@@ -41,28 +41,17 @@ export default async function BuyerBadgesPage() {
             Private
           </span>
         </div>
-        <form action={submitBuyerVerificationDocument} className="form-grid" encType="multipart/form-data">
-          <div className="field">
-            <label htmlFor="documentType">Type</label>
-            <select id="documentType" name="documentType">
-              <option value="PRE_APPROVAL">Pre-approval letter</option>
-              <option value="VERIFIED_FUNDS">Proof of funds</option>
-              <option value="IDENTITY">Identity</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="document">File</label>
-            <input id="document" name="document" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
-            <span className="field-hint">PDF, PNG, JPEG, WebP - 25 MB max</span>
-          </div>
-          <div className="field full">
-            <button className="button primary" type="submit">
-              <Icon name="upload" size={14} />
-              Submit for review
-            </button>
-          </div>
-        </form>
+        <DirectUploadField
+          accept="application/pdf,image/png,image/jpeg,image/webp"
+          documentTypes={[
+            { label: "Pre-approval letter", value: "PRE_APPROVAL" },
+            { label: "Proof of funds", value: "VERIFIED_FUNDS" },
+            { label: "Identity", value: "IDENTITY" },
+          ]}
+          hint="PDF, PNG, JPEG, or WebP; 20 MB max. Uploads go directly to private Storage."
+          label="File"
+          purpose="BUYER_VERIFICATION"
+        />
       </section>
 
       <section className="stack">

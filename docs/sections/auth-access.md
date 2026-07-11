@@ -27,6 +27,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Roles are not enough for seller-directory access; `SellerAccess.status = APPROVED` is required.
 - Admin cannot be self-assigned through customer UI.
 - Suspended users must not continue into protected workflows.
+- Suspension updates application user/profile/seller/property/invite state atomically, enqueues a retryable Supabase Auth ban, and relies on current-status Storage policies to block still-valid JWTs immediately.
 - Authorization must be server-side.
 - Signup name is private account identity; do not treat it as seller/public buyer profile display.
 - Signup role selection may bootstrap only BUYER/SELLER roles after Supabase verifies the user; admin remains server-controlled.
@@ -37,7 +38,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Server-side signup errors should return to the relevant wizard pane instead of restarting the user at the role/name step. Do not put the private signup account name in URLs; same-browser draft recovery is acceptable for error recovery.
 - Logout is a POST-only auth action. Desktop and mobile logout controls must submit successfully under the CSP `form-action` policy, clear Supabase cookies, and land on `/login?status=signed-out`.
 - Buyer-only users opening seller routes such as `/seller/search` or `/seller/properties` must resolve to seller onboarding/access gating, not a buyer-profile redirect, loading hang, or approved seller search bypass.
-- `/buyers/:buyerProfileId` is an authenticated cross-role profile route. Route entry may allow buyers, sellers, or admins, but final profile visibility must stay server-side in `getPublicBuyerProfile`.
+- `/buyers/:buyerProfileId` is an authenticated cross-role profile route. Route entry may allow buyers, sellers, or admins, but final profile visibility must stay server-side in `getAuthorizedBuyerProfile`.
 - Existing buyers or sellers following opposite-role signup intent should add the missing role to the current account through role onboarding. Duplicate-email signup attempts must send the user to login, not back into the password wizard loop.
 - Unauthenticated signup must not preflight the application `User` table by email before Supabase applies its Auth controls. Explicit collision recovery comes from the Auth/database identity boundary.
 - `User.id` is the immutable Auth UUID. Email comparison may detect a collision

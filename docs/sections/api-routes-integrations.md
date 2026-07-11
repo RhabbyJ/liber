@@ -12,11 +12,13 @@ Owns Next route handlers and external provider adapters for auth callbacks, geoc
 - `apps/web/app/api/service-areas/[slug]/route.ts`
 - `apps/web/app/api/seller/buyers/route.ts`
 - `apps/web/app/api/property/enrich/route.ts`
+- `apps/web/app/api/uploads/sessions/route.ts`
+- `apps/web/app/api/uploads/sessions/[sessionId]/finalize/route.ts`
+- `apps/web/app/api/property-images/[imageId]/route.ts`
 - `apps/web/app/api/maintenance/expire/route.ts`
 - `apps/web/app/auth/callback/route.ts`
 - `apps/web/server/attom.ts`
 - `apps/web/server/rate-limit.ts`
-- `apps/web/server/shared-rate-limit.ts`
 
 ## Invariants
 
@@ -31,16 +33,10 @@ Owns Next route handlers and external provider adapters for auth callbacks, geoc
 - Service-area database failures return controlled `503` responses and are logged without secrets; production routes never fall back to static pilot metadata.
 - Service-area search returns `{ resolution, suggestions }`; callers must not silently choose the first suggestion for ambiguous terms or unique prefixes.
 - Seller buyer APIs must require approved seller-directory access and return seller-safe buyer fields only.
-- `GET /api/seller/buyers` serializes the dedicated seller-search DTO envelope
-  from `apps/web/server/buyer-dtos.ts`; browser-safe response types live in
-  `apps/web/lib/buyer-dto-types.ts`. The route does not serialize the internal
-  `Buyer` domain model or internal exception details.
 - State-changing routes need appropriate origin/session protection.
 - Property enrichment is for private seller property prep. It requires an authenticated seller/admin role and rate limits, but not approved seller-directory access.
-- Auth, search/profile, invite, upload, geocode, and enrichment budgets use the
-  shared database limiter. Routes with both IP and user/email buckets consume
-  the IP bucket first and short-circuit on denial. Production fails closed;
-  only local development may use the bounded in-process fallback.
+- Exact-address enrichment uses same-origin `POST` JSON with `private, no-store`; exact addresses must not appear in query strings.
+- Upload-session creation/finalization and private property-image signing are authenticated, same-origin, narrow-response endpoints.
 
 ## Agent notes
 

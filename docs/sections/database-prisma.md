@@ -15,49 +15,30 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 ## Invariants
 
 - Schema changes require migrations.
-- The integration schema/runtime is ahead of the shared catalog and must not be
-  deployed until its dependent proposals are numbered and proven. Reserved
-  ordering and rollback boundaries live in
-  `docs/engineering/MIGRATION_VERSION_PLAN_2026-07-10.md`.
 - User IDs must remain Supabase Auth UUID-compatible.
 - `User.id` is immutable and validated against the `auth.users` primary key.
   Auth deletion and all ownership-key updates are restricted until the explicit
   account-retention workflow completes.
 - Auth signup inserts a fresh empty-role User by UUID. A normalized email
   collision raises recovery-required and never updates a primary key.
-- The normalized email boundary is exactly one valid, unique, non-partial btree
-  expression index on `lower(btrim(email))`; concurrent case variants must
-  produce one winner and one explicit recovery-required failure.
-- Auth user updates trigger application synchronization only for a changed email.
-  Private names are application-owned after verified initialization.
-- Auth/security follow-up SQL remains an unnumbered forward/rollback proposal
-  reserved for `00017` under `docs/engineering/`; migration files 00009 and
-  00016 stay immutable.
-- The proposal adds recipient-bound outbox jobs, expiring UUID leases, a
-  sendable-recipient constraint, lease-state constraint, and partial ready/lease
-  claim indexes that Prisma cannot express. It also owns the private generic
-  limiter table, expiry index, bounded prune function, and atomic consume
-  function. Keep the raw SQL and Prisma fields intentionally aligned.
 - RLS/storage policies are security boundaries.
 - Do not weaken constraints to bypass application bugs.
 - Keep indexes aligned with search and ownership checks.
 - `PropertySubtype` values are `HOME` (displayed as House), `CONDO`, `TOWNHOUSE`, `MANUFACTURED`, and `LAND`.
-- `VerificationDocument.ownershipEvidenceKind` is nullable for legacy/non-ownership documents and typed for new seller ownership evidence. A null `propertyOwnershipVersion` on ownership evidence is a permanent audit-only marker: it cannot be rebound or approved.
-- Property ownership identity is `(SellerProperty.id, ownershipVersion)`, and `ownerUserId` is immutable in V1. Database triggers own version increments/reset behavior and evidence binding; application checks are defense in depth.
-- Active invite uniqueness is the partial key `(sellerId, buyerProfileId, propertyId)` for `SENT`/`VIEWED`, with required `expiresAt` and seller-scoped serialization before inserts.
+- `VerificationDocument.ownershipEvidenceKind` is nullable for legacy/non-ownership documents and typed for new seller ownership evidence.
+- `BuyerCriteria.buyerProfileId` is unique; an active buyer has exactly one criteria row and one active primary selected service area.
+- Property authority attestations, ownership decisions, documents, images, and invites are tied to `SellerProperty.identityVersion`.
+- `UploadSession.buyerProfileId` is a real foreign key. Abandoned sessions leave cleanup eligibility only after their object has been removed, then enter terminal `CLEANED` state.
+- `property-images` and `verification-documents` are private buckets; signed upload sessions authorize immutable server-selected paths.
 - Market and service-area records use immutable UUID primary keys. Service-area slugs are unique within `market_id`, not globally.
 - Active service-area metadata is public only when its parent market is active. RLS must preserve that rule.
 - Buyer and relationship joins reference service-area UUIDs. Buyers store one primary selection; no copied `DERIVED` rows are allowed.
 - Only reviewed `SEARCH_ROLLUP` relationships affect matching, recursively at query time. Reviewed rollup graph writes serialize per market before cycle validation. Spatial/display relationship types do not affect buyer matches.
 - Buyer profile/selection writes may commit `ACTIVE` only with one primary `SELECTED` area in an active market. Inferred, ambiguous, multiple-selection, and unresolved legacy profiles belong in `service_area_migration_quarantine` and draft status. Deactivating a market or area automatically drafts affected active profiles.
-- `BuyerCriteria.buyerProfileId` is unique in v1, and Prisma models the parent relation as singular/optional. Publication also requires exactly one criteria row through deferred database enforcement; application-side find-then-create logic is not a concurrency guarantee.
-- Buyer publication transactions lock the exact immutable Auth UUID `User.id` before reading or writing the owned profile, selection, derived location, criteria, or visibility.
 - Resolving a geography quarantine row preserves the legacy/candidate snapshot and records the selected area, actor, source, and resolution time. Resolution does not delete the row; profile-deletion retention is defined separately with the identity lifecycle.
 - Market state/country, canonical UUIDs, and service-area market membership are immutable. The canonical cutover locks buyer profiles and selections before snapshot/backfill work and revalidates every `ACTIVE` profile before commit.
 - Service-area TS metadata, DB seed rows, and GeoJSON properties/bboxes must stay aligned; add or update validation when touching any of them.
-- Bulk geography import remains disabled. The isolated LA proposal at `0ae12d7`
-  is non-activating but still requires the repairs and proof listed in the
-  migration plan before it can be considered for reserved `00021`.
+- Bulk geography import remains disabled until Geography PR2 provides reviewed provenance, deploy-independent geometry, relationship import, inactive staging, and atomic market-bounds recomputation.
 - Demo seed data is allowed only for local development and CEO demo / private preview environments, never true public production.
 - Demo seed scripts must be explicit, guarded by an opt-in env flag, deterministic enough to clean up, and use obvious non-real users/data.
 
@@ -65,12 +46,8 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 
 After schema changes, run `npm run db:validate` and regenerate Prisma client when needed.
 
-Seller-property integrity is currently supplied as unnumbered forward/rollback SQL under `packages/db/prisma/proposals/` and reserved for `00019`. It is not database-proven. Do not promote it into migration history until the disposable harness passes, every legacy ownership decision/quarantine record is reviewed, and active invite duplicates or invalid expiry rows are resolved.
-
 `User.avatarVariant` is an allowlisted generated animal-avatar token for buyer profile display; it should stay nullable so existing accounts fall back to deterministic generated avatars. It is not an image URL or storage path.
 
 `BuyerProfile.displayName` stores a generated neutral public alias, not a buyer-entered name. Application code must normalize old/stale values through the alias allowlist and fall back to a deterministic alias from the buyer id.
 
 When adding seed scripts, include a cleanup path and avoid inserting private document records, real contact information, or fake production trust claims.
-
-The buyer criteria uniqueness/activation SQL is kept as an unnumbered proposal under `packages/db/prisma/proposals/` and reserved for `00018`. Its paired rollback restores the prior non-unique ownership index.

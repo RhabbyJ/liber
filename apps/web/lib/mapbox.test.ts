@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { SellerBuyerSearchDto } from "./buyer-dto-types";
 import { mapboxServiceAreaQueries, mapPinPosition } from "./mapbox";
 
 const buyers = [
-  { mapPoint: { latitude: 34.233923, longitude: -118.519279 } },
-  { mapPoint: { latitude: 34.1467, longitude: -118.433314 } },
-] as SellerBuyerSearchDto[];
+  { id: "buyer-1", lat: 34.233923, lng: -118.519279, serviceAreaSlug: "northridge" },
+  { id: "buyer-2", lat: 34.1467, lng: -118.433314, serviceAreaSlug: "studio-city" },
+];
 
 describe("Mapbox static map helpers", () => {
   it("uses typed postcode metadata instead of five-digit house numbers", () => {

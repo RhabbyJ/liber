@@ -111,9 +111,28 @@ try {
   }
   console.log("ok buyer profile robots header");
 
-  await expectStatus("/api/property/enrich?addressLine1=1%20Main&zip=91423", 401);
+  const propertyEnrichment = await fetch(`${baseUrl}/api/property/enrich`, {
+    body: JSON.stringify({ addressLine1: "1 Main", market: "los-angeles", zip: "91423" }),
+    headers: { "content-type": "application/json", origin: new URL(baseUrl).origin },
+    method: "POST",
+    redirect: "manual",
+  });
+  if (propertyEnrichment.status !== 401) {
+    throw new Error(`/api/property/enrich returned ${propertyEnrichment.status}, expected 401.`);
+  }
   await expectStatus("/api/geo/geocode?query=Sherman", 401);
   await expectStatus("/api/seller/buyers?service_area=northridge", 401);
+  await expectStatus("/api/property-images/security-smoke", 401);
+  const uploadSession = await fetch(`${baseUrl}/api/uploads/sessions`, {
+    body: "{}",
+    headers: { "content-type": "application/json", origin: new URL(baseUrl).origin },
+    method: "POST",
+    redirect: "manual",
+  });
+  if (uploadSession.status !== 401) {
+    throw new Error(`/api/uploads/sessions returned ${uploadSession.status}, expected 401.`);
+  }
+  console.log("ok /api/uploads/sessions returned 401");
 
   const badOrigin = await fetch(`${baseUrl}/api/auth/login`, {
     body: new URLSearchParams({ email: "", password: "", next: "/" }),

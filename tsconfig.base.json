@@ -16,8 +16,7 @@
     "incremental": true,
     "baseUrl": ".",
     "paths": {
-      "@liber/validators": ["packages/validators/src/index.ts"],
-      "@liber/ui": ["packages/ui/src/index.ts"]
+      "@liber/validators": ["packages/validators/src/index.ts"]
     }
   }
 }

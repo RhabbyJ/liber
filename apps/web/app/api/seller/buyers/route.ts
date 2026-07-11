@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { canViewBuyerDirectory } from "../../../../server/access";
 import { searchBuyers } from "../../../../server/contracts";
-import { SellerSearchCursorError } from "../../../../server/seller-search-query";
 import { getSessionUser } from "../../../../server/session";
 
 export async function GET(request: Request) {
@@ -36,36 +35,25 @@ export async function GET(request: Request) {
     const { data } = await searchBuyers(input);
     return NextResponse.json(data);
   } catch (error) {
-    if (isRateLimitError(error)) {
+    const message = error instanceof Error ? error.message : "Unable to search buyers.";
+    if (message.toLowerCase().includes("rate limit")) {
       return NextResponse.json(
         { error: "Too many buyer searches. Try again later.", items: [], pageInfo: null },
         { status: 429 },
       );
     }
-    if (error instanceof ZodError || error instanceof SellerSearchCursorError) {
+    if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid buyer search filters.", items: [], pageInfo: null },
         { status: 400 },
       );
     }
-    logSearchFailure(error);
+    console.error("[seller-buyers-api] search failed", {
+      name: error instanceof Error ? error.name : "UnknownError",
+    });
     return NextResponse.json(
       { error: "Unable to search buyers.", items: [], pageInfo: null },
       { status: 500 },
     );
   }
-}
-
-function isRateLimitError(error: unknown) {
-  return error instanceof Error && error.message === "Rate limit reached. Try again later.";
-}
-
-function logSearchFailure(error: unknown) {
-  const details: { code?: string; name: string } = {
-    name: error instanceof Error ? error.name : "UnknownError",
-  };
-  if (error && typeof error === "object" && "code" in error && typeof error.code === "string") {
-    details.code = error.code.slice(0, 64);
-  }
-  console.error("[seller-buyers-api] search failed", details);
 }

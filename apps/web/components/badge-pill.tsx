@@ -1,17 +1,20 @@
-import type { Badge } from "../lib/domain-types";
 import { Icon } from "./icon";
 
-const badgeIcon: Record<Badge["type"], "shield" | "money" | "diamond" | "star" | "check-shield" | "key" | "doc"> = {
-  PRE_APPROVED: "check-shield",
-  EARNEST_MONEY_DEPOSITED: "money",
-  CASH_BUYER: "diamond",
-  NON_CONTINGENT: "key",
-  VERIFIED_IDENTITY: "shield",
-  VERIFIED_FUNDS: "money",
-  COMPLETED_TRANSACTION: "star",
+type DisplayBadge = {
+  type: string;
+  label: string;
+  status: "active" | "pending" | "expired";
+  expiresInDays?: number;
 };
 
-export function BadgePill({ badge }: { badge: Omit<Badge, "id"> }) {
+const badgeIcon: Record<string, "shield" | "money" | "diamond" | "check-shield"> = {
+  PRE_APPROVED: "check-shield",
+  CASH_BUYER: "diamond",
+  VERIFIED_IDENTITY: "shield",
+  VERIFIED_FUNDS: "money",
+};
+
+export function BadgePill({ badge }: { badge: DisplayBadge }) {
   const status = badge.status === "active" ? "active" : badge.status === "expired" ? "expired" : "pending";
   const meta = badge.expiresInDays !== undefined
     ? badge.expiresInDays < 0

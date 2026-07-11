@@ -60,7 +60,7 @@ export default async function SellerInvitesPage() {
             </thead>
             <tbody>
               {invites.map((invite) => {
-                const verified = invite.propertyOwnershipVerificationStatus === "APPROVED";
+                const verified = invite.propertyStatus === "Ownership verified";
                 const tone = statusTone[invite.status] || "";
                 return (
                   <tr key={invite.id}>

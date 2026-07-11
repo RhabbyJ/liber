@@ -1,5 +1,12 @@
-import type { SellerBuyerSearchDto } from "./buyer-dto-types";
 import { approximateBuyerPoint } from "./buyer-map-point";
+
+type MapBuyer = {
+  id: string;
+  lat: number;
+  lng: number;
+  primaryServiceArea?: { center: { lat: number; lng: number } };
+  serviceAreaSlug?: string;
+};
 
 export function mapboxServiceAreaQueries(feature: Record<string, unknown>) {
   const properties = recordValue(feature.properties);
@@ -12,10 +19,10 @@ export function mapboxServiceAreaQueries(feature: Record<string, unknown>) {
 }
 
 function recordValue(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return value && typeof value === "object" ? value as Record<string, unknown> : {};
 }
 
-export function mapPinPosition(buyer: SellerBuyerSearchDto, buyers: SellerBuyerSearchDto[]) {
+export function mapPinPosition(buyer: MapBuyer, buyers: MapBuyer[]) {
   const buyerPoint = approximateBuyerPoint(buyer);
   if (!buyerPoint) return null;
   const points = buyers

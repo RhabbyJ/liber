@@ -7,11 +7,11 @@
     "build": "next build",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@liber/db": "*",
-    "@liber/ui": "*",
     "@liber/validators": "*",
     "@supabase/ssr": "0.10.3",
     "@supabase/supabase-js": "2.106.0",
@@ -22,12 +22,14 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "eslint": "10.7.0",
     "@types/node": "25.9.1",
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.2.6",
     "typescript": "6.0.3",
+    "typescript-eslint": "8.63.0",
     "vitest": "4.1.6"
   }
 }

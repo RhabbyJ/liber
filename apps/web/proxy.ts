@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { requiresAuthenticatedUser } from "./server/domain";
+import { requiresAuthenticatedUser } from "./server/route-access";
 
 export async function proxy(request: NextRequest) {
   const { response, isAuthenticated } = await sessionUserFromRequest(request);

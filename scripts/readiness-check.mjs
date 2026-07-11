@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import pg from "pg";
 
 const envFile = await loadEnvFile(".env");
 const env = { ...envFile, ...process.env };
@@ -13,7 +14,6 @@ const required = [
 ];
 
 const productionChecks = [
-  ["AUTH_RATE_LIMIT_PEPPER", "32+ character HMAC pepper for shared limiter keys"],
   ["CRON_SECRET", "Maintenance route bearer secret"],
   ["NEXT_PUBLIC_MAPBOX_TOKEN", "Mapbox autocomplete/geocoding and production map rendering"],
   ["ATTOM_API_KEY", "ATTOM property facts enrichment"],
@@ -23,8 +23,6 @@ const productionChecks = [
 ];
 
 const optional = [
-  ["SENTRY_DSN", "Error reporting"],
-  ["POSTHOG_KEY", "Product analytics"],
   ["NODE_EXTRA_CA_CERTS", "Local Node CA trust override for Supabase TLS issues"],
 ];
 
@@ -52,11 +50,14 @@ checkPostgresUrl("DATABASE_URL", failures);
 checkPostgresUrl("DIRECT_URL", failures);
 checkEmailPair(warnings, failures);
 checkAutoConfirm(failures);
-checkAuthRateLimitPepper(productionMode ? failures : warnings);
+
+if (productionMode && failures.length === 0) {
+  await checkProductionDependencies(failures);
+}
 
 console.log("");
-console.log("Production decisions still required outside env:");
-console.log("- See docs/product/production-decisions.md for launch market, invite limits, ownership/badge evidence, verification wording, production admin assignment, email provider, Mapbox/geocoding, and Supabase advisor remediation.");
+console.log("Production deployment prerequisites outside env:");
+console.log("- See docs/product/production-decisions.md for migration proof, production admin assignment, provider setup, malware-scanner credentials, and Supabase advisor remediation.");
 
 if (warnings.length > 0) {
   console.log("");
@@ -164,9 +165,58 @@ function checkAutoConfirm(collection) {
   }
 }
 
-function checkAuthRateLimitPepper(collection) {
-  if (!hasValue("AUTH_RATE_LIMIT_PEPPER")) return;
-  if (env.AUTH_RATE_LIMIT_PEPPER.length < 32) {
-    collection.push("AUTH_RATE_LIMIT_PEPPER must contain at least 32 characters.");
+async function checkProductionDependencies(collection) {
+  const client = new pg.Client({ connectionString: env.DIRECT_URL, connectionTimeoutMillis: 10_000 });
+  try {
+    await client.connect();
+    const migration = await client.query(`
+      SELECT migration_name
+      FROM public._prisma_migrations
+      WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
+      ORDER BY finished_at DESC
+      LIMIT 1
+    `);
+    const expectedHead = "20260711082500_close_property_identity_lifecycle";
+    if (migration.rows[0]?.migration_name !== expectedHead) {
+      collection.push(`Database migration head must be ${expectedHead}.`);
+    }
+    const geography = await client.query(`
+      SELECT
+        (SELECT count(*) FROM public.markets WHERE active = true) AS markets,
+        (SELECT count(*) FROM public.service_areas area JOIN public.markets market ON market.id = area.market_id WHERE area.active = true AND market.active = true) AS areas
+    `);
+    if (Number(geography.rows[0]?.markets ?? 0) < 1 || Number(geography.rows[0]?.areas ?? 0) < 1) {
+      collection.push("At least one active market and active canonical service area are required.");
+    }
+    const buckets = await client.query(`
+      SELECT id, public FROM storage.buckets
+      WHERE id IN ('property-images', 'verification-documents')
+    `);
+    const bucketMap = new Map(buckets.rows.map((row) => [row.id, row.public]));
+    if (bucketMap.get("property-images") !== false || bucketMap.get("verification-documents") !== false) {
+      collection.push("Property image and verification document buckets must exist and be private.");
+    }
+    const policies = await client.query(`
+      SELECT policyname FROM pg_policies
+      WHERE schemaname = 'storage' AND tablename = 'objects'
+    `);
+    const policyNames = new Set(policies.rows.map((row) => row.policyname));
+    for (const requiredPolicy of [
+      "Authorized users can read private property images",
+      "Active users can upload authorized session objects",
+    ]) {
+      if (!policyNames.has(requiredPolicy)) collection.push(`Missing critical Storage policy: ${requiredPolicy}.`);
+    }
+    const heartbeat = await client.query(`
+      SELECT "lastRunAt" FROM public."WorkerHeartbeat" WHERE worker = 'email-outbox'
+    `);
+    const lastRunAt = heartbeat.rows[0]?.lastRunAt ? new Date(heartbeat.rows[0].lastRunAt).getTime() : 0;
+    if (!lastRunAt || Date.now() - lastRunAt > 5 * 60_000) {
+      collection.push("Email outbox worker heartbeat must be less than five minutes old.");
+    }
+  } catch (error) {
+    collection.push(`Production dependency check failed: ${error instanceof Error ? error.message : "unknown database error"}.`);
+  } finally {
+    await client.end().catch(() => {});
   }
 }

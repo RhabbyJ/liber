@@ -1,5 +1,5 @@
 import type { MarketMapContext, SelectedMapArea } from "../lib/map-area";
-import type { SellerBuyerSearchDto } from "../lib/buyer-dto-types";
+import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
 import { InteractiveBuyerMap } from "./interactive-buyer-map";
 import { StaticBuyerMap } from "./static-buyer-map";
 
@@ -8,7 +8,7 @@ export function BuyerMap({
   market,
   selectedServiceArea,
 }: {
-  buyers: SellerBuyerSearchDto[];
+  buyers: SellerBuyerSummaryDTO[];
   market: MarketMapContext;
   selectedServiceArea?: SelectedMapArea | null;
 }) {

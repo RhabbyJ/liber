@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { enrichPropertyByAddress } from "../../../../server/attom";
 import { hasRole } from "../../../../server/authz";
-import { clientIpFromRequest } from "../../../../server/rate-limit";
-import { consumeSharedRateLimit } from "../../../../server/shared-rate-limit";
+import { checkRateLimit, clientIpFromRequest } from "../../../../server/rate-limit";
 import { getSessionUser } from "../../../../server/session";
+import { isRequestSameOrigin } from "../../../../server/request-origin";
 
 const enrichQuerySchema = z.object({
   addressLine1: z.string().trim().min(1).max(160),
@@ -14,27 +14,18 @@ const enrichQuerySchema = z.object({
   zip: z.string().trim().min(5).max(16),
 });
 
-export async function GET(request: Request) {
+export async function POST(request: NextRequest) {
+  if (!isRequestSameOrigin(request)) return privateJson({ error: "Invalid origin.", property: null }, 403);
   const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Authentication required.", property: null }, { status: 401 });
+  if (!user) return privateJson({ error: "Authentication required.", property: null }, 401);
   if (!hasRole(user, "SELLER") && !hasRole(user, "ADMIN")) {
-    return NextResponse.json({ error: "Seller role required.", property: null }, { status: 403 });
+    return privateJson({ error: "Seller role required.", property: null }, 403);
   }
 
-  const ipLimit = await consumeSharedRateLimit({
-    identifier: clientIpFromRequest(request),
-    limit: 30,
-    namespace: "property-enrich:ip",
-    windowSeconds: 60,
-  });
-  const userLimit = ipLimit.allowed
-    ? await consumeSharedRateLimit({
-        identifier: user.id,
-        limit: 20,
-        namespace: "property-enrich:user",
-        windowSeconds: 60,
-      })
-    : ipLimit;
+  const [ipLimit, userLimit] = await Promise.all([
+    checkRateLimit(`property-enrich:ip:${clientIpFromRequest(request)}`, 30, 60_000),
+    checkRateLimit(`property-enrich:user:${user.id}`, 20, 60_000),
+  ]);
   if (!ipLimit.allowed || !userLimit.allowed) {
     const retryAfter = Math.max(ipLimit.retryAfterSeconds, userLimit.retryAfterSeconds);
     return NextResponse.json(
@@ -43,22 +34,23 @@ export async function GET(request: Request) {
     );
   }
 
-  const { searchParams } = new URL(request.url);
+  const body = await request.json().catch(() => ({}));
   const parsed = enrichQuerySchema.safeParse({
-    addressLine1: searchParams.get("addressLine1"),
-    city: searchParams.get("city") || undefined,
-    market: searchParams.get("market"),
-    state: searchParams.get("state")?.trim().toUpperCase() || undefined,
-    zip: searchParams.get("zip"),
+    ...body,
+    state: typeof body.state === "string" ? body.state.trim().toUpperCase() : undefined,
   });
 
   if (!parsed.success) {
-    return NextResponse.json({ error: "Address and active service-area ZIP are required.", property: null }, { status: 400 });
+    return privateJson({ error: "Address and active service-area ZIP are required.", property: null }, 400);
   }
 
   const result = await enrichPropertyByAddress(parsed.data);
-  return NextResponse.json(
+  return privateJson(
     { error: result.status >= 500 ? "Property enrichment failed." : result.error, property: result.property },
-    { status: result.status },
+    result.status,
   );
+}
+
+function privateJson(body: unknown, status = 200) {
+  return NextResponse.json(body, { headers: { "Cache-Control": "private, no-store" }, status });
 }

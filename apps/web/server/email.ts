@@ -1,5 +1,7 @@
 "use server";
 
+import { fetchWithRetry } from "./external-fetch";
+
 export type InviteEmailInput = {
   buyerName: string;
   message: string;
@@ -15,10 +17,6 @@ export type EmailResult = {
   reason?: string;
 };
 
-type EmailSendOptions = {
-  idempotencyKey?: string;
-};
-
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -30,14 +28,15 @@ function escapeHtml(value: string) {
 
 export async function sendInviteEmail(
   input: InviteEmailInput,
-  options: EmailSendOptions = {},
+  idempotency?: string | { idempotencyKey?: string },
 ): Promise<EmailResult> {
+  const idempotencyKey = typeof idempotency === "string" ? idempotency : idempotency?.idempotencyKey;
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
 
   if (!apiKey || !from || !input.to) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("Invite email delivery is not configured.");
+    if (process.env.NODE_ENV !== "development" && process.env.NODE_ENV !== "test") {
+      throw new Error("Invite email delivery is not configured or buyer email is missing.");
     }
     return {
       provider: "mock",
@@ -46,11 +45,7 @@ export async function sendInviteEmail(
     };
   }
 
-  if (options.idempotencyKey && options.idempotencyKey.length > 256) {
-    throw new Error("Email idempotency key exceeds 256 characters.");
-  }
-
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await fetchWithRetry("https://api.resend.com/emails", {
     body: JSON.stringify({
       from,
       html: [
@@ -71,7 +66,7 @@ export async function sendInviteEmail(
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      ...(options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : {}),
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     },
     method: "POST",
   });

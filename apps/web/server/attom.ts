@@ -1,4 +1,5 @@
 import { normalizeZip } from "../lib/service-areas";
+import { fetchWithRetry } from "./external-fetch";
 
 export type PropertyFacts = {
   addressLine1?: string;
@@ -44,7 +45,7 @@ export async function enrichPropertyByAddress(input: PropertyLookupInput) {
     address2,
   });
 
-  const response = await fetch(`${attomBaseUrl()}/property/basicprofile?${params}`, {
+  const response = await fetchWithRetry(`${attomBaseUrl()}/property/basicprofile?${params}`, {
     cache: "no-store",
     headers: {
       Accept: "application/json",

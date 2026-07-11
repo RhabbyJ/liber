@@ -38,5 +38,9 @@ export function normalizeInput(input: unknown) {
     output.ownershipConfirmed = output.ownershipConfirmed === "true" || output.ownershipConfirmed === "on";
   }
 
+  for (const key of ["identityMatchesOwner", "authorityConfirmed", "addressMatchesProperty", "ownerOrEntityMatches"]) {
+    if (typeof output[key] === "string") output[key] = output[key] === "true" || output[key] === "on";
+  }
+
   return output;
 }

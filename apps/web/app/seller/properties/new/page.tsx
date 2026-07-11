@@ -27,7 +27,7 @@ export default async function NewSellerPropertyPage({
       </div>
 
       <section className="seller-property-reference-shell">
-        <form action={submitSellerProperty} className="seller-property-reference-form form-grid" encType="multipart/form-data">
+        <form action={submitSellerProperty} className="seller-property-reference-form form-grid">
           {safeNext ? <input name="next" type="hidden" value={safeNext} /> : null}
 
           <div className="field full seller-property-verify-section">
@@ -38,20 +38,8 @@ export default async function NewSellerPropertyPage({
             </span>
           </div>
 
-          <div className="field seller-property-verify-section">
-            <label htmlFor="ownershipIdentity">Government-issued photo ID</label>
-            <div className="seller-property-file-line">
-              <input id="ownershipIdentity" name="ownershipIdentity" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
-            </div>
-            <span className="field-hint">Stored privately for Liber admin review only.</span>
-          </div>
-
-          <div className="field seller-property-verify-section">
-            <label htmlFor="ownershipProof">Utility, tax, or mortgage bill</label>
-            <div className="seller-property-file-line">
-              <input id="ownershipProof" name="ownershipProof" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
-            </div>
-            <span className="field-hint">Must match the property address and owner or authorized entity name.</span>
+          <div className="auth-alert info field full">
+            Save the private property record first. The next screen uploads ownership evidence and images directly to private Storage.
           </div>
 
           <div className="field">
@@ -88,12 +76,6 @@ export default async function NewSellerPropertyPage({
           <div className="field full">
             <label htmlFor="description">Description</label>
             <textarea id="description" name="description" placeholder="Quiet single-story home with low-maintenance yard." />
-          </div>
-
-          <div className="field seller-property-image-upload">
-            <label htmlFor="images">Property images</label>
-            <input id="images" name="images" type="file" accept="image/png,image/jpeg,image/webp" multiple />
-            <span className="field-hint">Shown only inside invites you send.</span>
           </div>
 
           <div className="auth-alert info field full">

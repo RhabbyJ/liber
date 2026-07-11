@@ -2,12 +2,6 @@
 
 This is the backend source of truth for agents.
 
-Status note (2026-07-10): schema-dependent sections describe the CTO
-integration target. The shared database was observed through migration `00012`;
-the integration runtime depends on later numbered migrations and unnumbered
-proposals reserved in `MIGRATION_VERSION_PLAN_2026-07-10.md`. Do not infer that
-target behavior is deployed.
-
 ## Stack
 
 - Next.js App Router in `apps/web`
@@ -54,6 +48,11 @@ Primary models:
 - `Notification`
 - `AdminAuditLog`
 - `EmailOutbox`
+- `UploadSession`
+- `PropertyVerificationDecision`
+- `AuthOperation`
+- `RateLimitBucket`
+- `WorkerHeartbeat`
 
 User IDs are the immutable Supabase Auth UUID. The database validates
 `public."User".id -> auth.users.id`, rejects Auth and application UUID updates,
@@ -103,21 +102,6 @@ Key concepts:
   evidence, and retention are handled. A completed purge may then remove the
   application identity followed by Auth; later same-email registration is a
   fresh empty account, never restoration by email.
-- `establishVerifiedAuthSession` is the only production initialization service
-  for self-selectable BUYER/SELLER roles. A verified email callback passes no
-  roles and sends a new empty-role User to authenticated role onboarding; it
-  never reads `user_metadata.role`. Only the validated `chooseRole` form or an
-  immediate verified-session signup form supplies self-selected roles. Password
-  login resolves identity but never initializes roles.
-- `User.name` is authoritative private application data. Verified session
-  establishment may initialize it once from signup metadata; the Auth update
-  trigger is limited to actual email changes and never synchronizes later
-  user-editable metadata.
-- Suspension is fail-closed in two stages. A single database function locks and
-  suspends User, SellerAccess, BuyerProfile, unsent recipient-bound EmailOutbox
-  rows, revokes `auth.sessions`, and writes an audit event. The server then bans
-  the Auth identity through the Admin API and writes a confirmed/failed audit
-  outcome. An Auth API failure never reactivates application access.
 
 Operational proof and rollback are in
 `docs/engineering/AUTH_IDENTITY_OWNERSHIP_RUNBOOK.md` and
@@ -142,11 +126,14 @@ Sensitive application data should flow through server actions or route handlers 
 5. audit/rate-limit when required,
 6. return safe errors.
 
-Buyer-owned profile and criteria reads/writes use the current immutable Auth UUID as the ownership predicate. The sole publication action accepts a complete form snapshot, serializes on that exact `User.id` row, and commits profile fields (including cleared optional values), the canonical service-area selection, server-derived location fields, the single criteria row, and visibility in one transaction. Admin hiding takes the same owner lock so moderation wins deterministically over a racing publication.
-
 Main server files:
 
 - `apps/web/server/contracts.ts`
+- `apps/web/server/buyer/commands.ts`
+- `apps/web/server/buyer/read-models.ts`
+- `apps/web/server/uploads/service.ts`
+- `apps/web/server/auth-operations.ts`
+- `apps/web/server/verification/evidence-rules.ts`
 - `apps/web/server/form-actions.ts`
 - `apps/web/server/auth-actions.ts`
 - `apps/web/app/api/**/route.ts`
@@ -155,33 +142,22 @@ Main server files:
 
 Buckets:
 
-- `property-images` — public property images, with write access mediated/validated.
+- `property-images` — private invite-context images.
 - `verification-documents` — private documents for buyer evidence and seller ownership evidence.
 
 Rules:
 
 - Buyer public display names are generated locally from an allowlisted neutral alias list; there is no alias API, free-text public-name field, or separate alias storage object.
-- Buyer profile display uses generated 2D animal avatars from `User.avatarVariant` plus the user id.
+- Buyer profile display uses generated 2D animal avatars from `User.avatarVariant`; seller DTOs seed rendering with the opaque buyer-profile ID, never the Auth UUID.
 - Avatar SVGs are generated locally in the app from the `avatarka` animals theme and rendered as data images; there is no avatar API, Supabase avatar bucket, storage path, or saved image file.
 - Verification documents are immutable user evidence.
 - Document owners must not be able to overwrite/delete evidence after upload.
 - Private documents are viewed through admin/server-mediated signed URLs only.
 - Storage paths and signed URLs must not become public profile data.
-- Server uploads should validate file type, size, ownership, and purpose.
-- Every authenticated Storage policy checks an ACTIVE application User. Public
-  property-image reads remain public by product design, while property-image
-  writes plus verification-document owner reads/uploads fail for a suspended or
-  missing application identity. The historical public `profile-photos` bucket is
-  unused and has no owner-write policies; V1 must not upload to it. Admin
-  document review never has a direct authenticated-browser policy; it stays
-  behind the server-mediated signed-URL route.
-- After a service-role upload, the database transaction locks and rechecks the
-  ACTIVE application user plus current ownership before binding the object. A
-  failed recheck triggers best-effort orphan cleanup.
-- Server action return shapes avoid returning raw private storage paths for private buckets. Return document IDs/status, public URLs for public buckets, or short-lived signed URLs from admin/server-mediated reads only.
-- Seller ownership verification documents keep `DocumentType.OWNERSHIP` and use `OwnershipEvidenceKind` to distinguish government ID from property address proof. Ownership status can become approved only after both required evidence kinds are approved by an admin.
-- `SellerProperty.ownershipVersion` makes `(property id, ownership version)` the ownership identity. `ownerUserId` is immutable in V1. Address lines, city, state, ZIP, latitude, and longitude are ownership-relevant; changing any of them increments the version and resets the property to `PENDING`.
-- `VerificationDocument.propertyOwnershipVersion` binds typed ownership evidence to the exact property version and exact owner UUID. Earlier-version evidence remains immutable audit history but is excluded from current approval. All pre-versioning ownership decisions are quarantined with prior state captured in `AdminAuditLog`. Their null version is permanent: admins may classify or reject them for audit, but cannot bind or approve them; current approval requires fresh version-bound evidence.
+- Browser uploads use an authorized `UploadSession`, a server-selected path, a signed upload token, direct Storage transfer, and server finalization. Finalization verifies ownership, expiry, object path, actual size/type, initial-byte signature, and current property identity version before creating a document/image row.
+- Abandoned sessions and orphaned objects are removed by the outbox maintenance worker.
+- Browser DTOs never return raw Storage paths. Finalization returns document/image IDs and status; authorized reads return short-lived server-mediated signed URLs only.
+- Seller ownership verification documents keep `DocumentType.OWNERSHIP` and use `OwnershipEvidenceKind` to distinguish government ID from property address proof. Ownership status can become approved only after both required current-version evidence kinds and the structured owner/address/authority checklist are approved by an admin.
 
 ## Badge architecture
 
@@ -189,6 +165,8 @@ Badges are admin-reviewed trust signals.
 
 - `BuyerBadge.status = ACTIVE` and unexpired badges affect display/search.
 - Sensitive badge types should reference approved `VerificationDocument` evidence.
+- The authoritative evidence matrix is pre-approval -> `PRE_APPROVAL`, verified funds -> `VERIFIED_FUNDS`, and verified identity -> `IDENTITY`.
+- Cash buyer is derived from cash purchase type plus current verified-funds evidence. Unsupported legacy badge concepts are not grantable or searchable.
 - Pre-approval expires after 90 days unless renewed.
 - Badge grants/revokes should be audited.
 
@@ -210,9 +188,13 @@ Invite creation must check:
 - duplicate active invite rules,
 - rate limits / DB trigger constraints.
 
-`Invite.expiresAt` is required and later than `sentAt`. Read code computes the effective status at request time, while response writes compare against PostgreSQL's clock, so maintenance lag or application-clock skew never extends validity. PostgreSQL serializes invite creation per seller, expires stale active duplicates before reuse, denies self-invites and property-owner mismatches, and enforces one `SENT`/`VIEWED` row per seller + buyer profile + property with a partial unique index.
+Invite creation serializes per seller with a transaction-scoped advisory lock. The quota is 25 sends in the preceding rolling 24 hours for a currently ownership-approved `READY_FOR_INVITES` property. Invite responses atomically require an unexpired `SENT`/`VIEWED` row.
 
-Invite email should be queued through `EmailOutbox`, not sent inline as the source of truth. Jobs are bound to an immutable recipient UUID. A private SQL function claims jobs with `FOR UPDATE SKIP LOCKED`, an expiring UUID lease, and an attempt ceiling; worker updates must match the lease token. The worker re-checks ACTIVE status, uses the User's current email, and supplies the outbox ID as the provider idempotency key. Unmatched legacy and pre-lease SENDING rows are quarantined rather than automatically delivered.
+Property authority attestations, images, and invites are stamped with the current property `identityVersion`. An identity-relevant edit clears the attestation, resets verification, withdraws `SENT`, `VIEWED`, and `ACCEPTED` invites, and prevents old images or delayed email from being reused for the new identity. Sellers explicitly re-attest after editing. Admin ownership review locks and re-reads the property before approving current-version evidence.
+
+Invited-buyer image access is centralized in `app_private.can_read_property_image`. It requires current image/invite/property versions, active buyer and seller accounts, an active buyer profile, an approved unflagged `READY_FOR_INVITES` property, and an eligible invite state. Owners and admins remain subject to current application-user status.
+
+Invite email should be queued through `EmailOutbox`, not sent inline as the source of truth.
 
 ## Search architecture
 
@@ -226,48 +208,23 @@ Service-area selection must resolve through canonical slugs or explicit per-area
 
 Seller search requires a market slug plus an optional market-scoped service-area slug. `buyer_desired_service_areas` stores at most one primary selection per buyer. When a buyer profile or selection transaction commits, an active profile requires exactly one `SELECTED` row whose service area and market are active; a deferred database trigger enforces that write path. Runtime queries also require the area and market to remain active, so they fail closed. Deactivating a market or service area automatically drafts affected active buyers; reactivation never republishes them without an explicit buyer action. Client-provided city, ZIP, neighborhood, text, and coordinates are not trusted independently: profile saves resolve the selected area first and derive all compatibility/display fields from that row. Ordinary seller/public runtime queries do not use legacy text or bbox matching.
 
-V1 has exactly one `BuyerCriteria` row per buyer profile. A database unique constraint, not an application check, is the concurrency boundary. Deferred activation guards require both that criteria row and the active canonical selection before an `ACTIVE` profile can commit. The proposed constraint/trigger SQL and rollback are reserved for `00018` under `packages/db/prisma/proposals/`; reservation is not deployment proof.
-
 Only reviewed `SEARCH_ROLLUP` relationships affect matching. `CONTAINS`, `OVERLAPS`, and `DISPLAY_PARENT` remain spatial/display metadata. Reviewed rollup ancestors are evaluated recursively at query time, so relationship changes take effect without rewriting buyer rows. Reviewed rollup mutations serialize on their market row before cycle validation. The corrective migration write-locks buyer profiles and selections before taking legacy snapshots, removes stale `DERIVED`/`MIGRATED` rows, audits state-scoped legacy candidates in ZIP -> neighborhood -> city order, stores inferred, ambiguous, multiple-selection, and unresolved cases in quarantine for confirmation, and drafts profiles without a confirmed selection.
 
-Bulk service-area import and activation remain disabled. An inactive LA County proposal exists only on isolated commit `0ae12d7`; it is not integrated or authorized and still has migration, rollback, idempotency, importer-guard, and direct navigation race defects. Do not activate broad LA from a bbox or edit an already-applied migration.
+Bulk service-area import and activation remain disabled until Geography PR2 delivers the reviewed LA County dataset, deploy-independent versioned geometry, provenance/checksum enforcement, relationship import, and atomic bounds recomputation. Do not activate broad LA from a bbox or edit an already-applied migration.
 
-Budget filters are treated as range-overlap filters: a buyer matches when the buyer's max budget is at or above the seller's minimum and the buyer's min budget is at or below the seller's maximum. The persisted seller-search path applies geography, budget, property-fit criteria, condition, canonical amenities, active badges, and sorting in `apps/web/server/seller-search-query.ts`. The obsolete in-memory fixture search has been removed; `apps/web/server/domain.ts` now contains only route/invite invariants still shared by runtime code. Amenity filters match the canonical criteria feature tokens (Pool, Parking, ADU, Yard, Garage).
+Budget filters are treated as range-overlap filters: a buyer matches when the buyer's max budget is at or above the seller's minimum and the buyer's min budget is at or below the seller's maximum. The persisted seller-search path applies geography, budget, property-fit criteria, condition, canonical amenities, active badges, and sorting in `apps/web/server/seller-search-query.ts`; `apps/web/server/domain.ts` remains fixture-only test behavior. Amenity filters match the canonical criteria feature tokens (Pool, Parking, ADU, Yard, Garage).
 
 Persisted seller search uses keyset pagination rather than an offset or fixed pre-filter cap. The result contract returns unchanged seller-safe buyer DTO items plus page metadata. Each opaque cursor is bound to the current filter/sort fingerprint, the first-page snapshot, the last SQL sort key, and buyer id. Ordering always includes buyer id as a unique tiebreaker. Cursors expire after 30 minutes and reject future snapshots; new profiles created after the first-page snapshot do not enter later pages. List and map receive the same page items. Cursor snapshots do not recreate historical values for profiles edited between requests, so mutable-sort updates remain eventually consistent.
 
 Do not add search filters based on protected-class proxies or unnecessary personal attributes.
 
-Seller buyer reads use two explicit response contracts in
-`apps/web/server/buyer-dtos.ts`, with browser-safe type definitions in
-`apps/web/lib/buyer-dto-types.ts`:
-
-- seller search returns the buyer profile routing ID, generated alias/avatar,
-  approved purchase/property types, broad canonical location, budget/down
-  payment ranges, approved criteria, active unexpired badges, a canonical
-  service-area map point, refresh date, and a server-derived invite flag;
-- seller-view profile returns the buyer profile routing ID, generated
-  alias/avatar, approved purchase/property types, broad canonical location,
-  budget/down payment ranges, approved needs/wants, active unexpired
-  badges, and server-derived viewer flags.
-
-Both contracts are built from dedicated Prisma `select` projections. Auth
-UUIDs may be selected only for server-side alias fallback and ownership checks;
-they are never serialized. Criteria/service-area IDs, raw buyer coordinates,
-account names/contact data, documents, Storage paths, and inactive badges are
-not response fields. Runtime queries and DTO mapping both fail closed unless
-the application user, buyer profile, selected canonical service area, and its
-market are active.
-
-Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN` on the buyer search query against realistic data volume. Legacy city/state/ZIP lookup indexes are removed by the canonical cutover. Public launch requires measured indexes for the active canonical-area join, budget overlap, badge status, criteria filters, and sort/cursor patterns. The reserved `00020` proposal and temporary-table evidence live in `docs/engineering/SELLER_SEARCH_SQL_PROPOSAL.sql` and `docs/engineering/SELLER_SEARCH_SQL_EVIDENCE_2026-07-09.md`; neither is an applied migration or a production-like plan.
+Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN` on the buyer search query against realistic data volume. Legacy city/state/ZIP lookup indexes are removed by the canonical cutover. Public launch requires measured indexes for the active canonical-area join, budget overlap, badge status, criteria filters, and sort/cursor patterns. The current unnumbered CTO proposal and temporary-table evidence live in `docs/engineering/SELLER_SEARCH_SQL_PROPOSAL.sql` and `docs/engineering/SELLER_SEARCH_SQL_EVIDENCE_2026-07-09.md`; neither is an applied migration.
 
 ## Public buyer-demand preview
 
 `apps/web/server/buyer-preview.ts` powers the unauthenticated map-first homepage (V1 public preview rules). The homepage renders a public Zillow-style demand map (`apps/web/components/public-demand-map.tsx`) with budget-band pins plus preview cards and a signup wall.
 
 - reads at most 6 `ACTIVE` buyer profiles,
-- also requires an `ACTIVE` owning User, one active canonical selected area,
-  at least one criteria row, and allowlisted purchase/property types,
 - returns only privacy-safe fields: anonymized buyer-type label, coarse city/state, $50K-banded budget, structured criteria facts, active badge labels,
 - pin coordinates are approximate only: canonical service-area centers plus a deterministic display offset — never raw `desiredLat`/`desiredLng`,
 - never returns ids, names, avatars, exact locations, documents, or storage paths,
@@ -277,11 +234,6 @@ Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN
 - has no full public search/filter API and no buyer profile links; the only action is signup,
 - is best-effort: failures return an empty list / hide the map and must not break the homepage,
 - must not grow into public search or expose buyer profile URLs.
-
-`apps/web/server/buyer-dtos.ts` owns the dedicated public projection and DTO.
-The public `pin` is calculated on the server from the canonical service-area
-center plus a deterministic offset; neither raw buyer coordinates nor raw
-service-area coordinate field names are serialized.
 
 In a CEO demo / private preview environment, these records may come from clearly marked demo buyer seed data. In true production, preview records must come from real active buyer demand only.
 
@@ -299,20 +251,15 @@ Abuse-prone actions should be rate-limited:
 
 Important actions should write `AdminAuditLog` or equivalent operational events where supported.
 
-Login, signup/resend/recovery, buyer search/profile view, invite send, uploads,
-geocode, and property enrichment now call `apps/web/server/shared-rate-limit.ts`.
-It uses the Supabase-backed atomic fixed-window limiter proposed for `00017`,
-with HMAC identifiers, explicit expiry, an expiry index, and bounded pruning.
-IP denial short-circuits user/email bucket consumption where both apply.
-Production fails closed when the shared store is unavailable. Only local
-development may fall back to the bounded process-local map; that fallback is
-not a serverless security boundary. The historically named 32+ character
-`AUTH_RATE_LIMIT_PEPPER` protects every generic limiter identifier. The runtime
-must not deploy until `00017` is numbered and proven.
+Abuse controls use `app_private.consume_rate_limit` and `RateLimitBucket`, an atomic Postgres-backed fixed-window limiter shared by serverless instances. Invite quota remains a separate rolling-24-hour business invariant serialized in the invite transaction. Audit rows are not quota counters.
 
 ## Maintenance
 
-`POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET` and expires stale invites/badges.
+`POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET` and expires stale invites/badges. `GET /api/maintenance/outbox` uses the same bearer secret and runs every minute for leased email delivery, Auth bans, and abandoned-upload cleanup.
+
+Email and Auth jobs use atomic `FOR UPDATE SKIP LOCKED` claims, expiring leases, worker IDs, bounded retry, idempotency keys, provider message IDs, and worker heartbeats. Missing Resend configuration outside development/test is a job failure and a production-readiness failure.
+
+Invite email rows reference the invite they deliver. The worker revalidates deliverability immediately before provider submission, and terminal or identity-invalidated invites cancel unsent work instead of retrying it.
 
 Do not create unauthenticated maintenance endpoints.
 
@@ -320,9 +267,7 @@ Do not create unauthenticated maintenance endpoints.
 
 - Mapbox is optional and should degrade to the non-interactive map presentation. Canonical service-area metadata is not optional in production; database failures must log and fail closed instead of loading the static pilot catalog.
 - ATTOM/property enrichment must require auth and rate limits.
-- Resend transactional email is used only when configured. Local development
-  may return a non-sending mock; production throws when Resend is unavailable so
-  an outbox job is never marked SENT without provider delivery.
+- Resend transactional email is used only when configured.
 - Missing external keys should not break local development.
 
 ## Security invariants
@@ -331,10 +276,8 @@ Do not create unauthenticated maintenance endpoints.
 - No service role in browser code.
 - No private document public URLs.
 - No seller-directory access from role alone.
-- No app authorization from user-editable Auth metadata. Buyer/seller
-  self-selection comes from validated application forms after identity
-  verification; ADMIN roles and seller-directory approval come only from
-  server-controlled database state.
+- No app authorization from user-editable auth metadata. Signup metadata may bootstrap buyer/seller onboarding only; admin roles and seller-directory approval must come from server-controlled database state.
 - No public buyer profile exposure.
 - No weakening RLS/storage policy to satisfy UI behavior.
+- Sensitive Storage policies call `app_private.is_active_app_user(auth.uid())`, so suspension blocks a still-valid JWT. Suspension also disables seller access/properties/invites and enqueues a retryable Supabase Auth ban.
 - No production claims for escrow, money movement, or lender approval.

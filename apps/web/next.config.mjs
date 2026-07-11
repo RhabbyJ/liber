@@ -10,7 +10,7 @@ const isProduction = process.env.NODE_ENV === "production";
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@liber/db", "@liber/ui", "@liber/validators"],
+  transpilePackages: ["@liber/db", "@liber/validators"],
   async headers() {
     const securityHeaders = [
       {
@@ -25,7 +25,7 @@ const nextConfig = {
           "frame-ancestors 'none'",
           "img-src 'self' data: blob: https://*.supabase.co https://api.mapbox.com",
           "object-src 'none'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api.mapbox.com",
+          `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"} https://api.mapbox.com`,
           "style-src 'self' 'unsafe-inline' https://api.mapbox.com",
           ...(isProduction ? ["upgrade-insecure-requests"] : []),
           "worker-src 'self' blob:",

@@ -64,6 +64,11 @@ try {
     ["test", "-w", "@liber/web", "--", "server/service-area-db.e2e.test.ts"],
     testEnv,
   );
+  run(
+    process.platform === "win32" ? "npm.cmd" : "npm",
+    ["test", "-w", "@liber/web", "--", "server/architecture-db.e2e.test.ts"],
+    testEnv,
+  );
 } finally {
   await dropSentinel(testUrl);
 }

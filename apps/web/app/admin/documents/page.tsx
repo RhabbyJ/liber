@@ -33,13 +33,7 @@ export default async function AdminDocumentsPage() {
                 <td>{document.owner}</td>
                 <td>{document.subject}</td>
                 <td>{document.type}</td>
-                <td>
-                  {document.ownershipEvidenceAuditOnly
-                    ? "Legacy audit-only"
-                    : document.ownershipEvidenceStale
-                      ? "Prior property version"
-                      : document.status}
-                </td>
+                <td>{document.status}</td>
                 <td>
                   {signedUrl ? (
                     <a href={signedUrl} rel="noreferrer" target="_blank">Open</a>
@@ -52,25 +46,23 @@ export default async function AdminDocumentsPage() {
                     <form action={submitDocumentReview}>
                       <input name="documentId" type="hidden" value={document.id} />
                       <input name="decision" type="hidden" value="APPROVED" />
-                      {document.documentType === "OWNERSHIP" && !document.ownershipEvidenceKind ? (
-                        <select aria-label="Ownership evidence type" name="ownershipEvidenceKind" required>
-                          <option value="">Classify evidence</option>
-                          <option value="GOVERNMENT_ID">Government-issued photo ID</option>
-                          <option value="PROPERTY_ADDRESS_PROOF">Property address proof</option>
-                        </select>
+                      {document.ownershipEvidenceKind === "GOVERNMENT_ID" ? (
+                        <>
+                          <label className="checkbox-row"><input name="identityMatchesOwner" required type="checkbox" value="true" />Identity matches title owner/entity decision-maker</label>
+                          <label className="checkbox-row"><input name="authorityConfirmed" required type="checkbox" value="true" />Seller authority confirmed</label>
+                        </>
                       ) : null}
-                      <button className="button" disabled={document.ownershipEvidenceStale} type="submit">Approve</button>
+                      {document.ownershipEvidenceKind === "PROPERTY_ADDRESS_PROOF" ? (
+                        <>
+                          <label className="checkbox-row"><input name="addressMatchesProperty" required type="checkbox" value="true" />Evidence matches property address</label>
+                          <label className="checkbox-row"><input name="ownerOrEntityMatches" required type="checkbox" value="true" />Owner/entity name matches</label>
+                        </>
+                      ) : null}
+                      <button className="button" type="submit">Approve</button>
                     </form>
                     <form action={submitDocumentReview}>
                       <input name="documentId" type="hidden" value={document.id} />
                       <input name="decision" type="hidden" value="REJECTED" />
-                      {document.documentType === "OWNERSHIP" && !document.ownershipEvidenceKind ? (
-                        <select aria-label="Ownership evidence type" name="ownershipEvidenceKind" required>
-                          <option value="">Classify evidence</option>
-                          <option value="GOVERNMENT_ID">Government-issued photo ID</option>
-                          <option value="PROPERTY_ADDRESS_PROOF">Property address proof</option>
-                        </select>
-                      ) : null}
                       <button className="button secondary" type="submit">Reject</button>
                     </form>
                   </div>

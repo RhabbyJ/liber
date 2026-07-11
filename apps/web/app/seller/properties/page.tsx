@@ -59,7 +59,7 @@ export default async function SellerPropertiesPage() {
       ) : (
         <section className="grid two">
           {properties.map((property) => {
-            const verified = property.ownershipVerificationStatus === "APPROVED";
+            const verified = property.status.toLowerCase().includes("verified");
             return (
               <article className="property-card" key={property.id}>
                 <div className="media-preview">

@@ -70,6 +70,13 @@ enum PropertyVerificationStatus {
   REJECTED
 }
 
+enum PropertyStatus {
+  DRAFT
+  READY_FOR_REVIEW
+  READY_FOR_INVITES
+  ARCHIVED
+}
+
 enum DocumentType {
   OWNERSHIP
   PRE_APPROVAL
@@ -102,6 +109,29 @@ enum EmailOutboxStatus {
   PENDING
   SENDING
   SENT
+  FAILED
+  CANCELLED
+}
+
+enum UploadSessionStatus {
+  PENDING
+  UPLOADED
+  FINALIZED
+  REJECTED
+  EXPIRED
+  CLEANED
+}
+
+enum UploadPurpose {
+  BUYER_VERIFICATION
+  PROPERTY_IMAGE
+  PROPERTY_OWNERSHIP
+}
+
+enum AuthOperationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
   FAILED
 }
 
@@ -138,9 +168,14 @@ model User {
   badgesGranted       BuyerBadge[]           @relation("BadgeGranter")
   documentsReviewed   VerificationDocument[] @relation("DocumentReviewer")
   auditLogs           AdminAuditLog[]        @relation("AuditActor")
+  authorityAttestations SellerProperty[]     @relation("PropertyAuthorityAttester")
+  propertyDecisions   PropertyVerificationDecision[] @relation("PropertyDecisionReviewer")
+  uploadSessions      UploadSession[]
+  authOperations      AuthOperation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
 }
 
 model SellerAccess {
@@ -183,12 +218,13 @@ model BuyerProfile {
   profileCompleteness Int                   @default(0)
   lastRefreshedAt     DateTime?
 
-  criteria            BuyerCriteria?
+  criteria            BuyerCriteria[]
   badges              BuyerBadge[]
   invites             Invite[]
   documents           VerificationDocument[]
   desiredServiceAreas BuyerDesiredServiceArea[]
   geographyQuarantine ServiceAreaMigrationQuarantine?
+  uploadSessions      UploadSession[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -386,13 +422,23 @@ model SellerProperty {
   features                    String[]                   @default([])
   description                 String?
   price                       Decimal?                   @db.Decimal(12, 2)
-  ownershipVersion            Int                        @default(1)
   ownershipVerificationStatus PropertyVerificationStatus @default(NOT_SUBMITTED)
+  status                      PropertyStatus             @default(DRAFT)
+  identityVersion             Int                        @default(1)
+  addressFingerprint          String?
+  providerPropertyId          String?
+  authorityAttestedAt         DateTime?
+  authorityAttestedByUserId   String?                    @db.Uuid
+  authorityAttestedBy         User?                      @relation("PropertyAuthorityAttester", fields: [authorityAttestedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  attestationVersion          String?
+  authorityAttestedIdentityVersion Int?
   flaggedForReviewAt          DateTime?
 
   images    PropertyImage[]
   invites   Invite[]
   documents VerificationDocument[]
+  verificationDecisions PropertyVerificationDecision[]
+  uploadSessions UploadSession[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -400,18 +446,22 @@ model SellerProperty {
   @@index([ownerUserId])
   @@index([city, state])
   @@index([propertyType])
+  @@index([status])
+  @@index([authorityAttestedByUserId])
 }
 
 model PropertyImage {
   id          String         @id @default(cuid())
   propertyId  String
   property    SellerProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  storagePath String
+  storagePath String         @unique
+  propertyIdentityVersion Int
   altText     String?
   sortOrder   Int            @default(0)
   createdAt   DateTime       @default(now())
 
   @@index([propertyId])
+  @@index([propertyId, propertyIdentityVersion])
 }
 
 model VerificationDocument {
@@ -425,24 +475,27 @@ model VerificationDocument {
   propertyId       String?
   property         SellerProperty? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  documentType             DocumentType
-  fileSha256               String?
-  fileSizeBytes            Int?
-  mimeType                 String?
-  storageBucket            String                 @default("verification-documents")
-  storagePath              String
-  originalFilename         String?
-  uploadedAt               DateTime               @default(now())
-  reviewStatus             DocumentStatus         @default(PENDING)
-  reviewedByUserId         String?                @db.Uuid
-  reviewedBy               User?                  @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
-  reviewedAt               DateTime?
-  reviewNotes              String?
-  rejectionReason          String?
-  ownershipEvidenceKind    OwnershipEvidenceKind?
-  propertyOwnershipVersion Int?
+  documentType          DocumentType
+  fileSha256            String?
+  fileSizeBytes         Int?
+  mimeType              String?
+  storageBucket         String                 @default("verification-documents")
+  storagePath           String
+  originalFilename      String?
+  uploadedAt            DateTime               @default(now())
+  reviewStatus          DocumentStatus         @default(PENDING)
+  reviewedByUserId      String?                @db.Uuid
+  reviewedBy            User?                  @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  reviewedAt            DateTime?
+  reviewNotes           String?
+  reviewChecklist       Json?
+  rejectionReason       String?
+  ownershipEvidenceKind OwnershipEvidenceKind?
+  propertyIdentityVersion Int?
 
   badgeEvidence BuyerBadge[] @relation("BadgeEvidence")
+  governmentIdDecisions PropertyVerificationDecision[] @relation("GovernmentIdDecision")
+  addressEvidenceDecisions PropertyVerificationDecision[] @relation("AddressEvidenceDecision")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -452,7 +505,8 @@ model VerificationDocument {
   @@index([uploadedByUserId])
   @@index([buyerProfileId])
   @@index([propertyId])
-  @@index([propertyId, propertyOwnershipVersion, ownershipEvidenceKind, reviewStatus])
+  @@index([propertyId, ownershipEvidenceKind])
+  @@index([propertyId, propertyIdentityVersion, reviewStatus])
   @@index([reviewedByUserId])
   @@index([reviewStatus])
 }
@@ -465,6 +519,7 @@ model Invite {
   buyerProfile   BuyerProfile   @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
   propertyId     String
   property       SellerProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  propertyIdentityVersion Int
 
   title       String
   message     String
@@ -472,16 +527,18 @@ model Invite {
   sentAt      DateTime     @default(now())
   viewedAt    DateTime?
   respondedAt DateTime?
-  expiresAt   DateTime     @default(dbgenerated("(now() + '30 days'::interval)"))
+  expiresAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  emailOutbox EmailOutbox[]
+
   @@index([sellerId])
   @@index([buyerProfileId])
   @@index([propertyId])
+  @@index([propertyId, propertyIdentityVersion])
   @@index([status])
-  @@index([status, expiresAt])
 }
 
 model Notification {
@@ -515,26 +572,119 @@ model AdminAuditLog {
 }
 
 model EmailOutbox {
-  id              String            @id @default(cuid())
-  type            String
-  to              String
-  recipientUserId String?           @db.Uuid
-  subject         String?
-  templateName    String?
-  payload         Json
-  status          EmailOutboxStatus @default(PENDING)
-  attempts        Int               @default(0)
-  lastError       String?
-  nextAttemptAt   DateTime?
-  sentAt          DateTime?
-  cancelledAt     DateTime?
-  leaseToken      String?           @db.Uuid
-  leaseExpiresAt  DateTime?
+  id            String            @id @default(cuid())
+  type          String
+  to            String
+  subject       String?
+  templateName  String?
+  payload       Json
+  status        EmailOutboxStatus @default(PENDING)
+  attempts      Int               @default(0)
+  lastError     String?
+  nextAttemptAt DateTime?
+  sentAt        DateTime?
+  lockedAt      DateTime?
+  leaseUntil    DateTime?
+  workerId      String?
+  providerMessageId String?
+  idempotencyKey String            @unique
+  inviteId       String?
+  invite         Invite?           @relation(fields: [inviteId], references: [id], onDelete: SetNull, onUpdate: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status, nextAttemptAt])
-  @@index([recipientUserId, cancelledAt])
+  @@index([status, leaseUntil])
   @@index([createdAt])
+  @@index([inviteId])
+}
+
+model PropertyVerificationDecision {
+  id                        String               @id @default(cuid())
+  propertyId                String
+  property                  SellerProperty       @relation(fields: [propertyId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  propertyIdentityVersion   Int
+  reviewerUserId            String               @db.Uuid
+  reviewer                  User                 @relation("PropertyDecisionReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  governmentIdDocumentId    String
+  governmentIdDocument      VerificationDocument @relation("GovernmentIdDecision", fields: [governmentIdDocumentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  addressEvidenceDocumentId String
+  addressEvidenceDocument   VerificationDocument @relation("AddressEvidenceDecision", fields: [addressEvidenceDocumentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  decision                  PropertyVerificationStatus
+  checklist                 Json
+  notes                     String?
+  reviewedAt                DateTime             @default(now())
+  createdAt                 DateTime             @default(now())
+
+  @@unique([propertyId, propertyIdentityVersion])
+  @@index([reviewerUserId])
+}
+
+model UploadSession {
+  id                      String              @id @default(cuid())
+  ownerUserId             String              @db.Uuid
+  owner                   User                @relation(fields: [ownerUserId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  purpose                 UploadPurpose
+  status                  UploadSessionStatus @default(PENDING)
+  bucket                  String
+  storagePath             String              @unique
+  originalFilename        String
+  expectedSizeBytes       Int
+  expectedMimeType        String
+  propertyId              String?
+  property                SellerProperty?     @relation(fields: [propertyId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  buyerProfileId          String?
+  buyerProfile            BuyerProfile?       @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  documentType            DocumentType?
+  ownershipEvidenceKind   OwnershipEvidenceKind?
+  propertyIdentityVersion Int?
+  uploadedAt              DateTime?
+  finalizedAt             DateTime?
+  expiresAt               DateTime
+  rejectionReason         String?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  @@index([ownerUserId, status, expiresAt])
+  @@index([propertyId])
+  @@index([buyerProfileId])
+}
+
+model AuthOperation {
+  id            String              @id @default(cuid())
+  userId        String              @db.Uuid
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  type          String
+  status        AuthOperationStatus @default(PENDING)
+  attempts      Int                 @default(0)
+  lastError     String?
+  nextAttemptAt DateTime?
+  lockedAt      DateTime?
+  leaseUntil    DateTime?
+  workerId      String?
+  completedAt   DateTime?
+  idempotencyKey String             @unique
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([status, nextAttemptAt, leaseUntil])
+  @@index([userId])
+}
+
+model RateLimitBucket {
+  key         String   @id
+  count       Int
+  windowStart DateTime
+  expiresAt   DateTime
+  updatedAt   DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
+model WorkerHeartbeat {
+  worker    String   @id
+  lastRunAt DateTime
+  metadata  Json?
+  updatedAt DateTime @updatedAt
 }

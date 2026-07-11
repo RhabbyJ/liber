@@ -85,8 +85,12 @@ export function PropertyAddressLookup({
 
     setIsLookingUp(true);
     try {
-      const params = new URLSearchParams({ addressLine1, city, market: marketSlug, state, zip });
-      const response = await fetch(`/api/property/enrich?${params}`, { cache: "no-store" });
+      const response = await fetch("/api/property/enrich", {
+        body: JSON.stringify({ addressLine1, city, market: marketSlug, state, zip }),
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
       const payload = await response.json();
 
       if (!response.ok || !payload.property) {
