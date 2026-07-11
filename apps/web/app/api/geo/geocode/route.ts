@@ -10,6 +10,7 @@ import {
 } from "../../../../server/service-areas";
 import { checkRateLimit, clientIpFromRequest } from "../../../../server/rate-limit";
 import { getSessionUser } from "../../../../server/session";
+import { fetchWithRetry } from "../../../../server/external-fetch";
 
 type GeocodeResult = {
   city: string;
@@ -31,8 +32,10 @@ export async function GET(request: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Authentication required.", results: [] }, { status: 401 });
 
-  const ipLimit = checkRateLimit(`geocode:ip:${clientIpFromRequest(request)}`, 60, 60_000);
-  const userLimit = checkRateLimit(`geocode:user:${user.id}`, 40, 60_000);
+  const [ipLimit, userLimit] = await Promise.all([
+    checkRateLimit(`geocode:ip:${clientIpFromRequest(request)}`, 60, 60_000),
+    checkRateLimit(`geocode:user:${user.id}`, 40, 60_000),
+  ]);
   if (!ipLimit.allowed || !userLimit.allowed) {
     const retryAfter = Math.max(ipLimit.retryAfterSeconds, userLimit.retryAfterSeconds);
     return NextResponse.json(
@@ -87,7 +90,7 @@ export async function GET(request: Request) {
     types: kind === "address" ? "address,postcode,place" : "postcode,place",
   });
 
-  const response = await fetch(`https://api.mapbox.com/search/geocode/v6/forward?${params}`, {
+  const response = await fetchWithRetry(`https://api.mapbox.com/search/geocode/v6/forward?${params}`, {
     cache: "no-store",
   });
 

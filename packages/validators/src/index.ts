@@ -33,12 +33,9 @@ export const buyingPurposeSchema = seekingPropertyTypeSchema;
 
 export const badgeTypeSchema = z.enum([
   "PRE_APPROVED",
-  "EARNEST_MONEY_DEPOSITED",
   "CASH_BUYER",
-  "NON_CONTINGENT",
   "VERIFIED_IDENTITY",
   "VERIFIED_FUNDS",
-  "COMPLETED_TRANSACTION",
 ]);
 
 export const inviteStatusSchema = z.enum([
@@ -184,6 +181,7 @@ export const createSellerPropertySchema = z.object({
   zip: z.string().trim().max(16).optional(),
   lat: z.coerce.number().min(-90).max(90).optional(),
   lng: z.coerce.number().min(-180).max(180).optional(),
+  providerPropertyId: z.string().trim().min(1).max(160).optional(),
   propertyType: propertySubtypeSchema,
   bedrooms: optionalInteger,
   bathrooms: optionalInteger,
@@ -199,6 +197,7 @@ export const createSellerPropertySchema = z.object({
 });
 
 export const updateSellerPropertySchema = createSellerPropertySchema.partial().extend({
+  ownershipConfirmed: z.literal(true),
   propertyId: z.string().min(1),
 });
 
@@ -247,11 +246,15 @@ export const reviewDocumentSchema = z.object({
   documentId: z.string().min(1),
   decision: z.enum(["APPROVED", "REJECTED"]),
   rejectionReason: z.string().trim().max(500).optional(),
+  identityMatchesOwner: z.boolean().optional(),
+  authorityConfirmed: z.boolean().optional(),
+  addressMatchesProperty: z.boolean().optional(),
+  ownerOrEntityMatches: z.boolean().optional(),
 });
 
 export const grantBadgeSchema = z.object({
   buyerProfileId: z.string().min(1),
-  badgeType: badgeTypeSchema,
+  badgeType: z.enum(["PRE_APPROVED", "VERIFIED_IDENTITY", "VERIFIED_FUNDS"]),
   evidenceDocumentId: z.string().min(1).optional(),
   expiresAt: z.coerce.date().optional(),
   notes: z.string().trim().max(500).optional(),
@@ -287,6 +290,33 @@ export const respondToInviteSchema = z.object({
   response: z.enum(["ACCEPTED", "DECLINED"]),
 });
 
+export const createUploadSessionSchema = z.object({
+  purpose: z.enum(["BUYER_VERIFICATION", "PROPERTY_IMAGE", "PROPERTY_OWNERSHIP"]),
+  propertyId: z.string().min(1).max(200).optional(),
+  documentType: z.enum(["PRE_APPROVAL", "VERIFIED_FUNDS", "IDENTITY"]).optional(),
+  ownershipEvidenceKind: z.enum(["GOVERNMENT_ID", "PROPERTY_ADDRESS_PROOF"]).optional(),
+  filename: z.string().trim().min(1).max(255).refine((value) => !/[\\/]/.test(value), "Filename must not contain a path."),
+  sizeBytes: z.number().int().positive().max(20 * 1_048_576),
+  mimeType: z.enum(["application/pdf", "image/png", "image/jpeg", "image/webp"]),
+}).superRefine((input, context) => {
+  if (input.purpose === "PROPERTY_IMAGE") {
+    if (!input.propertyId) context.addIssue({ code: "custom", message: "Property is required.", path: ["propertyId"] });
+    if (input.mimeType === "application/pdf") context.addIssue({ code: "custom", message: "Property images must be PNG, JPG, or WebP.", path: ["mimeType"] });
+    if (input.sizeBytes > 10 * 1_048_576) context.addIssue({ code: "custom", message: "Property images must be 10 MB or smaller.", path: ["sizeBytes"] });
+  }
+  if (input.purpose === "PROPERTY_OWNERSHIP") {
+    if (!input.propertyId) context.addIssue({ code: "custom", message: "Property is required.", path: ["propertyId"] });
+    if (!input.ownershipEvidenceKind) context.addIssue({ code: "custom", message: "Ownership evidence kind is required.", path: ["ownershipEvidenceKind"] });
+  }
+  if (input.purpose === "BUYER_VERIFICATION" && !input.documentType) {
+    context.addIssue({ code: "custom", message: "Document type is required.", path: ["documentType"] });
+  }
+});
+
+export const finalizeUploadSessionSchema = z.object({
+  sessionId: z.string().min(1).max(200),
+});
+
 export type CreateBuyerProfileInput = z.infer<typeof createBuyerProfileSchema>;
 export type UpdateBuyerProfileInput = z.infer<typeof updateBuyerProfileSchema>;
 export type UpsertBuyerCriteriaInput = z.infer<typeof upsertBuyerCriteriaSchema>;
@@ -295,3 +325,4 @@ export type UpdateSellerPropertyInput = z.infer<typeof updateSellerPropertySchem
 export type SendInviteInput = z.infer<typeof sendInviteSchema>;
 export type SearchBuyersInput = z.infer<typeof searchBuyersSchema>;
 export type SellerAccessReviewInput = z.infer<typeof sellerAccessReviewSchema>;
+export type CreateUploadSessionInput = z.infer<typeof createUploadSessionSchema>;

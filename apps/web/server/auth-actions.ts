@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { redirect } from "next/navigation";
 import { safeInternalPath } from "../lib/redirect";
 import { ensureSellerAccessRequested } from "./access";
@@ -10,6 +11,7 @@ import {
 import { pathForSignedInAuthIntent } from "./auth-intent";
 import type { AppRole } from "./authz";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
+import { assertRateLimit } from "./rate-limit";
 
 function requiredText(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -61,6 +63,8 @@ export async function signupWithPassword(formData: FormData) {
   if (password.length < 12) {
     redirect(signupRedirectPath(formData, "weak-password", email));
   }
+
+  await assertRateLimit(`signup:email:${identityRateKey(email)}`, 5, 60 * 60_000);
 
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -147,6 +151,8 @@ export async function resendSignupConfirmation(formData: FormData) {
     throw new Error("Supabase Auth is not configured.");
   }
 
+  await assertRateLimit(`signup-resend:email:${identityRateKey(email)}`, 3, 60 * 60_000);
+
   const { error } = await supabase.auth.resend({
     email,
     options: { emailRedirectTo: redirectTo },
@@ -159,6 +165,10 @@ export async function resendSignupConfirmation(formData: FormData) {
 
 function shouldAutoConfirmLocalSignup() {
   return process.env.NODE_ENV !== "production" && process.env.LIBER_AUTO_CONFIRM_SIGNUPS === "true";
+}
+
+function identityRateKey(email: string) {
+  return createHash("sha256").update(email.trim().toLowerCase()).digest("hex").slice(0, 24);
 }
 
 function textValue(formData: FormData, key: string) {

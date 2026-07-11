@@ -1,4 +1,5 @@
 import { prisma } from "@liber/db";
+import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { safeInternalPath } from "../../../../lib/redirect";
 import { normalizeIdentityEmail } from "../../../../server/auth-identity";
@@ -12,13 +13,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid origin." }, { status: 403 });
   }
 
-  const limit = checkRateLimit(`login:ip:${clientIpFromRequest(request)}`, 10, 60_000);
-  if (!limit.allowed) {
-    const response = redirectTo(request, "/login?status=rate-limited");
-    response.headers.set("Retry-After", String(limit.retryAfterSeconds));
-    return response;
-  }
-
   const formData = await request.formData();
   const next = safeInternalPath(formData.get("next"));
   const email = textValue(formData, "email");
@@ -26,6 +20,24 @@ export async function POST(request: NextRequest) {
 
   if (!email || !password) {
     return redirectTo(request, `/login?status=missing-credentials&email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
+  }
+
+  const limit = await checkRateLimit(`login:ip:${clientIpFromRequest(request)}`, 10, 60_000);
+  if (!limit.allowed) {
+    const response = redirectTo(request, "/login?status=rate-limited");
+    response.headers.set("Retry-After", String(limit.retryAfterSeconds));
+    return response;
+  }
+
+  const emailLimit = await checkRateLimit(
+    `login:email:${createHash("sha256").update(email.toLowerCase()).digest("hex").slice(0, 24)}`,
+    10,
+    60_000,
+  );
+  if (!emailLimit.allowed) {
+    const response = redirectTo(request, "/login?status=rate-limited");
+    response.headers.set("Retry-After", String(emailLimit.retryAfterSeconds));
+    return response;
   }
 
   const supabase = await createSupabaseServerClient();

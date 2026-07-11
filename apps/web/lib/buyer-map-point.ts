@@ -1,5 +1,9 @@
-import type { Buyer } from "./mock-data";
-
-export function approximateBuyerPoint(buyer: Buyer) {
-  return buyer.primaryServiceArea?.center ?? null;
+export function approximateBuyerPoint(buyer: {
+  lat: number;
+  lng: number;
+  primaryServiceArea?: { center: { lat: number; lng: number } };
+  serviceAreaSlug?: string;
+}) {
+  if (buyer.primaryServiceArea?.center) return buyer.primaryServiceArea.center;
+  return buyer.serviceAreaSlug && buyer.lat && buyer.lng ? { lat: buyer.lat, lng: buyer.lng } : null;
 }

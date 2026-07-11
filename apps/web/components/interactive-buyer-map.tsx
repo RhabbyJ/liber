@@ -5,11 +5,11 @@ import { formatRange } from "../lib/format";
 import { approximateBuyerPoint } from "../lib/buyer-map-point";
 import { marketMapBounds, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
 import { loadMapboxGl } from "../lib/mapbox-gl-loader";
-import type { Buyer } from "../lib/mock-data";
+import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
 import { StaticBuyerMap } from "./static-buyer-map";
 
 type Props = {
-  buyers: Buyer[];
+  buyers: SellerBuyerSummaryDTO[];
   market: MarketMapContext;
   selectedServiceArea?: SelectedMapArea | null;
   token: string;
@@ -17,7 +17,7 @@ type Props = {
 };
 
 type BuyerPoint = {
-  buyer: Buyer;
+  buyer: SellerBuyerSummaryDTO;
   lat: number;
   lng: number;
 };
@@ -292,7 +292,7 @@ function markerOffset(index: number, count: number): [number, number] {
   return [Math.round(Math.cos(angle) * radius), Math.round(Math.sin(angle) * radius)];
 }
 
-function budgetPinLabel(buyer: Buyer) {
+function budgetPinLabel(buyer: SellerBuyerSummaryDTO) {
   const budget = buyer.budgetMax || buyer.budgetMin;
   if (!budget) return "Buyer";
   if (budget >= 1_000_000) {
@@ -302,9 +302,9 @@ function budgetPinLabel(buyer: Buyer) {
   return `$${Math.round(budget / 1000)}K`;
 }
 
-function popupHtml(buyer: Buyer, viewerUserId?: string) {
+function popupHtml(buyer: SellerBuyerSummaryDTO, _viewerUserId?: string) {
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active").map((badge) => badge.label).slice(0, 2);
-  const canInvite = buyer.userId !== viewerUserId;
+  const canInvite = buyer.canInvite;
 
   return `
     <div class="buyer-map-popup">

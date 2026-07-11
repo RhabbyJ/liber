@@ -29,7 +29,7 @@ describe("auth identity ownership migration", () => {
     expect(migration).toContain(
       "REVOKE ALL ON FUNCTION app_private.handle_new_user() FROM PUBLIC, anon, authenticated, service_role",
     );
-    expect(schema.match(/User\??\s+@relation\([^\n]+onUpdate: Restrict\)/g)).toHaveLength(11);
+    expect(schema.match(/User\??\s+@relation\([^\n]+onUpdate: Restrict\)/g)).toHaveLength(15);
     expect(schema).not.toContain("@@index([email])");
   });
 

@@ -26,6 +26,10 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - Keep indexes aligned with search and ownership checks.
 - `PropertySubtype` values are `HOME` (displayed as House), `CONDO`, `TOWNHOUSE`, `MANUFACTURED`, and `LAND`.
 - `VerificationDocument.ownershipEvidenceKind` is nullable for legacy/non-ownership documents and typed for new seller ownership evidence.
+- `BuyerCriteria.buyerProfileId` is unique; an active buyer has exactly one criteria row and one active primary selected service area.
+- Property authority attestations, ownership decisions, documents, images, and invites are tied to `SellerProperty.identityVersion`.
+- `UploadSession.buyerProfileId` is a real foreign key. Abandoned sessions leave cleanup eligibility only after their object has been removed, then enter terminal `CLEANED` state.
+- `property-images` and `verification-documents` are private buckets; signed upload sessions authorize immutable server-selected paths.
 - Market and service-area records use immutable UUID primary keys. Service-area slugs are unique within `market_id`, not globally.
 - Active service-area metadata is public only when its parent market is active. RLS must preserve that rule.
 - Buyer and relationship joins reference service-area UUIDs. Buyers store one primary selection; no copied `DERIVED` rows are allowed.

@@ -1,5 +1,12 @@
-import type { Buyer } from "./mock-data";
 import { approximateBuyerPoint } from "./buyer-map-point";
+
+type MapBuyer = {
+  id: string;
+  lat: number;
+  lng: number;
+  primaryServiceArea?: { center: { lat: number; lng: number } };
+  serviceAreaSlug?: string;
+};
 
 export function mapboxServiceAreaQueries(feature: Record<string, any>) {
   const properties = feature.properties ?? {};
@@ -11,7 +18,7 @@ export function mapboxServiceAreaQueries(feature: Record<string, any>) {
     .map((value) => value.trim());
 }
 
-export function mapPinPosition(buyer: Buyer, buyers: Buyer[]) {
+export function mapPinPosition(buyer: MapBuyer, buyers: MapBuyer[]) {
   const buyerPoint = approximateBuyerPoint(buyer);
   if (!buyerPoint) return null;
   const points = buyers

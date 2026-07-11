@@ -1,6 +1,6 @@
 # Production Decisions
 
-Last reviewed: 2026-07-09
+Last reviewed: 2026-07-11
 
 This is the living launch-gate matrix for moving Liber from a controlled CEO
 demo/private preview to a public Los Angeles beta. It does not override
@@ -14,6 +14,20 @@ demo/private preview to a public Los Angeles beta. It does not override
   set has been deployed to the shared Supabase project.
 - The intended LA beta boundary is Los Angeles County. Activation waits for the
   reviewed Geography PR2 dataset and every security/scale gate below.
+
+## Architecture-boundary implementation status
+
+Migration `20260711071555_complete_architecture_boundaries` and its application changes implement the local code boundary for narrow seller DTOs, atomic buyer publication, versioned property evidence/decisions, direct upload sessions, private property images, suspension/Auth operations, rolling-24-hour invite serialization, leased email delivery, evidence-compatible badges, shared Postgres rate limiting, real lint/CI, and dependency-based readiness checks.
+
+Migration `20260711082500_close_property_identity_lifecycle` closes the remaining local identity boundary across seller attestation, property images, invites, invited-buyer access, delayed invite email, upload cleanup, and upload-session buyer ownership. The quality CI now supplies non-secret dummy Prisma URLs and Vercel installs from the lockfile with `npm ci`; the guarded `release-database-gate` remains mandatory before deployment.
+
+These changes are not a deployment claim. Fresh/upgrade/RLS/Storage/concurrency proof must run against guarded disposable and staging Supabase databases before the shared environment advances.
+
+OPSWAT MetaDefender Cloud v4 paid private processing is the selected sensitive-document scanner. Integration is intentionally pending production API credentials and private-processing/vendor terms; see `docs/engineering/UPLOAD_MALWARE_SCANNING.md`. This remains a public-launch blocker and must never be replaced with a mock clean result.
+
+Product-owner decision on 2026-07-11: do not add scanner API code or provisional scan-state behavior during this architecture-closure pass. Continue controlled-pilot debugging only; scanning must be completed before public launch.
+
+The seller invite quota is 25 sends per seller in the preceding rolling 24 hours. Private property images are available only to an active property owner, active admin, or active buyer whose invite is `SENT`, `VIEWED`, or `ACCEPTED`; `SENT` and `VIEWED` access ends when the invite expires. Browser access uses a short-lived signed URL and never exposes the stored object path.
 
 ## Required release sequence
 
@@ -44,48 +58,41 @@ demo/private preview to a public Los Angeles beta. It does not override
 
 - Run the direct two-connection identity harness and real staging Auth flows for
   deletion, email reuse, ownership preservation, and ADMIN non-inheritance.
-- Revoke/ban sessions and seller access when suspending a user.
-- Make Storage policies require an active application user and test suspended
-  users directly against Storage.
+- Prove the queued Auth ban, seller-access suspension, and retry/recovery path
+  against staging Auth.
+- Prove the active-application-user Storage policies with owner, invited buyer,
+  outsider, expired-invite, accepted-invite, and suspended-user connections.
 - Keep customer hard deletion disabled until retention, Storage, outbox, and
   audited purge behavior is implemented.
 
 ### Public and seller data contracts
 
-- Build public-safe and seller-safe data with narrow Prisma `select`
-  projections. Do not sanitize a broad internal buyer object after loading it.
-- Exclude Auth UUIDs, internal criteria/service-area IDs, raw coordinates,
-  private paths, and inactive badges from serialized responses.
-- Require an active user and explicit preview-safe eligibility; calculate
-  approximate public pins on the server and snapshot serialized responses.
+- Snapshot the narrow public/seller projections in staging and prove they omit
+  Auth UUIDs, internal criteria/service-area IDs, raw coordinates, private
+  paths, and inactive badges.
+- Prove active-user filtering and server-generated approximate pins with
+  representative production-like records.
 
 ### Buyer ownership and atomicity
 
-- Save profile, canonical service-area selection, activation, and criteria in
-  one transaction.
-- Enforce exactly one criteria row per buyer unless the product definition is
-  explicitly changed to support alternatives.
-- Test rollback, concurrent saves, exact UUID ownership, and geography
-  deactivation.
+- Run the guarded database tests for rollback, concurrent saves, exact UUID
+  ownership, the one-criteria invariant, and geography deactivation.
 
 ### Seller search, properties, and invites
 
-- Move filtering/sorting into SQL with stable cursor pagination; remove the
-  silent 100-buyer cap and post-cap JavaScript filtering.
-- Bind ownership approval to a property identity/version. Ownership-relevant
-  edits must increment the version and return the property to `PENDING` while
-  preserving old evidence for audit only.
-- Reject expired invites at read and use time, not only in maintenance.
+- Run the seller-search plan threshold on production-like volume and verify
+  live keyset pagination without the former silent cap.
+- Prove property identity invalidation, structured current-version approval,
+  rolling-24-hour quota serialization, and expired-invite rejection against a
+  disposable then staging database.
 
 ### Release infrastructure
 
-- Install a real ESLint configuration and execute it in CI.
-- Add exact fresh/upgrade migrations, typecheck, tests, production build,
-  RLS/Storage security tests, readiness validation, and realistic seller-search
-  query plans to CI/release gates.
-- Replace in-memory limits for auth, search, profile views, uploads, invites,
-  geocoding, and enrichment with a shared limiter.
-- Make email-outbox claiming lease-based and safe with multiple workers.
+- Run the checked-in quality CI and the guarded manual fresh/upgrade,
+  RLS/Storage, identity, concurrency, and query-plan jobs with protected
+  disposable-database secrets.
+- Exercise shared rate-limit contention and leased outbox recovery with
+  multiple workers, then confirm readiness against staging dependencies.
 
 ### UI/UX
 

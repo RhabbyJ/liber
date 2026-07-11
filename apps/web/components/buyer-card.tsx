@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { formatRange } from "../lib/format";
-import type { Buyer } from "../lib/mock-data";
+import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
 import { BadgePill } from "./badge-pill";
 import { GeneratedAvatar } from "./generated-avatar";
 import { Icon } from "./icon";
@@ -9,7 +9,7 @@ export function BuyerCard({
   buyer,
   variant = "row",
 }: {
-  buyer: Buyer;
+  buyer: SellerBuyerSummaryDTO;
   variant?: "home" | "row";
 }) {
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
@@ -20,7 +20,7 @@ export function BuyerCard({
     return (
       <article className="buyer-card" data-buyer-id={buyer.id}>
         <div className="buyer-card-head">
-          <GeneratedAvatar seed={buyer.userId || buyer.id} size="lg" variant={buyer.avatarVariant} />
+          <GeneratedAvatar seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
           <div>
             <h3>{buyer.name}</h3>
             <p className="muted small" style={{ marginTop: 2 }}>
@@ -62,7 +62,7 @@ export function BuyerCard({
   return (
     <article className="buyer-row" data-buyer-id={buyer.id}>
       <div className="buyer-row-profile">
-        <GeneratedAvatar seed={buyer.userId || buyer.id} size="lg" variant={buyer.avatarVariant} />
+        <GeneratedAvatar seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
         <div>
           <h3>{buyer.name}</h3>
           <p>{profileSummary}</p>
@@ -93,7 +93,7 @@ export function BuyerCard({
   );
 }
 
-function buyerFitSummary(buyer: Buyer) {
+function buyerFitSummary(buyer: SellerBuyerSummaryDTO) {
   const criteria = buyer.criteriaDetails[0];
   const facts = [
     criteria?.bedroomsMin ? `${criteria.bedroomsMin}+ bd` : null,

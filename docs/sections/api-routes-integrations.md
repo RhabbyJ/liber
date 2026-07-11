@@ -12,6 +12,9 @@ Owns Next route handlers and external provider adapters for auth callbacks, geoc
 - `apps/web/app/api/service-areas/[slug]/route.ts`
 - `apps/web/app/api/seller/buyers/route.ts`
 - `apps/web/app/api/property/enrich/route.ts`
+- `apps/web/app/api/uploads/sessions/route.ts`
+- `apps/web/app/api/uploads/sessions/[sessionId]/finalize/route.ts`
+- `apps/web/app/api/property-images/[imageId]/route.ts`
 - `apps/web/app/api/maintenance/expire/route.ts`
 - `apps/web/app/auth/callback/route.ts`
 - `apps/web/server/attom.ts`
@@ -32,6 +35,8 @@ Owns Next route handlers and external provider adapters for auth callbacks, geoc
 - Seller buyer APIs must require approved seller-directory access and return seller-safe buyer fields only.
 - State-changing routes need appropriate origin/session protection.
 - Property enrichment is for private seller property prep. It requires an authenticated seller/admin role and rate limits, but not approved seller-directory access.
+- Exact-address enrichment uses same-origin `POST` JSON with `private, no-store`; exact addresses must not appear in query strings.
+- Upload-session creation/finalization and private property-image signing are authenticated, same-origin, narrow-response endpoints.
 
 ## Agent notes
 

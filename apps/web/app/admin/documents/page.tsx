@@ -46,6 +46,18 @@ export default async function AdminDocumentsPage() {
                     <form action={submitDocumentReview}>
                       <input name="documentId" type="hidden" value={document.id} />
                       <input name="decision" type="hidden" value="APPROVED" />
+                      {document.ownershipEvidenceKind === "GOVERNMENT_ID" ? (
+                        <>
+                          <label className="checkbox-row"><input name="identityMatchesOwner" required type="checkbox" value="true" />Identity matches title owner/entity decision-maker</label>
+                          <label className="checkbox-row"><input name="authorityConfirmed" required type="checkbox" value="true" />Seller authority confirmed</label>
+                        </>
+                      ) : null}
+                      {document.ownershipEvidenceKind === "PROPERTY_ADDRESS_PROOF" ? (
+                        <>
+                          <label className="checkbox-row"><input name="addressMatchesProperty" required type="checkbox" value="true" />Evidence matches property address</label>
+                          <label className="checkbox-row"><input name="ownerOrEntityMatches" required type="checkbox" value="true" />Owner/entity name matches</label>
+                        </>
+                      ) : null}
                       <button className="button" type="submit">Approve</button>
                     </form>
                     <form action={submitDocumentReview}>

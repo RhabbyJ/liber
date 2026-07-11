@@ -29,6 +29,12 @@ Owns private seller property records, property images, ownership evidence upload
 - Invite is manual outreach only.
 - Invite response does not create an offer, escrow, or transaction.
 - Expired invites are rejected whenever they are read or used, even if the maintenance job has not updated their stored status yet.
+- Only current `READY_FOR_INVITES` properties can send invites. Invite quota means the preceding rolling 24 hours, not a calendar day.
+- Property images are private. The owner/admin may view them; invited buyers may view them only while invite status is `SENT`, `VIEWED`, or `ACCEPTED`.
+- Identity-relevant property edits increment `identityVersion`, reset ownership approval, and preserve prior versioned evidence for audit only.
+- Identity changes clear the seller attestation and withdraw `SENT`, `VIEWED`, and `ACCEPTED` invites. The seller must explicitly re-attest to the new version.
+- Property images and invites carry `propertyIdentityVersion`; invited buyers never receive mismatched images or invite details.
+- Invited-buyer image authorization is centralized in the database and also requires active buyer/seller state plus a current approved, unflagged, ready property.
 
 ## Agent notes
 

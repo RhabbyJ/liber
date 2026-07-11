@@ -43,6 +43,8 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - Public and seller DTO tests must snapshot serialized responses and recursively reject forbidden identity, coordinate, criteria-ID, service-area-ID, badge, document, and Storage fields.
 - Release CI must execute real ESLint, exact fresh and representative upgrade migrations, typecheck, tests, production build, RLS/Storage security tests, readiness validation, and realistic seller-search query plans.
 - Add concurrency tests for buyer save cardinality, distributed rate limits, outbox claim leases, and invite/property state transitions.
+- CI runs deterministic Prisma generation/validation, real ESLint, typecheck, unit tests, production build, and security smoke checks. Manual disposable-database jobs run exact fresh/upgrade, identity, RLS/geography, and seller-search plan gates using guarded branch credentials.
+- The non-database CI job uses syntactically valid local dummy database URLs only for Prisma configuration parsing. The manually initiated `release-database-gate` remains required before deployment and is the only job that receives protected disposable/shared database credentials.
 
 ## Agent notes
 

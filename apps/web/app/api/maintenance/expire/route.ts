@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createHash, timingSafeEqual } from "node:crypto";
-import { processEmailOutbox } from "../../../../server/email-outbox";
 import { expireMarketplaceState } from "../../../../server/maintenance";
 
 export async function GET(request: NextRequest) {
@@ -19,11 +18,8 @@ async function runMaintenance(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [expiration, emailOutbox] = await Promise.all([
-    expireMarketplaceState(),
-    processEmailOutbox(),
-  ]);
-  return NextResponse.json({ emailOutbox, expiration });
+  const expiration = await expireMarketplaceState();
+  return NextResponse.json({ expiration });
 }
 
 function authorizationMatches(authorization: string | null, secret: string) {

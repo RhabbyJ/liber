@@ -15,26 +15,10 @@ import {
   sendInvite,
   shuffleBuyerAvatarVariant,
   suspendUser,
-  updateBuyerProfile,
   updateSellerProperty,
-  uploadBuyerVerificationDocumentFile,
-  uploadOwnershipDocumentFile,
-  uploadPropertyImageFile,
-  upsertBuyerCriteria,
 } from "./contracts";
+import { saveBuyerProfile } from "./buyer/commands";
 import { requireApprovedSellerAccess } from "./access";
-import { propertySubtypeFromSeekingPropertyType } from "../lib/property-types";
-
-function isSubmittedFile(value: FormDataEntryValue): value is File {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "arrayBuffer" in value &&
-    "name" in value &&
-    "size" in value &&
-    Number(value.size) > 0
-  );
-}
 
 function safeSellerNext(formData: FormData) {
   const next = formData.get("next");
@@ -42,15 +26,7 @@ function safeSellerNext(formData: FormData) {
 }
 
 export async function submitBuyerProfile(formData: FormData) {
-  formData.set("visibilityStatus", "ACTIVE");
-  const { data: buyer } = await updateBuyerProfile(formData);
-
-  // The profile form's home-fit section doubles as the buyer's search criteria.
-  formData.set("buyerProfileId", buyer.id);
-  formData.set("propertySubtype", propertySubtypeFromSeekingPropertyType(formData.get("buyingPurpose")));
-  formData.set("priceMin", String(formData.get("budgetMin") ?? ""));
-  formData.set("priceMax", String(formData.get("budgetMax") ?? ""));
-  await upsertBuyerCriteria(formData);
+  const { data: buyer } = await saveBuyerProfile(formData, "PUBLISH");
 
   revalidatePath("/buyer/profile");
   revalidatePath(`/buyers/${buyer.id}`);
@@ -84,61 +60,21 @@ export async function respondToBuyerInvite(formData: FormData) {
   revalidatePath("/buyer/profile");
 }
 
-export async function submitBuyerVerificationDocument(formData: FormData) {
-  const document = formData.get("document");
-
-  if (!document || !isSubmittedFile(document)) {
-    redirect("/buyer/profile?verification=missing");
-  }
-
-  await uploadBuyerVerificationDocumentFile(formData.get("documentType"), document);
-  revalidatePath("/buyer/badges");
-  revalidatePath("/buyer/profile");
-  revalidatePath("/admin/documents");
-  redirect("/buyer/profile?verification=submitted");
-}
-
 export async function submitSellerProperty(formData: FormData) {
   const { data: property } = await createSellerProperty(formData);
-  const images = formData.getAll("images").filter(isSubmittedFile);
-  const ownershipIdentityDocument = formData.get("ownershipIdentity");
-  const ownershipProofDocument = formData.get("ownershipProof");
   const next = safeSellerNext(formData);
-
-  await Promise.all(images.map((image) => uploadPropertyImageFile(property.id, image)));
-
-  if (ownershipIdentityDocument && isSubmittedFile(ownershipIdentityDocument)) {
-    await uploadOwnershipDocumentFile(property.id, ownershipIdentityDocument, "GOVERNMENT_ID");
-  }
-
-  if (ownershipProofDocument && isSubmittedFile(ownershipProofDocument)) {
-    await uploadOwnershipDocumentFile(property.id, ownershipProofDocument, "PROPERTY_ADDRESS_PROOF");
-  }
 
   revalidatePath("/seller/properties");
   revalidatePath("/admin/documents");
-  if (next) redirect(next);
+  redirect(next ?? `/seller/properties/${property.id}/edit`);
 }
 
 export async function submitSellerPropertyUpdate(formData: FormData) {
   await updateSellerProperty(formData);
   const propertyId = formData.get("propertyId");
-  const images = formData.getAll("images").filter(isSubmittedFile);
-  const ownershipIdentityDocument = formData.get("ownershipIdentity");
-  const ownershipProofDocument = formData.get("ownershipProof");
 
   if (typeof propertyId !== "string") {
     throw new Error("Property is required.");
-  }
-
-  await Promise.all(images.map((image) => uploadPropertyImageFile(propertyId, image)));
-
-  if (ownershipIdentityDocument && isSubmittedFile(ownershipIdentityDocument)) {
-    await uploadOwnershipDocumentFile(propertyId, ownershipIdentityDocument, "GOVERNMENT_ID");
-  }
-
-  if (ownershipProofDocument && isSubmittedFile(ownershipProofDocument)) {
-    await uploadOwnershipDocumentFile(propertyId, ownershipProofDocument, "PROPERTY_ADDRESS_PROOF");
   }
 
   revalidatePath("/seller/properties");
@@ -149,14 +85,11 @@ export async function submitSellerPropertyUpdate(formData: FormData) {
 export async function submitInvite(formData: FormData) {
   await requireApprovedSellerAccess();
   const propertyId = formData.get("propertyId");
-  const images = formData.getAll("images").filter(isSubmittedFile);
 
   if (typeof propertyId !== "string") {
     throw new Error("Property is required.");
   }
 
-  await updateSellerProperty(formData);
-  await Promise.all(images.map((image) => uploadPropertyImageFile(propertyId, image)));
   await sendInvite(formData);
   revalidatePath("/seller/invites");
   revalidatePath(`/seller/properties/${propertyId}/edit`);

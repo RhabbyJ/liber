@@ -4,7 +4,7 @@ import { BadgePill } from "../../../components/badge-pill";
 import { GeneratedAvatar } from "../../../components/generated-avatar";
 import { Icon } from "../../../components/icon";
 import { formatRange } from "../../../lib/format";
-import { getPublicBuyerProfile } from "../../../server/contracts";
+import { getAuthorizedBuyerProfile } from "../../../server/contracts";
 import { getSessionUser } from "../../../server/session";
 
 export const metadata = {
@@ -17,7 +17,7 @@ export default async function PublicBuyerProfilePage({
   params: Promise<{ buyerProfileId: string }>;
 }) {
   const { buyerProfileId } = await params;
-  const result = await getPublicBuyerProfile(buyerProfileId);
+  const result = await getAuthorizedBuyerProfile(buyerProfileId);
   const user = await getSessionUser();
 
   if (!result.ok) {
@@ -68,7 +68,7 @@ export default async function PublicBuyerProfilePage({
         <aside className="public-profile-aside buyer-reference-aside">
           <div className="buyer-reference-photo">
             <div className="profile-avatar-mark">
-              <GeneratedAvatar seed={buyer.userId || buyer.id} size="xl" variant={buyer.avatarVariant} />
+              <GeneratedAvatar seed={buyer.avatarSeed} size="xl" variant={buyer.avatarVariant} />
             </div>
           </div>
 

@@ -6,11 +6,7 @@ import { submitBadgeGrant, submitBadgeRevoke } from "../../../server/form-action
 const badgeOptions = [
   ["PRE_APPROVED", "Admin-verified pre-approval"],
   ["VERIFIED_FUNDS", "Verified funds"],
-  ["EARNEST_MONEY_DEPOSITED", "Earnest money review"],
-  ["CASH_BUYER", "Cash buyer"],
-  ["NON_CONTINGENT", "Non-contingent"],
   ["VERIFIED_IDENTITY", "Verified identity"],
-  ["COMPLETED_TRANSACTION", "Completed transaction"],
 ];
 
 export default async function AdminBadgesPage() {

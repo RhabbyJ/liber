@@ -171,6 +171,20 @@ export function buildSellerSearchQuery(
     `);
   }
   for (const badge of filters.badges) {
+    if (badge === "CASH_BUYER") {
+      predicates.push(Prisma.sql`
+        buyer."buyerType" = 'Cash'
+        AND EXISTS (
+          SELECT 1
+          FROM ${schema}."BuyerBadge" cash_evidence
+          WHERE cash_evidence."buyerProfileId" = buyer.id
+            AND cash_evidence."badgeType"::text = 'VERIFIED_FUNDS'
+            AND cash_evidence.status::text = 'ACTIVE'
+            AND (cash_evidence."expiresAt" IS NULL OR cash_evidence."expiresAt" > ${snapshotAt})
+        )
+      `);
+      continue;
+    }
     predicates.push(Prisma.sql`
       EXISTS (
         SELECT 1
@@ -230,6 +244,7 @@ export function buildSellerSearchQuery(
         SELECT COUNT(*)::bigint AS active_badge_count
         FROM ${schema}."BuyerBadge" badge
         WHERE badge."buyerProfileId" = buyer.id
+          AND badge."badgeType"::text IN ('PRE_APPROVED', 'VERIFIED_IDENTITY', 'VERIFIED_FUNDS')
           AND badge.status::text = 'ACTIVE'
           AND (badge."expiresAt" IS NULL OR badge."expiresAt" > ${snapshotAt})
       ) active_badges ON TRUE

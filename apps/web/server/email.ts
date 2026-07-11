@@ -1,5 +1,7 @@
 "use server";
 
+import { fetchWithRetry } from "./external-fetch";
+
 export type InviteEmailInput = {
   buyerName: string;
   message: string;
@@ -24,11 +26,14 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#039;");
 }
 
-export async function sendInviteEmail(input: InviteEmailInput): Promise<EmailResult> {
+export async function sendInviteEmail(input: InviteEmailInput, idempotencyKey?: string): Promise<EmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
 
   if (!apiKey || !from || !input.to) {
+    if (process.env.NODE_ENV !== "development" && process.env.NODE_ENV !== "test") {
+      throw new Error("Resend is not configured or buyer email is missing.");
+    }
     return {
       provider: "mock",
       queued: false,
@@ -36,7 +41,7 @@ export async function sendInviteEmail(input: InviteEmailInput): Promise<EmailRes
     };
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await fetchWithRetry("https://api.resend.com/emails", {
     body: JSON.stringify({
       from,
       html: [
@@ -57,6 +62,7 @@ export async function sendInviteEmail(input: InviteEmailInput): Promise<EmailRes
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     },
     method: "POST",
   });

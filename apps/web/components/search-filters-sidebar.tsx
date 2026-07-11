@@ -60,7 +60,6 @@ const trustOptions = [
   { label: "Pre-approved", value: "PRE_APPROVED" },
   { label: "Verified funds", value: "VERIFIED_FUNDS" },
   { label: "Cash buyer", value: "CASH_BUYER" },
-  { label: "Non-contingent", value: "NON_CONTINGENT" },
 ];
 
 export function SearchFiltersSidebar({

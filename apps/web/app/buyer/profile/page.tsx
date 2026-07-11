@@ -3,6 +3,7 @@ import { marketSlugSchema } from "@liber/validators";
 import { BuyerProfileWizard } from "../../../components/buyer-profile-wizard";
 import { GeneratedAvatar } from "../../../components/generated-avatar";
 import { Icon } from "../../../components/icon";
+import { DirectUploadField } from "../../../components/direct-upload-field";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
 import { DEFAULT_MARKET_SLUG } from "../../../lib/service-areas";
 import { getActiveMarketOrFallback } from "../../../server/service-areas";
@@ -11,7 +12,6 @@ import {
   regenerateBuyerPublicAlias,
   shuffleBuyerAvatar,
   submitBuyerProfile,
-  submitBuyerVerificationDocument,
 } from "../../../server/form-actions";
 
 export default async function BuyerProfileBuilderPage({
@@ -60,8 +60,6 @@ export default async function BuyerProfileBuilderPage({
     { label: "Pre-approval", verified: hasPreApproval },
     { label: "Verified funds", verified: activeBadges.some((badge) => badge.type === "VERIFIED_FUNDS") },
     { label: "Cash buyer", verified: activeBadges.some((badge) => badge.type === "CASH_BUYER") },
-    { label: "Non-contingent preference", verified: activeBadges.some((badge) => badge.type === "NON_CONTINGENT") },
-    { label: "Completed transaction", verified: activeBadges.some((badge) => badge.type === "COMPLETED_TRANSACTION") },
   ].filter((item) => item.verified);
   const generalInformation = [
     { label: "Purchase type", value: buyer.type || "Not set" },
@@ -92,7 +90,7 @@ export default async function BuyerProfileBuilderPage({
             ? "Your pre-approval evidence is under review. You can upload updated proof of funds if anything changed."
             : "Upload a pre-approval letter or proof of funds. Liber reviews it; sellers only see the approved badge."}
       </p>
-      <form action={submitBuyerVerificationDocument} className="form-grid" encType="multipart/form-data">
+      <div className="form-grid">
         {verification === "missing" ? (
           <div className="auth-alert info field full">
             <strong>Add a file first</strong>
@@ -105,25 +103,18 @@ export default async function BuyerProfileBuilderPage({
             <span>Your document is private. Sellers will only see an approved badge.</span>
           </div>
         ) : null}
-        <div className="field">
-          <label htmlFor="documentType">Type</label>
-          <select id="documentType" name="documentType">
-            <option value="PRE_APPROVAL">Pre-approval letter</option>
-            <option value="VERIFIED_FUNDS">Proof of funds</option>
-          </select>
-        </div>
-        <div className="field">
-          <label htmlFor="document">File</label>
-          <input id="document" name="document" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
-          <span className="field-hint">PDF, PNG, JPEG, WebP - 25 MB max</span>
-        </div>
-        <div className="field full">
-          <button className="button primary" type="submit">
-            <Icon name="upload" size={14} />
-            Submit for review
-          </button>
-        </div>
-      </form>
+        <DirectUploadField
+          accept="application/pdf,image/png,image/jpeg,image/webp"
+          documentTypes={[
+            { label: "Pre-approval letter", value: "PRE_APPROVAL" },
+            { label: "Proof of funds", value: "VERIFIED_FUNDS" },
+            { label: "Government-issued identity", value: "IDENTITY" },
+          ]}
+          hint="PDF, PNG, JPEG, or WebP; 20 MB max. Uploads go directly to private Storage."
+          label="File"
+          purpose="BUYER_VERIFICATION"
+        />
+      </div>
     </article>
   );
 

@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      DATABASE_POOL_MAX: "2"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run db:validate
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run smoke:security
+      - run: npm run smoke:no-auth-bypass
+
+  release-database-gate:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.SHARED_DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.SHARED_DIRECT_URL }}
+      GEOGRAPHY_MIGRATION_TEST_DATABASE_URL: ${{ secrets.DISPOSABLE_DATABASE_URL }}
+      GEOGRAPHY_MIGRATION_TEST_ALLOW_RESET: "true"
+      GEOGRAPHY_MIGRATION_TEST_SENTINEL: ${{ secrets.DISPOSABLE_DATABASE_SENTINEL }}
+      SERVICE_AREA_E2E_DATABASE_URL: ${{ secrets.DISPOSABLE_DATABASE_URL }}
+      SERVICE_AREA_E2E_ALLOW_WRITES: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run db:test-geography:upgrade
+      - run: npm run db:test-geography:fresh
+      - run: npm test -w @liber/web -- server/seller-search-query.benchmark.test.ts
+
+  identity-database:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.SHARED_DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.SHARED_DIRECT_URL }}
+      IDENTITY_MIGRATION_TEST_DATABASE_URL: ${{ secrets.DISPOSABLE_IDENTITY_DATABASE_URL }}
+      IDENTITY_MIGRATION_TEST_ALLOW_WRITES: "true"
+      IDENTITY_MIGRATION_TEST_PREPARE_EMPTY: "true"
+      IDENTITY_MIGRATION_TEST_SENTINEL: ${{ secrets.DISPOSABLE_IDENTITY_DATABASE_SENTINEL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:test-identity

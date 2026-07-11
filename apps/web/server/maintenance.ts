@@ -106,9 +106,15 @@ export async function expireMarketplaceState(now = new Date()) {
       });
     }
 
+    const minimizedOutbox = await tx.emailOutbox.updateMany({
+      where: { status: "SENT", sentAt: { lt: new Date(now.getTime() - 30 * 86_400_000) } },
+      data: { payload: {}, subject: null, to: "redacted" },
+    });
+
     return {
       badgesExpired: badges.count,
       invitesExpired: invites.count,
+      outboxPayloadsMinimized: minimizedOutbox.count,
     };
   });
 }

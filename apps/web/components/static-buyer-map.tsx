@@ -1,10 +1,10 @@
 import Link from "next/link";
 import type { MarketMapContext, SelectedMapArea } from "../lib/map-area";
-import type { Buyer } from "../lib/mock-data";
+import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
 import { mapPinPosition } from "../lib/mapbox";
 
 type Props = {
-  buyers: Buyer[];
+  buyers: SellerBuyerSummaryDTO[];
   label?: string;
   market: MarketMapContext;
   selectedServiceArea?: SelectedMapArea | null;

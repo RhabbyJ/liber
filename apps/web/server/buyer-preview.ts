@@ -7,12 +7,8 @@ import { activePrimaryServiceAreaWhere } from "./service-area-matching";
 // Short, display-safe badge labels for the compact public preview UI.
 const previewBadgeLabels: Record<string, string> = {
   PRE_APPROVED: "Pre-approved",
-  EARNEST_MONEY_DEPOSITED: "Earnest reviewed",
-  CASH_BUYER: "Cash buyer",
-  NON_CONTINGENT: "Non-contingent",
   VERIFIED_IDENTITY: "ID verified",
   VERIFIED_FUNDS: "Verified funds",
-  COMPLETED_TRANSACTION: "Past transaction",
 };
 
 export const PUBLIC_PREVIEW_LIMIT = 6;
@@ -50,6 +46,7 @@ export async function getPublicBuyerPreviews(
     const profiles = await prisma.buyerProfile.findMany({
       where: {
         visibilityStatus: "ACTIVE",
+        user: { status: "ACTIVE" },
         ...activePrimaryServiceAreaWhere(marketSlug, serviceArea ? coverageAreaIds : undefined),
       },
       orderBy: { lastRefreshedAt: "desc" },
@@ -57,6 +54,7 @@ export async function getPublicBuyerPreviews(
       select: {
         badges: {
           where: {
+            badgeType: { in: ["PRE_APPROVED", "VERIFIED_IDENTITY", "VERIFIED_FUNDS"] },
             status: "ACTIVE",
             OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
           },
@@ -65,6 +63,7 @@ export async function getPublicBuyerPreviews(
         budgetMax: true,
         budgetMin: true,
         buyingPurpose: true,
+        buyerType: true,
         criteria: {
           select: {
             bathroomsMin: true,
@@ -112,9 +111,12 @@ export async function getPublicBuyerPreviews(
       return {
         amenities: previewAmenities.filter((amenity) => amenitySet.has(amenity.toLowerCase())),
         area: areaLabel,
-        badges: profile.badges
-          .map((badge) => previewBadgeLabels[badge.badgeType] ?? "Verified")
-          .slice(0, 3),
+        badges: [
+          ...profile.badges.map((badge) => previewBadgeLabels[badge.badgeType] ?? "Verified"),
+          ...(profile.buyerType === "Cash" && profile.badges.some((badge) => badge.badgeType === "VERIFIED_FUNDS")
+            ? ["Cash buyer"]
+            : []),
+        ].slice(0, 3),
         bathroomsMin: criteria?.bathroomsMin ?? undefined,
         bedroomsMin: criteria?.bedroomsMin ?? undefined,
         budgetLabel: budgetBandLabel(toNumber(profile.budgetMin), toNumber(profile.budgetMax)),

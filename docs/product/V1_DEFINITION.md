@@ -255,12 +255,16 @@ A property may include:
 
 A property must not be treated as a public MLS-style listing in v1.
 
+Property attestations, evidence, images, and invites apply only to the property identity version on which they were created. Changing identity-relevant address/provider/location data requires a new seller attestation and ownership review, withdraws active or accepted invites, and prevents prior images from appearing in the new invite context.
+
 Seller property creation may start from an address lookup. When property facts are auto-populated, the seller must still confirm they own the property or are authorized to represent it before using that property for invites. Ownership/authority claims must not be accepted as a substitute for admin-reviewed ownership evidence where evidence is required.
 
 Seller ownership verification requires private admin review of both:
 
 - a government-issued photo ID matching the exact name on the title record, or the decision maker for an owning entity,
 - a utility bill, tax bill, or mortgage bill matching the owner/entity name and property address.
+
+Ownership approval is bound to the property's current identity version. Address or provider-identity changes increment that version, invalidate prior approval for new invites, and require a new structured admin decision. Only `READY_FOR_INVITES` properties with current approved evidence can back new invites.
 
 The whiteboard notes include deeper owner/buyer verification flow ideas around proof of funds, lender connections, IDs, and multi-day verification. Those purple-board verification workflow details are not part of this immediate v1 UI update unless separately approved and specified.
 
@@ -296,15 +300,15 @@ Required invite disclaimer language should remain plain-English and close to the
 
 Trust badges are admin-reviewed signals, not self-asserted claims.
 
-Supported v1 badge concepts:
+Supported v1 evidence-backed badges:
 
 - pre-approval reviewed,
 - verified funds,
-- cash buyer,
-- non-contingent preference,
 - verified identity,
-- completed transaction when supported by real platform history,
-- earnest-money evidence only if described as reviewed third-party evidence, not Liber-held funds.
+
+Cash buyer is a derived seller-facing signal only when the buyer selected cash purchase type and has current verified-funds evidence. It is not granted independently.
+
+Earnest-money deposited, completed transaction, and non-contingent badges are disabled in v1. Earnest-money and completed-transaction signals require evidence/platform history that v1 does not have; non-contingent remains a preference rather than a verified financial badge.
 
 Financial/identity badges must be tied to approved evidence where the backend supports it.
 

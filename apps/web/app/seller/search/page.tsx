@@ -361,7 +361,6 @@ function moneyLabel(value?: string) {
 function badgeFilterLabel(value: string) {
   const labels: Record<string, string> = {
     CASH_BUYER: "Cash buyer",
-    NON_CONTINGENT: "Non-contingent",
     PRE_APPROVED: "Pre-approved",
     VERIFIED_FUNDS: "Verified funds",
   };

@@ -2,8 +2,11 @@ import type { Buyer, Invite, Property } from "../lib/mock-data";
 import { buyers } from "../lib/mock-data";
 import { formatBadgeType } from "../lib/format";
 import { findServiceAreaBySlug, type ServiceArea } from "../lib/service-areas";
-import type { AppRole, SessionUser } from "./authz";
+import type { SessionUser } from "./authz";
 import { hasRole, requireOwnedResource, requireRole } from "./authz";
+import { requiredRoleForPath, requiresAuthenticatedUser } from "./route-access";
+
+export { requiredRoleForPath, requiresAuthenticatedUser } from "./route-access";
 import { searchBuyersSchema, type SearchBuyersInput } from "@liber/validators";
 
 export const UNVERIFIED_SELLER_INVITE_LIMIT_PER_DAY = 5;
@@ -130,21 +133,6 @@ export function assertRouteAllowed(pathname: string, user: SessionUser | null) {
   if (!hasRole(user, requiredRole)) {
     throw new Error(`Missing required role: ${requiredRole}`);
   }
-}
-
-export function requiresAuthenticatedUser(pathname: string) {
-  return isPathSegment(pathname, "/buyers") || requiredRoleForPath(pathname) !== null;
-}
-
-export function requiredRoleForPath(pathname: string): AppRole | null {
-  if (isPathSegment(pathname, "/admin")) return "ADMIN";
-  if (isPathSegment(pathname, "/buyer")) return "BUYER";
-  if (isPathSegment(pathname, "/seller")) return "SELLER";
-  return null;
-}
-
-function isPathSegment(pathname: string, prefix: string) {
-  return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
 export function assertInviteAllowed(args: {

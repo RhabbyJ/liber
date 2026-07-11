@@ -3,6 +3,7 @@ import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
 import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
+import { PrivatePropertyImages } from "../../../components/private-property-images";
 import { listBuyerInvites } from "../../../server/contracts";
 import { respondToBuyerInvite } from "../../../server/form-actions";
 
@@ -55,6 +56,7 @@ export default async function BuyerInvitesPage() {
                   </span>
                 </div>
                 <p className="muted">{invite.message}</p>
+                <PrivatePropertyImages imageIds={invite.imageIds ?? []} />
                 <div className="actions between">
                   <span className="status-dot">
                     <Icon name="calendar" size={12} />

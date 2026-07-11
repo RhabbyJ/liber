@@ -21,14 +21,13 @@ export async function loadMapboxGl() {
 
   await new Promise<void>((resolve, reject) => {
     let settled = false;
-    let timeoutId: number;
     const finish = (callback: () => void) => {
       if (settled) return;
       settled = true;
       window.clearTimeout(timeoutId);
       callback();
     };
-    timeoutId = window.setTimeout(() => finish(() => reject(new Error("Mapbox timed out."))), 8000);
+    const timeoutId = window.setTimeout(() => finish(() => reject(new Error("Mapbox timed out."))), 8000);
     const existingScript = document.querySelector<HTMLScriptElement>(`script[src="${mapboxScriptUrl}"]`);
     if (existingScript) {
       existingScript.addEventListener("load", () => finish(resolve), { once: true });

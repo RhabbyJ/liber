@@ -48,6 +48,11 @@ Primary models:
 - `Notification`
 - `AdminAuditLog`
 - `EmailOutbox`
+- `UploadSession`
+- `PropertyVerificationDecision`
+- `AuthOperation`
+- `RateLimitBucket`
+- `WorkerHeartbeat`
 
 User IDs are the immutable Supabase Auth UUID. The database validates
 `public."User".id -> auth.users.id`, rejects Auth and application UUID updates,
@@ -124,6 +129,11 @@ Sensitive application data should flow through server actions or route handlers 
 Main server files:
 
 - `apps/web/server/contracts.ts`
+- `apps/web/server/buyer/commands.ts`
+- `apps/web/server/buyer/read-models.ts`
+- `apps/web/server/uploads/service.ts`
+- `apps/web/server/auth-operations.ts`
+- `apps/web/server/verification/evidence-rules.ts`
 - `apps/web/server/form-actions.ts`
 - `apps/web/server/auth-actions.ts`
 - `apps/web/app/api/**/route.ts`
@@ -132,21 +142,22 @@ Main server files:
 
 Buckets:
 
-- `property-images` — public property images, with write access mediated/validated.
+- `property-images` — private invite-context images.
 - `verification-documents` — private documents for buyer evidence and seller ownership evidence.
 
 Rules:
 
 - Buyer public display names are generated locally from an allowlisted neutral alias list; there is no alias API, free-text public-name field, or separate alias storage object.
-- Buyer profile display uses generated 2D animal avatars from `User.avatarVariant` plus the user id.
+- Buyer profile display uses generated 2D animal avatars from `User.avatarVariant`; seller DTOs seed rendering with the opaque buyer-profile ID, never the Auth UUID.
 - Avatar SVGs are generated locally in the app from the `avatarka` animals theme and rendered as data images; there is no avatar API, Supabase avatar bucket, storage path, or saved image file.
 - Verification documents are immutable user evidence.
 - Document owners must not be able to overwrite/delete evidence after upload.
 - Private documents are viewed through admin/server-mediated signed URLs only.
 - Storage paths and signed URLs must not become public profile data.
-- Server uploads should validate file type, size, ownership, and purpose.
-- Server action return shapes avoid returning raw private storage paths for private buckets. Return document IDs/status, public URLs for public buckets, or short-lived signed URLs from admin/server-mediated reads only.
-- Seller ownership verification documents keep `DocumentType.OWNERSHIP` and use `OwnershipEvidenceKind` to distinguish government ID from property address proof. Ownership status can become approved only after both required evidence kinds are approved by an admin.
+- Browser uploads use an authorized `UploadSession`, a server-selected path, a signed upload token, direct Storage transfer, and server finalization. Finalization verifies ownership, expiry, object path, actual size/type, initial-byte signature, and current property identity version before creating a document/image row.
+- Abandoned sessions and orphaned objects are removed by the outbox maintenance worker.
+- Browser DTOs never return raw Storage paths. Finalization returns document/image IDs and status; authorized reads return short-lived server-mediated signed URLs only.
+- Seller ownership verification documents keep `DocumentType.OWNERSHIP` and use `OwnershipEvidenceKind` to distinguish government ID from property address proof. Ownership status can become approved only after both required current-version evidence kinds and the structured owner/address/authority checklist are approved by an admin.
 
 ## Badge architecture
 
@@ -154,6 +165,8 @@ Badges are admin-reviewed trust signals.
 
 - `BuyerBadge.status = ACTIVE` and unexpired badges affect display/search.
 - Sensitive badge types should reference approved `VerificationDocument` evidence.
+- The authoritative evidence matrix is pre-approval -> `PRE_APPROVAL`, verified funds -> `VERIFIED_FUNDS`, and verified identity -> `IDENTITY`.
+- Cash buyer is derived from cash purchase type plus current verified-funds evidence. Unsupported legacy badge concepts are not grantable or searchable.
 - Pre-approval expires after 90 days unless renewed.
 - Badge grants/revokes should be audited.
 
@@ -174,6 +187,12 @@ Invite creation must check:
 - buyer profile is not the seller's own buyer profile,
 - duplicate active invite rules,
 - rate limits / DB trigger constraints.
+
+Invite creation serializes per seller with a transaction-scoped advisory lock. The quota is 25 sends in the preceding rolling 24 hours for a currently ownership-approved `READY_FOR_INVITES` property. Invite responses atomically require an unexpired `SENT`/`VIEWED` row.
+
+Property authority attestations, images, and invites are stamped with the current property `identityVersion`. An identity-relevant edit clears the attestation, resets verification, withdraws `SENT`, `VIEWED`, and `ACCEPTED` invites, and prevents old images or delayed email from being reused for the new identity. Sellers explicitly re-attest after editing. Admin ownership review locks and re-reads the property before approving current-version evidence.
+
+Invited-buyer image access is centralized in `app_private.can_read_property_image`. It requires current image/invite/property versions, active buyer and seller accounts, an active buyer profile, an approved unflagged `READY_FOR_INVITES` property, and an eligible invite state. Owners and admins remain subject to current application-user status.
 
 Invite email should be queued through `EmailOutbox`, not sent inline as the source of truth.
 
@@ -232,11 +251,15 @@ Abuse-prone actions should be rate-limited:
 
 Important actions should write `AdminAuditLog` or equivalent operational events where supported.
 
-Current in-app rate limiting is acceptable only as a local development / CEO demo safeguard. Before true production launch, abuse controls for login, signup/resend, buyer search/profile view, invite send, uploads, geocode, and property enrichment must use a shared store such as Redis/Vercel KV/Upstash or a Supabase-backed limiter. In-memory process limits are not sufficient on Vercel/serverless because each instance has its own bucket and limits reset on cold starts/deploys.
+Abuse controls use `app_private.consume_rate_limit` and `RateLimitBucket`, an atomic Postgres-backed fixed-window limiter shared by serverless instances. Invite quota remains a separate rolling-24-hour business invariant serialized in the invite transaction. Audit rows are not quota counters.
 
 ## Maintenance
 
-`POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET` and expires stale invites/badges.
+`POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET` and expires stale invites/badges. `GET /api/maintenance/outbox` uses the same bearer secret and runs every minute for leased email delivery, Auth bans, and abandoned-upload cleanup.
+
+Email and Auth jobs use atomic `FOR UPDATE SKIP LOCKED` claims, expiring leases, worker IDs, bounded retry, idempotency keys, provider message IDs, and worker heartbeats. Missing Resend configuration outside development/test is a job failure and a production-readiness failure.
+
+Invite email rows reference the invite they deliver. The worker revalidates deliverability immediately before provider submission, and terminal or identity-invalidated invites cancel unsent work instead of retrying it.
 
 Do not create unauthenticated maintenance endpoints.
 
@@ -256,4 +279,5 @@ Do not create unauthenticated maintenance endpoints.
 - No app authorization from user-editable auth metadata. Signup metadata may bootstrap buyer/seller onboarding only; admin roles and seller-directory approval must come from server-controlled database state.
 - No public buyer profile exposure.
 - No weakening RLS/storage policy to satisfy UI behavior.
+- Sensitive Storage policies call `app_private.is_active_app_user(auth.uid())`, so suspension blocks a still-valid JWT. Suspension also disables seller access/properties/invites and enqueues a retryable Supabase Auth ban.
 - No production claims for escrow, money movement, or lender approval.
