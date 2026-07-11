@@ -5,7 +5,7 @@ type Props = {
 export function UnsupportedAreaState({ onSearchAnother }: Props) {
   return (
     <div className="unsupported-area-state" role="status">
-      <strong>We're not active there yet.</strong>
+      <strong>We’re not active there yet.</strong>
       <span>Liber currently supports selected service areas in Los Angeles.</span>
       {onSearchAnother ? (
         <button className="link-button" onClick={onSearchAnother} type="button">

@@ -11,7 +11,7 @@ export async function expireMarketplaceState(now = new Date()) {
     const [expiredBadges, expiredInvites] = await Promise.all([
       tx.buyerBadge.findMany({
         where: {
-          expiresAt: { lt: now },
+          expiresAt: { lte: now },
           status: { in: ["ACTIVE", "PENDING"] },
         },
         select: {
@@ -22,7 +22,7 @@ export async function expireMarketplaceState(now = new Date()) {
       }),
       tx.invite.findMany({
         where: {
-          expiresAt: { lt: now },
+          expiresAt: { lte: now },
           status: { in: ["SENT", "VIEWED"] },
         },
         select: {
@@ -38,14 +38,14 @@ export async function expireMarketplaceState(now = new Date()) {
 
     const badges = await tx.buyerBadge.updateMany({
       where: {
-        expiresAt: { lt: now },
+        expiresAt: { lte: now },
         status: { in: ["ACTIVE", "PENDING"] },
       },
       data: { status: "EXPIRED" },
     });
     const invites = await tx.invite.updateMany({
       where: {
-        expiresAt: { lt: now },
+        expiresAt: { lte: now },
         status: { in: ["SENT", "VIEWED"] },
       },
       data: { status: "EXPIRED" },

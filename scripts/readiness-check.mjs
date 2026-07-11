@@ -176,7 +176,7 @@ async function checkProductionDependencies(collection) {
       ORDER BY finished_at DESC
       LIMIT 1
     `);
-    const expectedHead = "20260711071555_complete_architecture_boundaries";
+    const expectedHead = "20260711082500_close_property_identity_lifecycle";
     if (migration.rows[0]?.migration_name !== expectedHead) {
       collection.push(`Database migration head must be ${expectedHead}.`);
     }

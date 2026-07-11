@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { loadMapboxGl } from "../lib/mapbox-gl-loader";
+import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
+import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
 import { marketMapBounds, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
-import type { PublicBuyerPreview } from "../server/buyer-preview";
 
 type Props = {
   market: MarketMapContext;
   primaryCtaHref: string;
   primaryCtaLabel: string;
-  previews: PublicBuyerPreview[];
+  previews: PublicBuyerPreviewDto[];
   secondaryCtaHref?: string;
   secondaryCtaLabel?: string;
   selectedArea?: SelectedMapArea | null;
@@ -21,7 +21,7 @@ type PreviewPoint = {
   index: number;
   lat: number;
   lng: number;
-  preview: PublicBuyerPreview;
+  preview: PublicBuyerPreviewDto;
 };
 
 /**
@@ -41,8 +41,8 @@ export function PublicDemandMap({
   token,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  const mapRef = useRef<MapboxMap | null>(null);
+  const markersRef = useRef<MapboxMarker[]>([]);
   const [didFail, setDidFail] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [hasLiveMarkers, setHasLiveMarkers] = useState(false);
@@ -51,7 +51,12 @@ export function PublicDemandMap({
   const points = useMemo<PreviewPoint[]>(
     () =>
       previews
-        .map((preview, index) => ({ index, lat: preview.lat ?? NaN, lng: preview.lng ?? NaN, preview }))
+        .map((preview, index) => ({
+          index,
+          lat: preview.pin?.latitude ?? NaN,
+          lng: preview.pin?.longitude ?? NaN,
+          preview,
+        }))
         .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng)),
     [previews],
   );
@@ -242,7 +247,7 @@ function StaticDemandLayer({ points }: { points: PreviewPoint[] }) {
 }
 
 function previewPopupHtml(
-  preview: PublicBuyerPreview,
+  preview: PublicBuyerPreviewDto,
   cta: {
     primaryHref: string;
     primaryLabel: string;
@@ -315,7 +320,7 @@ const selectedAreaSourceId = "liber-selected-service-area-source";
 const selectedAreaFillLayerId = "liber-selected-service-area-fill";
 const selectedAreaLineLayerId = "liber-selected-service-area-outline";
 
-function syncSelectedAreaLayer(map: any, data: Record<string, unknown> | null) {
+function syncSelectedAreaLayer(map: MapboxMap, data: Record<string, unknown> | null) {
   if (!data) {
     removeSelectedAreaLayer(map);
     return;
@@ -350,7 +355,7 @@ function syncSelectedAreaLayer(map: any, data: Record<string, unknown> | null) {
   });
 }
 
-function removeSelectedAreaLayer(map: any) {
+function removeSelectedAreaLayer(map: MapboxMap) {
   if (map.getLayer(selectedAreaLineLayerId)) map.removeLayer(selectedAreaLineLayerId);
   if (map.getLayer(selectedAreaFillLayerId)) map.removeLayer(selectedAreaFillLayerId);
   if (map.getSource(selectedAreaSourceId)) map.removeSource(selectedAreaSourceId);

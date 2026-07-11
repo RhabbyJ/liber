@@ -1,0 +1,49 @@
+name: Protected production environment readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      approved_sha:
+        description: Full 40-character reviewed commit SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    name: Production value presence and format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production-readiness
+    env:
+      APPROVED_SHA: ${{ inputs.approved_sha }}
+      ATTOM_API_KEY: ${{ secrets.ATTOM_API_KEY }}
+      ATTOM_BASE_URL: ${{ vars.ATTOM_BASE_URL }}
+      AUTH_RATE_LIMIT_PEPPER: ${{ secrets.AUTH_RATE_LIMIT_PEPPER }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      LIBER_AUTO_CONFIRM_SIGNUPS: "false"
+      NEXT_PUBLIC_MAPBOX_TOKEN: ${{ vars.NEXT_PUBLIC_MAPBOX_TOKEN }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.approved_sha }}
+      - name: Confirm exact reviewed revision
+        shell: bash
+        run: |
+          [[ "$APPROVED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$APPROVED_SHA"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Validate presence and format only
+        run: node scripts/readiness-check.mjs --production

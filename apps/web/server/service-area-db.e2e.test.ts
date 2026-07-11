@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { sameDatabaseTarget } from "../../../scripts/database-target.mjs";
 
 const databaseUrl = process.env.SERVICE_AREA_E2E_DATABASE_URL;
 const configuredSharedDatabaseUrls = sharedDatabaseUrls();
@@ -400,7 +401,7 @@ async function assertDisposableE2EDatabase(prisma: any, url: string) {
   if (!sentinel || sentinel.length < 16) {
     throw new Error("SERVICE_AREA_E2E requires a 16+ character disposable-database sentinel.");
   }
-  if (configuredSharedDatabaseUrls.some((sharedUrl) => normalizeDatabaseUrl(sharedUrl) === normalizeDatabaseUrl(url))) {
+  if (configuredSharedDatabaseUrls.some((sharedUrl) => sameDatabaseTarget(sharedUrl, url))) {
     throw new Error("Refusing to run the service-area DB E2E against the configured shared database.");
   }
   const [table] = await prisma.$queryRaw<Array<{ present: boolean }>>`
@@ -415,13 +416,6 @@ async function assertDisposableE2EDatabase(prisma: any, url: string) {
     ) AS verified
   `;
   if (!verified?.verified) throw new Error("Disposable-database sentinel does not match.");
-}
-
-function normalizeDatabaseUrl(value: string) {
-  const url = new URL(value);
-  url.password = "";
-  url.search = "";
-  return url.toString();
 }
 
 function sharedDatabaseUrls() {

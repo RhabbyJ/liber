@@ -23,6 +23,24 @@ export class AuthIdentityLinkError extends Error {
   }
 }
 
+export type SignupFailureStatus =
+  | "account-exists"
+  | "identity-recovery-required"
+  | "invalid-email"
+  | "rate-limited"
+  | "signup-error"
+  | "weak-password";
+
+type SupabaseSignupFailure = {
+  code?: string;
+  status?: number;
+};
+
+const RATE_LIMIT_AUTH_CODES = new Set([
+  "over_email_send_rate_limit",
+  "over_request_rate_limit",
+]);
+
 export async function resolveAuthIdentity(authUser: {
   email?: string | null;
   id: string;
@@ -42,6 +60,30 @@ export async function resolveAuthIdentity(authUser: {
   ]);
 
   return classifyAuthIdentity(authUser, appUserById, appUserByEmail);
+}
+
+export async function signupStatusForAuthFailure(
+  error: SupabaseSignupFailure,
+  emailInput: string,
+): Promise<SignupFailureStatus> {
+  if (error.status === 429 || (error.code && RATE_LIMIT_AUTH_CODES.has(error.code))) {
+    return "rate-limited";
+  }
+  if (error.code === "user_already_exists" || error.code === "email_exists") {
+    return "account-exists";
+  }
+  if (error.code === "weak_password") return "weak-password";
+  if (error.code === "email_address_invalid") return "invalid-email";
+
+  const email = normalizeIdentityEmail(emailInput);
+  if (!email) return "invalid-email";
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM public."User"
+    WHERE lower(btrim(email)) = ${email}
+    LIMIT 1
+  `;
+  return rows.length > 0 ? "identity-recovery-required" : "signup-error";
 }
 
 export async function persistUserRolesForAuthIdentity(args: {
@@ -82,5 +124,29 @@ export async function persistUserRolesForAuthIdentity(args: {
       },
       select: { email: true, id: true, roles: true, status: true },
     });
+  });
+}
+
+export async function establishVerifiedAuthSession(args: {
+  authUser: { email?: string | null; id: string; user_metadata?: Record<string, unknown> };
+  roles: AppRole[];
+}) {
+  const resolution = await resolveAuthIdentity(args.authUser);
+  if (resolution.kind !== "linked") {
+    throw new AuthIdentityLinkError(resolution.kind);
+  }
+  if (resolution.user.status !== "ACTIVE") {
+    throw new AuthIdentityLinkError("inactive");
+  }
+  if (resolution.user.roles.length > 0 || args.roles.length === 0) {
+    return resolution.user;
+  }
+
+  const privateName = args.authUser.user_metadata?.name;
+  return persistUserRolesForAuthIdentity({
+    authUser: args.authUser,
+    mode: "initialize",
+    name: typeof privateName === "string" ? privateName.trim() : null,
+    roles: args.roles,
   });
 }

@@ -1,17 +1,20 @@
 "use server";
 
-import { createHash } from "node:crypto";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { safeInternalPath } from "../lib/redirect";
 import { ensureSellerAccessRequested } from "./access";
 import {
   AuthIdentityLinkError,
+  establishVerifiedAuthSession,
   persistUserRolesForAuthIdentity,
+  signupStatusForAuthFailure,
 } from "./auth-identity";
+import { enforceSharedAuthRateLimit } from "./auth-rate-limit";
 import { pathForSignedInAuthIntent } from "./auth-intent";
 import type { AppRole } from "./authz";
+import { clientIpFromHeaders } from "./rate-limit";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
-import { assertRateLimit } from "./rate-limit";
 
 function requiredText(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -64,7 +67,15 @@ export async function signupWithPassword(formData: FormData) {
     redirect(signupRedirectPath(formData, "weak-password", email));
   }
 
-  await assertRateLimit(`signup:email:${identityRateKey(email)}`, 5, 60 * 60_000);
+  const requestHeaders = await headers();
+  const signupLimit = await enforceSharedAuthRateLimit({
+    action: "signup",
+    email,
+    ip: clientIpFromHeaders(requestHeaders),
+  });
+  if (!signupLimit.allowed) {
+    redirect(signupRedirectPath(formData, "rate-limited", email));
+  }
 
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -79,11 +90,19 @@ export async function signupWithPassword(formData: FormData) {
   });
 
   if (error) {
-    const status = signupStatusForError(error.message);
+    const status = await signupStatusForAuthFailure(error, email);
     if (status === "account-exists") {
       redirect(existingAccountLoginPath(formData, email, next ?? nextForRoles(roles)));
     }
     if (status === "identity-recovery-required") {
+      const recoveryLimit = await enforceSharedAuthRateLimit({
+        action: "recovery",
+        email,
+        ip: clientIpFromHeaders(requestHeaders),
+      });
+      if (!recoveryLimit.allowed) {
+        redirect(signupRedirectPath(formData, "rate-limited", email));
+      }
       redirect(identityRecoveryLoginPath(email));
     }
     redirect(signupRedirectPath(formData, status, email));
@@ -92,24 +111,6 @@ export async function signupWithPassword(formData: FormData) {
   const hasRealSignupIdentity = Boolean(data.session || data.user?.identities?.length);
 
   if (data.user && hasRealSignupIdentity) {
-    try {
-      await persistUserRolesForAuthIdentity({
-        authUser: { email: data.user.email ?? email, id: data.user.id },
-        mode: "initialize",
-        name,
-        roles,
-      });
-    } catch (error) {
-      if (error instanceof AuthIdentityLinkError) {
-        await supabase.auth.signOut();
-        redirect(identityFailureLoginPath(error, email));
-      }
-      throw error;
-    }
-    if (roles.includes("SELLER")) {
-      await ensureSellerAccessRequested(data.user.id);
-    }
-
     const autoConfirmLocal = shouldAutoConfirmLocalSignup();
 
     if (autoConfirmLocal) {
@@ -125,12 +126,34 @@ export async function signupWithPassword(formData: FormData) {
       if (signInError) throw new Error(signInError.message);
     }
 
-    if (data.session) {
-      await supabase.auth.refreshSession();
-    }
-
     if (!autoConfirmLocal && !data.session) {
       redirect(`/signup/verify?email=${encodeURIComponent(email)}&next=${encodeURIComponent(next ?? nextForRoles(roles))}`);
+    }
+
+    const { data: verifiedAuth, error: verifiedAuthError } = await supabase.auth.getUser();
+    if (verifiedAuthError || !verifiedAuth.user) {
+      await supabase.auth.signOut();
+      redirect(signupRedirectPath(formData, "auth-error", email));
+    }
+
+    try {
+      const appUser = await establishVerifiedAuthSession({
+        authUser: verifiedAuth.user,
+        roles,
+      });
+      if (appUser.roles.includes("SELLER")) {
+        await ensureSellerAccessRequested(verifiedAuth.user.id);
+      }
+    } catch (error) {
+      if (error instanceof AuthIdentityLinkError) {
+        await supabase.auth.signOut();
+        redirect(await identityFailureLoginPath(
+          error,
+          email,
+          clientIpFromHeaders(requestHeaders),
+        ));
+      }
+      throw error;
     }
   }
 
@@ -151,7 +174,14 @@ export async function resendSignupConfirmation(formData: FormData) {
     throw new Error("Supabase Auth is not configured.");
   }
 
-  await assertRateLimit(`signup-resend:email:${identityRateKey(email)}`, 3, 60 * 60_000);
+  const resendLimit = await enforceSharedAuthRateLimit({
+    action: "resend",
+    email,
+    ip: clientIpFromHeaders(await headers()),
+  });
+  if (!resendLimit.allowed) {
+    redirect(`/signup/verify?email=${encodeURIComponent(email)}&next=${encodeURIComponent(next ?? "/")}&status=rate-limited`);
+  }
 
   const { error } = await supabase.auth.resend({
     email,
@@ -165,10 +195,6 @@ export async function resendSignupConfirmation(formData: FormData) {
 
 function shouldAutoConfirmLocalSignup() {
   return process.env.NODE_ENV !== "production" && process.env.LIBER_AUTO_CONFIRM_SIGNUPS === "true";
-}
-
-function identityRateKey(email: string) {
-  return createHash("sha256").update(email.trim().toLowerCase()).digest("hex").slice(0, 24);
 }
 
 function textValue(formData: FormData, key: string) {
@@ -197,18 +223,6 @@ function signupRoleValue(formData: FormData) {
   return "buyer";
 }
 
-function signupStatusForError(message: string) {
-  const value = message.toLowerCase();
-  if (value.includes("liber_identity") || value.includes("identity recovery")) {
-    return "identity-recovery-required";
-  }
-  if (value.includes("already") || value.includes("registered") || value.includes("exists")) return "account-exists";
-  if (value.includes("rate limit")) return "rate-limited";
-  if (value.includes("password")) return "weak-password";
-  if (value.includes("email")) return "invalid-email";
-  return "signup-error";
-}
-
 function existingAccountLoginPath(formData: FormData, email: string, next: string) {
   const params = new URLSearchParams({
     email,
@@ -225,8 +239,20 @@ function identityRecoveryLoginPath(email: string) {
   return `/login?${params.toString()}`;
 }
 
-function identityFailureLoginPath(error: AuthIdentityLinkError, email: string) {
-  return error.code === "inactive" ? "/login?status=account-unavailable" : identityRecoveryLoginPath(email);
+async function identityFailureLoginPath(
+  error: AuthIdentityLinkError,
+  email: string,
+  ip: string,
+) {
+  if (error.code === "inactive") return "/login?status=account-unavailable";
+  const recoveryLimit = await enforceSharedAuthRateLimit({
+    action: "recovery",
+    email,
+    ip,
+  });
+  return recoveryLimit.allowed
+    ? identityRecoveryLoginPath(email)
+    : "/login?status=rate-limited";
 }
 
 async function authCallbackUrl(next: string) {
@@ -248,19 +274,22 @@ export async function chooseRole(formData: FormData) {
     if (data.user) {
       let appUser: Awaited<ReturnType<typeof persistUserRolesForAuthIdentity>>;
       try {
-        appUser = await persistUserRolesForAuthIdentity({
-          authUser: { email: data.user.email, id: data.user.id },
-          mode: "merge",
-          name:
-            typeof data.user.user_metadata?.name === "string"
-              ? data.user.user_metadata.name
-              : data.user.email,
-          roles: selected,
-        });
+        appUser = await establishVerifiedAuthSession({ authUser: data.user, roles: selected });
+        if (selected.some((role) => !appUser.roles.includes(role))) {
+          appUser = await persistUserRolesForAuthIdentity({
+            authUser: data.user,
+            mode: "merge",
+            roles: selected,
+          });
+        }
       } catch (error) {
         if (error instanceof AuthIdentityLinkError) {
           await supabase.auth.signOut();
-          redirect(identityFailureLoginPath(error, data.user.email ?? ""));
+          redirect(await identityFailureLoginPath(
+            error,
+            data.user.email ?? "",
+            clientIpFromHeaders(await headers()),
+          ));
         }
         throw error;
       }

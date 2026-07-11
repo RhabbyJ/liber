@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { sameDatabaseTarget } from "./database-target.mjs";
+import { sameDatabaseTarget, supabaseProjectRef } from "./database-target.mjs";
 
 test("matches the same direct database despite credential differences", () => {
   assert.equal(
@@ -29,6 +29,16 @@ test("does not match distinct Supabase projects", () => {
       "postgresql://postgres.zyxwvutsrqponmlkjihg@aws-0-us-west-1.pooler.supabase.com:6543/postgres",
     ),
     false,
+  );
+});
+
+test("extracts the same project reference from API, direct, and pooler URLs", () => {
+  const expected = "abcdefghijklmnopqrst";
+  assert.equal(supabaseProjectRef(`https://${expected}.supabase.co`), expected);
+  assert.equal(supabaseProjectRef(`postgresql://postgres@db.${expected}.supabase.co:5432/postgres`), expected);
+  assert.equal(
+    supabaseProjectRef(`postgresql://postgres.${expected}@aws-0-us-west-1.pooler.supabase.com:6543/postgres`),
+    expected,
   );
 });
 

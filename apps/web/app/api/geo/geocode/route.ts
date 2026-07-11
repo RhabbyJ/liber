@@ -111,7 +111,7 @@ export async function GET(request: Request) {
   return NextResponse.json({ error: null, results });
 }
 
-async function featureToMarketResult(feature: Record<string, any>, marketSlug: string) {
+async function featureToMarketResult(feature: Record<string, unknown>, marketSlug: string) {
   for (const value of mapboxServiceAreaQueries(feature)) {
     const resolution = await resolveActiveServiceArea(value, marketSlug);
     if (resolution.status === "resolved") return areaToResult(resolution.area);

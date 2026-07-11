@@ -1,10 +1,9 @@
-import { prisma } from "@liber/db";
-import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { safeInternalPath } from "../../../../lib/redirect";
-import { normalizeIdentityEmail } from "../../../../server/auth-identity";
+import { resolveAuthIdentity } from "../../../../server/auth-identity";
+import { enforceSharedAuthRateLimit } from "../../../../server/auth-rate-limit";
 import { pathForSignedInAuthIntent } from "../../../../server/auth-intent";
-import { checkRateLimit, clientIpFromRequest } from "../../../../server/rate-limit";
+import { clientIpFromRequest } from "../../../../server/rate-limit";
 import { isRequestSameOrigin, requestUrl } from "../../../../server/request-origin";
 import { createSupabaseServerClient } from "../../../../server/supabase";
 
@@ -22,21 +21,14 @@ export async function POST(request: NextRequest) {
     return redirectTo(request, `/login?status=missing-credentials&email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
   }
 
-  const limit = await checkRateLimit(`login:ip:${clientIpFromRequest(request)}`, 10, 60_000);
+  const limit = await enforceSharedAuthRateLimit({
+    action: "login",
+    email,
+    ip: clientIpFromRequest(request),
+  });
   if (!limit.allowed) {
     const response = redirectTo(request, "/login?status=rate-limited");
     response.headers.set("Retry-After", String(limit.retryAfterSeconds));
-    return response;
-  }
-
-  const emailLimit = await checkRateLimit(
-    `login:email:${createHash("sha256").update(email.toLowerCase()).digest("hex").slice(0, 24)}`,
-    10,
-    60_000,
-  );
-  if (!emailLimit.allowed) {
-    const response = redirectTo(request, "/login?status=rate-limited");
-    response.headers.set("Retry-After", String(emailLimit.retryAfterSeconds));
     return response;
   }
 
@@ -46,7 +38,7 @@ export async function POST(request: NextRequest) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    if (error.message.toLowerCase().includes("email not confirmed")) {
+    if (error.code === "email_not_confirmed") {
       return redirectTo(request, `/signup/verify?email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
     }
 
@@ -58,21 +50,29 @@ export async function POST(request: NextRequest) {
     return redirectTo(request, `/login?status=invalid-login&email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
   }
 
-  const appUser = await prisma.user.findUnique({
-    where: { id: authData.user.id },
-    select: { email: true, roles: true, status: true },
-  });
-
-  if (
-    !appUser ||
-    appUser.status !== "ACTIVE" ||
-    normalizeIdentityEmail(appUser.email) !== normalizeIdentityEmail(authData.user.email)
-  ) {
+  const resolution = await resolveAuthIdentity(authData.user);
+  if (resolution.kind !== "linked" || resolution.user.status !== "ACTIVE") {
     await supabase.auth.signOut();
+    if (resolution.kind === "collision") {
+      const recoveryLimit = await enforceSharedAuthRateLimit({
+        action: "recovery",
+        email: authData.user.email,
+        ip: clientIpFromRequest(request),
+      });
+      return redirectTo(
+        request,
+        recoveryLimit.allowed
+          ? "/login?status=identity-recovery-required"
+          : "/login?status=rate-limited",
+      );
+    }
     return redirectTo(request, "/login?status=account-unavailable");
   }
 
-  return redirectTo(request, pathForSignedInAuthIntent({ id: authData.user.id, roles: appUser.roles }, { next }));
+  return redirectTo(
+    request,
+    pathForSignedInAuthIntent({ id: authData.user.id, roles: resolution.user.roles }, { next }),
+  );
 }
 
 function redirectTo(request: NextRequest, path: string) {

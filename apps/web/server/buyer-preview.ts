@@ -30,8 +30,7 @@ export type PublicBuyerPreview = {
   budgetLabel: string;
   condition?: string;
   label: string;
-  lat?: number;
-  lng?: number;
+  pin?: { latitude: number; longitude: number };
   squareFeetMin?: number;
 };
 
@@ -122,8 +121,7 @@ export async function getPublicBuyerPreviews(
         budgetLabel: budgetBandLabel(toNumber(profile.budgetMin), toNumber(profile.budgetMax)),
         condition: criteria?.condition ?? undefined,
         label: previewPropertyTypeLabel(profile.buyingPurpose),
-        lat: point?.lat,
-        lng: point?.lng,
+        pin: point ? { latitude: point.lat, longitude: point.lng } : undefined,
         squareFeetMin: criteria?.squareFeetMin ?? undefined,
       };
     });

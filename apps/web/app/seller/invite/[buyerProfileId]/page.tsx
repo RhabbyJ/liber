@@ -114,7 +114,7 @@ export default async function InviteBuyerPage({
           <div className="section-head compact">
             <div className="stack tight">
               <p className="eyebrow amber">Private property required</p>
-              <h2 style={{ fontSize: 22 }}>You haven't added a property yet</h2>
+              <h2 style={{ fontSize: 22 }}>You haven&apos;t added a property yet</h2>
             </div>
             <span className="status-dot warning">
               <Icon name="info" size={12} />
@@ -122,7 +122,7 @@ export default async function InviteBuyerPage({
             </span>
           </div>
           <p>
-            Liber needs a currently ownership-approved property so {buyer.name} knows what you're inviting them to review.
+            Liber needs a currently ownership-approved property so {buyer.name} knows what you&apos;re inviting them to review.
             Your property is not listed publicly.
           </p>
           <div className="actions">
@@ -207,7 +207,7 @@ export default async function InviteBuyerPage({
             <input type="checkbox" name="termsAccepted" value="true" />
             <span>
               I confirm this is a manual invite and does not create an offer, escrow, or funds custody. I own this property
-              or am authorized to invite buyers on the owner's behalf.
+              or am authorized to invite buyers on the owner&apos;s behalf.
             </span>
           </label>
 

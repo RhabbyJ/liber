@@ -7,12 +7,10 @@ export function BuyerMap({
   buyers,
   market,
   selectedServiceArea,
-  viewerUserId,
 }: {
   buyers: SellerBuyerSummaryDTO[];
   market: MarketMapContext;
   selectedServiceArea?: SelectedMapArea | null;
-  viewerUserId?: string;
 }) {
   const token = (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim();
 
@@ -23,7 +21,6 @@ export function BuyerMap({
         market={market}
         selectedServiceArea={selectedServiceArea}
         token={token}
-        viewerUserId={viewerUserId}
       />
     );
   }

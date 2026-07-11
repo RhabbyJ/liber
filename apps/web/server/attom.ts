@@ -66,13 +66,13 @@ export async function enrichPropertyByAddress(input: PropertyLookupInput) {
   return { error: null, property: mapAttomProperty(property), status: 200 };
 }
 
-export function mapAttomProperty(property: Record<string, any>): PropertyFacts {
-  const address = property.address ?? {};
-  const location = property.location ?? {};
-  const building = property.building ?? {};
-  const rooms = building.rooms ?? {};
-  const size = building.size ?? {};
-  const lot = property.lot ?? {};
+export function mapAttomProperty(property: Record<string, unknown>): PropertyFacts {
+  const address = recordValue(property.address);
+  const location = recordValue(property.location);
+  const building = recordValue(property.building);
+  const rooms = recordValue(building.rooms);
+  const size = recordValue(building.size);
+  const lot = recordValue(property.lot);
 
   return {
     addressLine1: firstString(address.line1, address.oneLine),
@@ -86,6 +86,10 @@ export function mapAttomProperty(property: Record<string, any>): PropertyFacts {
     state: firstString(address.countrySubd),
     zip: normalizeZip(firstString(address.postal1, address.postal) ?? ""),
   };
+}
+
+function recordValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
 function attomBaseUrl() {

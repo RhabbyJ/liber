@@ -26,13 +26,17 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#039;");
 }
 
-export async function sendInviteEmail(input: InviteEmailInput, idempotencyKey?: string): Promise<EmailResult> {
+export async function sendInviteEmail(
+  input: InviteEmailInput,
+  idempotency?: string | { idempotencyKey?: string },
+): Promise<EmailResult> {
+  const idempotencyKey = typeof idempotency === "string" ? idempotency : idempotency?.idempotencyKey;
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
 
   if (!apiKey || !from || !input.to) {
     if (process.env.NODE_ENV !== "development" && process.env.NODE_ENV !== "test") {
-      throw new Error("Resend is not configured or buyer email is missing.");
+      throw new Error("Invite email delivery is not configured or buyer email is missing.");
     }
     return {
       provider: "mock",

@@ -1,4 +1,4 @@
--- CTO integration proposal only. This is intentionally not a numbered migration.
+-- CTO integration proposal reserved for 00020. This is intentionally not a numbered migration.
 -- Confirm names and production plans before promoting these statements.
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS buyer_profile_active_recency_cursor_idx

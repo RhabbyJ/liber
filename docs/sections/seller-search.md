@@ -14,6 +14,8 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - `apps/web/components/interactive-buyer-map.tsx`
 - `apps/web/components/static-buyer-map.tsx`
 - `apps/web/server/contracts.ts`
+- `apps/web/server/buyer-dtos.ts`
+- `apps/web/lib/buyer-dto-types.ts`
 - `apps/web/server/seller-search-query.ts`
 - `apps/web/server/service-areas.ts`
 
@@ -34,10 +36,19 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - Cursors are opaque, filter-bound, snapshot-bound, expire after 30 minutes, reject future snapshots, and are ordered by the SQL sort key plus buyer id. Filter, geography, and sort changes must clear the cursor. The snapshot excludes later inserts but is not a historical copy of profiles edited between page requests.
 - Public pre-signup previews may show only limited privacy-safe buyer cards; they are not full seller search.
 - Search should explain why a buyer matches where possible.
-- Search/profile-view usage should remain rate-limited/auditable.
+- Search/profile-view usage consumes the shared database limiter and remains
+  auditable. Production fails closed when the limiter is unavailable.
 - A seller who also owns an active buyer profile may see that buyer demand in search; self-invite actions stay blocked elsewhere.
-- Production search filtering, sorting, and pagination belong in SQL. Do not cap a broad query and apply seller filters afterward in JavaScript.
-- Use stable cursor pagination with no silent result truncation. Validate final query plans and indexes against realistic LA-scale data.
+- The seller's own active buyer demand remains in the shared list/map result;
+  its server-derived `canInvite` flag is false.
+- Search rows require an active owning User and use the dedicated seller-search
+  projection/DTO. Client map code receives only the approved canonical-area
+  `mapPoint` and a server-derived `canInvite` flag, never either party's Auth
+  UUID or raw buyer coordinates.
+- Seller search serializes active, unexpired badges only and never criteria or
+  canonical service-area IDs.
+- Validate the reserved `00020` indexes and final query plans against realistic
+  LA-scale data; the synthetic 25K CI plan is only a regression signal.
 
 ## Query contract
 

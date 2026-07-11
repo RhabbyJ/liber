@@ -13,6 +13,11 @@ export function clientIpFromRequest(request: Request) {
   return forwardedFor || request.headers.get("x-real-ip") || "unknown-ip";
 }
 
+export function clientIpFromHeaders(headers: Pick<Headers, "get">) {
+  const forwardedFor = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwardedFor || headers.get("x-real-ip") || "unknown-ip";
+}
+
 export const postgresRateLimitStore: RateLimitStore = {
   async consume(key, limit, windowMs) {
     const { prisma } = await import("@liber/db");

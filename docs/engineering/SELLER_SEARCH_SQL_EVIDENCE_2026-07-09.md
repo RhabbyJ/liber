@@ -21,7 +21,7 @@ Output:
 
 ```ts
 {
-  items: Buyer[]; // unchanged seller-safe DTO
+  items: SellerBuyerSearchDto[];
   pageInfo: {
     hasMore: boolean;
     nextCursor: string | null;
@@ -31,7 +31,7 @@ Output:
 }
 ```
 
-The cursor binds the filter/sort fingerprint, the first-page snapshot timestamp, the last sort key, and buyer ID. SQL orders by `sort_key DESC, id ASC`. Profiles created after `snapshotAt` are excluded from every later page, and badge activity is evaluated at the same snapshot.
+The cursor binds the filter/sort fingerprint, the first-page snapshot timestamp, the last sort key, and buyer ID. SQL orders by `sort_key DESC, id ASC`. Profiles created or updated after `snapshotAt` are excluded from later pages, and badge activity is limited to badge rows unchanged at that anchor. This prevents mutable sort keys from re-entering a later page; a profile changed while a seller paginates is intentionally deferred until a fresh search.
 
 ## Data and assertions
 

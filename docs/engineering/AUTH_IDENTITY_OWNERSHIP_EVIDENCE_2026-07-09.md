@@ -7,9 +7,9 @@ deployment to the shared database.
 ## Exact artifacts
 
 - `00016` SHA-256:
-  `A1179FC5FCDF5B2DA5AA644B138EE4E42004BD975F7047C3940AB0CA45FAFF5D`.
+  `9E7F102BF79B97DD377F7EC4EE2844940525006EBBE18E781D0264C8E3A84288`.
 - Prisma schema SHA-256:
-  `3284E03D567EBEF29D44295C48C830D084FF80C9EB9DE0EDF989FB0C87C86241`.
+  `61D1CBD17A41110B2E93E31924654F324206A6170F48F6D01EF7BB228E223BB5`.
 
 Recompute both hashes after any edit. A difference invalidates the exact
 migration proof.
@@ -17,6 +17,11 @@ migration proof.
 ## Shared Liber audit
 
 The shared project was queried read-only.
+
+On 2026-07-10, the Supabase migration catalog was checked again. Its newest
+record remains the property subtype/ownership-evidence migration; `00013` through
+`00016` are absent. This confirms `00016` can still receive explicit transaction
+boundaries without rewriting shared migration history.
 
 - `00007` has a successful migration record.
 - `00009` has one rolled-back attempt and one successful migration record.
@@ -55,7 +60,11 @@ through exact `00012`, omitting only the two obsolete `spatial_ref_sys`
 statements from historical `00005`, then seeded with the vulnerable deployed
 function and representative ownership rows.
 
-Exact checked-in `00016` applied successfully to that representative upgrade.
+The prior `00016` payload applied successfully to that representative upgrade.
+The current artifact changes no DDL ordering or semantics but adds explicit
+`BEGIN`/`COMMIT`, so its new checksum must be rerun on the sentinel-marked
+disposable upgrade target before merge. The earlier run is not exact-artifact
+proof for the transaction-wrapped file.
 
 ## Catalog assertions
 
@@ -141,11 +150,21 @@ These remain later security/release gates; they were not caused by `00016`.
 
 ## Cleanup review addendum
 
-The post-proof lean-code review did not change migration `00016` or the Prisma
-schema hashes recorded above. It removed an unused duplicate password-login
+The post-proof lean-code review removed an unused duplicate password-login
 server action and the unauthenticated application-email preflight. The guarded
 identity harness now rejects direct and pooler URLs for the same Supabase
 project, its three database-target tests pass, and the runbook explicitly
 requires operators to create the disposable sentinel before an empty-branch
 run. The direct two-connection staging run remains open; this addendum does not
 represent it as passed.
+
+## Transaction-boundary addendum - 2026-07-10
+
+The shared migration catalog still did not contain `00016`, so the migration was
+wrapped in explicit `BEGIN`/`COMMIT`. The checksum above is the LF-normalized
+checked-in artifact. This makes the runbook's all-or-nothing rollback guarantee
+an explicit property of the SQL rather than an assumption about migration-runner
+behavior. The Prisma checksum now also includes the unnumbered follow-up's
+additive EmailOutbox recipient/lease fields and indexes. The exact wrapped
+migration plus current schema/proposal still requires the guarded disposable
+fresh/upgrade run; no shared database write was made.

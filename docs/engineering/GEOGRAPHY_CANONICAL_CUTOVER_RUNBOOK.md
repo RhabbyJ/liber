@@ -212,7 +212,7 @@ fixtures.
 ### Fresh database
 
 On a disposable branch with no Liber application schema, run every checked-in
-migration from `00000` through `00015`, then run:
+migration (currently `00000` through `00016`), then run:
 
 ```powershell
 $env:GEOGRAPHY_MIGRATION_TEST_DATABASE_URL = "<disposable direct database URL>"
@@ -244,8 +244,9 @@ Pass conditions:
 
 ### Representative upgrade
 
-Start from the schema through `00012`, apply `00013` and `00014`, then seed and
-record these cases before applying `00015`:
+Start from the schema through `00011`; the harness applies idempotent `00012`,
+then `00013` and `00014`, before seeding and recording these cases ahead of
+`00015`:
 
 ```powershell
 $env:GEOGRAPHY_MIGRATION_TEST_ALLOW_WRITES = "true"

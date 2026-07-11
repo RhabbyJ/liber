@@ -12,6 +12,7 @@ const child = externalBaseUrl
       npmCommand,
       ["run", "dev", "-w", "@liber/web", "--", "--port", String(port)],
       {
+        detached: process.platform !== "win32",
         env: process.env,
         shell: process.platform === "win32",
         stdio: ["ignore", "pipe", "pipe"],
@@ -31,7 +32,11 @@ function stopServer() {
   if (process.platform === "win32") {
     spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
   } else {
-    child.kill("SIGTERM");
+    try {
+      process.kill(-child.pid, "SIGTERM");
+    } catch (error) {
+      if (error?.code !== "ESRCH") throw error;
+    }
   }
   child.stdout.destroy();
   child.stderr.destroy();

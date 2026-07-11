@@ -12,6 +12,8 @@ seller data.
 - `apps/web/components/public-demand-map.tsx`
 - `apps/web/components/public-map-location-search.tsx`
 - `apps/web/server/buyer-preview.ts`
+- `apps/web/server/buyer-dtos.ts`
+- `apps/web/lib/buyer-dto-types.ts`
 - `apps/web/server/contracts.ts`
 - `apps/web/app/api/seller/buyers/route.ts`
 
@@ -26,11 +28,33 @@ seller data.
   badges to public clients.
 - Public visibility requires an active application user, active buyer profile,
   active canonical service area, and an explicit preview-safe eligibility rule.
+- Preview-safe eligibility requires allowlisted purchase/property types and at
+  least one criteria row. Only allowlisted condition/amenity values are copied
+  into the public DTO.
 - Approximate pins are calculated server-side from the canonical service-area
   center plus a deterministic privacy offset. Client code never receives raw
   buyer coordinates.
-- Add serialized-response snapshots and recursive forbidden-field assertions
-  for the homepage, seller search API, and seller-view buyer profile.
+- Serialized-response snapshots and recursive forbidden-field assertions cover
+  the homepage, seller search API, and seller-view buyer profile; preserve them
+  when a contract changes.
+
+## Response contracts
+
+- Public preview: `{ label, area, budgetLabel, bedroomsMin?, bathroomsMin?,
+  squareFeetMin?, condition?, amenities, badges, pin? }`.
+- Seller search buyer: `{ buyerProfileId, alias, avatarVariant?, purchaseType,
+  propertyType, location, budgetMin, budgetMax, downPaymentMin,
+  downPaymentMax, criteria, badges, mapPoint, refreshedAt, canInvite }`.
+- Seller-view profile: `{ buyerProfileId, alias, avatarVariant?, purchaseType,
+  propertyType, location, budgetMin, budgetMax, downPaymentMin,
+  downPaymentMax, needs, wants, badges, viewerCanInvite,
+  viewerIsOwner }`.
+
+`buyerProfileId` is the seller-authorized routing identifier. Auth UUIDs and
+internal criteria/service-area identifiers are not part of any contract.
+Browser components import these response types only from
+`apps/web/lib/buyer-dto-types.ts`; Prisma projections and mapping remain
+server-only.
 
 ## Agent notes
 

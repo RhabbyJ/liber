@@ -42,7 +42,7 @@ export default async function BuyerInvitesPage() {
       ) : (
         <div className="grid two">
           {invites.map((invite) => {
-            const verified = invite.propertyStatus?.toLowerCase().includes("verified");
+            const verified = invite.propertyStatus === "Ownership verified";
             return (
               <article className="card stack" key={invite.id}>
                 <div className="section-head compact">

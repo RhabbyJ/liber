@@ -147,7 +147,6 @@ export default async function SellerSearchPage({
               buyers={results}
               market={market}
               selectedServiceArea={selectedMapServiceArea}
-              viewerUserId={user?.id}
             />
           </div>
         </div>

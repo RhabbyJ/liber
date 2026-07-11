@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { canViewBuyerDirectory } from "../../../../server/access";
 import { searchBuyers } from "../../../../server/contracts";
 import { getSessionUser } from "../../../../server/session";
@@ -35,7 +36,24 @@ export async function GET(request: Request) {
     return NextResponse.json(data);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to search buyers.";
-    const status = message.toLowerCase().includes("rate limit") ? 429 : 400;
-    return NextResponse.json({ error: message, items: [], pageInfo: null }, { status });
+    if (message.toLowerCase().includes("rate limit")) {
+      return NextResponse.json(
+        { error: "Too many buyer searches. Try again later.", items: [], pageInfo: null },
+        { status: 429 },
+      );
+    }
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: "Invalid buyer search filters.", items: [], pageInfo: null },
+        { status: 400 },
+      );
+    }
+    console.error("[seller-buyers-api] search failed", {
+      name: error instanceof Error ? error.name : "UnknownError",
+    });
+    return NextResponse.json(
+      { error: "Unable to search buyers.", items: [], pageInfo: null },
+      { status: 500 },
+    );
   }
 }
