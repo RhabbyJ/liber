@@ -10,8 +10,9 @@ demo/private preview to a public Los Angeles beta. It does not override
 
 - Keep Liber in controlled pilot availability. Do not advertise LA-wide
   coverage yet.
-- Geography PR1 and identity PR2 are draft, stacked changes. Neither migration
-  set has been deployed to the shared Supabase project.
+- The shared Supabase schema was advanced on 2026-07-11 through
+  `20260711082500_close_property_identity_lifecycle`. Prisma reports all 19
+  checked-in migrations applied and no unresolved migration attempts.
 - The intended LA beta boundary is Los Angeles County. Activation waits for the
   reviewed Geography PR2 dataset and every security/scale gate below.
 
@@ -21,7 +22,16 @@ Migration `20260711071555_complete_architecture_boundaries` and its application 
 
 Migration `20260711082500_close_property_identity_lifecycle` closes the remaining local identity boundary across seller attestation, property images, invites, invited-buyer access, delayed invite email, upload cleanup, and upload-session buyer ownership. The quality CI now supplies non-secret dummy Prisma URLs and Vercel installs from the lockfile with `npm ci`; the guarded `release-database-gate` remains mandatory before deployment.
 
-These changes are not a deployment claim. Fresh/upgrade/RLS/Storage/concurrency proof must run against guarded disposable and staging Supabase databases before the shared environment advances.
+The two architecture-boundary migrations were applied to the shared production
+Supabase project on 2026-07-11. Post-migration checks confirmed the expected
+schema head, private `property-images` storage, both required Storage policies,
+the image-authorization and shared-rate-limit functions, RLS on all five new
+operational tables, and no unresolved Prisma migration entry.
+
+This production schema deployment is not a public-launch approval.
+Fresh/upgrade/RLS/Storage/concurrency proof must still run against guarded
+disposable and staging Supabase databases before controlled-pilot restrictions
+are removed.
 
 OPSWAT MetaDefender Cloud v4 paid private processing is the selected sensitive-document scanner. Integration is intentionally pending production API credentials and private-processing/vendor terms; see `docs/engineering/UPLOAD_MALWARE_SCANNING.md`. This remains a public-launch blocker and must never be replaced with a mock clean result.
 

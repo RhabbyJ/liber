@@ -1,5 +1,19 @@
 Architecture verdict
 
+Implementation record (2026-07-11)
+
+The architecture-boundary recommendations below are implemented in the
+modular monolith and deployed through Prisma migration
+`20260711082500_close_property_identity_lifecycle`. The authoritative product
+and deployment status is maintained in `docs/product/production-decisions.md`;
+this original verdict remains as the implementation rationale.
+
+The malware-scanner integration is the sole intentionally deferred item:
+OPSWAT MetaDefender Cloud v4 paid private processing is documented, but no
+scanner API or provisional clean-result behavior is present until production
+credentials and private-processing terms are available. This remains a
+public-launch blocker, not a controlled-pilot code dependency.
+
 The architecture is moving in the right direction. Do not rewrite it, and do not split it into microservices. A modular monolith built around Next.js, Postgres/Prisma, Supabase Auth/Storage, RLS, canonical geography, SQL search, and a transactional outbox is appropriate for this product and stage.
 
 However, I would not move directly into ordinary bug fixing yet. There are several architecture-level boundaries that are only partially implemented. Fixing workflow bugs before those boundaries are finalized will cause you to stabilize APIs and database behavior that you will shortly need to change again.

@@ -1,10 +1,25 @@
 -- Complete the transaction, privacy, evidence, upload, suspension, invite,
 -- outbox, and shared-rate-limit boundaries without rewriting deployed history.
 
-CREATE TYPE "PropertyStatus" AS ENUM ('DRAFT', 'READY_FOR_REVIEW', 'READY_FOR_INVITES', 'ARCHIVED');
-CREATE TYPE "UploadSessionStatus" AS ENUM ('PENDING', 'UPLOADED', 'FINALIZED', 'REJECTED', 'EXPIRED');
-CREATE TYPE "UploadPurpose" AS ENUM ('BUYER_VERIFICATION', 'PROPERTY_IMAGE', 'PROPERTY_OWNERSHIP');
-CREATE TYPE "AuthOperationStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED');
+DO $$ BEGIN
+  CREATE TYPE "PropertyStatus" AS ENUM ('DRAFT', 'READY_FOR_REVIEW', 'READY_FOR_INVITES', 'ARCHIVED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE "UploadSessionStatus" AS ENUM ('PENDING', 'UPLOADED', 'FINALIZED', 'REJECTED', 'EXPIRED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE "UploadPurpose" AS ENUM ('BUYER_VERIFICATION', 'PROPERTY_IMAGE', 'PROPERTY_OWNERSHIP');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE "AuthOperationStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- BuyerCriteria is a one-to-one v1 contract. Preserve the newest row and audit
 -- every profile whose older duplicate rows are removed.
@@ -52,7 +67,7 @@ WHERE criteria.id = ranked.id
   AND ranked.row_number > 1;
 
 DROP INDEX IF EXISTS public."BuyerCriteria_buyerProfileId_idx";
-CREATE UNIQUE INDEX "BuyerCriteria_buyerProfileId_key"
+CREATE UNIQUE INDEX IF NOT EXISTS "BuyerCriteria_buyerProfileId_key"
   ON public."BuyerCriteria"("buyerProfileId");
 
 WITH invalid_active AS (
@@ -427,11 +442,15 @@ $$;
 
 REVOKE ALL ON FUNCTION app_private.enforce_active_buyer_criteria() FROM PUBLIC;
 
+DROP TRIGGER IF EXISTS buyer_profile_active_criteria_check
+  ON public."BuyerProfile";
 CREATE CONSTRAINT TRIGGER buyer_profile_active_criteria_check
 AFTER INSERT OR UPDATE OF "visibilityStatus" ON public."BuyerProfile"
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION app_private.enforce_active_buyer_criteria();
 
+DROP TRIGGER IF EXISTS buyer_criteria_active_profile_check
+  ON public."BuyerCriteria";
 CREATE CONSTRAINT TRIGGER buyer_criteria_active_profile_check
 AFTER INSERT OR UPDATE OR DELETE ON public."BuyerCriteria"
 DEFERRABLE INITIALLY DEFERRED
@@ -473,6 +492,8 @@ $$;
 
 REVOKE ALL ON FUNCTION app_private.property_identity_lifecycle() FROM PUBLIC;
 
+DROP TRIGGER IF EXISTS seller_property_identity_lifecycle
+  ON public."SellerProperty";
 CREATE TRIGGER seller_property_identity_lifecycle
 BEFORE INSERT OR UPDATE
 ON public."SellerProperty"
@@ -698,6 +719,8 @@ $$;
 
 REVOKE ALL ON FUNCTION app_private.revoke_badges_for_invalid_evidence() FROM PUBLIC;
 
+DROP TRIGGER IF EXISTS verification_document_badge_revocation
+  ON public."VerificationDocument";
 CREATE TRIGGER verification_document_badge_revocation
 AFTER UPDATE OF "reviewStatus" ON public."VerificationDocument"
 FOR EACH ROW EXECUTE FUNCTION app_private.revoke_badges_for_invalid_evidence();
