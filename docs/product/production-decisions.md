@@ -129,6 +129,15 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
   after the final schema and seller-search query land.
 - Remove clearly marked demo buyer data before true public launch.
 
+### Public-launch blocker: restore scheduled maintenance
+
+Before any public launch:
+
+- Restore `/api/maintenance/outbox` on `* * * * *` (every minute).
+- Restore `/api/maintenance/expire` on `0 9 * * *` (daily at 09:00 UTC).
+- Use Vercel Pro or an external scheduler that supports the required frequency; do not reduce the outbox worker to a daily schedule.
+- Confirm `CRON_SECRET` is configured, deploy, and verify successful worker heartbeats plus email, Auth-ban, invite-expiry, and upload-cleanup processing.
+
 Low-traffic unused-index findings are not sufficient reason to drop ownership,
 search, or foreign-key indexes. Decide indexes from final query plans and
 representative volume.

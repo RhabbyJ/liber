@@ -21,6 +21,7 @@ Owns transactional email queueing, invite email delivery, expiry jobs, and maint
 - Local development may use mock/non-sending email.
 - When production scheduling is enabled, email and Auth workers run independently every minute, claim with leases/`SKIP LOCKED`, and publish heartbeats used by readiness checks.
 - Vercel scheduling is temporarily disabled for the controlled Hobby-plan preview. The protected endpoints remain callable; restore a per-minute scheduler before relying on email, Auth-ban, expiry, or cleanup automation.
+- Public launch is blocked until `/api/maintenance/outbox` runs every minute (`* * * * *`) and `/api/maintenance/expire` runs daily at 09:00 UTC (`0 9 * * *`), with `CRON_SECRET` authentication and worker-heartbeat verification.
 - Invite email rows reference their invite. Workers revalidate current property identity and account/workflow eligibility immediately before sending; invalid work becomes `CANCELLED`.
 - Upload cleanup marks a session `CLEANED` only after Storage deletion succeeds, so completed cleanup is not selected again.
 

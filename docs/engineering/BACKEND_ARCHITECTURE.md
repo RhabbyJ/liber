@@ -259,7 +259,7 @@ Abuse controls use `app_private.consume_rate_limit` and `RateLimitBucket`, an at
 
 ## Maintenance
 
-`POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET` and expires stale invites/badges. `GET /api/maintenance/outbox` uses the same bearer secret for leased email delivery, Auth bans, and abandoned-upload cleanup. The endpoints remain available, but their Vercel schedules are temporarily disabled for the controlled Hobby-plan preview; restore a per-minute scheduler before relying on email, Auth-ban, or cleanup automation.
+`POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET` and expires stale invites/badges. `GET /api/maintenance/outbox` uses the same bearer secret for leased email delivery, Auth bans, and abandoned-upload cleanup. The endpoints remain available, but their Vercel schedules are temporarily disabled for the controlled Hobby-plan preview. Public launch is blocked until the outbox schedule is restored to every minute (`* * * * *`) and expiry is restored to daily at 09:00 UTC (`0 9 * * *`), with worker heartbeats verified.
 
 Email and Auth jobs use atomic `FOR UPDATE SKIP LOCKED` claims, expiring leases, worker IDs, bounded retry, idempotency keys, provider message IDs, and worker heartbeats. Missing Resend configuration outside development/test is a job failure and a production-readiness failure.
 
