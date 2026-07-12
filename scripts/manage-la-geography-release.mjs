@@ -51,27 +51,37 @@ if (action !== "status") {
 
 const client = new pg.Client({ connectionString });
 await client.connect();
+let commitAttempted = false;
 let committed = false;
 try {
   let result = null;
   if (action !== "status") {
     await client.query("BEGIN");
     await client.query("SET LOCAL statement_timeout = '180s'");
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+      [`la-geography-release:${expectedDatasetVersion}`],
+    );
     await assertMigrationLedger(client);
     if (action === "stage") result = await stageDataset(client, dataset);
     if (action === "activate") result = await activateDataset(client, dataset);
     if (action === "rollback") result = await rollbackDataset(client, dataset);
+    commitAttempted = true;
     await client.query("COMMIT");
     committed = true;
   }
   console.log(JSON.stringify({ action, result, status: await releaseStatus(client) }, null, 2));
 } catch (error) {
   if (!committed) {
-    try { await client.query("ROLLBACK"); } catch {}
-  } else {
-    throw new Error("LA geography write committed, but post-commit reconciliation failed; run --status before retrying.", { cause: error });
+    if (!commitAttempted) {
+      if (action !== "status") {
+        try { await client.query("ROLLBACK"); } catch {}
+      }
+      throw error;
+    }
+    throw new Error("LA geography commit outcome is unknown; run --status before retrying.", { cause: error });
   }
-  throw error;
+  throw new Error("LA geography write committed, but post-commit reconciliation failed; run --status before retrying.", { cause: error });
 } finally {
   await client.end();
 }

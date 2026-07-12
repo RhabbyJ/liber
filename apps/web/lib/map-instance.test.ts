@@ -19,7 +19,7 @@ describe("map instance identity", () => {
     );
   });
 
-  it("keeps same-named selected areas isolated by market and versioned path", () => {
+  it("preserves the exact versioned geometry path for selected areas", () => {
     const baseArea = {
       active: true,
       bbox: market.bbox,
@@ -39,12 +39,17 @@ describe("map instance identity", () => {
       state: "CA",
       type: "neighborhood" as const,
     };
-    expect(selectedMapArea(baseArea)).toMatchObject({ marketSlug: "los-angeles" });
+    expect(selectedMapArea(baseArea)).toEqual({
+      bbox: baseArea.bbox,
+      center: baseArea.center,
+      geojsonPath: baseArea.geojsonPath,
+      label: baseArea.label,
+    });
     expect(selectedMapArea({
       ...baseArea,
       geojsonPath: "/api/service-areas/downtown/geometry?market=san-diego",
       id: "sd-downtown",
       marketSlug: "san-diego",
-    })).toMatchObject({ marketSlug: "san-diego" });
+    })).toMatchObject({ geojsonPath: "/api/service-areas/downtown/geometry?market=san-diego" });
   });
 });

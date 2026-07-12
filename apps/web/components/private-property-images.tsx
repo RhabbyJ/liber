@@ -20,7 +20,10 @@ export function PrivatePropertyImages({ imageIds }: { imageIds: string[] }) {
   if (urls.length === 0) return null;
   return (
     <div className="grid three" aria-label="Private property images">
-      {urls.map((url) => <img alt="Invited property" key={url} src={url} style={{ borderRadius: 12, width: "100%" }} />)}
+      {urls.map((url) => (
+        // eslint-disable-next-line @next/next/no-img-element -- Keep invite-gated signed URLs browser-direct.
+        <img alt="Invited property" key={url} src={url} style={{ borderRadius: 12, width: "100%" }} />
+      ))}
     </div>
   );
 }

@@ -28,11 +28,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     if (!geometry) {
       return NextResponse.json({ error: "Unsupported service-area geometry." }, { status: 404 });
     }
+
+    const etag = `"${geometry.sha256}"`;
+    const cacheControl = parsedVersion?.success
+      ? "public, max-age=31536000, immutable"
+      : "public, max-age=60";
+    if (request.headers.get("if-none-match") === etag) {
+      return new Response(null, { status: 304, headers: { "Cache-Control": cacheControl, ETag: etag } });
+    }
+
     return NextResponse.json(geometry.geojson, {
-      headers: {
-        "Cache-Control": parsedVersion?.success ? "public, max-age=31536000, immutable" : "public, max-age=60",
-        ETag: `"${geometry.sha256}"`,
-      },
+      headers: { "Cache-Control": cacheControl, ETag: etag },
     });
   } catch (error) {
     const message = error instanceof GeographyUnavailableError

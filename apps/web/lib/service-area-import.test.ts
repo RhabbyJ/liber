@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 // The operational importer is plain ESM so it can run without a TS runtime.
 // @ts-expect-error JavaScript helper intentionally has no generated declaration file.
-import { assertImportWriteConfiguration, assertLaReleaseWriteConfiguration, loadAndValidateDataset, validateAreaFeatureEvidence, validateServiceAreaDataset } from "../../../scripts/service-area-import-lib.mjs";
+import { assertImportWriteConfiguration, assertLaReleaseWriteConfiguration, importSharedDatabaseUrls, loadAndValidateDataset, validateAreaFeatureEvidence, validateServiceAreaDataset } from "../../../scripts/service-area-import-lib.mjs";
 
 const datasetRoot = path.resolve(
   process.cwd(),
@@ -14,6 +14,14 @@ const legacyDatasetRoot = path.resolve(
   process.cwd(),
   "../../data/geography/los-angeles-county/la-county-06037-2026-07-09-v1",
 );
+
+function expectTextBefore(source: string, first: string, second: string) {
+  const firstIndex = source.indexOf(first);
+  const secondIndex = source.indexOf(second);
+  expect(firstIndex).toBeGreaterThan(-1);
+  expect(secondIndex).toBeGreaterThan(-1);
+  expect(firstIndex).toBeLessThan(secondIndex);
+}
 
 describe("reviewed LA County service-area dataset", () => {
   it("verifies the complete checksum ledger, source features, and official relationship evidence", async () => {
@@ -114,6 +122,24 @@ describe("reviewed LA County service-area dataset", () => {
     })).not.toThrow();
   });
 
+  it("always protects the standard shared database targets", () => {
+    const directUrl = "postgresql://postgres@db.sharedprojectref.supabase.co:5432/postgres";
+    const pooledUrl = "postgresql://postgres.sharedprojectref@aws-0-us-west-1.pooler.supabase.com:6543/postgres";
+    const extraUrl = "postgresql://postgres@db.disposableprojectref.supabase.co:5432/postgres";
+    const sharedUrls = importSharedDatabaseUrls({
+      DATABASE_URL: pooledUrl,
+      DIRECT_URL: directUrl,
+      SERVICE_AREA_IMPORT_SHARED_DATABASE_URLS: JSON.stringify([extraUrl, directUrl]),
+    });
+    expect(sharedUrls).toEqual([extraUrl, directUrl, pooledUrl]);
+    expect(() => assertImportWriteConfiguration({
+      allowWrites: "true",
+      databaseUrl: pooledUrl,
+      sentinel: "a-long-disposable-sentinel",
+      sharedDatabaseUrls: sharedUrls,
+    })).toThrow("configured shared database");
+  });
+
   it("pins v2 release identity and every legal-city source feature", async () => {
     const { bundles, manifest, relationships } = await loadAndValidateDataset(path.join(datasetRoot, "manifest.json"));
     expect(() => validateServiceAreaDataset({ ...manifest, retrievalDate: "2026-07-13" }, relationships)).toThrow(
@@ -182,11 +208,19 @@ describe("reviewed LA County service-area dataset", () => {
   });
 
   it("binds release writes to the deployed Prisma migration and stable source identity", async () => {
+    const importer = await readFile(path.resolve(process.cwd(), "../../scripts/import-service-areas.mjs"), "utf8");
     const releaseManager = await readFile(path.resolve(process.cwd(), "../../scripts/manage-la-geography-release.mjs"), "utf8");
     const builder = await readFile(path.resolve(process.cwd(), "../../scripts/build-la-geography-dataset.mjs"), "utf8");
 
+    expectTextBefore(importer, "commitAttempted = true", 'client.query("COMMIT")');
+    expectTextBefore(importer, 'client.query("COMMIT")', "committed = true");
+    expect(importer).toContain("Service-area import commit outcome is unknown");
+    expect(importer).toContain("Service-area import committed, but result reporting failed");
     expect(releaseManager).toContain("expectedMigrationChecksum");
     expect(releaseManager).toContain("response.rows[0]?.checksum !== expectedMigrationChecksum");
+    expectTextBefore(releaseManager, "pg_advisory_xact_lock", 'if (action === "stage")');
+    expectTextBefore(releaseManager, "commitAttempted = true", 'client.query("COMMIT")');
+    expect(releaseManager).toContain("LA geography commit outcome is unknown; run --status before retrying.");
     expect(builder).toContain("stableJson(csaItemEvidence)");
     expect(builder).toContain("ARCHIVED_CSA_ITEM_EVIDENCE_SHA256");
     expect(builder).not.toContain("sha256(Buffer.from(stableJson(csaItem)))");

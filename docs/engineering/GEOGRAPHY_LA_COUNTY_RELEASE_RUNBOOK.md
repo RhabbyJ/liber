@@ -91,7 +91,7 @@ npm run db:release-la-geography -- <manifest> --stage
 npm run db:release-la-geography -- <manifest> --activate
 ```
 
-The command validates the external ledger before connecting, requires the database migration checksum to match the checked-in SQL exactly, pins writes to the confirmed Supabase project ref, wraps each write in a short transaction, and prints only aggregate reconciliation data.
+The command validates the external ledger before connecting, requires the database migration checksum to match the checked-in SQL exactly, pins writes to the confirmed Supabase project ref, serializes supported release writes with a transaction advisory lock, wraps each write in a short transaction, and prints only aggregate reconciliation data.
 
 ## Rollback
 

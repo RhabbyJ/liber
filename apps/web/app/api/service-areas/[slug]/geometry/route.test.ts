@@ -42,6 +42,18 @@ describe("service-area geometry route", () => {
     expect(response.headers.get("cache-control")).toBe("public, max-age=60");
   });
 
+  it("honors the geometry ETag", async () => {
+    getGeometry.mockResolvedValue(geometry);
+    const response = await GET(
+      new Request(`https://liber.test/api/service-areas/90001/geometry?market=los-angeles&v=${hash}`, {
+        headers: { "if-none-match": `"${hash}"` },
+      }),
+      { params: Promise.resolve({ slug: "90001" }) },
+    );
+
+    expect(response.status).toBe(304);
+  });
+
   it("does not substitute the current geometry when a requested version is absent", async () => {
     getGeometry.mockResolvedValue(null);
     const response = await GET(

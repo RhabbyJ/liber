@@ -6,7 +6,6 @@ import { syncMarketBoundaryLayers, syncSelectedAreaLayer } from "../lib/map-boun
 import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
 import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
 import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
-import { useSelectedAreaGeoJson } from "../lib/use-selected-area-geojson";
 
 type Props = {
   market: MarketMapContext;
@@ -49,11 +48,14 @@ export function PublicDemandMap({
   const [didFail, setDidFail] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [hasLiveMarkers, setHasLiveMarkers] = useState(false);
+  const mapboxToken = token?.trim() ?? "";
+  const shouldUseMapbox = Boolean(mapboxToken);
+  const boundaryPath = shouldUseMapbox ? market.boundaryGeojsonPath : undefined;
   const marketBoundaryGeojson = useKeyedGeoJson(
-    market.boundaryGeojsonPath,
-    `${market.slug}:${market.boundaryGeojsonPath ?? ""}`,
+    boundaryPath,
+    boundaryPath ? `${market.slug}:${boundaryPath}` : "",
   );
-  const selectedAreaGeojson = useSelectedAreaGeoJson(selectedArea);
+  const selectedAreaGeojson = useKeyedGeoJson(shouldUseMapbox ? selectedArea?.geojsonPath : undefined);
 
   const points = useMemo<PreviewPoint[]>(
     () =>
@@ -67,8 +69,6 @@ export function PublicDemandMap({
         .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng)),
     [previews],
   );
-  const mapboxToken = token?.trim() ?? "";
-  const shouldUseMapbox = Boolean(mapboxToken);
   const mapInstanceKey = marketMapInstanceKey(market, mapboxToken);
   const [marketWest, marketSouth, marketEast, marketNorth] = market.bbox;
   const marketCenterLat = market.center.lat;

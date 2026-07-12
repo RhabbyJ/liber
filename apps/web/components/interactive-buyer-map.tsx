@@ -8,7 +8,6 @@ import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketM
 import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
 import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
 import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
-import { useSelectedAreaGeoJson } from "../lib/use-selected-area-geojson";
 import { StaticBuyerMap } from "./static-buyer-map";
 
 type Props = {
@@ -28,7 +27,7 @@ type MarkerBuyerPoint = BuyerPoint & {
   markerOffset: [number, number];
 };
 
-export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null, token }: Props) {
+export function InteractiveBuyerMap({ buyers, market, selectedServiceArea: selectedArea = null, token }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const markersRef = useRef<Map<string, MapboxMarker>>(new Map());
@@ -40,7 +39,7 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
     market.boundaryGeojsonPath,
     `${market.slug}:${market.boundaryGeojsonPath ?? ""}`,
   );
-  const selectedAreaGeojson = useSelectedAreaGeoJson(selectedServiceArea);
+  const selectedAreaGeojson = useKeyedGeoJson(selectedArea?.geojsonPath);
 
   const buyerPoints = useMemo(
     () =>
@@ -53,7 +52,6 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
     [buyers],
   );
   const markerPoints = useMemo(() => withMarkerOffsets(buyerPoints), [buyerPoints]);
-  const selectedArea = selectedServiceArea;
   const initialCenter = useMemo(() => mapCenter(buyerPoints, selectedArea, market), [buyerPoints, selectedArea, market]);
   const highlightBuyer = useCallback((buyerId: string, active: boolean) => {
     markerNodesRef.current.get(buyerId)?.classList.toggle("active", active);
@@ -108,6 +106,7 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
 
         mapRef.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "bottom-right");
         mapRef.current.on("load", () => {
+          if (canceled) return;
           loaded = true;
           setIsReady(true);
           setStatus("");

@@ -202,7 +202,19 @@ export function assertImportWriteConfiguration({ allowWrites, databaseUrl, senti
   }
 }
 
-export function normalizeSearchTerm(value) {
+export function importSharedDatabaseUrls(environment) {
+  const standardUrls = [environment.DIRECT_URL, environment.DATABASE_URL].filter(Boolean);
+  const configuredUrls = environment.SERVICE_AREA_IMPORT_SHARED_DATABASE_URLS;
+  if (configuredUrls === undefined) return standardUrls;
+
+  const parsed = JSON.parse(configuredUrls);
+  if (!Array.isArray(parsed) || parsed.some((value) => typeof value !== "string")) {
+    throw new Error("SERVICE_AREA_IMPORT_SHARED_DATABASE_URLS must be a JSON string array.");
+  }
+  return [...new Set([...parsed, ...standardUrls])];
+}
+
+function normalizeSearchTerm(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 

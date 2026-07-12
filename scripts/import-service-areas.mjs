@@ -4,6 +4,7 @@ import process from "node:process";
 import pg from "pg";
 import {
   assertImportWriteConfiguration,
+  importSharedDatabaseUrls,
   loadAndValidateDataset,
 } from "./service-area-import-lib.mjs";
 
@@ -31,14 +32,17 @@ assertImportWriteConfiguration({
   allowWrites: process.env.SERVICE_AREA_IMPORT_ALLOW_WRITES,
   databaseUrl: connectionString,
   sentinel,
-  sharedDatabaseUrls: configuredSharedDatabaseUrls(),
+  sharedDatabaseUrls: importSharedDatabaseUrls(process.env),
 });
 
 const pool = new pg.Pool({ connectionString, max: 1 });
 const client = await pool.connect();
+let commitAttempted = false;
+let committed = false;
 try {
   await assertDisposableImportTarget(client, sentinel);
   await client.query("BEGIN");
+  await client.query("SET LOCAL statement_timeout = '180s'");
   const proposalCheck = await client.query(
     "SELECT to_regprocedure('geography_admin.stage_service_area_dataset(jsonb,jsonb,text,text,jsonb,jsonb,jsonb,jsonb)') AS procedure",
   );
@@ -58,11 +62,19 @@ try {
       dataset.bundles["legal-city.geojson.gz"],
     ],
   );
+  commitAttempted = true;
   await client.query("COMMIT");
+  committed = true;
   console.log(JSON.stringify(result.rows[0]?.result ?? {}, null, 2));
 } catch (error) {
-  await client.query("ROLLBACK");
-  throw error;
+  if (!committed) {
+    if (!commitAttempted) {
+      try { await client.query("ROLLBACK"); } catch {}
+      throw error;
+    }
+    throw new Error("Service-area import commit outcome is unknown; inspect the target before retrying.", { cause: error });
+  }
+  throw new Error("Service-area import committed, but result reporting failed; inspect the target before retrying.", { cause: error });
 } finally {
   client.release();
   await pool.end();
@@ -78,16 +90,4 @@ async function assertDisposableImportTarget(client, expectedSentinel) {
     [expectedSentinel],
   );
   if (!verified.rows[0]?.verified) throw new Error("Disposable geography sentinel does not match.");
-}
-
-function configuredSharedDatabaseUrls() {
-  const explicit = process.env.SERVICE_AREA_IMPORT_SHARED_DATABASE_URLS;
-  if (explicit !== undefined) {
-    const parsed = JSON.parse(explicit);
-    if (!Array.isArray(parsed) || parsed.some((value) => typeof value !== "string")) {
-      throw new Error("SERVICE_AREA_IMPORT_SHARED_DATABASE_URLS must be a JSON string array.");
-    }
-    return parsed;
-  }
-  return [process.env.DIRECT_URL, process.env.DATABASE_URL].filter(Boolean);
 }
