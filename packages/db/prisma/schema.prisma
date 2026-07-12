@@ -397,7 +397,7 @@ model ServiceAreaSearchTerm {
 
   @@unique([marketId, termNormalized, serviceAreaId])
   // The migration owns the text_pattern_ops covering index because Prisma cannot model INCLUDE columns.
-  @@index([serviceAreaId], map: "service_area_search_terms_area_idx")
+  @@index([serviceAreaId, marketId], map: "service_area_search_terms_area_idx")
   @@map("service_area_search_terms")
 }
 

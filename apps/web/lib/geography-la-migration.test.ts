@@ -7,6 +7,10 @@ describe("LA County geography migration", () => {
     path.resolve(process.cwd(), "../../packages/db/prisma/migrations/20260712090000_expand_la_county_geography/migration.sql"),
     "utf8",
   );
+  const advisorIndexSql = readFileSync(
+    path.resolve(process.cwd(), "../../packages/db/prisma/migrations/20260712100500_cover_service_area_search_term_market_fk/migration.sql"),
+    "utf8",
+  );
   const stagingFunction = sql.slice(
     sql.indexOf("CREATE OR REPLACE FUNCTION geography_admin.stage_service_area_dataset"),
     sql.indexOf("REVOKE ALL ON FUNCTION geography_admin.stage_service_area_dataset"),
@@ -126,5 +130,10 @@ describe("LA County geography migration", () => {
     expect(sql).toContain("CREATE OR REPLACE FUNCTION geography_admin.assert_la_county_activation_current");
     expect(sql).toContain("VOLATILE");
     expect(sql).toContain("PERFORM geography_admin.assert_la_county_activation_current(dataset_record.id)");
+  });
+
+  it("covers the composite same-market search-term foreign key", () => {
+    expect(advisorIndexSql).toContain("DROP INDEX IF EXISTS public.service_area_search_terms_area_idx");
+    expect(advisorIndexSql).toContain("ON public.service_area_search_terms(service_area_id, market_id)");
   });
 });
