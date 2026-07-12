@@ -8,7 +8,6 @@ export type ServiceAreaApiResult = {
   disclaimer: string;
   geojson_path: string;
   geojson_sha256: string | null;
-  id: string;
   is_pilot: boolean;
   label: string;
   market_slug: string;
@@ -42,7 +41,6 @@ export function apiResultToServiceArea(result: ServiceAreaApiResult): ServiceAre
     county: result.county,
     disclaimer: result.disclaimer,
     geojsonPath: result.geojson_path,
-    id: result.id,
     isPilot: result.is_pilot,
     label: result.label,
     marketSlug: result.market_slug,

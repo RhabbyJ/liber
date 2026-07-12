@@ -2,6 +2,7 @@ import { serviceAreaBounds, type ServiceArea } from "./service-areas";
 
 export type MarketMapContext = {
   bbox: [number, number, number, number];
+  boundaryGeojsonPath?: string;
   center: {
     lat: number;
     lng: number;
@@ -12,7 +13,7 @@ export type MarketMapContext = {
 
 export type SelectedMapArea = Pick<
   ServiceArea,
-  "bbox" | "center" | "disclaimer" | "geojsonPath" | "id" | "label" | "marketSlug" | "slug" | "type"
+  "bbox" | "center" | "disclaimer" | "geojsonPath" | "label" | "marketSlug" | "slug" | "type"
 >;
 
 export function selectedMapArea(area?: ServiceArea | null): SelectedMapArea | null {
@@ -22,7 +23,6 @@ export function selectedMapArea(area?: ServiceArea | null): SelectedMapArea | nu
     center: area.center,
     disclaimer: area.disclaimer,
     geojsonPath: area.geojsonPath,
-    id: area.id,
     label: area.label,
     marketSlug: area.marketSlug,
     slug: area.slug,

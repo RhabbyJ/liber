@@ -21,6 +21,9 @@ if (!write) {
   console.log(`Validated ${dataset.manifest.counts.areas} inactive LA County service areas, ${dataset.relationships.counts.displayParents} official display parents, and ${dataset.relationships.counts.searchRollups} official search rollups. No database writes were requested.`);
   process.exit(0);
 }
+if (dataset.manifest.schemaVersion !== 2) {
+  throw new Error("Database staging requires the reviewed schemaVersion 2 LA County dataset with legal-city display evidence.");
+}
 
 const connectionString = process.env.SERVICE_AREA_IMPORT_DATABASE_URL;
 const sentinel = process.env.SERVICE_AREA_IMPORT_SENTINEL;
@@ -37,13 +40,13 @@ try {
   await assertDisposableImportTarget(client, sentinel);
   await client.query("BEGIN");
   const proposalCheck = await client.query(
-    "SELECT to_regprocedure('geography_admin.stage_service_area_dataset(jsonb,jsonb,text,text,jsonb,jsonb,jsonb)') AS procedure",
+    "SELECT to_regprocedure('geography_admin.stage_service_area_dataset(jsonb,jsonb,text,text,jsonb,jsonb,jsonb,jsonb)') AS procedure",
   );
   if (!proposalCheck.rows[0]?.procedure) {
-    throw new Error("The unnumbered geography proposal must be integrated on the disposable target before staging this dataset.");
+    throw new Error("The LA County geography migration must be applied on the disposable target before staging this dataset.");
   }
   const result = await client.query(
-    "SELECT geography_admin.stage_service_area_dataset($1::jsonb, $2::jsonb, $3::text, $4::text, $5::jsonb, $6::jsonb, $7::jsonb) AS result",
+    "SELECT geography_admin.stage_service_area_dataset($1::jsonb, $2::jsonb, $3::text, $4::text, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb) AS result",
     [
       dataset.manifest,
       dataset.relationships,
@@ -52,6 +55,7 @@ try {
       dataset.bundles["county.geojson.gz"],
       dataset.bundles["csa-land.geojson.gz"],
       dataset.bundles["zcta.geojson.gz"],
+      dataset.bundles["legal-city.geojson.gz"],
     ],
   );
   await client.query("COMMIT");

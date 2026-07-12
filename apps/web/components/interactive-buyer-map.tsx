@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatRange } from "../lib/format";
 import { approximateBuyerPoint } from "../lib/buyer-map-point";
+import { syncMarketBoundaryLayers, syncSelectedAreaLayer } from "../lib/map-boundary-layers";
 import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
 import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
 import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
+import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
 import { useSelectedAreaGeoJson } from "../lib/use-selected-area-geojson";
 import { StaticBuyerMap } from "./static-buyer-map";
 
@@ -31,10 +33,13 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
   const mapRef = useRef<MapboxMap | null>(null);
   const markersRef = useRef<Map<string, MapboxMarker>>(new Map());
   const markerNodesRef = useRef<Map<string, HTMLElement>>(new Map());
-  const suppressMoveEndRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
   const [status, setStatus] = useState("Loading interactive map");
   const [didFail, setDidFail] = useState(false);
+  const marketBoundaryGeojson = useKeyedGeoJson(
+    market.boundaryGeojsonPath,
+    `${market.slug}:${market.boundaryGeojsonPath ?? ""}`,
+  );
   const selectedAreaGeojson = useSelectedAreaGeoJson(selectedServiceArea);
 
   const buyerPoints = useMemo(
@@ -57,6 +62,9 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
       ?.classList.toggle("active", active);
   }, []);
   const mapInstanceKey = marketMapInstanceKey(market, token);
+  const [marketWest, marketSouth, marketEast, marketNorth] = market.bbox;
+  const marketCenterLat = market.center.lat;
+  const marketCenterLng = market.center.lng;
 
   useEffect(() => {
     setDidFail(false);
@@ -90,10 +98,10 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
         mapRef.current = new mapboxgl.Map({
           antialias: true,
           attributionControl: true,
-          center: [market.center.lng, market.center.lat],
+          center: [marketCenterLng, marketCenterLat],
           cooperativeGestures: true,
           container: containerRef.current,
-          maxBounds: marketMapBounds(market),
+          maxBounds: [[marketWest, marketSouth], [marketEast, marketNorth]],
           style: "mapbox://styles/mapbox/streets-v12",
           zoom: 10.4,
         });
@@ -103,12 +111,6 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
           loaded = true;
           setIsReady(true);
           setStatus("");
-        });
-        mapRef.current.on("moveend", () => {
-          if (suppressMoveEndRef.current) {
-            suppressMoveEndRef.current = false;
-            return;
-          }
         });
         mapRef.current.on("error", () => {
           if (!loaded) fallBackToStaticMap();
@@ -130,7 +132,23 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [didFail, mapInstanceKey]);
+  }, [
+    didFail,
+    mapInstanceKey,
+    marketCenterLat,
+    marketCenterLng,
+    marketEast,
+    marketNorth,
+    marketSouth,
+    marketWest,
+    token,
+  ]);
+
+  useEffect(() => {
+    if (!isReady || !mapRef.current) return;
+    syncMarketBoundaryLayers(mapRef.current, marketBoundaryGeojson);
+    syncSelectedAreaLayer(mapRef.current, selectedAreaGeojson);
+  }, [isReady, marketBoundaryGeojson, selectedAreaGeojson]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current || !window.mapboxgl) return;
@@ -138,7 +156,6 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current.clear();
     markerNodesRef.current.clear();
-    syncSelectedAreaLayer(mapRef.current, selectedAreaGeojson);
 
     for (const point of markerPoints) {
       const markerNode = document.createElement("button");
@@ -162,19 +179,16 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
     }
 
     if (selectedArea) {
-      suppressMoveEndRef.current = true;
       mapRef.current.fitBounds(selectedAreaBounds(selectedArea), { maxZoom: 12.6, padding: 104 });
     } else if (buyerPoints.length > 1) {
       const bounds = new window.mapboxgl.LngLatBounds();
       buyerPoints.forEach((point) => bounds.extend([point.lng, point.lat]));
-      suppressMoveEndRef.current = true;
       mapRef.current.fitBounds(bounds, { maxZoom: 12.4, padding: 96 });
     } else {
-      suppressMoveEndRef.current = true;
       mapRef.current.flyTo({ center: [initialCenter.lng, initialCenter.lat], zoom: buyerPoints.length === 1 ? 11.5 : 10.4 });
     }
 
-  }, [buyerPoints, highlightBuyer, initialCenter.lat, initialCenter.lng, isReady, markerPoints, selectedArea, selectedAreaGeojson]);
+  }, [buyerPoints, highlightBuyer, initialCenter.lat, initialCenter.lng, isReady, markerPoints, selectedArea]);
 
   useEffect(() => {
     const cards = Array.from(document.querySelectorAll<HTMLElement>(".buyer-card[data-buyer-id], .buyer-row[data-buyer-id]"));
@@ -221,9 +235,18 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
         </a>
       </div>
       <div className="map-canvas" ref={containerRef} />
+      <button
+        aria-label="Fit map to all of Los Angeles County"
+        className="map-view-all-control"
+        onClick={() => mapRef.current?.fitBounds(marketMapBounds(market), { padding: 72 })}
+        type="button"
+      >
+        View all LA County
+      </button>
       <div className="map-legend">
         <span><i className="legend-dot primary" /> Buyer profile</span>
         <span><i className="legend-dot active" /> Hover match</span>
+        <span>County · City · Approx. ZIP boundaries</span>
       </div>
       {status ? <div className="map-status">{status}</div> : null}
       {buyers.length === 0 ? <div className="map-empty">No active buyers match this area yet.</div> : null}
@@ -311,49 +334,4 @@ function escapeHtml(value: string) {
 function cssEscape(value: string) {
   if (typeof CSS !== "undefined" && CSS.escape) return CSS.escape(value);
   return value.replaceAll('"', '\\"');
-}
-
-const selectedAreaSourceId = "liber-selected-service-area-source";
-const selectedAreaFillLayerId = "liber-selected-service-area-fill";
-const selectedAreaLineLayerId = "liber-selected-service-area-outline";
-
-function syncSelectedAreaLayer(map: MapboxMap, data: Record<string, unknown> | null) {
-  if (!data) {
-    removeSelectedAreaLayer(map);
-    return;
-  }
-
-  const source = map.getSource(selectedAreaSourceId);
-  if (source) {
-    source.setData(data);
-    return;
-  }
-
-  map.addSource(selectedAreaSourceId, { data, type: "geojson" });
-  map.addLayer({
-    id: selectedAreaFillLayerId,
-    paint: {
-      "fill-color": "#16834c",
-      "fill-opacity": 0.08,
-    },
-    source: selectedAreaSourceId,
-    type: "fill",
-  });
-  map.addLayer({
-    id: selectedAreaLineLayerId,
-    paint: {
-      "line-color": "#0e5f38",
-      "line-dasharray": [2, 1],
-      "line-opacity": 0.86,
-      "line-width": 3,
-    },
-    source: selectedAreaSourceId,
-    type: "line",
-  });
-}
-
-function removeSelectedAreaLayer(map: MapboxMap) {
-  if (map.getLayer(selectedAreaLineLayerId)) map.removeLayer(selectedAreaLineLayerId);
-  if (map.getLayer(selectedAreaFillLayerId)) map.removeLayer(selectedAreaFillLayerId);
-  if (map.getSource(selectedAreaSourceId)) map.removeSource(selectedAreaSourceId);
 }

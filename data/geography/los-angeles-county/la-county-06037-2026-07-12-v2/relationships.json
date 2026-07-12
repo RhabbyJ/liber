@@ -1,0 +1,2999 @@
+{
+  "schemaVersion": 1,
+  "datasetVersion": "la-county-06037-2026-07-12-v2",
+  "reviewedAt": "2026-07-12T00:00:00.000Z",
+  "reviewVersion": "la-county-csa-lcity-review-v1",
+  "reviewMethod": {
+    "cityCommunity": "Official CSA LCITY membership from the County source",
+    "zctaDisplayParent": "not included; spatial inference requires separate human review",
+    "zctaSearchRollup": "not included"
+  },
+  "counts": {
+    "relationships": 298,
+    "displayParents": 149,
+    "searchRollups": 149,
+    "zctaAssignments": 0
+  },
+  "relationships": [
+    {
+      "childStableExternalId": "urn:lacounty:csa:348",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:348",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:350",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:350",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:351",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:351",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:352",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:352",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:353",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:353",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:354",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:354",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:355",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:355",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:357",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:357",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:359",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:359",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:360",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:360",
+      "parentStableExternalId": "urn:lacounty:csa:city:long-beach",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:100",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:100",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:101",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:101",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:102",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:102",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:103",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:103",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:104",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:104",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:105",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:105",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:106",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:106",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:107",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:107",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:108",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:108",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:109",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:109",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:110",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:110",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:111",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:111",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:112",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:112",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:113",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:113",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:114",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:114",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:115",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:115",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:116",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:116",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:117",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:117",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:118",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:118",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:119",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:119",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:120",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:120",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:121",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:121",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:122",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:122",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:123",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:123",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:124",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:124",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:125",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:125",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:126",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:126",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:127",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:127",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:128",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:128",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:129",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:129",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:130",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:130",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:131",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:131",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:132",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:132",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:133",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:133",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:134",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:134",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:135",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:135",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:136",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:136",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:137",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:137",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:138",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:138",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:139",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:139",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:140",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:140",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:141",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:141",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:142",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:142",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:143",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:143",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:144",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:144",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:145",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:145",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:146",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:146",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:147",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:147",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:148",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:148",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:149",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:149",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:150",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:150",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:151",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:151",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:152",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:152",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:153",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:153",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:154",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:154",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:155",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:155",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:156",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:156",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:157",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:157",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:158",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:158",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:159",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:159",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:160",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:160",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:161",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:161",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:162",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:162",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:163",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:163",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:164",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:164",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:165",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:165",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:166",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:166",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:167",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:167",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:168",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:168",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:169",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:169",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:170",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:170",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:171",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:171",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:172",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:172",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:173",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:173",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:174",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:174",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:175",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:175",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:176",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:176",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:177",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:177",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:178",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:178",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:179",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:179",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:180",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:180",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:181",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:181",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:182",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:182",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:183",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:183",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:184",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:184",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:185",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:185",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:186",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:186",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:187",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:187",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:188",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:188",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:189",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:189",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:190",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:190",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:191",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:191",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:192",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:192",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:193",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:193",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:194",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:194",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:195",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:195",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:196",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:196",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:197",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:197",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:198",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:198",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:199",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:199",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:200",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:200",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:201",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:201",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:202",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:202",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:203",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:203",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:204",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:204",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:205",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:205",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:206",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:206",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:207",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:207",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:208",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:208",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:209",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:209",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:210",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:210",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:211",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:211",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:212",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:212",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:213",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:213",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:214",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:214",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:215",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:215",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:216",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:216",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:217",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:217",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:218",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:218",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:219",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:219",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:220",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:220",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:221",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:221",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:222",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:222",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:223",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:223",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:224",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:224",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:225",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:225",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:226",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:226",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:88",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:88",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:89",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:89",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:90",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:90",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:91",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:91",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:92",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:92",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:93",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:93",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:94",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:94",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:95",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:95",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:96",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:96",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:97",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:97",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:98",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:98",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:99",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "DISPLAY_PARENT",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    },
+    {
+      "childStableExternalId": "urn:lacounty:csa:99",
+      "parentStableExternalId": "urn:lacounty:csa:city:los-angeles",
+      "relationType": "SEARCH_ROLLUP",
+      "reviewEvidence": {
+        "method": "Official CSA LCITY membership"
+      },
+      "reviewedAt": "2026-07-12T00:00:00.000Z",
+      "source": "la-county-csa-lcity-review-v1"
+    }
+  ]
+}

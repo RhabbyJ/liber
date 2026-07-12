@@ -16,6 +16,8 @@ seller data.
 - `apps/web/lib/buyer-dto-types.ts`
 - `apps/web/server/contracts.ts`
 - `apps/web/app/api/seller/buyers/route.ts`
+- `apps/web/app/api/markets/[slug]/boundaries/route.ts`
+- `apps/web/app/api/service-areas/**/route.ts`
 
 ## Invariants
 
@@ -27,6 +29,7 @@ seller data.
 - Never serialize Auth UUIDs, internal criteria/service-area IDs, raw buyer
   coordinates, names, contact data, documents, Storage paths, or inactive
   badges to public clients.
+- Public geography responses use market/service-area slugs and immutable geometry hashes. County/city/ZCTA display features contain only kind, slug, label, and geometry.
 - Public visibility requires an active application user, active buyer profile,
   active canonical service area, and an explicit preview-safe eligibility rule.
 - Preview-safe eligibility requires allowlisted purchase/property types and at

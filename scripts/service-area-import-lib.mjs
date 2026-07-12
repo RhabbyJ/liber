@@ -5,12 +5,14 @@ import path from "node:path";
 import { sameDatabaseTarget } from "./database-target.mjs";
 
 const areaTypes = new Set(["city", "neighborhood", "zip"]);
-const requiredBundleNames = ["county.geojson.gz", "csa-land.geojson.gz", "zcta.geojson.gz"];
-const requiredDatasetFiles = [...requiredBundleNames, "manifest.json", "relationships.json"];
+const canonicalBundleNames = ["county.geojson.gz", "csa-land.geojson.gz", "zcta.geojson.gz"];
+const displayBundleName = "legal-city.geojson.gz";
+const reviewedV2ManifestSha256 = "2e78ac34fa9f9f740d065ea2d578453bf1d9bf36fc578b90e6e976c67d27bb47";
+const reviewedV2RelationshipsSha256 = "5136dfa84c1a23ae4772ae510cec8ef16c7e5a1a7cc566a604842edf56c156f8";
 
 export function validateServiceAreaDataset(manifest, relationships) {
-  if (!manifest || typeof manifest !== "object" || manifest.schemaVersion !== 1) {
-    throw new Error("Dataset manifest schemaVersion must be 1.");
+  if (!manifest || typeof manifest !== "object" || !new Set([1, 2]).has(manifest.schemaVersion)) {
+    throw new Error("Dataset manifest schemaVersion must be 1 or 2.");
   }
   if (manifest.market?.slug !== "los-angeles"
     || manifest.market?.jurisdictionType !== "county"
@@ -39,6 +41,24 @@ export function validateServiceAreaDataset(manifest, relationships) {
       assertSha256(source.evidenceSha256, `source ${source.id} evidence`);
     }
     sourcesById.set(source.id, source);
+  }
+  if (manifest.schemaVersion === 2
+    && (manifest.datasetVersion !== "la-county-06037-2026-07-12-v2" || manifest.retrievalDate !== "2026-07-12")) {
+    throw new Error("Schema-v2 release identity must match the reviewed LA County dataset and retrieval date.");
+  }
+  if (manifest.schemaVersion === 2) {
+    const legalCitySource = sourcesById.get("la-county-legal-city-2026-06");
+    if (!legalCitySource
+      || legalCitySource.name !== "County of Los Angeles City and Unincorporated Boundaries (Legal)"
+      || legalCitySource.license !== "County of Los Angeles eGIS Terms of Use"
+      || legalCitySource.licenseUrl !== "https://egis-lacounty.hub.arcgis.com/pages/terms-of-use"
+      || legalCitySource.retrievalUrl !== "https://public.gis.lacounty.gov/public/rest/services/LACounty_Dynamic/Political_Boundaries/MapServer/19/query"
+      || legalCitySource.sourceUrl !== "https://public.gis.lacounty.gov/public/rest/services/LACounty_Dynamic/Political_Boundaries/MapServer/19"
+      || legalCitySource.retrievalDate !== "2026-07-12"
+      || legalCitySource.sourceVersion !== "Legal city land boundaries; latest source edit 2026-06-02T00:42:59.000Z"
+      || legalCitySource.evidenceSha256 !== manifest.bundles?.[displayBundleName]?.contentSha256) {
+      throw new Error("Legal-city source registry does not match its reviewed County bundle evidence.");
+    }
   }
 
   if (!Array.isArray(manifest.areas) || manifest.areas.length === 0) throw new Error("Dataset areas are required.");
@@ -84,6 +104,11 @@ export function validateServiceAreaDataset(manifest, relationships) {
     zctas: manifest.areas.filter((area) => area.type === "zip").length,
   };
   if (JSON.stringify(manifest.counts) !== JSON.stringify(actualCounts)) throw new Error("Manifest area counts do not match its records.");
+  if (actualCounts.areas !== 661 || actualCounts.cities !== 88
+    || actualCounts.communities !== 269 || actualCounts.zctas !== 304) {
+    throw new Error("LA County dataset must contain exactly 88 cities, 269 communities, and 304 ZCTAs.");
+  }
+  if (manifest.schemaVersion === 2) validateDisplayBoundaryManifest(manifest.displayBoundaries);
 
   if (!relationships || relationships.schemaVersion !== 1 || relationships.datasetVersion !== manifest.datasetVersion) {
     throw new Error("Relationship artifact does not match the dataset version.");
@@ -126,7 +151,6 @@ export function validateServiceAreaDataset(manifest, relationships) {
 
 export async function loadAndValidateDataset(manifestPath) {
   const datasetRoot = path.dirname(path.resolve(manifestPath));
-  const checksums = await verifyChecksumLedger(datasetRoot);
   const manifestBytes = await readFile(path.join(datasetRoot, "manifest.json"));
   const relationshipBytes = await readFile(path.join(datasetRoot, "relationships.json"));
   const manifest = JSON.parse(manifestBytes.toString("utf8"));
@@ -134,8 +158,17 @@ export async function loadAndValidateDataset(manifestPath) {
   validateServiceAreaDataset(manifest, relationships);
 
   const bundleNames = Object.keys(manifest.bundles ?? {}).sort();
-  if (JSON.stringify(bundleNames) !== JSON.stringify([...requiredBundleNames].sort())) {
-    throw new Error("Dataset manifest must declare exactly the reviewed county, CSA, and ZCTA bundles.");
+  const expectedBundleNames = manifest.schemaVersion === 2
+    ? [...canonicalBundleNames, displayBundleName].sort()
+    : [...canonicalBundleNames].sort();
+  if (JSON.stringify(bundleNames) !== JSON.stringify(expectedBundleNames)) {
+    throw new Error("Dataset manifest does not declare exactly its reviewed source bundles.");
+  }
+  const checksums = await verifyChecksumLedger(datasetRoot, [...bundleNames, "manifest.json", "relationships.json"]);
+  if (manifest.schemaVersion === 2
+    && (checksums["manifest.json"] !== reviewedV2ManifestSha256
+      || checksums["relationships.json"] !== reviewedV2RelationshipsSha256)) {
+    throw new Error("Schema-v2 checksum ledger does not match the reviewed LA County release.");
   }
   const bundles = {};
   for (const filename of bundleNames) {
@@ -173,7 +206,7 @@ export function normalizeSearchTerm(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-async function verifyChecksumLedger(datasetRoot) {
+async function verifyChecksumLedger(datasetRoot, requiredDatasetFiles) {
   const ledger = await readFile(path.join(datasetRoot, "CHECKSUMS.sha256"), "utf8");
   const entries = new Map();
   for (const line of ledger.trim().split(/\r?\n/)) {
@@ -185,7 +218,11 @@ async function verifyChecksumLedger(datasetRoot) {
     throw new Error("Dataset checksum ledger must cover exactly the reviewed dataset files.");
   }
   for (const [filename, expected] of entries) {
-    const actual = sha256(await readFile(path.join(datasetRoot, filename)));
+    const bytes = await readFile(path.join(datasetRoot, filename));
+    const checksumBytes = filename.endsWith(".json")
+      ? Buffer.from(bytes.toString("utf8").replace(/\r\n/g, "\n"))
+      : bytes;
+    const actual = sha256(checksumBytes);
     if (actual !== expected) throw new Error(`Checksum ledger mismatch for ${filename}.`);
   }
   return Object.fromEntries(entries);
@@ -203,6 +240,10 @@ export function validateAreaFeatureEvidence(manifest, bundles) {
     "csa-land.geojson.gz": 355,
     "zcta.geojson.gz": 304,
   };
+  if (bundles[displayBundleName]) {
+    idFields[displayBundleName] = "OBJECTID";
+    expectedFeatureCounts[displayBundleName] = 91;
+  }
   for (const [filename, idField] of Object.entries(idFields)) {
     const features = new Map();
     for (const feature of bundles[filename].features) {
@@ -219,6 +260,20 @@ export function validateAreaFeatureEvidence(manifest, bundles) {
     featureMaps.set(filename, features);
   }
   if (!featureMaps.get("county.geojson.gz")?.has("06037")) throw new Error("County bundle is missing GEOID 06037.");
+  if (bundles[displayBundleName]) {
+    const legalCityFeatures = bundles[displayBundleName].features;
+    if (legalCityFeatures.some((feature) => !nonempty(feature.properties?.CITY_NAME))) {
+      throw new Error("Legal-city bundle contains a blank CITY_NAME.");
+    }
+    if (legalCityFeatures.some((feature) => !Number.isFinite(Number(feature.properties?.last_edited_date)))) {
+      throw new Error("Legal-city bundle contains a missing last_edited_date.");
+    }
+    const cityNames = new Set(legalCityFeatures.map((feature) => feature.properties.CITY_NAME.trim()));
+    if (cityNames.size !== 88) throw new Error("Legal-city bundle must contain exactly 88 incorporated city names.");
+    if (bundles[displayBundleName].features.some((feature) => (
+      feature.properties?.CITY_TYPE !== "City" || feature.properties?.FEAT_TYPE !== "Land"
+    ))) throw new Error("Legal-city bundle contains a non-city or non-land feature.");
+  }
   for (const area of manifest.areas) {
     const features = featureMaps.get(area.geometry.bundle);
     const sourceGeometries = area.geometry.featureIds.map((featureId) => {
@@ -230,6 +285,55 @@ export function validateAreaFeatureEvidence(manifest, bundles) {
     if (sha256(Buffer.from(JSON.stringify(hashInput))) !== area.geometry.sha256) {
       throw new Error(`Area ${area.slug} source geometry checksum does not match its bundle features.`);
     }
+  }
+}
+
+export function assertLaReleaseWriteConfiguration({
+  action,
+  allowRollback,
+  allowWrites,
+  confirmation,
+  databaseUrl,
+  datasetVersion,
+  expectedProjectRef,
+  rollbackConfirmation,
+}) {
+  if (!new Set(["stage", "activate", "rollback"]).has(action)) throw new Error("Unsupported LA geography release action.");
+  if (allowWrites !== "true" || confirmation !== datasetVersion) {
+    throw new Error("LA geography writes require the exact dataset confirmation and write opt-in.");
+  }
+  if (!databaseUrl || !/^[a-z0-9]{20}$/.test(expectedProjectRef ?? "")) {
+    throw new Error("LA geography writes require a database URL and exact Supabase project ref.");
+  }
+  const parsed = new URL(databaseUrl);
+  const directMatch = parsed.hostname.match(/^db\.([a-z0-9]{20})\.supabase\.co$/);
+  const poolerMatch = /(^|\.)pooler\.supabase\.com$/.test(parsed.hostname)
+    ? decodeURIComponent(parsed.username).match(/^postgres\.([a-z0-9]{20})$/)
+    : null;
+  const actualProjectRef = directMatch?.[1] ?? poolerMatch?.[1];
+  if (!new Set(["postgres:", "postgresql:"]).has(parsed.protocol)
+    || parsed.pathname !== "/postgres"
+    || actualProjectRef !== expectedProjectRef) {
+    throw new Error("LA geography release database does not match the confirmed Supabase project.");
+  }
+  if (action === "rollback"
+    && (allowRollback !== "true" || rollbackConfirmation !== `${datasetVersion}:rollback`)) {
+    throw new Error("LA geography rollback requires its separate destructive confirmation.");
+  }
+}
+
+function validateDisplayBoundaryManifest(value) {
+  const expected = {
+    bundles: {
+      county: "county.geojson.gz",
+      legalCity: displayBundleName,
+      zcta: "zcta.geojson.gz",
+    },
+    counts: { legalCityFeatures: 91, legalCities: 88, zctas: 304 },
+    legalCityNameProperty: "CITY_NAME",
+  };
+  if (JSON.stringify(value) !== JSON.stringify(expected)) {
+    throw new Error("Display-boundary manifest does not match the reviewed LA County sources.");
   }
 }
 

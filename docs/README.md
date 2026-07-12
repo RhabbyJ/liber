@@ -38,8 +38,8 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `engineering/SELLER_SEARCH_SQL_PROPOSAL.sql` — unnumbered CTO index proposal; not an applied migration.
 - `engineering/UPLOAD_MALWARE_SCANNING.md` — selected OPSWAT private-processing scanner and credential-blocked public-launch gate.
 - `engineering/DEPENDENCY_AUDIT_2026-07-11.md` — current dependency findings, reachability triage, and compatible-upgrade policy.
-- `engineering/GEOGRAPHY_LA_COVERAGE_PROPOSAL_RUNBOOK.md` — non-activating LA County dataset staging, integration gates, activation separation, and rollback.
-- `engineering/GEOGRAPHY_LA_COVERAGE_EVIDENCE_2026-07-10.md` — dataset hashes, local verification, and open database proof.
+- `engineering/GEOGRAPHY_LA_COUNTY_RELEASE_RUNBOOK.md` — exact-hash LA County staging, activation, production reconciliation, and rollback.
+- `engineering/GEOGRAPHY_LA_COUNTY_RELEASE_EVIDENCE_2026-07-12.md` — pinned source, transaction rehearsal, verification, and production reconciliation evidence for the active County release.
 
 ## Section micro-docs
 
@@ -70,5 +70,6 @@ These are not source of truth:
 - `docs/archive/*`
 - raw CEO transcripts and critique screenshots
 - Figma/reference images
+- `engineering/GEOGRAPHY_LA_COVERAGE_EVIDENCE_2026-07-10.md` — superseded v1 proposal evidence retained for audit history.
 
 Keep historical files only when they help preserve context. Do not ask agents to read them by default.

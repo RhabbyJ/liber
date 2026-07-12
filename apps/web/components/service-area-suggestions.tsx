@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiResultToServiceArea, type ServiceAreaSearchResponse } from "../lib/service-area-api";
 import { LatestRequestGate, runLatestRequest } from "../lib/latest-request";
-import { serviceAreaDisplayLabel, type ServiceArea } from "../lib/service-areas";
+import type { ServiceArea } from "../lib/service-areas";
 
 type Props = {
   marketSlug: string;
@@ -17,9 +17,10 @@ export function ServiceAreaSuggestions({ marketSlug, onSelect, query = "" }: Pro
 
   useEffect(() => {
     const controller = new AbortController();
+    const gate = requestGateRef.current;
     setAreas([]);
     void runLatestRequest({
-      gate: requestGateRef.current,
+      gate,
       load: async () => {
         const params = new URLSearchParams({ market: marketSlug, q: query.trim() });
         const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store", signal: controller.signal });
@@ -32,7 +33,7 @@ export function ServiceAreaSuggestions({ marketSlug, onSelect, query = "" }: Pro
     });
     return () => {
       controller.abort();
-      requestGateRef.current.invalidate();
+      gate.invalidate();
     };
   }, [marketSlug, query]);
 
@@ -40,18 +41,28 @@ export function ServiceAreaSuggestions({ marketSlug, onSelect, query = "" }: Pro
     <div className="service-area-suggestions" aria-label="Active service-area suggestions">
       <div className="service-area-suggestions-head">Service areas</div>
       <div className="service-area-suggestions-grid">
-        {areas.map((area) => (
-          <button
-            className="service-area-suggestion"
-            key={`${marketSlug}:${area.id ?? area.slug}`}
-            onClick={() => onSelect(area)}
-            onMouseDown={(event) => event.preventDefault()}
-            type="button"
-          >
-            <strong>{area.postalCode ?? area.label}</strong>
-            <span>{serviceAreaDisplayLabel(area)}</span>
-          </button>
-        ))}
+        {areas.map((area) => {
+          const primaryLabel = area.postalCode ?? area.label;
+          const secondaryLabel = area.type === "zip"
+            ? "Approximate ZIP area"
+            : area.type === "city"
+              ? "City service area"
+              : area.type === "neighborhood" && area.city
+                ? `Neighborhood in ${area.city}`
+                : null;
+          return (
+            <button
+              className="service-area-suggestion"
+              key={`${marketSlug}:${area.slug}`}
+              onClick={() => onSelect(area)}
+              onMouseDown={(event) => event.preventDefault()}
+              type="button"
+            >
+              <strong>{primaryLabel}</strong>
+              {secondaryLabel ? <span>{secondaryLabel}</span> : null}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

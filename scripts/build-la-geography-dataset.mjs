@@ -4,14 +4,38 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const RETRIEVED_ON = "2026-07-09";
+const RETRIEVED_ON = "2026-07-12";
 const COUNTY_GEOID = "06037";
-const DATASET_VERSION = "la-county-06037-2026-07-09-v1";
+const DATASET_VERSION = "la-county-06037-2026-07-12-v2";
 const TIGER_ZCTA = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/2";
 const TIGER_COUNTY = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/1";
 const ZCTA_COUNTY_RELATIONSHIP = "https://www2.census.gov/geo/docs/maps-data/data/rel2020/zcta520/tab20_zcta520_county20_natl.txt";
 const CSA_LAYER = "https://public.gis.lacounty.gov/public/rest/services/LACounty_Dynamic/Political_Boundaries/MapServer/23";
 const CSA_ITEM = "https://www.arcgis.com/sharing/rest/content/items/7b8a64cab4a44c0f86f12c909c5d7f1a";
+const LEGAL_CITY_LAYER = "https://public.gis.lacounty.gov/public/rest/services/LACounty_Dynamic/Political_Boundaries/MapServer/19";
+const EXPECTED_BUNDLE_HASHES = {
+  "county.geojson.gz": {
+    compressed: "b0eae3a45fde00d8ebcdafa4af15e76b3c748b80ef3ad487939f5102ca5d2b3c",
+    content: "8fefcb706ef82a1632ecd3ed41adb87460ea937958075d52d425df3fb4c9231c",
+  },
+  "csa-land.geojson.gz": {
+    compressed: "be924fb99c115951c5c55e9649a7347c2d276d9fc1e93343387382c6492ed09c",
+    content: "e9facb96930ad1794c0b18557bceefeb11d571a98edb00ada2b58e89a6b09263",
+  },
+  "legal-city.geojson.gz": {
+    compressed: "602717ff8afa0b584f3b2a8f61e8abce80b58d2705b723096d1d18cbc739090f",
+    content: "773eaabb22f834d9f00cb74847174630872a7c7b7e90ca3a9dc059332e1d81a9",
+  },
+  "zcta.geojson.gz": {
+    compressed: "9568435e664107743b6bdba00c70b7ed9bcf9c668d38493dc26ecf128bd23fe5",
+    content: "47693d0df8a7f9de44dadfd5cd22b8c84206a123e07a707e39df2831ca04e7de",
+  },
+};
+const EXPECTED_MANIFEST_SHA256 = "2e78ac34fa9f9f740d065ea2d578453bf1d9bf36fc578b90e6e976c67d27bb47";
+const EXPECTED_RELATIONSHIPS_SHA256 = "5136dfa84c1a23ae4772ae510cec8ef16c7e5a1a7cc566a604842edf56c156f8";
+const EXPECTED_RELATIONSHIP_EVIDENCE_SHA256 = "e3132ea72c952e2ad6eebbb54553da1b4e91306c980e2b1b8af37cda1a886105";
+const EXPECTED_CSA_ITEM_IDENTITY_SHA256 = "7302e314c3cab0ddc467d1735884879c6208bfd1c8e469a6ec04587cde98d717";
+const ARCHIVED_CSA_ITEM_EVIDENCE_SHA256 = "da8febfeb73276d6fbd08fe3891457ed709fb1fd1379b833c719d94efb8332ae";
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outputRoot = path.join(workspaceRoot, "data", "geography", "los-angeles-county", DATASET_VERSION);
 
@@ -19,7 +43,7 @@ const relationshipText = await fetchText(ZCTA_COUNTY_RELATIONSHIP);
 const zctaIds = parseRelationshipZctas(relationshipText, COUNTY_GEOID);
 if (zctaIds.length !== 304) throw new Error(`Expected 304 LA County ZCTAs, received ${zctaIds.length}.`);
 
-const [countyRaw, zctaRaw, csaRaw, csaItem] = await Promise.all([
+const [countyRaw, zctaRaw, csaRaw, csaItem, legalCityRaw] = await Promise.all([
   queryGeoJson(TIGER_COUNTY, {
     outFields: "GEOID,NAME,CENTLAT,CENTLON",
     where: `GEOID='${COUNTY_GEOID}'`,
@@ -34,11 +58,29 @@ const [countyRaw, zctaRaw, csaRaw, csaItem] = await Promise.all([
     where: "Feat_Type='Land'",
   }),
   fetchJson(`${CSA_ITEM}?f=json`),
+  queryGeoJson(LEGAL_CITY_LAYER, {
+    outFields: "OBJECTID,CITY_NAME,CITY_TYPE,FEAT_TYPE,last_edited_date",
+    resultRecordCount: "1000",
+    where: "CITY_TYPE='City' AND FEAT_TYPE='Land'",
+  }),
 ]);
 
 const county = canonicalFeatureCollection(countyRaw, "GEOID");
 const zctas = canonicalFeatureCollection(zctaRaw, "ZCTA5");
 const communities = canonicalFeatureCollection(csaRaw, "OBJECTID");
+const legalCities = canonicalFeatureCollection(legalCityRaw, "OBJECTID");
+const csaItemEvidence = {
+  access: csaItem.access,
+  id: csaItem.id,
+  modified: csaItem.modified,
+  title: csaItem.title,
+  type: csaItem.type,
+  url: csaItem.url,
+};
+if (sha256(Buffer.from(relationshipText)) !== EXPECTED_RELATIONSHIP_EVIDENCE_SHA256
+  || sha256(Buffer.from(stableJson(csaItemEvidence))) !== EXPECTED_CSA_ITEM_IDENTITY_SHA256) {
+  throw new Error(`Source metadata differs from the immutable ${DATASET_VERSION} evidence; create a new dataset version.`);
+}
 if (county.features.length !== 1 || county.features[0].properties.GEOID !== COUNTY_GEOID) {
   throw new Error("Census county response did not contain exactly Los Angeles County GEOID 06037.");
 }
@@ -46,9 +88,20 @@ if (zctas.features.length !== 304) throw new Error(`Expected 304 ZCTA geometries
 if (communities.features.length !== 355) {
   throw new Error(`Expected 355 LA County CSA land geometries, received ${communities.features.length}.`);
 }
+if (legalCities.features.length !== 91) {
+  throw new Error(`Expected 91 LA County legal-city land geometries, received ${legalCities.features.length}.`);
+}
+const legalCityNames = new Set(legalCities.features.map((feature) => clean(feature.properties.CITY_NAME)).filter(Boolean));
+if (legalCityNames.size !== 88 || legalCities.features.some((feature) => !clean(feature.properties.CITY_NAME))) {
+  throw new Error(`Expected 88 distinct nonempty legal-city names, received ${legalCityNames.size}.`);
+}
+if (legalCities.features.some((feature) => !Number.isFinite(Number(feature.properties.last_edited_date)))) {
+  throw new Error("Every legal-city source feature requires a last_edited_date value.");
+}
 
 const csaModifiedAt = new Date(csaItem.modified).toISOString();
 const csaSourceVersion = `CSA 2026-06; ArcGIS item modified ${csaModifiedAt}`;
+const legalCityEditedAt = new Date(Math.max(...legalCities.features.map((feature) => Number(feature.properties.last_edited_date)))).toISOString();
 const sources = [
   {
     id: "census-county-2025",
@@ -90,30 +143,50 @@ const sources = [
     sourceUrl: CSA_ITEM,
     sourceVersion: csaSourceVersion,
   },
+  {
+    id: "la-county-legal-city-2026-06",
+    license: "County of Los Angeles eGIS Terms of Use",
+    licenseUrl: "https://egis-lacounty.hub.arcgis.com/pages/terms-of-use",
+    name: "County of Los Angeles City and Unincorporated Boundaries (Legal)",
+    retrievalUrl: `${LEGAL_CITY_LAYER}/query`,
+    retrievalDate: RETRIEVED_ON,
+    sourceUrl: LEGAL_CITY_LAYER,
+    sourceVersion: `Legal city land boundaries; latest source edit ${legalCityEditedAt}`,
+  },
 ];
 
 const sourceBundles = {
   "county.geojson.gz": county,
   "csa-land.geojson.gz": communities,
+  "legal-city.geojson.gz": legalCities,
   "zcta.geojson.gz": zctas,
 };
 const bundleChecksums = {};
-await mkdir(outputRoot, { recursive: true });
+const preparedBundles = {};
 for (const [filename, value] of Object.entries(sourceBundles)) {
   const payload = Buffer.from(stableJson(value));
   const compressed = gzipSync(payload, { level: 9, mtime: 0 });
-  await writeFile(path.join(outputRoot, filename), compressed);
   bundleChecksums[filename] = {
     compressedSha256: sha256(compressed),
     compressedSize: compressed.length,
     contentSha256: sha256(payload),
     contentSize: payload.length,
   };
+  const expected = EXPECTED_BUNDLE_HASHES[filename];
+  if (bundleChecksums[filename].compressedSha256 !== expected?.compressed
+    || bundleChecksums[filename].contentSha256 !== expected?.content) {
+    throw new Error(`${filename} differs from the immutable ${DATASET_VERSION} source evidence; create a new dataset version.`);
+  }
+  preparedBundles[filename] = compressed;
+}
+await mkdir(outputRoot, { recursive: true });
+for (const [filename, compressed] of Object.entries(preparedBundles)) {
+  await writeFile(path.join(outputRoot, filename), compressed);
 }
 
 const areaRecords = buildAreaRecords(zctas.features, communities.features, sources);
 const manifest = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   datasetVersion: DATASET_VERSION,
   retrievalDate: RETRIEVED_ON,
   market: {
@@ -137,6 +210,19 @@ const manifest = {
     zctas: areaRecords.filter((area) => area.type === "zip").length,
   },
   bundles: bundleChecksums,
+  displayBoundaries: {
+    bundles: {
+      county: "county.geojson.gz",
+      legalCity: "legal-city.geojson.gz",
+      zcta: "zcta.geojson.gz",
+    },
+    counts: {
+      legalCityFeatures: legalCities.features.length,
+      legalCities: legalCityNames.size,
+      zctas: zctas.features.length,
+    },
+    legalCityNameProperty: "CITY_NAME",
+  },
   relationshipPolicy: {
     reviewedAt: `${RETRIEVED_ON}T00:00:00.000Z`,
     version: "la-county-csa-lcity-review-v1",
@@ -151,7 +237,9 @@ const manifest = {
     evidenceSha256: source.id === "census-zcta-county-relationship-2020"
       ? sha256(Buffer.from(relationshipText))
       : source.id === "la-county-csa-2026-06"
-        ? sha256(Buffer.from(stableJson(csaItem)))
+        ? ARCHIVED_CSA_ITEM_EVIDENCE_SHA256
+        : source.id === "la-county-legal-city-2026-06"
+          ? bundleChecksums["legal-city.geojson.gz"].contentSha256
         : null,
   })),
   areas: areaRecords,
@@ -159,6 +247,10 @@ const manifest = {
 const relationships = buildOfficialRelationships(areaRecords);
 const manifestPayload = `${JSON.stringify(manifest, null, 2)}\n`;
 const relationshipPayload = `${JSON.stringify(relationships, null, 2)}\n`;
+if (sha256(Buffer.from(manifestPayload)) !== EXPECTED_MANIFEST_SHA256
+  || sha256(Buffer.from(relationshipPayload)) !== EXPECTED_RELATIONSHIPS_SHA256) {
+  throw new Error(`Generated release ledger differs from immutable ${DATASET_VERSION}; create a new dataset version.`);
+}
 await writeFile(path.join(outputRoot, "manifest.json"), manifestPayload);
 await writeFile(path.join(outputRoot, "relationships.json"), relationshipPayload);
 await writeFile(

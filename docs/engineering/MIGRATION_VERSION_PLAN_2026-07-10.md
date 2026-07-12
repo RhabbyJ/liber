@@ -1,5 +1,7 @@
 # Migration Version Plan — 2026-07-10
 
+> Historical planning record. The LA geography proposal slots below were superseded by assigned migration `20260712090000_expand_la_county_geography`; current deployment state and operations live in `GEOGRAPHY_LA_COUNTY_RELEASE_RUNBOOK.md`.
+
 This document reserves the post-identity migration order for the LA launch
 integration. A reservation is not deployment authorization. Proposal SQL stays
 unnumbered until its named proof gates pass and a reviewer records the exact

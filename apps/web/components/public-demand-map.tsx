@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
+import { syncMarketBoundaryLayers, syncSelectedAreaLayer } from "../lib/map-boundary-layers";
 import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
 import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
+import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
 import { useSelectedAreaGeoJson } from "../lib/use-selected-area-geojson";
 
 type Props = {
@@ -47,6 +49,10 @@ export function PublicDemandMap({
   const [didFail, setDidFail] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [hasLiveMarkers, setHasLiveMarkers] = useState(false);
+  const marketBoundaryGeojson = useKeyedGeoJson(
+    market.boundaryGeojsonPath,
+    `${market.slug}:${market.boundaryGeojsonPath ?? ""}`,
+  );
   const selectedAreaGeojson = useSelectedAreaGeoJson(selectedArea);
 
   const points = useMemo<PreviewPoint[]>(
@@ -64,6 +70,9 @@ export function PublicDemandMap({
   const mapboxToken = token?.trim() ?? "";
   const shouldUseMapbox = Boolean(mapboxToken);
   const mapInstanceKey = marketMapInstanceKey(market, mapboxToken);
+  const [marketWest, marketSouth, marketEast, marketNorth] = market.bbox;
+  const marketCenterLat = market.center.lat;
+  const marketCenterLng = market.center.lng;
 
   useEffect(() => {
     setDidFail(false);
@@ -85,10 +94,10 @@ export function PublicDemandMap({
         mapRef.current = new mapboxgl.Map({
           antialias: true,
           attributionControl: true,
-          center: [market.center.lng, market.center.lat],
+          center: [marketCenterLng, marketCenterLat],
           container: containerRef.current,
-          cooperativeGestures: false,
-          maxBounds: marketMapBounds(market),
+          cooperativeGestures: true,
+          maxBounds: [[marketWest, marketSouth], [marketEast, marketNorth]],
           style: "mapbox://styles/mapbox/streets-v12",
           zoom: 10.6,
         });
@@ -119,14 +128,30 @@ export function PublicDemandMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [didFail, mapInstanceKey, shouldUseMapbox]);
+  }, [
+    didFail,
+    mapInstanceKey,
+    mapboxToken,
+    marketCenterLat,
+    marketCenterLng,
+    marketEast,
+    marketNorth,
+    marketSouth,
+    marketWest,
+    shouldUseMapbox,
+  ]);
+
+  useEffect(() => {
+    if (!isReady || !mapRef.current) return;
+    syncMarketBoundaryLayers(mapRef.current, marketBoundaryGeojson);
+    syncSelectedAreaLayer(mapRef.current, selectedAreaGeojson);
+  }, [isReady, marketBoundaryGeojson, selectedAreaGeojson]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current || !window.mapboxgl) return;
 
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
-    syncSelectedAreaLayer(mapRef.current, selectedAreaGeojson);
     setHasLiveMarkers(false);
 
     for (const point of points) {
@@ -168,7 +193,6 @@ export function PublicDemandMap({
     secondaryCtaHref,
     secondaryCtaLabel,
     selectedArea,
-    selectedAreaGeojson,
   ]);
 
   if (!shouldUseMapbox || didFail) {
@@ -182,7 +206,15 @@ export function PublicDemandMap({
     >
       {hasLiveMarkers ? null : <StaticDemandLayer points={points} />}
       <div className="map-canvas" ref={containerRef} />
-      <div className="public-map-note">Approximate service area - anonymized preview</div>
+      <button
+        aria-label="Fit map to all of Los Angeles County"
+        className="map-view-all-control"
+        onClick={() => mapRef.current?.fitBounds(marketMapBounds(market), { padding: 64 })}
+        type="button"
+      >
+        View all LA County
+      </button>
+      <div className="public-map-note">County · City · Approx. ZIP boundaries · anonymized demand</div>
     </div>
   );
 }
@@ -291,49 +323,4 @@ function staticPinOffset(index: number) {
 
 function clamp(value: number) {
   return Math.max(24, Math.min(76, value));
-}
-
-const selectedAreaSourceId = "liber-selected-service-area-source";
-const selectedAreaFillLayerId = "liber-selected-service-area-fill";
-const selectedAreaLineLayerId = "liber-selected-service-area-outline";
-
-function syncSelectedAreaLayer(map: MapboxMap, data: Record<string, unknown> | null) {
-  if (!data) {
-    removeSelectedAreaLayer(map);
-    return;
-  }
-
-  const source = map.getSource(selectedAreaSourceId);
-  if (source) {
-    source.setData(data);
-    return;
-  }
-
-  map.addSource(selectedAreaSourceId, { data, type: "geojson" });
-  map.addLayer({
-    id: selectedAreaFillLayerId,
-    paint: {
-      "fill-color": "#16834c",
-      "fill-opacity": 0.08,
-    },
-    source: selectedAreaSourceId,
-    type: "fill",
-  });
-  map.addLayer({
-    id: selectedAreaLineLayerId,
-    paint: {
-      "line-color": "#0e5f38",
-      "line-dasharray": [2, 1],
-      "line-opacity": 0.84,
-      "line-width": 3,
-    },
-    source: selectedAreaSourceId,
-    type: "line",
-  });
-}
-
-function removeSelectedAreaLayer(map: MapboxMap) {
-  if (map.getLayer(selectedAreaLineLayerId)) map.removeLayer(selectedAreaLineLayerId);
-  if (map.getLayer(selectedAreaFillLayerId)) map.removeLayer(selectedAreaFillLayerId);
-  if (map.getSource(selectedAreaSourceId)) map.removeSource(selectedAreaSourceId);
 }

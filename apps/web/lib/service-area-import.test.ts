@@ -1,12 +1,16 @@
-import { appendFile, cp, mkdtemp, rm } from "node:fs/promises";
+import { appendFile, cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 // The operational importer is plain ESM so it can run without a TS runtime.
 // @ts-expect-error JavaScript helper intentionally has no generated declaration file.
-import { assertImportWriteConfiguration, loadAndValidateDataset, validateAreaFeatureEvidence, validateServiceAreaDataset } from "../../../scripts/service-area-import-lib.mjs";
+import { assertImportWriteConfiguration, assertLaReleaseWriteConfiguration, loadAndValidateDataset, validateAreaFeatureEvidence, validateServiceAreaDataset } from "../../../scripts/service-area-import-lib.mjs";
 
 const datasetRoot = path.resolve(
+  process.cwd(),
+  "../../data/geography/los-angeles-county/la-county-06037-2026-07-12-v2",
+);
+const legacyDatasetRoot = path.resolve(
   process.cwd(),
   "../../data/geography/los-angeles-county/la-county-06037-2026-07-09-v1",
 );
@@ -23,7 +27,16 @@ describe("reviewed LA County service-area dataset", () => {
     });
     expect(dataset.manifest.counts).toEqual({ areas: 661, cities: 88, communities: 269, zctas: 304 });
     expect(dataset.manifest.areas.every((area: { active: boolean }) => area.active === false)).toBe(true);
-    expect(Object.keys(dataset.checksums)).toHaveLength(5);
+    expect(Object.keys(dataset.checksums)).toHaveLength(6);
+    expect(dataset.manifest.displayBoundaries).toEqual({
+      bundles: {
+        county: "county.geojson.gz",
+        legalCity: "legal-city.geojson.gz",
+        zcta: "zcta.geojson.gz",
+      },
+      counts: { legalCityFeatures: 91, legalCities: 88, zctas: 304 },
+      legalCityNameProperty: "CITY_NAME",
+    });
     expect(dataset.relationships.counts).toEqual({
       displayParents: 149,
       relationships: 298,
@@ -99,5 +112,83 @@ describe("reviewed LA County service-area dataset", () => {
       sentinel: "a-long-disposable-sentinel",
       sharedDatabaseUrls: [shared],
     })).not.toThrow();
+  });
+
+  it("pins v2 release identity and every legal-city source feature", async () => {
+    const { bundles, manifest, relationships } = await loadAndValidateDataset(path.join(datasetRoot, "manifest.json"));
+    expect(() => validateServiceAreaDataset({ ...manifest, retrievalDate: "2026-07-13" }, relationships)).toThrow(
+      "release identity",
+    );
+    expect(() => validateServiceAreaDataset({
+      ...manifest,
+      sources: manifest.sources.map((source: { id: string }) => source.id === "la-county-legal-city-2026-06"
+        ? { ...source, sourceVersion: "unexpected" }
+        : source),
+    }, relationships)).toThrow("Legal-city source registry");
+    const legalCities = bundles["legal-city.geojson.gz"];
+    expect(() => validateAreaFeatureEvidence(manifest, {
+      ...bundles,
+      "legal-city.geojson.gz": {
+        ...legalCities,
+        features: legalCities.features.map((feature: Record<string, unknown>, index: number) => index === 0
+          ? { ...feature, properties: { ...(feature.properties as Record<string, unknown>), CITY_NAME: "" } }
+          : feature),
+      },
+    })).toThrow("blank CITY_NAME");
+  });
+
+  it("retains read-only validation for the immutable v1 proposal evidence", async () => {
+    const dataset = await loadAndValidateDataset(path.join(legacyDatasetRoot, "manifest.json"));
+
+    expect(dataset.manifest.schemaVersion).toBe(1);
+    expect(dataset.manifest.counts.areas).toBe(661);
+  });
+
+  it("pins production release writes to an exact dataset and Supabase project", () => {
+    const datasetVersion = "la-county-06037-2026-07-12-v2";
+    const databaseUrl = "postgresql://postgres.qfjcrhkjlczvzakxives@aws-0-us-east-2.pooler.supabase.com:5432/postgres";
+    expect(() => assertLaReleaseWriteConfiguration({
+      action: "activate",
+      allowWrites: "true",
+      confirmation: datasetVersion,
+      databaseUrl,
+      datasetVersion,
+      expectedProjectRef: "wrongprojectref00000",
+    })).toThrow("confirmed Supabase project");
+    expect(() => assertLaReleaseWriteConfiguration({
+      action: "activate",
+      allowWrites: "true",
+      confirmation: datasetVersion,
+      databaseUrl,
+      datasetVersion,
+      expectedProjectRef: "qfjcrhkjlczvzakxives",
+    })).not.toThrow();
+    expect(() => assertLaReleaseWriteConfiguration({
+      action: "activate",
+      allowWrites: "true",
+      confirmation: datasetVersion,
+      databaseUrl: "postgresql://postgres.qfjcrhkjlczvzakxives@attacker.invalid:5432/postgres",
+      datasetVersion,
+      expectedProjectRef: "qfjcrhkjlczvzakxives",
+    })).toThrow("confirmed Supabase project");
+    expect(() => assertLaReleaseWriteConfiguration({
+      action: "rollback",
+      allowWrites: "true",
+      confirmation: datasetVersion,
+      databaseUrl,
+      datasetVersion,
+      expectedProjectRef: "qfjcrhkjlczvzakxives",
+    })).toThrow("separate destructive confirmation");
+  });
+
+  it("binds release writes to the deployed Prisma migration and stable source identity", async () => {
+    const releaseManager = await readFile(path.resolve(process.cwd(), "../../scripts/manage-la-geography-release.mjs"), "utf8");
+    const builder = await readFile(path.resolve(process.cwd(), "../../scripts/build-la-geography-dataset.mjs"), "utf8");
+
+    expect(releaseManager).toContain("expectedMigrationChecksum");
+    expect(releaseManager).toContain("response.rows[0]?.checksum !== expectedMigrationChecksum");
+    expect(builder).toContain("stableJson(csaItemEvidence)");
+    expect(builder).toContain("ARCHIVED_CSA_ITEM_EVIDENCE_SHA256");
+    expect(builder).not.toContain("sha256(Buffer.from(stableJson(csaItem)))");
   });
 });

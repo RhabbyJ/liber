@@ -38,7 +38,8 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - The identity harness must use branch-specific direct credentials. Connector
   proof does not substitute for its two-connection Auth-write/migration lock
   assertion.
-- LA dataset validation is read-only by default. Proposal staging requires `SERVICE_AREA_IMPORT_DATABASE_URL`, `SERVICE_AREA_IMPORT_ALLOW_WRITES=true`, and the matching sentinel on a target distinct from every configured shared URL. Prove a double-stage is idempotent and preserves active rows, pointers, bounds, terms, and relationships.
+- LA dataset validation is read-only by default. Disposable staging still requires `SERVICE_AREA_IMPORT_DATABASE_URL`, explicit write opt-in, and a sentinel distinct from every shared target. The production v2 release additionally requires an exact dataset confirmation and exact Supabase project ref. Rehearse schema, stage, double-stage, activation, double-activation, and rollback inside an outer rolled-back transaction before any persistent write.
+- LA County map acceptance covers complete County pan/zoom and clamp, View all reset, zoom-gated County/city/ZCTA layers, rapid selected-area switching, mobile cooperative scrolling, and absence of internal service-area UUIDs in public responses.
 - Before geometry activation, test an exact versioned URL before and after swapping the current pointer, plus duplicate aliases and same-named areas in separate markets against the real indexed SQL.
 - After auth, nav, or protected-route changes, run a focused browser auth pass covering signed-out CTAs, buyer signup/login/logout, buyer-to-seller intent, seller signup/access gating, both-role signup when supported, and mobile nav/logout.
 - Browser auth QA failures or inconclusive results should include a screenshot or compact state dump with URL, relevant DOM attributes, visible text excerpt, and console errors.

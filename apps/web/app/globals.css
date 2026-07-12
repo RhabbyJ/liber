@@ -2278,6 +2278,30 @@ body:has(.map-landing) .site-footer {
   z-index: 2;
 }
 
+.map-view-all-control {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  bottom: 88px;
+  box-shadow: var(--shadow-2);
+  color: var(--ink-strong);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 36px;
+  padding: 7px 11px;
+  position: absolute;
+  right: 12px;
+  z-index: 3;
+}
+
+.map-view-all-control:hover,
+.map-view-all-control:focus-visible {
+  border-color: var(--sage-strong);
+  box-shadow: var(--focus-ring);
+  outline: 0;
+}
+
 .public-map-shell.unavailable {
   align-items: center;
   background: var(--surface-muted);
@@ -5480,6 +5504,11 @@ body:has(.map-landing) .site-footer {
     flex-direction: column;
     gap: 8px;
     padding: 8px;
+  }
+
+  .map-view-all-control {
+    bottom: 82px;
+    right: 8px;
   }
 
   .map-search-intro {

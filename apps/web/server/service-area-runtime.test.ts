@@ -1,15 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const serviceAreaFindFirst = vi.hoisted(() => vi.fn());
+const marketFindFirst = vi.hoisted(() => vi.fn());
 
 vi.mock("@liber/db", () => ({
   Prisma: { sql: vi.fn() },
   prisma: {
+    market: { findFirst: marketFindFirst },
     serviceArea: { findFirst: serviceAreaFindFirst },
   },
 }));
 
-import { getActiveServiceAreaBySlug } from "./service-areas";
+import { getActiveMarketBySlug, getActiveServiceAreaBySlug, serviceAreaApiShape } from "./service-areas";
 
 const areaRow = {
   active: true,
@@ -40,7 +42,34 @@ const areaRow = {
 };
 
 describe("service-area geometry metadata", () => {
-  beforeEach(() => serviceAreaFindFirst.mockReset());
+  beforeEach(() => {
+    marketFindFirst.mockReset();
+    serviceAreaFindFirst.mockReset();
+  });
+
+  it("builds the immutable market display URL from its current pointer", async () => {
+    marketFindFirst.mockResolvedValue({
+      active: true,
+      bboxEast: -117.6,
+      bboxNorth: 34.9,
+      bboxSouth: 32.7,
+      bboxWest: -119,
+      centerLat: 34.2,
+      centerLng: -118.2,
+      country: "US",
+      currentDisplayGeometry: { sha256: "c".repeat(64) },
+      id: "00000000-0000-4000-8000-000000000010",
+      label: "Los Angeles County",
+      slug: "los-angeles",
+      state: "CA",
+    });
+
+    const market = await getActiveMarketBySlug("los-angeles");
+
+    expect(market.boundaryGeojsonPath).toBe(
+      `/api/markets/los-angeles/boundaries?v=${"c".repeat(64)}`,
+    );
+  });
 
   it("builds immutable URLs from the approved geometry pointer", async () => {
     serviceAreaFindFirst.mockResolvedValue(areaRow);
@@ -60,5 +89,15 @@ describe("service-area geometry metadata", () => {
 
     expect(area?.geojsonPath).toBe("/geo/service-areas/legacy.geojson");
     expect(area?.geojsonSha256).toBe("a".repeat(64));
+  });
+
+  it("does not serialize the internal service-area UUID publicly", async () => {
+    serviceAreaFindFirst.mockResolvedValue(areaRow);
+    const area = await getActiveServiceAreaBySlug("example", "los-angeles");
+    if (!area) throw new Error("Expected fixture service area.");
+    const shape = serviceAreaApiShape(area);
+
+    expect(shape).not.toHaveProperty("id");
+    expect(shape).toMatchObject({ market_slug: "los-angeles", slug: "example" });
   });
 });

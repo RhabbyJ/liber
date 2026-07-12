@@ -20,6 +20,7 @@ type DbMarket = {
   centerLat: number;
   centerLng: number;
   country: string;
+  currentDisplayGeometry: { sha256: string } | null;
   id: string;
   label: string;
   slug: string;
@@ -85,7 +86,10 @@ function logGeographyFailure(operation: string, error: unknown) {
 
 export async function getActiveMarketBySlug(slug: string): Promise<Market> {
   try {
-    const row = await prisma.market.findFirst({ where: { active: true, slug } });
+    const row = await prisma.market.findFirst({
+      where: { active: true, slug },
+      include: { currentDisplayGeometry: { select: { sha256: true } } },
+    });
     if (row) return dbMarketToResult(row);
     if (fixtureFallbackEnabled() && slug === DEFAULT_MARKET_SLUG) return defaultMarket;
     throw new GeographyUnavailableError("That Liber market is not active.");
@@ -101,6 +105,7 @@ export async function getActiveMarketOrFallback(preferredSlug?: string): Promise
   try {
     const rows = await prisma.market.findMany({
       where: { active: true },
+      include: { currentDisplayGeometry: { select: { sha256: true } } },
       orderBy: { slug: "asc" },
     });
     const row = rows.find((market) => market.slug === preferredSlug) ?? rows[0];
@@ -123,7 +128,29 @@ export function marketApiShape(market: Market) {
     country: market.country,
     center: [market.center.lng, market.center.lat] as [number, number],
     bbox: market.bbox,
+    boundary_geojson_path: market.boundaryGeojsonPath ?? null,
   };
+}
+
+export async function getActiveMarketDisplayGeometryBySlug(slug: string, sha256?: string) {
+  try {
+    const market = await prisma.market.findFirst({
+      where: { active: true, slug },
+      select: {
+        id: true,
+        currentDisplayGeometry: { select: { geojson: true, sha256: true } },
+      },
+    });
+    if (!market) return null;
+    if (!sha256) return market.currentDisplayGeometry;
+    return prisma.marketDisplayGeometryVersion.findFirst({
+      where: { marketId: market.id, sha256 },
+      select: { geojson: true, sha256: true },
+    });
+  } catch (error) {
+    logGeographyFailure("get active market display geometry", error);
+    throw new GeographyUnavailableError(undefined, { cause: error });
+  }
 }
 
 export function marketBboxParam(market: Market) {
@@ -247,7 +274,6 @@ export async function searchAndResolveActiveServiceAreas(query: string, limit: n
 
 export function serviceAreaApiShape(area: ServiceAreaResult) {
   return {
-    id: area.id,
     slug: area.slug,
     label: area.label,
     type: area.type,
@@ -360,6 +386,9 @@ function dbMarketToResult(row: DbMarket): Market {
   return {
     active: row.active,
     bbox: [row.bboxWest, row.bboxSouth, row.bboxEast, row.bboxNorth],
+    boundaryGeojsonPath: row.currentDisplayGeometry?.sha256
+      ? `/api/markets/${encodeURIComponent(row.slug)}/boundaries?v=${row.currentDisplayGeometry.sha256}`
+      : undefined,
     center: { lat: row.centerLat, lng: row.centerLng },
     country: row.country,
     label: row.label,

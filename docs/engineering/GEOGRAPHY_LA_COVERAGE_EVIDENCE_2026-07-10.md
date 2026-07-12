@@ -1,5 +1,7 @@
 # LA County Geography Proposal Evidence — July 10, 2026
 
+> Historical proposal evidence. Superseded by the v2 release and `GEOGRAPHY_LA_COUNTY_RELEASE_RUNBOOK.md`; do not use this file as the current rollout state.
+
 ## Scope and status
 
 This evidence covers the unnumbered, non-activating LA County proposal only. No shared database was touched, no migration number was assigned, and no LA service area was activated.

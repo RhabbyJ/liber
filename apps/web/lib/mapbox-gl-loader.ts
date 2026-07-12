@@ -12,7 +12,7 @@ export type MapboxGeoJsonSource = {
 
 export type MapboxMap = {
   addControl(control: unknown, position?: string): void;
-  addLayer(layer: Record<string, unknown>): void;
+  addLayer(layer: Record<string, unknown>, beforeId?: string): void;
   addSource(id: string, source: Record<string, unknown>): void;
   fitBounds(bounds: MapboxBoundsLike | MapboxLngLatBounds, options?: Record<string, unknown>): void;
   flyTo(options: Record<string, unknown>): void;

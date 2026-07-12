@@ -40,10 +40,10 @@ For v1:
 
 - `public.markets` stores launch-market metadata, jurisdiction identity, center/bbox, active state, and an optional approved immutable boundary pointer.
 - `public.service_areas` stores `market_id`, market-scoped slug, stable source identity, center, bbox, source/version/license/retrieval/checksum metadata, active flags, and an optional approved immutable geometry pointer.
-- `public.geography_dataset_versions`, `market_boundary_versions`, and `service_area_geometry_versions` retain immutable staged evidence. Staging never changes live current pointers.
+- `public.geography_dataset_versions`, `market_boundary_versions`, `market_display_geometry_versions`, and `service_area_geometry_versions` retain immutable staged evidence. Staging never changes live current pointers.
 - `public.service_area_search_terms` stores reviewed normalized runtime terms with a composite same-market foreign key.
 - `public.service_area_relationships` references parent/child UUIDs. Only reviewed `SEARCH_ROLLUP` rows affect matching; `CONTAINS`, `OVERLAPS`, and `DISPLAY_PARENT` are spatial/display metadata.
-- `apps/web/public/geo/service-areas/**` stores only reviewed development/cutover fixtures. Broader LA geometry is proposed as immutable database-backed versions so approved areas do not require a frontend deployment.
+- `apps/web/public/geo/service-areas/**` stores only reviewed development/cutover fixtures. LA County production geometry is served from immutable database-backed versions so approval does not depend on a frontend asset swap.
 - `buyer_desired_service_areas` stores at most one primary service-area UUID per buyer. Searchable profiles require source `SELECTED`; parent matches are computed from reviewed relationships at query time.
 - `BuyerProfile.desiredPostalCode`, `desiredNeighborhood`, `desiredCity`, text, state, and approximate coordinates are compatibility/display fields derived server-side from the selected row. They do not drive ordinary runtime matching.
 - `service_area_migration_quarantine` records conflicting, ambiguous, and unresolved legacy profiles for review.
@@ -111,13 +111,23 @@ Service-area lookup must be deterministic:
 
 ## Import And Activation
 
-The LA County artifact and unnumbered schema proposal are available for local review, but shared import and activation remain unavailable. Validation is read-only by default. A write requires a sentinel-marked disposable database, a dedicated database URL, and an explicit write opt-in.
+The approved LA County artifact is `la-county-06037-2026-07-12-v2`. Validation is always read-only first and verifies the external checksum ledger, compressed/decompressed bytes, exact source feature IDs, canonical area hashes, the 661/88/269/304 counts, 91 legal-city components across 88 names, and the 298 reviewed CSA relationships.
 
-Staging records immutable dataset/boundary/geometry evidence and creates new rows inactive. It must not change active rows, current pointers, market bounds, live terms, or live relationships. The reviewed relationship artifact contains 149 official County CSA `LCITY` city/community `DISPLAY_PARENT` rows and 149 `SEARCH_ROLLUP` rows; it contains no inferred ZCTA parent or search relationship.
+Migration `20260712090000_expand_la_county_geography` is transaction-scoped. Its owner-only staging function creates immutable evidence and inactive rows without changing active areas, current pointers, market bounds, terms, or relationships. A second identical stage is a no-op. The production release command is pinned to the exact dataset hashes and Supabase project ref.
 
-Activation is a later, separately reviewed transaction after the canonical fresh/upgrade gate. It must replace dataset-owned terms/relationships, derive bounds from the approved County boundary, set approved pointers, and activate an explicit allowlist with pre/post evidence and rollback state. Broad activation from bbox membership is prohibited. See `GEOGRAPHY_LA_COVERAGE_PROPOSAL_RUNBOOK.md`.
+The separate activation function turns on exactly 88 city and 304 ZCTA records, preserves the three reviewed pilot neighborhoods, sets current geometry and display pointers, derives County bounds from the approved County polygon, and adds reviewed terms/relationships. It records a pre-change snapshot before mutation and aborts unless all counts, bounds, pointers, terms, relationships, and active-buyer invariants hold. Broad activation from bbox membership is prohibited.
+
+The rollback function restores the prior 15-area activation state, complete prior service-area metadata, market bounds/display pointers, and geometry pointers. Its activation snapshot distinguishes preexisting term/relationship keys from release-created keys. It retains immutable staged evidence and canonical source IDs. Rollback fails before mutation if an `ACTIVE` buyer depends on an area it would deactivate; the profile must first use the supported draft/reselection workflow. See `GEOGRAPHY_LA_COUNTY_RELEASE_RUNBOOK.md`.
 
 ## Map Rendering
+
+Both interactive maps load one immutable market display bundle below pins and the selected-area highlight:
+
+- County outline: visible at all zoom levels;
+- incorporated-city outlines: visible from zoom `7.5`;
+- approximate ZCTA outlines: visible from zoom `9.5`.
+
+The bundle contains only `kind`, `slug`, `label`, and simplified geometry. It contains no internal UUIDs, buyer data, source-administration fields, or relationships. Maps remain clamped to the active County bbox, support drag/touch pan and zoom, and provide a **View all LA County** control. Public touch maps use cooperative gestures so one-finger page scrolling remains usable.
 
 When a supported area is selected:
 
@@ -154,7 +164,7 @@ ZIP-like areas use Census ZCTA data and must be labeled approximate, not officia
 
 Los Angeles County statistical communities are approximate Liber service areas and must not be presented as exact neighborhood or jurisdictional boundaries.
 
-Cities use city boundary data where available and should still be presented as Liber service areas.
+Canonical city service areas use reviewed County CSA city membership; the orientation overlay uses County Public Works legal-city land boundaries dissolved to 88 city features. Neither is represented as survey-grade legal evidence.
 
 ## Acceptance Checklist
 
@@ -195,7 +205,7 @@ For richer future spatial queries, add PostGIS polygon matching (`service_areas.
 
 - Do not switch to Google for v1.
 - Do not depend on Mapbox Boundaries for v1.
-- Do not stage LA on a shared target or activate it until the proposal migration, sources, checksums, terms, relationships, counts, and rollback have completed CTO review.
+- Do not bypass the exact-hash staged release, explicit city/ZIP allowlist, activation snapshot, or rollback checks.
 - Do not build generic public map search.
 - Do not expose seller buyer search on the public homepage.
 - Do not add speculative service-area admin UI before product approval.

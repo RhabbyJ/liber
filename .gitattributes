@@ -1,0 +1,3 @@
+data/geography/**/*.json text eol=lf
+data/geography/**/CHECKSUMS.sha256 text eol=lf
+packages/db/prisma/migrations/**/*.sql text eol=lf

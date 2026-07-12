@@ -56,6 +56,18 @@ Limited pre-signup previews are product marketing and onboarding support. They a
 
 The map-first homepage keeps primary navigation visible, gives guests clear buyer/seller entry points, and gives signed-in users a next step matching their existing role. This orientation must not add public profile access or expand the preview contract.
 
+## V1 launch geography
+
+The approved v1 launch market is Los Angeles County, California (County GEOID `06037`). Liber supports deterministic selection across:
+
+- all 88 incorporated cities;
+- 304 County-associated 2020 Census ZCTAs, labeled as approximate ZIP service areas rather than official USPS ZIP boundaries;
+- the three previously reviewed pilot neighborhoods: Encino, Northridge, and Tarzana.
+
+The remaining County statistical communities are retained as inactive reviewed geography and are not public selection options. Liber does not infer ZIP-to-city or ZIP-to-neighborhood membership at runtime; only explicit reviewed relationships may broaden a seller search.
+
+Interactive Mapbox maps may pan and zoom throughout the County bounds. They show the County outline, legal-city outlines, and approximate ZCTA outlines as noninteractive orientation layers. Selecting a supported area still draws the stronger canonical service-area polygon and scopes the same privacy-safe or seller-authorized result set.
+
 ## Demo and production data policy
 
 The current shared Vercel deployment may be treated as a CEO demo / private preview environment while access is intentionally limited and the product is not publicly launched. In that environment, agents may seed clearly marked test buyer demand so the map, preview cards, search, and invite flows can be demonstrated.

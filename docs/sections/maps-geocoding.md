@@ -14,6 +14,8 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - `apps/web/lib/map-area.ts`
 - `apps/web/lib/buyer-map-point.ts`
 - `apps/web/lib/mapbox.ts`
+- `apps/web/lib/map-boundary-layers.ts`
+- `apps/web/lib/use-keyed-geojson.ts`
 - `apps/web/lib/service-areas.ts`
 - `apps/web/components/service-area-suggestions.tsx`
 - `apps/web/app/api/geo/geocode/route.ts`
@@ -26,6 +28,9 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - Seller search maps are buyer-demand maps; numbered pins/clusters represent buyers or buyer demand signals, not property listings.
 - Buyer map markers must preserve privacy and should not expose exact private addresses.
 - Mapbox must be optional; local development should degrade gracefully.
+- Interactive maps are clamped to the active market bbox, remain draggable/zoomable throughout Los Angeles County, and provide a View all LA County reset.
+- The immutable market display bundle draws the County at every zoom, cities at zoom 7.5+, and approximate ZCTAs at zoom 9.5+. These line-only layers remain noninteractive and below selected-area emphasis and pins.
+- Public touch maps use cooperative gestures so the map does not trap one-finger vertical page scrolling.
 - Geocoding endpoints need validation and rate limits.
 - Public homepage area selection is limited to known active service areas; it draws approximate Liber-owned polygons and scopes the limited preview cards only, and must not become unauthenticated buyer search.
 - ZIP/city/neighborhood selection must render service-area polygons from GeoJSON, not radius circles.
@@ -37,6 +42,7 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - Mapbox geocoding must be constrained by the active market bbox from `public.markets`/service-area metadata, not a hardcoded SFV rectangle.
 - Map components must receive market context from server-loaded market metadata; do not import static market bounds into map components.
 - Versioned geometry URLs must return the exact retained hash even after the current pointer changes. Only unversioned URLs follow the current pointer.
+- Versioned market-boundary URLs obey the same immutable-cache rule and expose only display-safe kind/slug/label/geometry fields.
 - Fixture market bounds must be derived from fixture service-area metadata; do not keep a hardcoded empty-catalog fallback rectangle.
 - Seller and public pins must use the buyer's selected DB service-area center; static catalog lookup and stale city text must not place pins.
 - Mapbox address results must use typed postcode/place fields. Never extract the first five-digit substring from a formatted address.

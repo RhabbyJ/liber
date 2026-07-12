@@ -1,6 +1,6 @@
 # Production Decisions
 
-Last reviewed: 2026-07-11
+Last reviewed: 2026-07-12
 
 This is the living launch-gate matrix for moving Liber from a controlled CEO
 demo/private preview to a public Los Angeles beta. It does not override
@@ -8,13 +8,13 @@ demo/private preview to a public Los Angeles beta. It does not override
 
 ## Current release state
 
-- Keep Liber in controlled pilot availability. Do not advertise LA-wide
-  coverage yet.
-- The shared Supabase schema was advanced on 2026-07-11 through
-  `20260711082500_close_property_identity_lifecycle`. Prisma reports all 19
-  checked-in migrations applied and no unresolved migration attempts.
-- The intended LA beta boundary is Los Angeles County. Activation waits for the
-  reviewed Geography PR2 dataset and every security/scale gate below.
+- Keep Liber in controlled preview availability; malware scanning and scheduled
+  maintenance remain public-launch blockers.
+- Los Angeles County is the approved v1 geography boundary. The exact reviewed
+  v2 release activates 88 incorporated cities and 304 approximate Census ZCTA
+  service areas while preserving three reviewed neighborhoods.
+- LA County geography activation is a coverage decision, not authorization to
+  describe the entire product as publicly launched.
 
 ## Architecture-boundary implementation status
 
@@ -46,23 +46,21 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
 2. Prove immutable Auth UUID ownership and collision recovery in staging.
 3. Land seller/public DTO privacy and property-evidence version integrity.
 4. Land suspension/session/Storage enforcement and real CI/lint gates.
-5. Import and review Los Angeles County coverage as inactive, versioned data.
+5. Import and review Los Angeles County coverage as inactive, versioned data. **Complete for v2.**
 6. Land atomic buyer saves, SQL seller search, pagination, shared rate limiting,
    concurrency-safe outbox leasing, and invite-expiry enforcement.
 7. Run the full migration/security suite on staging with production-like data.
-8. Activate the reviewed LA beta only after a human go/no-go review.
+8. Activate the reviewed LA County city/ZCTA allowlist through the exact-hash release command. **Approved 2026-07-12.**
 
 ## LA launch blockers by owner
 
 ### Geography
 
-- Resolve the historical `00005` fresh-install blocker without rewriting any
-  migration already applied to a shared database.
-- Deliver versioned Los Angeles County ZIP/ZCTA, city, and community geometry
-  with provenance, license, checksums, reviewed relationships, and atomic
-  market-bound derivation.
-- Prove same-named places across markets and rapid A-to-B map navigation without
-  stale suggestions or polygons.
+- Keep the v2 checksum ledger, legal-city source attribution, and activation
+  snapshot with the release evidence.
+- Preserve ZIP labeling as approximate Census ZCTA coverage; do not claim USPS
+  or survey-grade boundaries.
+- Do not add inferred ZIP-to-city rollups without a separately reviewed source.
 
 ### Auth, suspension, and Storage
 
@@ -127,7 +125,10 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
 - Re-run `EXPLAIN` on seller buyer-search queries against realistic data volume before public launch.
 - Keep current buyer/search/property indexes until realistic traffic proves they are unnecessary; early unused-index advisor findings in a demo database are not enough to drop them.
 - Remove clearly marked demo buyer data before true public launch.
-- Keep LA County coverage inactive. The versioned dataset and schema remain an unnumbered staging proposal until canonical fresh/upgrade proof, disposable double-stage evidence, source/relationship review, query plans, advisors, rollback review, and a separate activation migration are complete.
+- LA County coverage uses deterministic versioned data, not runtime provider
+  lookups: one County outline, 88 city service areas, 304 approximate ZCTA
+  service areas, and three existing reviewed neighborhoods. The 269 remaining
+  statistical communities stay inactive.
 
 ### Public-launch blocker: restore scheduled maintenance
 

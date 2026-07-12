@@ -241,8 +241,9 @@ model Market {
   country           String
   jurisdictionType  String?  @map("jurisdiction_type")
   jurisdictionGeoid String?  @map("jurisdiction_geoid")
-  stableExternalId  String?  @unique @map("stable_external_id")
-  currentBoundaryId String?  @unique @map("current_boundary_id") @db.Uuid
+  stableExternalId         String?  @unique(map: "markets_stable_external_id_key") @map("stable_external_id")
+  currentBoundaryId        String?  @unique(map: "markets_current_boundary_id_key") @map("current_boundary_id") @db.Uuid
+  currentDisplayGeometryId String?  @unique(map: "markets_current_display_geometry_id_key") @map("current_display_geometry_id") @db.Uuid
   centerLat         Float    @map("center_lat")
   centerLng         Float    @map("center_lng")
   bboxWest          Float    @map("bbox_west")
@@ -253,9 +254,12 @@ model Market {
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
 
+  activationSnapshots     GeographyActivationSnapshot[]
   boundaryVersions MarketBoundaryVersion[]   @relation("MarketBoundaryVersions")
   currentBoundary  MarketBoundaryVersion?    @relation("CurrentMarketBoundary", fields: [currentBoundaryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  currentDisplayGeometry  MarketDisplayGeometryVersion?  @relation("CurrentMarketDisplayGeometry", fields: [currentDisplayGeometryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   datasetVersions  GeographyDatasetVersion[]
+  displayGeometryVersions MarketDisplayGeometryVersion[] @relation("MarketDisplayGeometryVersions")
   searchTerms      ServiceAreaSearchTerm[]
   serviceAreas     ServiceArea[]
 
@@ -289,7 +293,7 @@ model ServiceArea {
   geojsonSha256      String?   @map("geojson_sha256")
   stableExternalId   String?   @map("stable_external_id")
   sourceRetrievedAt  DateTime? @map("source_retrieved_at") @db.Date
-  currentGeometryId  String?   @unique @map("current_geometry_id") @db.Uuid
+  currentGeometryId  String?   @unique(map: "service_areas_current_geometry_id_key") @map("current_geometry_id") @db.Uuid
   searchTerms        String[]  @default([]) @map("search_terms")
   active             Boolean   @default(false)
   isPilot            Boolean   @default(false) @map("is_pilot")
@@ -332,8 +336,26 @@ model MarketBoundaryVersion {
   market         Market                    @relation("MarketBoundaryVersions", fields: [marketId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([marketId, datasetVersion])
-  @@index([marketId, sha256])
+  @@index([marketId, sha256], map: "market_boundary_versions_market_sha_idx")
   @@map("market_boundary_versions")
+}
+
+model MarketDisplayGeometryVersion {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  marketId       String   @map("market_id") @db.Uuid
+  datasetVersion String   @map("dataset_version")
+  geojson        Json
+  sha256         String
+  sourceManifest Json     @map("source_manifest")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  currentFor     Market?                   @relation("CurrentMarketDisplayGeometry")
+  datasetRecords GeographyDatasetVersion[]
+  market         Market                    @relation("MarketDisplayGeometryVersions", fields: [marketId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([marketId, datasetVersion])
+  @@index([marketId, sha256], map: "market_display_geometry_versions_market_sha_idx")
+  @@map("market_display_geometry_versions")
 }
 
 model ServiceAreaGeometryVersion {
@@ -355,8 +377,8 @@ model ServiceAreaGeometryVersion {
   serviceArea ServiceArea  @relation("ServiceAreaGeometryVersions", fields: [serviceAreaId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([serviceAreaId, datasetVersion])
-  @@index([serviceAreaId, sha256])
-  @@index([serviceAreaId, createdAt])
+  @@index([serviceAreaId, sha256], map: "service_area_geometry_versions_area_sha_idx")
+  @@index([serviceAreaId, createdAt(sort: Desc)], map: "service_area_geometry_versions_area_created_idx")
   @@map("service_area_geometry_versions")
 }
 
@@ -374,8 +396,8 @@ model ServiceAreaSearchTerm {
   serviceArea ServiceArea @relation(fields: [serviceAreaId, marketId], references: [id, marketId], onDelete: Cascade, onUpdate: Restrict)
 
   @@unique([marketId, termNormalized, serviceAreaId])
-  @@index([marketId, termNormalized])
-  @@index([serviceAreaId])
+  // The migration owns the text_pattern_ops covering index because Prisma cannot model INCLUDE columns.
+  @@index([serviceAreaId], map: "service_area_search_terms_area_idx")
   @@map("service_area_search_terms")
 }
 
@@ -384,6 +406,7 @@ model GeographyDatasetVersion {
   datasetVersion          String   @unique @map("dataset_version")
   marketId                String   @map("market_id") @db.Uuid
   marketBoundaryVersionId String   @map("market_boundary_version_id") @db.Uuid
+  marketDisplayGeometryVersionId String?  @map("market_display_geometry_version_id") @db.Uuid
   manifestSha256          String   @map("manifest_sha256")
   relationshipsSha256     String   @map("relationships_sha256")
   manifest                Json
@@ -392,9 +415,26 @@ model GeographyDatasetVersion {
 
   market         Market                @relation(fields: [marketId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   marketBoundary MarketBoundaryVersion @relation(fields: [marketBoundaryVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  marketDisplayGeometry MarketDisplayGeometryVersion? @relation(fields: [marketDisplayGeometryVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
-  @@index([marketId, stagedAt])
+  @@index([marketId, stagedAt(sort: Desc)], map: "geography_dataset_versions_market_staged_idx")
+  @@index([marketBoundaryVersionId], map: "geography_dataset_versions_boundary_idx")
+  @@index([marketDisplayGeometryVersionId], map: "geography_dataset_versions_display_geometry_idx")
   @@map("geography_dataset_versions")
+}
+
+model GeographyActivationSnapshot {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  datasetVersion String    @unique @map("dataset_version")
+  marketId       String    @map("market_id") @db.Uuid
+  snapshot       Json
+  activatedAt    DateTime  @default(now()) @map("activated_at")
+  rolledBackAt   DateTime? @map("rolled_back_at")
+
+  market Market @relation(fields: [marketId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([marketId, activatedAt(sort: Desc)], map: "geography_activation_snapshots_market_activated_idx")
+  @@map("geography_activation_snapshots")
 }
 
 model ServiceAreaRelationship {
