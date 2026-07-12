@@ -19,7 +19,8 @@ Owns transactional email queueing, invite email delivery, expiry jobs, and maint
 - Outbox workers must claim jobs atomically with a lease so concurrent workers cannot send the same message.
 - Maintenance endpoints require `CRON_SECRET` bearer auth.
 - Local development may use mock/non-sending email.
-- Production email and Auth workers run independently every minute, claim with leases/`SKIP LOCKED`, and publish heartbeats used by readiness checks.
+- When production scheduling is enabled, email and Auth workers run independently every minute, claim with leases/`SKIP LOCKED`, and publish heartbeats used by readiness checks.
+- Vercel scheduling is temporarily disabled for the controlled Hobby-plan preview. The protected endpoints remain callable; restore a per-minute scheduler before relying on email, Auth-ban, expiry, or cleanup automation.
 - Invite email rows reference their invite. Workers revalidate current property identity and account/workflow eligibility immediately before sending; invalid work becomes `CANCELLED`.
 - Upload cleanup marks a session `CLEANED` only after Storage deletion succeeds, so completed cleanup is not selected again.
 
