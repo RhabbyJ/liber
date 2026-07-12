@@ -13,6 +13,9 @@ demo/private preview to a public Los Angeles beta. It does not override
 - Los Angeles County is the approved v1 geography boundary. The exact reviewed
   v2 release activates 88 incorporated cities and 304 approximate Census ZCTA
   service areas while preserving three reviewed neighborhoods.
+- The guarded v2 stage and activation completed in production on 2026-07-12;
+  both geography migrations are applied with zero unresolved Prisma rows and
+  zero invalid active buyers.
 - LA County geography activation is a coverage decision, not authorization to
   describe the entire product as publicly launched.
 
@@ -46,11 +49,11 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
 2. Prove immutable Auth UUID ownership and collision recovery in staging.
 3. Land seller/public DTO privacy and property-evidence version integrity.
 4. Land suspension/session/Storage enforcement and real CI/lint gates.
-5. Import and review Los Angeles County coverage as inactive, versioned data. **Complete for v2.**
+5. Import and review Los Angeles County coverage as inactive, versioned data. **Staged and activated in production for v2 on 2026-07-12.**
 6. Land atomic buyer saves, SQL seller search, pagination, shared rate limiting,
    concurrency-safe outbox leasing, and invite-expiry enforcement.
 7. Run the full migration/security suite on staging with production-like data.
-8. Activate the reviewed LA County city/ZCTA allowlist through the exact-hash release command. **Approved 2026-07-12.**
+8. Activate the reviewed LA County city/ZCTA allowlist through the exact-hash release command. **Applied and reconciled 2026-07-12.**
 
 ## LA launch blockers by owner
 
@@ -114,7 +117,7 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
 ## Environment and advisor decisions
 
 - Vercel cron schedules are temporarily disabled for the controlled Hobby-plan preview so deployments can proceed. Restore a per-minute outbox scheduler and the daily expiry scheduler before relying on automated email, Auth bans, invite expiry, or upload cleanup.
-- Configure a unique `AUTH_RATE_LIMIT_PEPPER` of at least 32 characters before any production deployment.
+- Configure a unique `AUTH_RATE_LIMIT_PEPPER` of at least 32 characters before public launch or opening the controlled preview beyond approved test accounts. The current controlled-preview deployment still lacks it.
 - Configure `CRON_SECRET` before scheduled maintenance is enabled.
 - Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` before relying on invite
   email delivery.
@@ -127,7 +130,7 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
 - Remove clearly marked demo buyer data before true public launch.
 - LA County coverage uses deterministic versioned data, not runtime provider
   lookups: one County outline, 88 city service areas, 304 approximate ZCTA
-  service areas, and three existing reviewed neighborhoods. The 269 remaining
+  service areas, and three existing reviewed neighborhoods. The 266 remaining
   statistical communities stay inactive.
 
 ### Public-launch blocker: restore scheduled maintenance

@@ -1,6 +1,8 @@
 # Migration Version Plan — 2026-07-10
 
-> Historical planning record. The LA geography proposal slots below were superseded by assigned migration `20260712090000_expand_la_county_geography`; current deployment state and operations live in `GEOGRAPHY_LA_COUNTY_RELEASE_RUNBOOK.md`.
+> Historical planning record. The LA geography proposal slots below were superseded by applied migrations `20260712090000_expand_la_county_geography` and `20260712100500_cover_service_area_search_term_market_fk`; current operations live in `GEOGRAPHY_LA_COUNTY_RELEASE_RUNBOOK.md`, and completed production proof lives in `GEOGRAPHY_LA_COUNTY_RELEASE_EVIDENCE_2026-07-12.md`.
+>
+> The final release installs guarded inactive staging, a separate owner-only exact-hash activation function, and a paired rehearsed rollback in `20260712090000`; the historical “not authored” and “does not exist yet” entries below describe the superseded proposal state only.
 
 This document reserves the post-identity migration order for the LA launch
 integration. A reservation is not deployment authorization. Proposal SQL stays

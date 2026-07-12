@@ -62,7 +62,9 @@ The evidence must show:
 
 ## Production sequence
 
-1. Apply `20260712090000_expand_la_county_geography`.
+Use this sequence for repeat or replacement targets:
+
+1. Apply `20260712090000_expand_la_county_geography` and `20260712100500_cover_service_area_search_term_market_fk` through Prisma.
 2. Run the exact-hash stage action.
 3. Confirm the status reports 661 rows/versions while the prior 15 areas and pilot bbox remain live.
 4. Deploy the pointer-aware application and boundary API.
@@ -70,6 +72,8 @@ The evidence must show:
 6. Confirm 88 active cities, 304 active ZCTAs, three active neighborhoods, one current County boundary, one current display bundle, and zero invalid active buyers.
 7. Test desktop and mobile pan/zoom, View all LA County, city/ZIP search, selected geometry, and public privacy.
 8. Re-run Supabase security and performance advisors.
+
+The initial production release completed on 2026-07-12, with `20260712100500_cover_service_area_search_term_market_fk` applied after activation as the advisor-driven follow-up. Future targets apply both migrations in step 1. Counts, checksums, API/browser acceptance, migration reconciliation, advisor results, Git commits, and Vercel deployment identities are recorded in `GEOGRAPHY_LA_COUNTY_RELEASE_EVIDENCE_2026-07-12.md`.
 
 The release command requires a dedicated connection env plus all of:
 

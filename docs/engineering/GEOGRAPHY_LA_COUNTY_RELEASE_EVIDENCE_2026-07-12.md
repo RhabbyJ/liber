@@ -52,21 +52,28 @@ Observed inside the rehearsal:
 - `npm run db:validate` — passed.
 - `npm run db:generate` — passed.
 - `npm run typecheck` — passed.
-- `npm test` — passed: root guards 9/9, web 145 passed with 5 guarded skips, validators 13/13.
+- `npm test` — passed: root guards 9/9, web 146 passed with 5 guarded skips, validators 13/13.
 - Focused LA/map/API suite — passed.
 - `npm run lint` — zero errors; one unrelated existing `<img>` optimization warning remains.
 - `npm run build` — passed; the market-boundary API route is present in the production route manifest.
 - `git diff --check` — passed (Windows line-ending notices only).
-
-Route/security/visual smoke must run again after the additive production schema migration because the pre-migration database correctly lacks the new market-pointer columns.
+- `npm run smoke:routes` — passed.
+- `npm run smoke:security` — passed.
+- `npm run smoke:no-auth-bypass` — passed.
+- `npm run smoke:visual` — passed for desktop home/login/signup and mobile home/login.
+- `npm run readiness:env` — passed while reporting missing `CRON_SECRET`, email delivery configuration, and Auth rate-limit pepper. Vercel cron schedules remain separately and intentionally disabled for the controlled preview.
 
 ## Production reconciliation
 
-To be completed immediately after persistent stage/deploy/activation:
+Completed against Supabase project `qfjcrhkjlczvzakxives` on July 12, 2026:
 
-- Prisma migration ledger and failed-row audit;
-- staged and active aggregate status;
-- public market/service-area API privacy checks;
-- desktop/mobile County pan, zoom, clamp, View all, city/ZIP layer, and selected-area checks;
-- Supabase security and performance advisors;
-- Git/Vercel production commit and deployment identity.
+- Prisma migrations `20260712090000_expand_la_county_geography` and `20260712100500_cover_service_area_search_term_market_fk` are applied. `prisma migrate status` reports all 21 migrations applied, and the production ledger has zero unresolved rows.
+- Guarded stage committed 661 service areas and 661 immutable geometry versions while leaving the prior 15 active areas, market bounds, current pointers, search terms, and live relationships unchanged.
+- Guarded activation committed 395 active areas: 88 cities, 304 approximate ZCTAs, and Encino, Northridge, and Tarzana. All 661 areas have current geometry pointers; there is one display version, one dataset ledger, one unrolled-back activation snapshot, and zero invalid active buyers.
+- The live market label is `Los Angeles County`, its bbox is `[-118.951721, 32.75004, -117.646374, 34.823302]`, and both County and display-geometry pointers are present.
+- Production search resolved exact `91325`, `Northridge`, and `Los Angeles` deterministically. Public responses omitted database UUIDs.
+- The versioned boundary endpoint returned 200 with 393 features (one County, 88 city, 304 approximate ZIP), only `kind`, `label`, and `slug` properties, an immutable cache policy, and an ETag; the matching conditional request returned 304. Selected-area geometry returned a safe GeoJSON Feature with the same cache/ETag behavior.
+- Desktop browser acceptance proved pan, zoom, `View all LA County`, the County/city/ZIP boundary layers, and zero console errors. Mobile acceptance at 390×844 proved the responsive navigation, ZIP selection, boundary legend, controls, and cooperative gestures: a one-finger gesture over the map scrolled the page while the map required two fingers to pan.
+- Supabase security/performance advisors reported no warning or error attributable to the LA geography tables. The follow-up composite index migration removed the release-specific unindexed-foreign-key finding. Newly created indexes remain expected `unused_index` informational notices until representative traffic exists.
+- Existing unrelated advisor work remains: public-schema PostGIS/`spatial_ref_sys` findings, leaked-password protection, two `PropertyVerificationDecision` unindexed foreign keys, and the duplicate `Invite` index.
+- Runtime release commit `bc3ff92` and follow-up index commit `e0a35e6` were pushed to `main`. Vercel production deployments `liber-fg721soaw-roberts-projects-2c330010.vercel.app` and `liber-5y2y3vlrl-roberts-projects-2c330010.vercel.app` reached Ready; the latter was the current `liber-one.vercel.app` alias when reconciliation completed.
