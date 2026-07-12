@@ -28,8 +28,8 @@ export default async function VerifySignupPage({
           <h1>Confirm your email</h1>
           <p className="muted">
             {email
-              ? `We sent a verification link to ${email}. Click it to activate your account and continue.`
-              : "We sent a verification link to your email. Click it to activate your account and continue."}
+              ? `We sent a verification link to ${email}. Click it to activate your account. We’ll take you to your next setup step automatically.`
+              : "We sent a verification link to your email. Click it to activate your account. We’ll take you to your next setup step automatically."}
           </p>
         </div>
 

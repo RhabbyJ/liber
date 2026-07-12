@@ -8,7 +8,6 @@ import { getCurrentBuyerProfile } from "../../../server/contracts";
 import { DEFAULT_MARKET_SLUG } from "../../../lib/service-areas";
 import { getActiveMarketOrFallback } from "../../../server/service-areas";
 import {
-  previousBuyerAvatar,
   regenerateBuyerPublicAlias,
   shuffleBuyerAvatar,
   submitBuyerProfile,
@@ -17,9 +16,11 @@ import {
 export default async function BuyerProfileBuilderPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ edit?: string; market?: string; verification?: string }>;
+  searchParams?: Promise<{ edit?: string; market?: string; status?: string; verification?: string }>;
 }) {
-  const { edit = "", market: requestedMarket = "", verification = "" } = searchParams ? await searchParams : {};
+  const { edit = "", market: requestedMarket = "", status = "", verification = "" } = searchParams
+    ? await searchParams
+    : {};
   const { data: buyer } = await getCurrentBuyerProfile();
   const parsedRequestedMarket = marketSlugSchema.safeParse(requestedMarket);
   const preferredMarketSlug = (buyer.primaryServiceArea?.active ? buyer.primaryServiceArea.marketSlug : undefined) ??
@@ -46,7 +47,10 @@ export default async function BuyerProfileBuilderPage({
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
   const hasPreApproval = activeBadges.some((badge) => badge.type === "PRE_APPROVED");
   const hasPendingPreApproval = buyer.badges.some((badge) => badge.type === "PRE_APPROVED" && badge.status === "pending");
-  const showProfileWizard = !isActive || edit === "profile" || buyer.primaryServiceArea?.active === false;
+  const isAdminControlled = buyer.visibility === "hidden";
+  const showProfileWizard = !isAdminControlled && (
+    !isActive || edit === "profile" || buyer.primaryServiceArea?.active === false
+  );
   const canSubmitVerification = buyer.id !== "new-profile" && buyer.visibility !== "draft";
   const accountName = buyer.accountName || "buyer";
   const displayName = buyer.name || accountName;
@@ -119,17 +123,35 @@ export default async function BuyerProfileBuilderPage({
   );
 
   if (showProfileWizard) {
+    const isFirstSetup = buyer.visibility === "draft";
+
     return (
       <div className="page wide stack loose buyer-profile-page">
         <div className="buyer-profile-shell">
+          <header className="buyer-profile-intro">
+            <p className="eyebrow">{isFirstSetup ? "Buyer setup · Step 2 of 2" : "Buyer profile"}</p>
+            <h1>{isFirstSetup ? "Tell sellers what you’re looking for" : "Update your buyer profile"}</h1>
+            <p>
+              {isFirstSetup
+                ? "Your account is ready. Add your search criteria in about three minutes; your personal details stay private."
+                : "Keep your criteria current so matching sellers see the right demand."}
+            </p>
+            {isFirstSetup ? (
+              <ol className="buyer-profile-path" aria-label="Buyer setup progress">
+                <li className="done"><Icon name="check" size={12} /><span>Account ready</span></li>
+                <li aria-current="step" className="current"><span>2</span><strong>Buyer profile</strong></li>
+                <li><Icon name="arrow-right" size={12} /><span>Then: visible to approved sellers</span></li>
+              </ol>
+            ) : (
+              <span className="status-dot active"><Icon name="check" size={12} /> Live to approved sellers</span>
+            )}
+          </header>
           <article className="card stack loose wizard-card profile-builder-card">
             <BuyerProfileWizard
               action={submitBuyerProfile}
               buyer={wizardBuyer}
+              isPublished={isActive}
               marketSlug={market.slug}
-              previousAvatarAction={previousBuyerAvatar}
-              regenerateAliasAction={regenerateBuyerPublicAlias}
-              shuffleAction={shuffleBuyerAvatar}
             />
           </article>
           {canSubmitVerification ? verificationCard : null}
@@ -141,6 +163,18 @@ export default async function BuyerProfileBuilderPage({
   return (
     <div className="page wide stack loose buyer-profile-page">
       <div className="buyer-profile-shell">
+        {isAdminControlled ? (
+          <div className="auth-alert warning" role="status">
+            <strong>Profile editing is unavailable</strong>
+            <span>This profile is {buyer.visibility}. Contact an admin before trying to publish changes.</span>
+          </div>
+        ) : null}
+        {status === "published" || status === "saved" ? (
+          <div className="auth-alert success" role="status">
+            <strong>{status === "published" ? "Buyer profile published" : "Changes saved"}</strong>
+            <span>Your profile is live to approved sellers. Your private account details remain hidden.</span>
+          </div>
+        ) : null}
         <article className="card buyer-profile-account-card">
           <div className="buyer-profile-account-head">
             <div className="buyer-profile-identity">
@@ -161,10 +195,20 @@ export default async function BuyerProfileBuilderPage({
               </div>
             </div>
             <div className="buyer-profile-actions">
-              <Link className="button primary" href="/buyer/profile?edit=profile">
-                <Icon name="pencil" size={14} />
-                Edit Profile
-              </Link>
+              {isAdminControlled ? null : (
+                <>
+                  <Link className="button primary" href="/buyer/profile?edit=profile">
+                    <Icon name="pencil" size={14} />
+                    Edit profile
+                  </Link>
+                  <form action={regenerateBuyerPublicAlias}>
+                    <button className="button secondary" type="submit">New alias</button>
+                  </form>
+                  <form action={shuffleBuyerAvatar}>
+                    <button className="button secondary" type="submit">Change avatar</button>
+                  </form>
+                </>
+              )}
             </div>
           </div>
 

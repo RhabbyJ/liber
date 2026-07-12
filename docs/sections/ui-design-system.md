@@ -9,6 +9,7 @@ Owns shared visual language, navigation, layouts, reusable components, and globa
 - `apps/web/app/globals.css`
 - `apps/web/app/layout.tsx`
 - `apps/web/components/primary-nav.tsx`
+- `apps/web/components/primary-nav-items.ts`
 - `apps/web/components/page-title.tsx`
 - `apps/web/components/empty-state.tsx`
 - `apps/web/components/icon.tsx`
@@ -22,6 +23,8 @@ Owns shared visual language, navigation, layouts, reusable components, and globa
 - Avoid fake/dead controls.
 - Keep mobile and keyboard accessibility in scope.
 - Primary mobile navigation must remain usable during delayed or missing client hydration; keep menu contents/actions in the DOM and preserve the fallback behavior in `primary-nav.tsx`.
+- Primary navigation remains visible on the desktop map-first homepage. Guests get Demand map, For buyers, and For sellers; authenticated links use distinct buyer/seller action labels so dual-role accounts do not receive ambiguous duplicate links.
+- On narrow screens the homepage may stack and scroll, but the map, preview cards, and mobile navigation actions must all remain reachable.
 - Do not use real-looking buyer imagery as a trust shortcut.
 - Buyer avatar UI uses generated 2D animal avatars from the app-approved `avatarka` animals theme. The SVG is generated locally from an allowlisted token and rendered as a data image.
 

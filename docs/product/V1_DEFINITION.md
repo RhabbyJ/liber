@@ -54,6 +54,8 @@ The public or unauthenticated experience must not:
 
 Limited pre-signup previews are product marketing and onboarding support. They are not seller search, and they do not replace approved seller-directory access.
 
+The map-first homepage keeps primary navigation visible, gives guests clear buyer/seller entry points, and gives signed-in users a next step matching their existing role. This orientation must not add public profile access or expand the preview contract.
+
 ## Demo and production data policy
 
 The current shared Vercel deployment may be treated as a CEO demo / private preview environment while access is intentionally limited and the product is not publicly launched. In that environment, agents may seed clearly marked test buyer demand so the map, preview cards, search, and invite flows can be demonstrated.
@@ -85,6 +87,8 @@ redirecting to email verification; the account still has no authenticated
 session until verification succeeds. The verified callback reads the persisted
 database roles and goes directly to the matching workspace. V1 has no second
 post-signup role-selection page, and ADMIN remains impossible to self-assign.
+
+After email verification, buyer onboarding clearly hands off from account setup to the single buyer-profile form. The handoff explains that the profile is the next setup stage and that private account details remain hidden; it does not repeat role selection.
 
 ### Buyer
 

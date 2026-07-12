@@ -30,7 +30,9 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
   `buyerProfileId` is intentionally exposed as the authorized routing ID.
 - Criteria should describe property fit, not protected-class attributes.
 - Amenity needs use canonical feature tokens (Pool, Parking, ADU, Yard, Garage) so seller amenity filters can match; condition uses Move-in ready / Mild fixer / Fixer.
-- Buyer setup is one form on `/buyer/profile`: buyer info, criteria, size, details, and location. Criteria save in the same submit as the profile.
+- Buyer setup is one form on `/buyer/profile`: private generated identity, budget/basics, optional size/preferences, and one required target-area interaction. Criteria save in the same submit as the profile.
+- The verified-signup handoff names buyer profile setup as the next stage and shows the buyer where they are in the account -> profile -> seller-visible sequence; it must not ask for role intent again.
+- Expected profile input/publication errors return inline without clearing entered fields. Unexpected server or database failures must still fail closed through the application error boundary.
 - Profile, canonical service-area selection, visibility activation, and criteria must commit atomically; a partial save must not publish stale or mismatched buyer demand.
 - The profile form publishes a complete snapshot. Blank optional profile and criteria controls clear persisted values; they are not patch semantics.
 - The database must enforce exactly one criteria row per buyer unless an approved product change introduces named alternative criteria sets.
@@ -49,6 +51,7 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - Buyer profile purpose is purchase-only; do not add rental/tenant intent to signup, profile, criteria, or seller-search surfaces.
 - Buyer account names are private to the buyer portal. Seller/public surfaces must use the generated `BuyerProfile.displayName` alias, not `User.name`, and buyers must not be able to type arbitrary public names.
 - Buyer profile create/update input schemas must not expose `displayName`; alias changes go through the dedicated regenerate server action.
+- Alias/avatar customization is independent from the main criteria form and appears only on the saved profile summary so it cannot submit or discard unsaved criteria.
 - Buyer avatars are generated 2D animal avatars from allowlisted `User.avatarVariant` tokens. Only the token is stored; no avatar image file or URL is stored.
 - `/buyer/criteria` redirects to the profile form for old links; there is no separate criteria onboarding flow.
 

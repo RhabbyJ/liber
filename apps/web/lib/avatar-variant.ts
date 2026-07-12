@@ -61,18 +61,6 @@ export function randomAvatarVariant(exclude?: string | null) {
   return options[index];
 }
 
-export function previousAvatarVariant(current: string) {
-  const normalizedCurrent = normalizeAvatarVariant(current);
-  if (!normalizedCurrent) return avatarVariantFromSeed("buyer");
-
-  const [, , saltValue] = normalizedCurrent.split(":") as [typeof avatarProvider, typeof avatarTheme, string];
-  const currentSalt = Number(saltValue);
-  const currentIndex = avatarSalts.indexOf(currentSalt as (typeof avatarSalts)[number]);
-  const previousIndex = currentIndex <= 0 ? avatarSalts.length - 1 : currentIndex - 1;
-
-  return `${avatarProvider}:${avatarTheme}:${avatarSalts[previousIndex]}`;
-}
-
 function hashSeed(seed: string) {
   let hash = 2166136261;
   for (let index = 0; index < seed.length; index += 1) {

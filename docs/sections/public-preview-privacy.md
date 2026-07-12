@@ -21,6 +21,7 @@ seller data.
 
 - Public preview is a small teaser, not unauthenticated buyer search or public
   buyer profiles.
+- The homepage stays map-first. Compact orientation copy, persistent navigation, and role-aware next-step CTAs may clarify the experience, but must not turn it into a separate marketing hero or expand the preview data contract.
 - Public and seller responses use dedicated Prisma `select` projections. Do not
   load a broad internal buyer object and sanitize it after serialization.
 - Never serialize Auth UUIDs, internal criteria/service-area IDs, raw buyer

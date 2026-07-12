@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   avatarVariantFromSeed,
   normalizeAvatarVariant,
-  previousAvatarVariant,
   randomAvatarVariant,
   resolveAvatarVariant,
 } from "./avatar-variant";
@@ -42,10 +41,5 @@ describe("buyer avatar variants", () => {
 
     expect(shuffled).not.toBe(current);
     expect(normalizeAvatarVariant(shuffled)).toBe(shuffled);
-  });
-
-  it("steps backward through allowed animal avatars", () => {
-    expect(previousAvatarVariant("avatarka:animals:4")).toBe("avatarka:animals:3");
-    expect(previousAvatarVariant("avatarka:animals:0")).toBe("avatarka:animals:31");
   });
 });

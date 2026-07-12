@@ -29,7 +29,7 @@ const ROLE_CARDS: Array<{
   {
     value: "buyer",
     label: "Looking to buy a home",
-    description: "Publish a verified buyer profile and let serious sellers reach out.",
+    description: "Publish what you’re looking for and let matching sellers reach out.",
     icon: "user",
   },
   {
@@ -237,7 +237,7 @@ export function SignupWizard({ initialRole, initialEmail, initialStep, next, not
         <section className="signup-pane" data-signup-pane hidden={step !== 3} aria-hidden={step !== 3}>
           <p className="signup-eyebrow">Step 4 of {total}</p>
           <h1 className="signup-question">Create a password</h1>
-          <p className="signup-helper">Use at least 12 characters with letters and numbers.</p>
+          <p className="signup-helper">Use at least 12 characters.</p>
           <input
             autoComplete="new-password"
             className="signup-input"
@@ -257,6 +257,10 @@ export function SignupWizard({ initialRole, initialEmail, initialStep, next, not
               <Icon name="mail" size={13} /> {email || "—"}
             </span>
           </div>
+          <p className="signup-next-step">
+            <Icon name="arrow-right" size={13} />
+            {nextStepLabel(role, next)}
+          </p>
         </section>
 
         <p className="signup-error" data-signup-error hidden={!error}>
@@ -273,7 +277,7 @@ export function SignupWizard({ initialRole, initialEmail, initialStep, next, not
             onClick={step < total - 1 ? goNext : undefined}
             type={step < total - 1 ? "button" : "submit"}
           >
-            Continue
+            {step < total - 1 ? "Continue" : "Create account"}
             <Icon name="arrow-right" size={14} />
           </button>
         </div>
@@ -291,6 +295,19 @@ function summarizeRole(role: Role) {
   if (role === "seller") return "Selling a home";
   if (role === "both") return "Buyer and seller";
   return "Buying a home";
+}
+
+function nextStepLabel(role: Role, next: string) {
+  const hasBuyerRole = role === "buyer" || role === "both";
+  const hasSellerRole = role === "seller" || role === "both";
+  if (hasSellerRole && next.startsWith("/seller/")) {
+    return "Next: verify your email, then open your seller workspace.";
+  }
+  if (hasBuyerRole && next.startsWith("/buyer/")) {
+    return "Next: verify your email, then finish your buyer profile.";
+  }
+  if (role === "seller") return "Next: verify your email, then open your seller workspace.";
+  return "Next: verify your email, then finish your buyer profile.";
 }
 
 function saveSignupDraft(draft: { email: string; name: string; role: Role }) {

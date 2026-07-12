@@ -30,6 +30,8 @@ export default async function HomePage({
     getPublicBuyerPreviews(market.slug, selectedServiceArea),
     hasControlledDemoBuyerPreviews(),
   ]);
+  const isBuyer = user?.roles.includes("BUYER") ?? false;
+  const isSeller = user?.roles.includes("SELLER") ?? false;
   const mapboxToken = (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim();
   const sellerSearchPath = selectedServiceArea
     ? `/seller/search?market=${encodeURIComponent(market.slug)}&serviceArea=${encodeURIComponent(selectedServiceArea.slug)}`
@@ -40,11 +42,17 @@ export default async function HomePage({
   const sellerLoginHref = `/login?next=${encodeURIComponent(sellerSearchPath)}`;
   const buyerProfilePath = `/buyer/profile?market=${encodeURIComponent(market.slug)}`;
   const buyerProfileHref = user ? buyerProfilePath : `/signup?role=buyer&next=${encodeURIComponent(buyerProfilePath)}`;
+  const mapPrimaryHref = isSeller ? sellerSearchPath : isBuyer ? buyerProfilePath : sellerSearchHref;
+  const mapPrimaryLabel = isSeller ? "Seller workspace" : isBuyer ? "My buyer profile" : "Get seller access";
   const activePreviewLabel = `${buyerPreviews.length} active preview${buyerPreviews.length === 1 ? "" : "s"}`;
 
   return (
     <div className="map-landing">
       <section className="map-search-rail" aria-label="Buyer demand preview controls">
+        <div className="map-search-intro">
+          <span>Buyer demand map</span>
+          <strong>See where buyers are looking</strong>
+        </div>
         <PublicMapLocationSearch defaultArea={selectedAreaLabel} marketSlug={market.slug} />
       </section>
 
@@ -52,8 +60,8 @@ export default async function HomePage({
         <PublicDemandMap
           market={market}
           previews={buyerPreviews}
-          primaryCtaHref={sellerSearchHref}
-          primaryCtaLabel={user ? "View buyers" : "Sign up to view buyers"}
+          primaryCtaHref={mapPrimaryHref}
+          primaryCtaLabel={mapPrimaryLabel}
           secondaryCtaHref={user ? undefined : sellerLoginHref}
           secondaryCtaLabel={user ? undefined : "Log in"}
           selectedArea={selectedArea}
@@ -70,8 +78,8 @@ export default async function HomePage({
                 <span className="status-dot warning">Controlled demo data</span>
               ) : null}
             </div>
-            <Link className="demand-sort-link" href={sellerSearchHref}>
-              {user ? "View: Best match" : "Sort: Best match"}
+            <Link className="demand-sort-link" href={mapPrimaryHref}>
+              {isSeller ? "Seller workspace" : isBuyer ? "My profile" : "Get access"}
               <Icon name="chevron-right" size={13} />
             </Link>
           </header>
@@ -88,30 +96,75 @@ export default async function HomePage({
               </article>
             ) : null}
 
-            <article className="demand-card signup-wall">
-              <span className="demand-lock" aria-hidden="true">
-                <Icon name="lock" size={18} />
-              </span>
-              <h3>See every matching buyer</h3>
-              <Link className="button primary" href={sellerSearchHref}>
-                {user ? "View buyer search" : "Sign up to search"}
-                <Icon name="arrow-right" size={14} />
-              </Link>
-              {user ? null : (
-                <Link className="demand-buyer-link" href={sellerLoginHref}>
-                  Log in
-                </Link>
-              )}
-              <Link className="demand-buyer-link" href={buyerProfileHref}>
-                Add my buyer demand
-              </Link>
-            </article>
+            <HomepageNextStep
+              buyerProfileHref={buyerProfileHref}
+              isBuyer={isBuyer}
+              isSeller={isSeller}
+              sellerLoginHref={sellerLoginHref}
+              sellerSearchHref={sellerSearchHref}
+            />
           </div>
 
           <p className="demand-privacy">Anonymized preview - exact locations stay private</p>
         </aside>
       </section>
     </div>
+  );
+}
+
+function HomepageNextStep({
+  buyerProfileHref,
+  isBuyer,
+  isSeller,
+  sellerLoginHref,
+  sellerSearchHref,
+}: {
+  buyerProfileHref: string;
+  isBuyer: boolean;
+  isSeller: boolean;
+  sellerLoginHref: string;
+  sellerSearchHref: string;
+}) {
+  if (isSeller) {
+    return (
+      <article className="demand-card signup-wall">
+        <span className="demand-lock" aria-hidden="true"><Icon name="search" size={18} /></span>
+        <h3>Continue in your seller workspace</h3>
+        <p>Check your access and open buyer search when approved.</p>
+        <Link className="button primary" href={sellerSearchHref}>
+          Open seller workspace
+          <Icon name="arrow-right" size={14} />
+        </Link>
+      </article>
+    );
+  }
+
+  if (isBuyer) {
+    return (
+      <article className="demand-card signup-wall">
+        <span className="demand-lock" aria-hidden="true"><Icon name="user" size={18} /></span>
+        <h3>Your buyer profile puts you on the map</h3>
+        <p>Keep your criteria current so matching sellers can find you.</p>
+        <Link className="button primary" href={buyerProfileHref}>
+          Manage buyer profile
+          <Icon name="arrow-right" size={14} />
+        </Link>
+      </article>
+    );
+  }
+
+  return (
+    <article className="demand-card signup-wall">
+      <span className="demand-lock" aria-hidden="true"><Icon name="lock" size={18} /></span>
+      <h3>See matching buyers before you list</h3>
+      <p>Create a seller account and request access to the buyer directory.</p>
+      <Link className="button primary" href={sellerSearchHref}>
+        Get seller access
+        <Icon name="arrow-right" size={14} />
+      </Link>
+      <Link className="demand-buyer-link" href={buyerProfileHref}>Create a buyer profile</Link>
+      <Link className="demand-buyer-link" href={sellerLoginHref}>Log in</Link>
+    </article>
   );
 }
 

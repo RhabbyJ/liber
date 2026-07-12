@@ -24,7 +24,6 @@ import { propertySubtypeLabel } from "../lib/property-types";
 import {
   avatarVariantFromSeed,
   normalizeAvatarVariant,
-  previousAvatarVariant,
   randomAvatarVariant,
 } from "../lib/avatar-variant";
 import {
@@ -590,32 +589,6 @@ export async function shuffleBuyerAvatarVariant() {
   });
   const displayedAvatarVariant = normalizeAvatarVariant(account?.avatarVariant) ?? avatarVariantFromSeed(user.id);
   const avatarVariant = randomAvatarVariant(displayedAvatarVariant);
-  const [updatedUser, profile] = await prisma.$transaction([
-    prisma.user.update({
-      where: { id: user.id },
-      data: { avatarVariant },
-      select: { avatarVariant: true },
-    }),
-    prisma.buyerProfile.findUnique({
-      where: { userId: user.id },
-      select: { id: true },
-    }),
-  ]);
-
-  return {
-    ok: true,
-    data: { avatarVariant: updatedUser.avatarVariant, buyerProfileId: profile?.id ?? null },
-  };
-}
-
-export async function previousBuyerAvatarVariant() {
-  const user = await requireCurrentUser("BUYER");
-  const account = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { avatarVariant: true },
-  });
-  const displayedAvatarVariant = normalizeAvatarVariant(account?.avatarVariant) ?? avatarVariantFromSeed(user.id);
-  const avatarVariant = previousAvatarVariant(displayedAvatarVariant);
   const [updatedUser, profile] = await prisma.$transaction([
     prisma.user.update({
       where: { id: user.id },

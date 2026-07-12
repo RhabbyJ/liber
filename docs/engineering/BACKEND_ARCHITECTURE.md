@@ -130,6 +130,8 @@ Sensitive application data should flow through server actions or route handlers 
 5. audit/rate-limit when required,
 6. return safe errors.
 
+Buyer profile publication returns expected validation/publication messages as form state so the browser can preserve entered fields. Unknown database, authorization, or infrastructure failures are not serialized to the form and continue through the application error boundary.
+
 Main server files:
 
 - `apps/web/server/contracts.ts`

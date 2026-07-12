@@ -5,56 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import type { AppRole } from "../server/authz";
 import { Icon } from "./icon";
-
-type NavItem = {
-  href: string;
-  isActive: (pathname: string) => boolean;
-  label: string;
-  mode?: "buyer" | "seller" | "admin";
-};
-
-const buyerItems: NavItem[] = [
-  {
-    href: "/buyer/profile",
-    label: "Profile",
-    isActive: (p) => p === "/buyer/profile" || p === "/buyer/badges",
-    mode: "buyer",
-  },
-  {
-    href: "/buyer/invites",
-    label: "Invites",
-    isActive: (p) => p === "/buyer/invites" || p === "/buyer/notifications",
-    mode: "buyer",
-  },
-];
-
-const sellerItems: NavItem[] = [
-  {
-    href: "/seller/search",
-    label: "Buyers",
-    isActive: (p) => p === "/seller/search" || p.startsWith("/buyers/") || p.startsWith("/seller/invite/"),
-    mode: "seller",
-  },
-  {
-    href: "/seller/properties",
-    label: "Properties",
-    isActive: (p) => p.startsWith("/seller/properties"),
-    mode: "seller",
-  },
-  {
-    href: "/seller/invites",
-    label: "Invites",
-    isActive: (p) => p === "/seller/invites" || p === "/seller/notifications",
-    mode: "seller",
-  },
-];
-
-const adminItem: NavItem = {
-  href: "/admin",
-  label: "Admin",
-  isActive: (p) => p.startsWith("/admin"),
-  mode: "admin",
-};
+import { primaryNavItems } from "./primary-nav-items";
 
 const PRIMARY_NAV_FALLBACK = `
 (() => {
@@ -88,6 +39,10 @@ const PRIMARY_NAV_FALLBACK = `
       if (target?.closest("a")) setOpen(false);
     }, true);
 
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") setOpen(false);
+    });
+
     setOpen(button.getAttribute("aria-expanded") === "true");
   }
 
@@ -109,23 +64,20 @@ export function PrimaryNav({
 }) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const hasBuyer = roles.includes("BUYER");
-  const hasSeller = roles.includes("SELLER");
-  const hasAdmin = roles.includes("ADMIN");
-
-  const items: NavItem[] = [];
-  if (isAuthenticated) {
-    if (hasBuyer) items.push(...buyerItems);
-    if (hasSeller) items.push(...sellerItems);
-    if (hasAdmin) items.push(adminItem);
-  }
+  const items = primaryNavItems(isAuthenticated, roles);
 
   function close() {
     setIsOpen(false);
   }
 
   return (
-    <div className="nav-shell" data-primary-nav>
+    <div
+      className="nav-shell"
+      data-primary-nav
+      onKeyDown={(event) => {
+        if (event.key === "Escape") close();
+      }}
+    >
       <button
         aria-expanded={isOpen}
         aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}

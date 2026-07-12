@@ -6,7 +6,6 @@ import {
   createSellerProperty,
   grantBadge,
   hideBuyerProfile,
-  previousBuyerAvatarVariant,
   regenerateBuyerAlias,
   respondToInvite,
   reviewDocument,
@@ -19,39 +18,48 @@ import {
 } from "./contracts";
 import { saveBuyerProfile } from "./buyer/commands";
 import { requireApprovedSellerAccess } from "./access";
+import {
+  buyerProfileFormMessage,
+  type BuyerProfileFormState,
+} from "../lib/buyer-profile-form";
 
 function safeSellerNext(formData: FormData) {
   const next = formData.get("next");
   return typeof next === "string" && next.startsWith("/seller/") ? next : null;
 }
 
-export async function submitBuyerProfile(formData: FormData) {
-  const { data: buyer } = await saveBuyerProfile(formData, "PUBLISH");
+export async function submitBuyerProfile(
+  _state: BuyerProfileFormState,
+  formData: FormData,
+): Promise<BuyerProfileFormState> {
+  let buyer: Awaited<ReturnType<typeof saveBuyerProfile>>["data"];
+
+  try {
+    ({ data: buyer } = await saveBuyerProfile(formData, "PUBLISH"));
+  } catch (error) {
+    const message = buyerProfileFormMessage(error);
+    if (message) return { message };
+    throw error;
+  }
 
   revalidatePath("/buyer/profile");
   revalidatePath(`/buyers/${buyer.id}`);
-  redirect("/buyer/profile");
+  const status = formData.get("profileIntent") === "save" ? "saved" : "published";
+  redirect(`/buyer/profile?status=${status}`);
 }
 
-export async function shuffleBuyerAvatar(_formData: FormData) {
+export async function shuffleBuyerAvatar() {
   const { data } = await shuffleBuyerAvatarVariant();
   revalidatePath("/buyer/profile");
   if (data.buyerProfileId) revalidatePath(`/buyers/${data.buyerProfileId}`);
-  redirect("/buyer/profile?edit=profile");
+  redirect("/buyer/profile");
 }
 
-export async function previousBuyerAvatar(_formData: FormData) {
-  const { data } = await previousBuyerAvatarVariant();
-  revalidatePath("/buyer/profile");
-  if (data.buyerProfileId) revalidatePath(`/buyers/${data.buyerProfileId}`);
-  redirect("/buyer/profile?edit=profile");
-}
-
-export async function regenerateBuyerPublicAlias(_formData: FormData) {
+export async function regenerateBuyerPublicAlias() {
   const { data } = await regenerateBuyerAlias();
   revalidatePath("/buyer/profile");
   revalidatePath(`/buyers/${data.buyerProfileId}`);
-  redirect("/buyer/profile?edit=profile");
+  redirect("/buyer/profile");
 }
 
 export async function respondToBuyerInvite(formData: FormData) {

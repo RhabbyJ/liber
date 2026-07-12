@@ -11,6 +11,7 @@ import {
   resolvedAreaFromSearchPayload,
   type ServiceAreaSearchResponse,
 } from "../lib/service-area-api";
+import { Icon } from "./icon";
 
 type Props = {
   defaultLocation?: string;
@@ -32,7 +33,6 @@ export function LocationLookupFields({
   const [message, setMessage] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [suggestedAreas, setSuggestedAreas] = useState<ServiceArea[]>([]);
-  const activeZipAreas = suggestedAreas.filter((area) => area.type === "zip" && area.postalCode);
 
   useEffect(() => {
     let canceled = false;
@@ -130,26 +130,16 @@ export function LocationLookupFields({
             <option key={area.slug} value={serviceAreaDisplayLabel(area)} />
           ))}
         </datalist>
-        {message ? <span className="muted small">{message}</span> : null}
+        <span
+          aria-live="polite"
+          className={`location-selection-status ${serviceAreaSlug ? "selected" : ""}`}
+        >
+          {serviceAreaSlug ? <Icon name="check" size={12} /> : null}
+          {serviceAreaSlug ? `Selected area: ${query}` : message || "Choose a suggestion, then select Use area."}
+        </span>
       </div>
       <input name="desiredServiceAreaSlug" type="hidden" value={serviceAreaSlug} />
       <input name="desiredMarketSlug" type="hidden" value={marketSlug} />
-      <div className="field">
-        <label>Active ZIPs</label>
-        <select
-          aria-label="Active ZIP"
-          onChange={(event) => {
-            const area = activeZipAreas.find((item) => item.postalCode === event.target.value);
-            if (area) applyArea(area);
-          }}
-          value={activeZipAreas.find((area) => area.slug === serviceAreaSlug)?.postalCode ?? ""}
-        >
-          <option value="">Select ZIP</option>
-          {activeZipAreas.map((area) => (
-            <option key={area.slug} value={area.postalCode ?? ""}>{serviceAreaDisplayLabel(area)}</option>
-          ))}
-        </select>
-      </div>
     </>
   );
 }
