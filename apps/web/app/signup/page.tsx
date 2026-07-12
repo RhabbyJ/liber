@@ -15,7 +15,7 @@ export default async function SignupPage({
   const initialRole = parseRole(role);
   const initialStep = parseStep(step);
   const user = await getSessionUser();
-  if (user) redirect(pathForSignedInAuthIntent(user, { next: safeNext, role: initialRole }));
+  if (user) redirect(pathForSignedInAuthIntent(user, { next: safeNext }));
 
   const notice = signupNotice(status);
 
@@ -48,6 +48,14 @@ function parseStep(step: string) {
 }
 
 function signupNotice(status: string): Notice | null {
+  if (status === "invalid-role") {
+    return {
+      body: "Choose buyer, seller, or both before creating the account.",
+      title: "Choose how you will use Liber",
+      tone: "info",
+    };
+  }
+
   if (status === "missing-fields") {
     return {
       body: "Enter your name, email, password, and starting role before creating the account.",

@@ -109,5 +109,5 @@ function notificationHrefForRoles(roles: string[]) {
   if (roles.includes("BUYER")) return "/buyer/notifications";
   if (roles.includes("SELLER")) return "/seller/notifications";
   if (roles.includes("ADMIN")) return "/admin";
-  return "/onboarding/role";
+  return "/";
 }

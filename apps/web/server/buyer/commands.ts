@@ -3,6 +3,7 @@ import { updateBuyerProfileSchema, upsertBuyerCriteriaSchema } from "@liber/vali
 import { redirect } from "next/navigation";
 import { buyerAliasFromSeed, normalizeBuyerAlias } from "../../lib/buyer-alias";
 import { propertySubtypeFromSeekingPropertyType } from "../../lib/property-types";
+import { defaultPathForSessionUser } from "../auth-intent";
 import { hasRole } from "../authz";
 import { normalizeInput } from "../normalize-input";
 import { getSessionUser } from "../session";
@@ -27,7 +28,7 @@ type CanonicalArea = Prisma.ServiceAreaGetPayload<{ select: typeof canonicalArea
 export async function saveBuyerProfile(input: unknown, mode: SaveMode = "PUBLISH") {
   const user = await getSessionUser();
   if (!user) redirect("/login");
-  if (!hasRole(user, "BUYER")) redirect("/onboarding/role");
+  if (!hasRole(user, "BUYER")) redirect(defaultPathForSessionUser(user));
 
   const normalized = normalizeInput(input) as Record<string, unknown>;
   const profile = updateBuyerProfileSchema.parse(normalized);

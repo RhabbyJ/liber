@@ -19,167 +19,6 @@ type Props = {
 
 const STEP_LABELS = ["You", "Name", "Email", "Password"] as const;
 const SIGNUP_DRAFT_KEY = "liber.signup.draft";
-const SIGNUP_WIZARD_FALLBACK = String.raw`
-(() => {
-  const draftKey = "liber.signup.draft";
-
-  function init(flow) {
-    if (flow.dataset.signupFallbackReady === "true") return;
-    flow.dataset.signupFallbackReady = "true";
-
-    const form = flow.querySelector("[data-signup-form]");
-    const panes = Array.from(flow.querySelectorAll("[data-signup-pane]"));
-    const steps = Array.from(flow.querySelectorAll("[data-signup-step-item]"));
-    const progress = flow.querySelector("[data-signup-progress]");
-    const back = flow.querySelector("[data-signup-back]");
-    const next = flow.querySelector("[data-signup-next]");
-    const error = flow.querySelector("[data-signup-error]");
-    const roleInput = form?.querySelector('input[name="role"]');
-    const roleCards = Array.from(flow.querySelectorAll("[data-signup-role]"));
-    if (!form || panes.length === 0) return;
-
-    let step = panes.findIndex((pane) => !pane.hidden);
-    if (step < 0) step = roleInput?.value ? 1 : 0;
-
-    function text(name) {
-      const input = form.querySelector('input[name="' + name + '"]');
-      return input?.value.trim() || "";
-    }
-
-    function setRole(value) {
-      if (roleInput) roleInput.value = value;
-      roleCards.forEach((item) => {
-        const selected = item.dataset.signupRole === value;
-        item.classList.toggle("selected", selected);
-        const check = item.querySelector(".signup-role-check");
-        if (check) check.hidden = !selected;
-      });
-    }
-
-    function restoreDraft() {
-      try {
-        if (flow.dataset.signupHasNotice !== "true") {
-          window.sessionStorage.removeItem(draftKey);
-          return;
-        }
-        const draft = JSON.parse(window.sessionStorage.getItem(draftKey) || "{}");
-        if (draft.role && !roleInput?.value) setRole(draft.role);
-        const nameInput = form.querySelector('input[name="name"]');
-        const emailInput = form.querySelector('input[name="email"]');
-        const emailMatches = !emailInput?.value || !draft.email || emailInput.value === draft.email;
-        if (nameInput && draft.name && emailMatches) nameInput.value = draft.name;
-        if (emailInput && !emailInput.value && draft.email) emailInput.value = draft.email;
-      } catch {}
-    }
-
-    function saveDraft() {
-      try {
-        window.sessionStorage.setItem(
-          draftKey,
-          JSON.stringify({ email: text("email"), name: text("name"), role: roleInput?.value || "buyer" })
-        );
-      } catch {}
-    }
-
-    function setError(message) {
-      if (!error) return;
-      error.textContent = message || "";
-      error.hidden = !message;
-    }
-
-    function validate() {
-      if (step === 0 && !roleInput?.value) return "Pick one to continue.";
-      if (step === 1 && text("name").length < 1) return "Add your name to continue.";
-      if (step === 2) {
-        const email = text("email");
-        if (!email) return "Enter your email.";
-        if (!/^\S+@\S+\.\S+$/.test(email)) return "Use a valid email format.";
-      }
-      if (step === 3) {
-        const password = text("password");
-        if (!password) return "Create a password.";
-        if (password.length < 12) return "Use at least 12 characters.";
-      }
-      return null;
-    }
-
-    function render(shouldFocus) {
-      panes.forEach((pane, index) => {
-        const active = index === step;
-        pane.hidden = !active;
-        pane.setAttribute("aria-hidden", active ? "false" : "true");
-      });
-      steps.forEach((item, index) => {
-        item.classList.toggle("active", index === step);
-        item.classList.toggle("done", index < step);
-        if (index === step) item.setAttribute("aria-current", "step");
-        else item.removeAttribute("aria-current");
-      });
-      if (progress) progress.style.width = ((step + 1) / panes.length) * 100 + "%";
-      if (back) back.disabled = step === 0;
-      if (next) next.type = step >= panes.length - 1 ? "submit" : "button";
-      if (shouldFocus) window.setTimeout(() => panes[step]?.querySelector("input")?.focus(), 0);
-    }
-
-    function go(delta) {
-      setError("");
-      step = Math.max(0, Math.min(step + delta, panes.length - 1));
-      render(true);
-    }
-
-    roleCards.forEach((card) => {
-      card.addEventListener("click", () => {
-        setRole(card.dataset.signupRole || "buyer");
-      });
-    });
-
-    next?.addEventListener("click", (event) => {
-      const message = validate();
-      if (message) {
-        event.preventDefault();
-        return setError(message);
-      }
-      if (step >= panes.length - 1) return;
-      event.preventDefault();
-      go(1);
-    });
-
-    back?.addEventListener("click", (event) => {
-      event.preventDefault();
-      go(-1);
-    });
-
-    form.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" || step >= panes.length - 1 || event.target?.tagName === "TEXTAREA") return;
-      event.preventDefault();
-      const message = validate();
-      if (message) return setError(message);
-      go(1);
-    });
-
-    form.addEventListener("input", () => setError(""));
-    form.addEventListener("submit", (event) => {
-      const message = validate();
-      if (message) {
-        event.preventDefault();
-        setError(message);
-        return;
-      }
-      saveDraft();
-    });
-
-    restoreDraft();
-    render(false);
-  }
-
-  function boot() {
-    document.querySelectorAll("[data-signup-wizard]").forEach(init);
-  }
-
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
-  else boot();
-})();
-`;
 
 const ROLE_CARDS: Array<{
   value: Role;
@@ -332,7 +171,7 @@ export function SignupWizard({ initialRole, initialEmail, initialStep, next, not
         <section className="signup-pane" data-signup-pane hidden={step !== 0} aria-hidden={step !== 0} key={`pane-${step}`}>
           <p className="signup-eyebrow">Step 1 of {total}</p>
           <h1 className="signup-question">What brings you to Liber?</h1>
-          <p className="signup-helper">Pick the path that fits today. You can add the other later.</p>
+          <p className="signup-helper">Choose buyer, seller, or both for this account.</p>
           <div className="signup-role-cards">
             {ROLE_CARDS.map((card) => {
               const selected = role === card.value;
@@ -365,7 +204,7 @@ export function SignupWizard({ initialRole, initialEmail, initialStep, next, not
         <section className="signup-pane" data-signup-pane hidden={step !== 1} aria-hidden={step !== 1}>
           <p className="signup-eyebrow">Step 2 of {total}</p>
           <h1 className="signup-question">What should we call you?</h1>
-          <p className="signup-helper">Only you see this in your buyer portal. You choose a seller-facing display name later.</p>
+          <p className="signup-helper">This private account name is never shown in the buyer directory. Buyer profiles use a generated alias.</p>
           <input
             autoComplete="name"
             className="signup-input"
@@ -444,7 +283,6 @@ export function SignupWizard({ initialRole, initialEmail, initialStep, next, not
           <Link href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}>Log in</Link>
         </p>
       </form>
-      <script dangerouslySetInnerHTML={{ __html: SIGNUP_WIZARD_FALLBACK }} />
     </div>
   );
 }

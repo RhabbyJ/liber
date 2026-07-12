@@ -33,6 +33,7 @@ export type SellerBuyerCriteriaDTO = {
 
 export type SellerBuyerSummaryDTO = {
   id: string;
+  isDemo: boolean;
   avatarSeed: string;
   avatarVariant?: string;
   name: string;

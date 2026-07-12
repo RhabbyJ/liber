@@ -78,6 +78,14 @@ When the product moves from CEO demo / private preview to true production launch
 
 ## V1 roles
 
+Signup asks for the account's buyer/seller intent exactly once. The user may
+choose buyer, seller, or both. After Supabase creates the immutable Auth UUID,
+the server persists only that allowlisted form choice to `User.roles` before
+redirecting to email verification; the account still has no authenticated
+session until verification succeeds. The verified callback reads the persisted
+database roles and goes directly to the matching workspace. V1 has no second
+post-signup role-selection page, and ADMIN remains impossible to self-assign.
+
 ### Buyer
 
 A buyer can:

@@ -31,7 +31,7 @@ export function StaticBuyerMap({ buyers, label = "Approximate pins", market, sel
           if (!position) return null;
           return (
             <Link
-              aria-label={`Open ${buyer.name}`}
+              aria-label={`Open ${buyer.isDemo ? "demo buyer " : ""}${buyer.name}`}
               className="map-pin"
               href={`/buyers/${buyer.id}`}
               key={buyer.id}

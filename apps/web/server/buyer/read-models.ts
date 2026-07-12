@@ -151,7 +151,7 @@ function approximateSellerPoint(id: string, centerLat: number, centerLng: number
   };
 }
 
-export function sellerBuyerSummary(row: SellerBuyerRow, viewerUserId: string): SellerBuyerSummaryDTO {
+export function sellerBuyerSummary(row: SellerBuyerRow, viewerUserId: string, isDemo = false): SellerBuyerSummaryDTO {
   const area = row.desiredServiceAreas[0]?.serviceArea;
   if (!area) throw new Error("Seller buyer projection requires an active selected service area.");
   const criteriaDetails = row.criteria.map(criteriaDTO);
@@ -160,6 +160,7 @@ export function sellerBuyerSummary(row: SellerBuyerRow, viewerUserId: string): S
   const city = area.type === "neighborhood" ? area.label : area.city ?? area.label;
   return {
     id: row.id,
+    isDemo,
     avatarSeed: row.id,
     avatarVariant: row.user.avatarVariant ?? undefined,
     name: buyerAliasForDisplay(row.displayName, row.id),
@@ -193,6 +194,6 @@ export function sellerBuyerSummary(row: SellerBuyerRow, viewerUserId: string): S
   };
 }
 
-export function sellerBuyerDetail(row: SellerBuyerRow, viewerUserId: string): SellerBuyerDetailDTO {
-  return sellerBuyerSummary(row, viewerUserId);
+export function sellerBuyerDetail(row: SellerBuyerRow, viewerUserId: string, isDemo = false): SellerBuyerDetailDTO {
+  return sellerBuyerSummary(row, viewerUserId, isDemo);
 }

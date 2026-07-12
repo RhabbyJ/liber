@@ -14,6 +14,7 @@ const required = [
 ];
 
 const productionChecks = [
+  ["AUTH_RATE_LIMIT_PEPPER", "HMAC secret for shared Auth rate-limit identifiers"],
   ["CRON_SECRET", "Maintenance route bearer secret"],
   ["NEXT_PUBLIC_MAPBOX_TOKEN", "Mapbox autocomplete/geocoding and production map rendering"],
   ["ATTOM_API_KEY", "ATTOM property facts enrichment"],
@@ -50,6 +51,7 @@ checkPostgresUrl("DATABASE_URL", failures);
 checkPostgresUrl("DIRECT_URL", failures);
 checkEmailPair(warnings, failures);
 checkAutoConfirm(failures);
+checkRateLimitPepper(productionMode ? failures : warnings);
 
 if (productionMode && failures.length === 0) {
   await checkProductionDependencies(failures);
@@ -162,6 +164,13 @@ function checkEmailPair(warningsCollection, failuresCollection) {
 function checkAutoConfirm(collection) {
   if (productionMode && env.LIBER_AUTO_CONFIRM_SIGNUPS === "true") {
     collection.push("LIBER_AUTO_CONFIRM_SIGNUPS must be unset or false in production.");
+  }
+}
+
+function checkRateLimitPepper(collection) {
+  if (!hasValue("AUTH_RATE_LIMIT_PEPPER")) return;
+  if (env.AUTH_RATE_LIMIT_PEPPER.trim().length < 32) {
+    collection.push("AUTH_RATE_LIMIT_PEPPER must contain at least 32 characters.");
   }
 }
 

@@ -1,5 +1,6 @@
 import { prisma } from "@liber/db";
 import { redirect } from "next/navigation";
+import { defaultPathForSessionUser } from "./auth-intent";
 import { hasRole, type SessionUser } from "./authz";
 import { getSessionUser } from "./session";
 
@@ -33,7 +34,9 @@ export async function canViewBuyerDirectory(user: SessionUser) {
 export async function requireApprovedSellerAccess(user?: SessionUser) {
   const currentUser = user ?? await getSessionUser();
   if (!currentUser) redirect("/login");
-  if (!hasRole(currentUser, "SELLER") && !hasRole(currentUser, "ADMIN")) redirect("/onboarding/role");
+  if (!hasRole(currentUser, "SELLER") && !hasRole(currentUser, "ADMIN")) {
+    redirect(defaultPathForSessionUser(currentUser));
+  }
 
   if (!(await canViewBuyerDirectory(currentUser))) {
     throw new Error("Seller directory access is pending admin approval.");

@@ -4,43 +4,19 @@ export function defaultPathForSessionUser(user: SessionUser) {
   if (hasRole(user, "BUYER")) return "/buyer/profile";
   if (hasRole(user, "SELLER")) return "/seller/properties";
   if (hasRole(user, "ADMIN")) return "/admin";
-  return "/onboarding/role";
+  return "/";
 }
 
 export function pathForSignedInAuthIntent(
   user: SessionUser,
-  {
-    next = "",
-    role = null,
-  }: {
-    next?: string;
-    role?: "buyer" | "seller" | "both" | null;
-  },
+  { next = "" }: { next?: string },
 ) {
   const intendedNext = next === "/" ? "" : next;
   const authFlowNext = intendedNext ? isAuthFlowPath(intendedNext) : false;
 
-  if (intendedNext && !authFlowNext && user.roles.length > 0 && userCanContinueTo(user, intendedNext)) {
+  if (intendedNext && !authFlowNext && userCanContinueTo(user, intendedNext)) {
     return intendedNext;
   }
-
-  if (role === "seller" || (role === "both" && !hasRole(user, "SELLER")) || isPathSegment(intendedNext, "/seller")) {
-    return hasRole(user, "SELLER")
-      ? intendedNext || "/seller/properties"
-      : `/onboarding/role?next=${encodeURIComponent(intendedNext || "/seller/properties")}`;
-  }
-
-  if (role === "buyer" || isPathSegment(intendedNext, "/buyer")) {
-    return hasRole(user, "BUYER")
-      ? intendedNext || "/buyer/profile"
-      : `/onboarding/role?next=${encodeURIComponent(intendedNext || "/buyer/profile")}`;
-  }
-
-  if (role === "both" && !hasRole(user, "BUYER")) {
-    return `/onboarding/role?next=${encodeURIComponent(intendedNext || "/buyer/profile")}`;
-  }
-
-  if (intendedNext && !authFlowNext) return `/onboarding/role?next=${encodeURIComponent(intendedNext)}`;
   return defaultPathForSessionUser(user);
 }
 

@@ -6,12 +6,10 @@ import { safeInternalPath } from "../lib/redirect";
 import { ensureSellerAccessRequested } from "./access";
 import {
   AuthIdentityLinkError,
-  establishVerifiedAuthSession,
   persistUserRolesForAuthIdentity,
   signupStatusForAuthFailure,
 } from "./auth-identity";
 import { enforceSharedAuthRateLimit } from "./auth-rate-limit";
-import { pathForSignedInAuthIntent } from "./auth-intent";
 import type { AppRole } from "./authz";
 import { clientIpFromHeaders } from "./rate-limit";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
@@ -29,25 +27,28 @@ function safeNextValue(formData: FormData) {
 }
 
 function selectedRoles(formData: FormData): AppRole[] {
-  return selectedRolesFromValue(String(formData.get("role") ?? ""));
+  const role = signupRoleValue(formData);
+  if (!role) return [];
+  return selectedRolesFromValue(role);
 }
 
 function selectedRolesFromValue(value: string): AppRole[] {
   const role = value.toLowerCase();
 
   if (role === "seller") return ["SELLER"];
-  if (role === "both" || role === "buyer and seller") return ["BUYER", "SELLER"];
+  if (role === "both") return ["BUYER", "SELLER"];
   return ["BUYER"];
 }
 
 function nextForRoles(roles: AppRole[]) {
   if (roles.includes("BUYER")) return "/buyer/profile";
   if (roles.includes("SELLER")) return "/seller/properties";
-  return "/onboarding/role";
+  return "/";
 }
 
 export async function signupWithPassword(formData: FormData) {
   const supabase = await createSupabaseServerClient();
+  const signupRole = signupRoleValue(formData);
   const roles = selectedRoles(formData);
   const name = textValue(formData, "name");
   const email = textValue(formData, "email");
@@ -61,6 +62,10 @@ export async function signupWithPassword(formData: FormData) {
 
   if (!name || !email || !password) {
     redirect(signupRedirectPath(formData, "missing-fields", email));
+  }
+
+  if (!signupRole || roles.length === 0) {
+    redirect(signupRedirectPath(formData, "invalid-role", email));
   }
 
   if (password.length < 12) {
@@ -84,7 +89,7 @@ export async function signupWithPassword(formData: FormData) {
       emailRedirectTo: redirectTo,
       data: {
         name,
-        role: signupRoleValue(formData),
+        role: signupRole,
       },
     },
   });
@@ -111,6 +116,25 @@ export async function signupWithPassword(formData: FormData) {
   const hasRealSignupIdentity = Boolean(data.session || data.user?.identities?.length);
 
   if (data.user && hasRealSignupIdentity) {
+    let appUser: Awaited<ReturnType<typeof persistUserRolesForAuthIdentity>>;
+    try {
+      appUser = await persistUserRolesForAuthIdentity({
+        authUser: data.user,
+        name,
+        roles,
+      });
+    } catch (error) {
+      if (error instanceof AuthIdentityLinkError) {
+        await supabase.auth.signOut();
+        redirect(await identityFailureLoginPath(
+          error,
+          email,
+          clientIpFromHeaders(requestHeaders),
+        ));
+      }
+      throw error;
+    }
+
     const autoConfirmLocal = shouldAutoConfirmLocalSignup();
 
     if (autoConfirmLocal) {
@@ -136,24 +160,8 @@ export async function signupWithPassword(formData: FormData) {
       redirect(signupRedirectPath(formData, "auth-error", email));
     }
 
-    try {
-      const appUser = await establishVerifiedAuthSession({
-        authUser: verifiedAuth.user,
-        roles,
-      });
-      if (appUser.roles.includes("SELLER")) {
-        await ensureSellerAccessRequested(verifiedAuth.user.id);
-      }
-    } catch (error) {
-      if (error instanceof AuthIdentityLinkError) {
-        await supabase.auth.signOut();
-        redirect(await identityFailureLoginPath(
-          error,
-          email,
-          clientIpFromHeaders(requestHeaders),
-        ));
-      }
-      throw error;
+    if (appUser.roles.includes("SELLER")) {
+      await ensureSellerAccessRequested(verifiedAuth.user.id);
     }
   }
 
@@ -203,7 +211,9 @@ function textValue(formData: FormData, key: string) {
 }
 
 function signupRedirectPath(formData: FormData, status: string, email: string) {
-  const params = new URLSearchParams({ role: signupRoleValue(formData), status });
+  const params = new URLSearchParams({ status });
+  const role = signupRoleValue(formData);
+  if (role) params.set("role", role);
   const next = safeNextValue(formData);
   params.set("step", signupStepForStatus(status));
   if (email) params.set("email", email);
@@ -212,6 +222,7 @@ function signupRedirectPath(formData: FormData, status: string, email: string) {
 }
 
 function signupStepForStatus(status: string) {
+  if (status === "invalid-role") return "role";
   if (status === "weak-password") return "password";
   if (status === "missing-fields") return "name";
   return "email";
@@ -219,8 +230,8 @@ function signupStepForStatus(status: string) {
 
 function signupRoleValue(formData: FormData) {
   const value = String(formData.get("role") ?? "").toLowerCase();
-  if (value === "seller" || value === "both") return value;
-  return "buyer";
+  if (value === "buyer" || value === "seller" || value === "both") return value;
+  return null;
 }
 
 function existingAccountLoginPath(formData: FormData, email: string, next: string) {
@@ -230,7 +241,7 @@ function existingAccountLoginPath(formData: FormData, email: string, next: strin
     status: "account-exists",
   });
   const role = signupRoleValue(formData);
-  if (role !== "buyer") params.set("role", role);
+  if (role && role !== "buyer") params.set("role", role);
   return `/login?${params.toString()}`;
 }
 
@@ -263,49 +274,4 @@ async function authCallbackUrl(next: string) {
   const url = new URL("/auth/callback", origin);
   url.searchParams.set("next", next);
   return url.toString();
-}
-
-export async function chooseRole(formData: FormData) {
-  const selected = selectedRoles(formData);
-  const supabase = await createSupabaseServerClient();
-
-  if (supabase) {
-    const { data } = await supabase.auth.getUser();
-    if (data.user) {
-      let appUser: Awaited<ReturnType<typeof persistUserRolesForAuthIdentity>>;
-      try {
-        appUser = await establishVerifiedAuthSession({ authUser: data.user, roles: selected });
-        if (selected.some((role) => !appUser.roles.includes(role))) {
-          appUser = await persistUserRolesForAuthIdentity({
-            authUser: data.user,
-            mode: "merge",
-            roles: selected,
-          });
-        }
-      } catch (error) {
-        if (error instanceof AuthIdentityLinkError) {
-          await supabase.auth.signOut();
-          redirect(await identityFailureLoginPath(
-            error,
-            data.user.email ?? "",
-            clientIpFromHeaders(await headers()),
-          ));
-        }
-        throw error;
-      }
-      const roles = appUser.roles;
-      if (roles.includes("SELLER")) {
-        await ensureSellerAccessRequested(data.user.id);
-      }
-      await supabase.auth.refreshSession();
-      redirect(
-        pathForSignedInAuthIntent(
-          { id: data.user.id, roles },
-          { next: safeNextValue(formData) ?? "", role: signupRoleValue(formData) },
-        ),
-      );
-    }
-  }
-
-  redirect("/login?next=/onboarding/role");
 }

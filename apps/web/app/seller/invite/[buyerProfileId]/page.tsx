@@ -229,6 +229,7 @@ export default async function InviteBuyerPage({
               <GeneratedAvatar seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
               <div>
                 <h3 style={{ margin: 0 }}>{buyer.name}</h3>
+                {buyer.isDemo ? <span className="status-dot warning">Demo buyer</span> : null}
                 <p className="muted small" style={{ margin: "4px 0 0" }}>{buyerSummary}</p>
               </div>
             </div>

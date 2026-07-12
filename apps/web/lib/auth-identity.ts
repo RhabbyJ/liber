@@ -36,16 +36,15 @@ export function classifyAuthIdentity(
   return appUserByEmail ? { kind: "collision" } : { kind: "missing" };
 }
 
-export function rolesAfterSelfSelection(
+export function rolesAfterSignupSelection(
   currentRoles: AppIdentityRecord["roles"],
   requestedRoles: AppIdentityRecord["roles"],
-  mode: "initialize" | "merge",
 ) {
   if (requestedRoles.some((role): role is "ADMIN" => role === "ADMIN")) {
     throw new Error("ADMIN cannot be assigned through customer role selection.");
   }
 
   const safeRequestedRoles = requestedRoles as SelfSelectableRole[];
-  if (mode === "initialize" && currentRoles.length > 0) return currentRoles;
-  return Array.from(new Set([...(mode === "merge" ? currentRoles : []), ...safeRequestedRoles]));
+  if (currentRoles.length > 0) return currentRoles;
+  return Array.from(new Set(safeRequestedRoles));
 }

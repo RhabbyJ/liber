@@ -108,6 +108,14 @@ async function expectProtectedRedirect(path) {
   console.log(`ok ${path} redirects to login`);
 }
 
+async function expectNotFound(path) {
+  const response = await fetch(`${baseUrl}${path}`);
+  if (response.status !== 404) {
+    throw new Error(`${path} returned ${response.status}, expected 404.`);
+  }
+  console.log(`ok ${path} is removed`);
+}
+
 async function expectPostRedirect(path, form, expectedPath, expectedStatus) {
   const response = await fetch(`${baseUrl}${path}`, {
     body: new URLSearchParams(form),
@@ -149,6 +157,7 @@ try {
     "test@gmail.com",
     "Gmail",
   ]);
+  await expectNotFound("/onboarding/role");
   await expectProtectedRedirect("/buyer/profile");
   await expectProtectedRedirect("/buyer/badges");
   await expectProtectedRedirect("/seller/search");

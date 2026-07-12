@@ -87,11 +87,15 @@ Key concepts:
 - A user self-selecting `SELLER` does not automatically gain directory access.
 - Admin status is not self-service.
 - Auth POST routes preserve the incoming request host/protocol for same-origin checks and redirects so local `127.0.0.1` and `localhost` sessions do not cross origins under the CSP `form-action` rule.
-- Login and signed-in auth entry points resolve `next` through a role-aware intent helper. Stale auth-flow destinations such as `/signup` or `/login` must fall back to the user's default role path or onboarding instead of looping through the auth wizard.
+- Login and signed-in auth entry points resolve `next` through a role-aware intent helper. Stale auth-flow destinations and destinations requiring a role the account does not have fall back to the user's existing default workspace instead of entering another role picker or auth loop.
 - The Auth insert trigger creates a new application User only for the same Auth
   UUID and always starts with empty roles. It never resolves an email conflict
   by changing a User ID.
-- Session, login, callback, and role-onboarding paths require the same UUID and
+- The signup action persists the allowlisted buyer/seller/both form choice after
+  the Auth UUID exists and before redirecting to email verification. It does
+  not read Auth metadata as role authority, and the user cannot obtain a
+  session until Supabase verification succeeds.
+- Session, login, callback, and signup-role initialization require the same UUID and
   normalized email in Auth and the application User. A different UUID owning
   the email is an explicit recovery case and receives no roles or data.
 - Application User UUIDs and every ownership/reviewer foreign key use
@@ -276,7 +280,7 @@ Do not create unauthenticated maintenance endpoints.
 - No service role in browser code.
 - No private document public URLs.
 - No seller-directory access from role alone.
-- No app authorization from user-editable auth metadata. Signup metadata may bootstrap buyer/seller onboarding only; admin roles and seller-directory approval must come from server-controlled database state.
+- No app authorization from user-editable auth metadata. In customer runtime, only the validated signup form may initialize BUYER/SELLER roles; the guarded CEO-preview seed command may create exact BUYER-only test identities. Admin roles and seller-directory approval must come from server-controlled database state.
 - No public buyer profile exposure.
 - No weakening RLS/storage policy to satisfy UI behavior.
 - Sensitive Storage policies call `app_private.is_active_app_user(auth.uid())`, so suspension blocks a still-valid JWT. Suspension also disables seller access/properties/invites and enqueues a retryable Supabase Auth ban.

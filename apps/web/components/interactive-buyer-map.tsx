@@ -142,7 +142,7 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea = null
       const markerNode = document.createElement("button");
       markerNode.type = "button";
       markerNode.className = "buyer-map-marker";
-      markerNode.setAttribute("aria-label", `Open ${point.buyer.name} map marker`);
+      markerNode.setAttribute("aria-label", `Open ${point.buyer.isDemo ? "demo buyer " : ""}${point.buyer.name} map marker`);
       markerNode.dataset.buyerId = point.buyer.id;
       // Budget-first pins: buyer demand reads like price pins, but represents buyers.
       markerNode.innerHTML = `<span>${escapeHtml(budgetPinLabel(point.buyer))}</span>`;
@@ -309,6 +309,7 @@ function popupHtml(buyer: SellerBuyerSummaryDTO) {
   return `
     <div class="buyer-map-popup">
       <strong>${escapeHtml(buyer.name)}</strong>
+      ${buyer.isDemo ? "<span>Demo buyer</span>" : ""}
       <span>${escapeHtml(buyer.type)}</span>
       <span>${escapeHtml(buyer.location)}</span>
       <span>${escapeHtml(formatRange(buyer.budgetMin, buyer.budgetMax))}</span>

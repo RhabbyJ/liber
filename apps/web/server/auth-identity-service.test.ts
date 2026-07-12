@@ -41,28 +41,28 @@ describe("auth identity role persistence", () => {
     db.findFirst.mockResolvedValue({ id: authUser.id });
   });
 
-  it("locks the identity row before merging self-selected roles", async () => {
+  it("locks the identity row without replacing an existing role set", async () => {
     db.queryRaw.mockResolvedValue([
       { ...authUser, roles: ["ADMIN"], status: "ACTIVE" },
     ]);
     db.update.mockResolvedValue({
       ...authUser,
-      roles: ["ADMIN", "SELLER"],
+      roles: ["ADMIN"],
       status: "ACTIVE",
     });
 
     await expect(
       persistUserRolesForAuthIdentity({
         authUser,
-        mode: "merge",
         roles: ["SELLER"],
       }),
-    ).resolves.toMatchObject({ roles: ["ADMIN", "SELLER"] });
+    ).resolves.toMatchObject({ roles: ["ADMIN"] });
 
     const sql = db.queryRaw.mock.calls[0]?.[0]?.join("") ?? "";
     expect(sql).toContain("FOR UPDATE");
+    expect(sql).toContain("roles::text[] AS roles");
     expect(db.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { roles: ["ADMIN", "SELLER"] } }),
+      expect.objectContaining({ data: { roles: ["ADMIN"] } }),
     );
   });
 
@@ -71,18 +71,18 @@ describe("auth identity role persistence", () => {
       { ...authUser, roles: ["BUYER"], status: "SUSPENDED" },
     ]);
     await expect(
-      persistUserRolesForAuthIdentity({ authUser, mode: "merge", roles: ["SELLER"] }),
+      persistUserRolesForAuthIdentity({ authUser, roles: ["SELLER"] }),
     ).rejects.toMatchObject({ code: "inactive" });
 
     db.queryRaw.mockResolvedValue([]);
     db.findFirst.mockResolvedValue({ id: "22222222-2222-4222-8222-222222222222" });
     await expect(
-      persistUserRolesForAuthIdentity({ authUser, mode: "merge", roles: ["SELLER"] }),
+      persistUserRolesForAuthIdentity({ authUser, roles: ["SELLER"] }),
     ).rejects.toMatchObject({ code: "collision" });
 
     db.findFirst.mockResolvedValue(null);
     await expect(
-      persistUserRolesForAuthIdentity({ authUser, mode: "merge", roles: ["SELLER"] }),
+      persistUserRolesForAuthIdentity({ authUser, roles: ["SELLER"] }),
     ).rejects.toMatchObject({ code: "missing" });
     expect(db.update).not.toHaveBeenCalled();
   });
@@ -95,7 +95,6 @@ describe("auth identity role persistence", () => {
     await expect(
       persistUserRolesForAuthIdentity({
         authUser,
-        mode: "merge",
         roles: ["ADMIN"],
       }),
     ).rejects.toThrow("ADMIN cannot be assigned");

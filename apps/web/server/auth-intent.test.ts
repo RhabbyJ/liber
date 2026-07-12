@@ -11,28 +11,20 @@ describe("pathForSignedInAuthIntent", () => {
     );
   });
 
-  it("sends role mismatches to onboarding instead of the protected destination", () => {
+  it("returns role mismatches to the user's existing workspace", () => {
     expect(pathForSignedInAuthIntent({ id: "buyer", roles: ["BUYER"] }, { next: "/seller/search" })).toBe(
-      "/onboarding/role?next=%2Fseller%2Fsearch",
+      "/buyer/profile",
     );
   });
 
-  it("sends signed-in buyer seller-signup intent to role upgrade onboarding", () => {
-    expect(
-      pathForSignedInAuthIntent(
-        { id: "buyer", roles: ["BUYER"] },
-        { next: "/seller/search", role: "seller" },
-      ),
-    ).toBe("/onboarding/role?next=%2Fseller%2Fsearch");
+  it("returns roleless identities to the public entry point without an auth loop", () => {
+    expect(pathForSignedInAuthIntent({ id: "roleless", roles: [] }, { next: "/buyer/profile" })).toBe("/");
   });
 
-  it("sends signed-in seller buyer-signup intent to role upgrade onboarding", () => {
-    expect(
-      pathForSignedInAuthIntent(
-        { id: "seller", roles: ["SELLER"] },
-        { next: "/buyer/profile", role: "buyer" },
-      ),
-    ).toBe("/onboarding/role?next=%2Fbuyer%2Fprofile");
+  it("treats the removed role page as a stale auth-flow destination", () => {
+    expect(pathForSignedInAuthIntent({ id: "buyer", roles: ["BUYER"] }, { next: "/onboarding/role" })).toBe(
+      "/buyer/profile",
+    );
   });
 
   it("allows signed-in users to continue to matching role destinations", () => {

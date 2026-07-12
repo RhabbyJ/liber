@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyAuthIdentity,
   normalizeIdentityEmail,
-  rolesAfterSelfSelection,
+  rolesAfterSignupSelection,
 } from "../lib/auth-identity";
 
 const linkedUser = {
@@ -58,22 +58,17 @@ describe("auth identity ownership", () => {
     expect(normalizeIdentityEmail(null)).toBe("");
   });
 
-  it("adds only buyer/seller roles without replacing the locked current set", () => {
-    expect(rolesAfterSelfSelection(["ADMIN"], ["SELLER"], "merge")).toEqual([
-      "ADMIN",
-      "SELLER",
-    ]);
-    expect(rolesAfterSelfSelection(["ADMIN"], ["BUYER"], "initialize")).toEqual([
-      "ADMIN",
-    ]);
-    expect(rolesAfterSelfSelection([], ["BUYER", "SELLER"], "initialize")).toEqual([
+  it("initializes only an empty role set without replacing existing roles", () => {
+    expect(rolesAfterSignupSelection(["ADMIN"], ["SELLER"])).toEqual(["ADMIN"]);
+    expect(rolesAfterSignupSelection(["ADMIN"], ["BUYER"])).toEqual(["ADMIN"]);
+    expect(rolesAfterSignupSelection([], ["BUYER", "SELLER"])).toEqual([
       "BUYER",
       "SELLER",
     ]);
   });
 
-  it("rejects ADMIN from every customer role-selection caller", () => {
-    expect(() => rolesAfterSelfSelection([], ["ADMIN"], "merge")).toThrow(
+  it("rejects ADMIN from signup role initialization", () => {
+    expect(() => rolesAfterSignupSelection([], ["ADMIN"])).toThrow(
       "ADMIN cannot be assigned",
     );
   });

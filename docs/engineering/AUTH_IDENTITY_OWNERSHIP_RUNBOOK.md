@@ -86,15 +86,16 @@ not deployed and does not enable customer self-service deletion.
 
 1. The Auth insert trigger creates the UUID/email row with empty roles and a
    blank private name. It does not trust signup metadata as authorization.
-2. A verified email callback resolves the canonical UUID/email pair with
-   `roles: []`; it never reads `user_metadata.role`. A new empty-role account is
-   sent to authenticated role onboarding.
-3. The authenticated `chooseRole` action may initialize/merge only BUYER/SELLER
-   from its validated form. A signup response that already contains a verified
-   session may initialize the same validated server-side signup form roles.
+2. After Auth returns the newly created UUID, the signup action locks that exact
+   application identity and initializes only BUYER/SELLER from its validated
+   server-side form before redirecting to email verification. The account
+   remains inaccessible until Supabase issues a verified session.
+3. A verified email callback resolves the canonical UUID/email pair without
+   accepting requested roles; it never reads `user_metadata.role` and routes
+   from the roles already persisted in `public."User"`.
 4. Password login resolves the canonical identity but never initializes roles.
-5. `public."User".name` is authoritative thereafter. Verified role selection may
-   initialize the private name, but it never treats Auth metadata as authority.
+5. `public."User".name` is authoritative thereafter. Signup initialization may
+   set the private name, but it never treats Auth metadata as authority.
    The Auth update trigger
    fires only for a changed email and never copies `raw_user_meta_data`.
 

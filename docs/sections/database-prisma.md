@@ -41,6 +41,7 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - Bulk geography import remains disabled until Geography PR2 provides reviewed provenance, deploy-independent geometry, relationship import, inactive staging, and atomic market-bounds recomputation.
 - Demo seed data is allowed only for local development and CEO demo / private preview environments, never true public production.
 - Demo seed scripts must be explicit, guarded by an opt-in env flag, deterministic enough to clean up, and use obvious non-real users/data.
+- `npm run demo:buyers -- seed|verify|cleanup` is the only shared CEO-preview buyer-data command. It requires `LIBER_ALLOW_DEMO_SEED=true`, `LIBER_CEO_PREVIEW_TARGET=ceo-preview`, and an absolute `LIBER_CEO_PREVIEW_CREDENTIALS_FILE` path outside the repository; the Supabase API and direct database project refs must match.
 
 ## Agent notes
 

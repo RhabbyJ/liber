@@ -53,20 +53,23 @@ describe("auth identity ownership migration", () => {
 
     expect(callback).not.toContain("prisma.user.create");
     expect(actions).not.toContain("prisma.user.create");
-    expect(actions).not.toContain('mode: "initialize"');
-    expect(actions).toContain("establishVerifiedAuthSession");
-    expect(callback).toContain("establishVerifiedAuthSession");
-    expect(callback).toContain("roles: []");
+    expect(actions).not.toContain('mode: "merge"');
+    expect(actions).toContain("persistUserRolesForAuthIdentity");
+    expect(actions.indexOf("persistUserRolesForAuthIdentity")).toBeLessThan(
+      actions.indexOf("/signup/verify"),
+    );
+    expect(callback).toContain("establishVerifiedAuthSession(data.user)");
+    expect(callback).not.toContain("roles: []");
     expect(callback).not.toContain("rolesFromMetadata");
     expect(callback).not.toContain("user_metadata?.role");
     expect(callback).toContain("identity-recovery-required");
-    expect(actions).toContain("persistUserRolesForAuthIdentity");
     const identityService = readFileSync(
       path.join(repositoryRoot, "apps/web/server/auth-identity.ts"),
       "utf8",
     );
     expect(identityService).toContain("FOR UPDATE");
-    expect(identityService).toContain("rolesAfterSelfSelection");
+    expect(identityService).toContain("roles::text[] AS roles");
+    expect(identityService).toContain("rolesAfterSignupSelection");
     expect(identityService).toContain("signupStatusForAuthFailure");
     expect(identityService).toContain("lower(btrim(email))");
     expect(actions).not.toMatch(/error\.message.*identity|error\.message.*already/i);

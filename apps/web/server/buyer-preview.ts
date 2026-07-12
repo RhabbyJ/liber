@@ -132,6 +132,17 @@ export async function getPublicBuyerPreviews(
   }
 }
 
+export async function hasControlledDemoBuyerPreviews() {
+  try {
+    return await prisma.adminAuditLog.count({
+      where: { action: "seed_demo_buyer", targetType: "buyer_profile" },
+    }) > 0;
+  } catch (error) {
+    console.error("[public-preview] demo marker query failed", error instanceof Error ? error.message : "Unknown error");
+    return false;
+  }
+}
+
 function previewPropertyTypeLabel(value?: string | null) {
   const trimmed = value?.trim();
   if (!trimmed) return "Buyer";

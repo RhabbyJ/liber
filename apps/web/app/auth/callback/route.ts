@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
   let user: Awaited<ReturnType<typeof establishVerifiedAuthSession>>;
   try {
-    user = await establishVerifiedAuthSession({ authUser: data.user, roles: [] });
+    user = await establishVerifiedAuthSession(data.user);
   } catch (error) {
     if (!(error instanceof AuthIdentityLinkError)) throw error;
     await supabase.auth.signOut();

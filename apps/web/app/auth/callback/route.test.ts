@@ -50,21 +50,16 @@ describe("verified Auth callback role initialization", () => {
     mocks.establishSession.mockResolvedValue({
       email: authUser.email,
       id: authUser.id,
-      roles: [],
+      roles: ["BUYER"],
       status: "ACTIVE",
     });
 
     const response = await GET({
-      url: "https://liber.example/auth/callback?code=verified&next=/seller/search",
+      url: "https://liber.example/auth/callback?code=verified&next=/buyer/profile",
     } as never);
 
-    expect(mocks.establishSession).toHaveBeenCalledWith({
-      authUser,
-      roles: [],
-    });
+    expect(mocks.establishSession).toHaveBeenCalledWith(authUser);
     expect(mocks.ensureSellerAccess).not.toHaveBeenCalled();
-    expect(response.headers.get("location")).toBe(
-      "https://liber.example/onboarding/role?next=%2Fseller%2Fsearch",
-    );
+    expect(response.headers.get("location")).toBe("https://liber.example/buyer/profile");
   });
 });

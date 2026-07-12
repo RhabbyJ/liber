@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { safeInternalPath } from "../../../../lib/redirect";
+import { ensureSellerAccessRequested } from "../../../../server/access";
 import { resolveAuthIdentity } from "../../../../server/auth-identity";
 import { enforceSharedAuthRateLimit } from "../../../../server/auth-rate-limit";
 import { pathForSignedInAuthIntent } from "../../../../server/auth-intent";
@@ -67,6 +68,10 @@ export async function POST(request: NextRequest) {
       );
     }
     return redirectTo(request, "/login?status=account-unavailable");
+  }
+
+  if (resolution.user.roles.includes("SELLER")) {
+    await ensureSellerAccessRequested(authData.user.id);
   }
 
   return redirectTo(

@@ -35,6 +35,7 @@ import {
 } from "../lib/buyer-alias";
 import { buyerLocationFromSelectedServiceArea } from "./canonical-buyer-location";
 import { hasRole, type SessionUser } from "./authz";
+import { defaultPathForSessionUser } from "./auth-intent";
 import {
   canViewBuyerDirectory,
   canViewBuyerProfile,
@@ -62,7 +63,7 @@ type Property = SellerPropertyDTO;
 async function requireCurrentUser(role: "BUYER" | "SELLER" | "ADMIN") {
   const user = await getSessionUser();
   if (!user) redirect("/login");
-  if (!hasRole(user, role)) redirect("/onboarding/role");
+  if (!hasRole(user, role)) redirect(defaultPathForSessionUser(user));
   return user;
 }
 
@@ -417,9 +418,16 @@ async function searchDbBuyerProfiles(filters: SearchBuyersInput, viewerUserId: s
     if (profilesById.size !== page.ids.length) {
       throw new Error("Seller search result changed during pagination.");
     }
+    const demoAuditRows = page.ids.length > 0
+      ? await tx.adminAuditLog.findMany({
+          where: { action: "seed_demo_buyer", targetId: { in: page.ids }, targetType: "buyer_profile" },
+          select: { targetId: true },
+        })
+      : [];
+    const demoProfileIds = new Set(demoAuditRows.map((row) => row.targetId));
 
     return {
-      items: page.ids.map((id) => sellerBuyerSummary(profilesById.get(id)!, viewerUserId)),
+      items: page.ids.map((id) => sellerBuyerSummary(profilesById.get(id)!, viewerUserId, demoProfileIds.has(id))),
       pageInfo: {
         hasMore: page.hasMore,
         nextCursor: page.nextCursor,
@@ -693,8 +701,9 @@ export async function getBuyerProfileForSeller(buyerProfileId: string) {
     select: sellerBuyerSelect(),
   });
   if (!buyer) throw new Error("Buyer profile not found.");
+  const isDemo = await isControlledDemoBuyerProfile(buyer.id);
   await auditSecurityEvent(seller, "buyer_profile_view", "buyer_profile", buyer.id);
-  return { ok: true, data: sellerBuyerDetail(buyer, seller.id) };
+  return { ok: true, data: sellerBuyerDetail(buyer, seller.id, isDemo) };
 }
 
 export async function getAuthorizedBuyerProfile(buyerProfileId: string) {
@@ -712,16 +721,23 @@ export async function getAuthorizedBuyerProfile(buyerProfileId: string) {
     }
 
     await auditSecurityEvent(user, "buyer_profile_view", "buyer_profile", buyer.id);
+    const isDemo = await isControlledDemoBuyerProfile(buyer.id);
     return {
       ok: true,
       data: {
-        ...sellerBuyerDetail(buyer, user.id),
+        ...sellerBuyerDetail(buyer, user.id, isDemo),
         viewerCanInvite: user.id !== buyer.userId && (await canViewBuyerDirectory(user)),
         viewerIsOwner: user.id === buyer.userId,
       },
     };
   }
   return { ok: false as const, error: "NOT_FOUND" as const };
+}
+
+async function isControlledDemoBuyerProfile(buyerProfileId: string) {
+  return await prisma.adminAuditLog.count({
+    where: { action: "seed_demo_buyer", targetId: buyerProfileId, targetType: "buyer_profile" },
+  }) > 0;
 }
 
 export async function createSellerProperty(input: unknown) {

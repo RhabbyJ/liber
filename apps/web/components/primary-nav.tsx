@@ -118,13 +118,6 @@ export function PrimaryNav({
     if (hasBuyer) items.push(...buyerItems);
     if (hasSeller) items.push(...sellerItems);
     if (hasAdmin) items.push(adminItem);
-    if (!hasBuyer && !hasSeller && !hasAdmin) {
-      items.push({
-        href: "/onboarding/role",
-        label: "Choose role",
-        isActive: (p) => p === "/onboarding/role",
-      });
-    }
   }
 
   function close() {

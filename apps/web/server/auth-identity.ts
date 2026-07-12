@@ -2,7 +2,7 @@ import { prisma } from "@liber/db";
 import {
   classifyAuthIdentity,
   normalizeIdentityEmail,
-  rolesAfterSelfSelection,
+  rolesAfterSignupSelection,
   type AppIdentityRecord,
   type AuthIdentityResolution,
 } from "../lib/auth-identity";
@@ -88,13 +88,13 @@ export async function signupStatusForAuthFailure(
 
 export async function persistUserRolesForAuthIdentity(args: {
   authUser: { email?: string | null; id: string };
-  mode: "initialize" | "merge";
   name?: string | null;
   roles: AppRole[];
 }) {
   return prisma.$transaction(async (tx) => {
+    // PrismaPg leaves raw custom-enum arrays encoded; cast before role authorization.
     const lockedUsers = await tx.$queryRaw<AppIdentityRecord[]>`
-      SELECT email, id, roles, status
+      SELECT email, id, roles::text[] AS roles, status
       FROM public."User"
       WHERE id = ${args.authUser.id}::uuid
       FOR UPDATE
@@ -115,7 +115,7 @@ export async function persistUserRolesForAuthIdentity(args: {
       throw new AuthIdentityLinkError("inactive");
     }
 
-    const roles = rolesAfterSelfSelection(resolution.user.roles, args.roles, args.mode);
+    const roles = rolesAfterSignupSelection(resolution.user.roles, args.roles);
     return tx.user.update({
       where: { id: args.authUser.id },
       data: {
@@ -127,26 +127,16 @@ export async function persistUserRolesForAuthIdentity(args: {
   });
 }
 
-export async function establishVerifiedAuthSession(args: {
-  authUser: { email?: string | null; id: string; user_metadata?: Record<string, unknown> };
-  roles: AppRole[];
+export async function establishVerifiedAuthSession(authUser: {
+  email?: string | null;
+  id: string;
 }) {
-  const resolution = await resolveAuthIdentity(args.authUser);
+  const resolution = await resolveAuthIdentity(authUser);
   if (resolution.kind !== "linked") {
     throw new AuthIdentityLinkError(resolution.kind);
   }
   if (resolution.user.status !== "ACTIVE") {
     throw new AuthIdentityLinkError("inactive");
   }
-  if (resolution.user.roles.length > 0 || args.roles.length === 0) {
-    return resolution.user;
-  }
-
-  const privateName = args.authUser.user_metadata?.name;
-  return persistUserRolesForAuthIdentity({
-    authUser: args.authUser,
-    mode: "initialize",
-    name: typeof privateName === "string" ? privateName.trim() : null,
-    roles: args.roles,
-  });
+  return resolution.user;
 }

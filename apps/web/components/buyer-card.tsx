@@ -23,6 +23,7 @@ export function BuyerCard({
           <GeneratedAvatar seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
           <div>
             <h3>{buyer.name}</h3>
+            {buyer.isDemo ? <span className="status-dot warning">Demo buyer</span> : null}
             <p className="muted small" style={{ marginTop: 2 }}>
               {profileLocationSummary}
             </p>
@@ -65,6 +66,7 @@ export function BuyerCard({
         <GeneratedAvatar seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
         <div>
           <h3>{buyer.name}</h3>
+          {buyer.isDemo ? <span className="status-dot warning">Demo buyer</span> : null}
           <p>{profileSummary}</p>
         </div>
       </div>

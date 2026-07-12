@@ -1,11 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  ensureSellerAccess: vi.fn(),
   enforceLimit: vi.fn(),
   getUser: vi.fn(),
   resolveIdentity: vi.fn(),
   signIn: vi.fn(),
   signOut: vi.fn(),
+}));
+
+vi.mock("../../../../server/access", () => ({
+  ensureSellerAccessRequested: mocks.ensureSellerAccess,
 }));
 
 vi.mock("../../../../server/auth-identity", () => ({
@@ -72,5 +77,35 @@ describe("password login recovery throttling", () => {
     });
     expect(response.headers.get("location")).toBe("https://liber.example/login?status=rate-limited");
     expect(mocks.signOut).toHaveBeenCalledOnce();
+  });
+
+  it("repairs a missing seller-access request after successful login", async () => {
+    mocks.enforceLimit.mockReset();
+    mocks.enforceLimit.mockResolvedValue({ allowed: true, limit: 10, retryAfterSeconds: 0 });
+    mocks.resolveIdentity.mockResolvedValue({
+      kind: "linked",
+      user: {
+        email: "seller@example.test",
+        id: "11111111-1111-4111-8111-111111111111",
+        roles: ["SELLER"],
+        status: "ACTIVE",
+      },
+    });
+
+    const form = new FormData();
+    form.set("email", "seller@example.test");
+    form.set("password", "not-a-real-password");
+    const request = {
+      formData: async () => form,
+      headers: new Headers({ "x-real-ip": "203.0.113.8" }),
+      url: "https://liber.example/api/auth/login",
+    } as Request;
+
+    const response = await POST(request as never);
+
+    expect(mocks.ensureSellerAccess).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+    );
+    expect(response.headers.get("location")).toBe("https://liber.example/seller/properties");
   });
 });

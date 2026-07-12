@@ -115,6 +115,7 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
 
 ## Environment and advisor decisions
 
+- Configure a unique `AUTH_RATE_LIMIT_PEPPER` of at least 32 characters before any production deployment.
 - Configure `CRON_SECRET` before scheduled maintenance is enabled.
 - Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` before relying on invite
   email delivery.

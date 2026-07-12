@@ -5,7 +5,7 @@ import { PublicDemandMap } from "../components/public-demand-map";
 import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
 import { DEFAULT_MARKET_SLUG, serviceAreaDisplayLabel } from "../lib/service-areas";
 import { selectedMapArea } from "../lib/map-area";
-import { getPublicBuyerPreviews } from "../server/buyer-preview";
+import { getPublicBuyerPreviews, hasControlledDemoBuyerPreviews } from "../server/buyer-preview";
 import { getActiveMarketBySlug, getActiveServiceAreaBySlug, resolveActiveServiceArea } from "../server/service-areas";
 import { getSessionUser } from "../server/session";
 
@@ -26,7 +26,10 @@ export default async function HomePage({
   const selectedServiceArea = params.area ? await resolveHomeServiceArea(params.area, market.slug) : null;
   const selectedArea = selectedMapArea(selectedServiceArea);
   const selectedAreaLabel = selectedServiceArea ? serviceAreaDisplayLabel(selectedServiceArea) : "";
-  const buyerPreviews = await getPublicBuyerPreviews(market.slug, selectedServiceArea);
+  const [buyerPreviews, hasDemoPreviews] = await Promise.all([
+    getPublicBuyerPreviews(market.slug, selectedServiceArea),
+    hasControlledDemoBuyerPreviews(),
+  ]);
   const mapboxToken = (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim();
   const sellerSearchPath = selectedServiceArea
     ? `/seller/search?market=${encodeURIComponent(market.slug)}&serviceArea=${encodeURIComponent(selectedServiceArea.slug)}`
@@ -63,6 +66,9 @@ export default async function HomePage({
             <div>
               <h1>{selectedAreaLabel ? `${selectedAreaLabel} Buyer Demand` : `${market.label} Buyer Demand`}</h1>
               <p>{selectedArea ? "Preview cards in this selected area" : activePreviewLabel}</p>
+              {hasDemoPreviews && buyerPreviews.length > 0 ? (
+                <span className="status-dot warning">Controlled demo data</span>
+              ) : null}
             </div>
             <Link className="demand-sort-link" href={sellerSearchHref}>
               {user ? "View: Best match" : "Sort: Best match"}

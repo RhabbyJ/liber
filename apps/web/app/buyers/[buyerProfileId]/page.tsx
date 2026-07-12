@@ -83,6 +83,7 @@ export default async function PublicBuyerProfilePage({
             <div className="buyer-reference-head">
               <div className="buyer-reference-name-line">
                 <h1>{buyer.name}</h1>
+                {buyer.isDemo ? <span className="status-dot warning">Demo buyer</span> : null}
                 <span className="buyer-reference-location">
                   <Icon name="map-pin" size={16} />
                   {buyer.location}
