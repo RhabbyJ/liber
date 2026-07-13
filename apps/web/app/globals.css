@@ -3,45 +3,45 @@
    ========================================================================== */
 
 :root {
-  /* Surfaces */
-  --canvas: #f6f7f4;
-  --canvas-tint: #f0f2ee;
+  /* Surfaces (cool neutral) */
+  --canvas: #fbfbfb;
+  --canvas-tint: #f6f8f5;
   --surface: #ffffff;
   --surface-raised: #ffffff;
-  --surface-muted: #f3f5f1;
-  --surface-sand: #edf2ec;
-  --surface-cream: #faf8f3;
+  --surface-muted: #f7f8f6;
+  --surface-sand: #eef5ea;
+  --surface-cream: #ffffff;
 
   /* Ink */
-  --ink: #26342c;
-  --ink-strong: #17251c;
-  --ink-soft: #46564d;
-  --ink-muted: #66736b;
-  --ink-faint: #8c9690;
+  --ink: #313033;
+  --ink-strong: #242326;
+  --ink-soft: #4d4b50;
+  --ink-muted: #8b8b90;
+  --ink-faint: #b5b5b9;
 
   /* Lines */
-  --line: #dde3de;
-  --line-soft: #edf0ed;
-  --line-strong: #c7d0c9;
+  --line: #e5e5e5;
+  --line-soft: #f0f0f0;
+  --line-strong: #d4d4d4;
 
-  /* Brand accent */
-  --sage: #42775a;
-  --sage-strong: #35694d;
-  --sage-deep: #28543d;
-  --sage-tint: #eef5f0;
-  --sage-tint-strong: #dcebe1;
-  --sage-line: #bfd4c5;
-  --gold: #a56b22;
+  /* Green accent */
+  --sage: #67c94f;
+  --sage-strong: #5fbe43;
+  --sage-deep: #47a62f;
+  --sage-tint: #f2fbef;
+  --sage-tint-strong: #e0f6d8;
+  --sage-line: #bceaad;
+  --gold: #ffb22e;
 
-  /* Semantic supporting accent */
-  --amber: #a56b22;
-  --amber-strong: #744916;
-  --amber-tint: #fbf4e8;
-  --amber-line: #e8d3b1;
+  /* Cool supporting accent */
+  --amber: #1677c8;
+  --amber-strong: #075da8;
+  --amber-tint: #e9f4ff;
+  --amber-line: #b9dcff;
 
   /* Status */
-  --info: #3f6070;
-  --info-tint: #eef3f5;
+  --info: #0c6ba8;
+  --info-tint: #e7f4fb;
   --success: var(--sage-strong);
   --success-tint: var(--sage-tint);
   --warning: var(--amber-strong);
@@ -56,11 +56,11 @@
   --seller-tint: var(--sage-tint);
 
   /* Shadow + elevation */
-  --shadow-1: 0 1px 2px rgba(23, 37, 28, 0.04);
-  --shadow-2: 0 8px 24px rgba(23, 37, 28, 0.07);
-  --shadow-3: 0 20px 50px rgba(23, 37, 28, 0.11);
-  --shadow-float: 0 18px 42px rgba(23, 37, 28, 0.12);
-  --shadow-hero: 0 30px 74px rgba(23, 37, 28, 0.12);
+  --shadow-1: 0 1px 2px rgba(36, 35, 38, 0.05);
+  --shadow-2: 0 8px 22px rgba(36, 35, 38, 0.07);
+  --shadow-3: 0 20px 48px rgba(36, 35, 38, 0.12);
+  --shadow-float: 0 18px 42px rgba(36, 35, 38, 0.12);
+  --shadow-hero: 0 30px 74px rgba(36, 35, 38, 0.12);
 
   /* Radii */
   --r-xs: 6px;
@@ -80,7 +80,7 @@
   --gutter: clamp(20px, 4vw, 56px);
 
   /* Focus */
-  --focus-ring: 0 0 0 3px rgba(53, 105, 77, 0.24);
+  --focus-ring: 0 0 0 3px rgba(95, 190, 67, 0.24);
 }
 
 * {
