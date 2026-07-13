@@ -20,7 +20,6 @@ type DbMarket = {
   centerLat: number;
   centerLng: number;
   country: string;
-  currentDisplayGeometry: { sha256: string } | null;
   id: string;
   label: string;
   slug: string;
@@ -88,7 +87,6 @@ export async function getActiveMarketBySlug(slug: string): Promise<Market> {
   try {
     const row = await prisma.market.findFirst({
       where: { active: true, slug },
-      include: { currentDisplayGeometry: { select: { sha256: true } } },
     });
     if (row) return dbMarketToResult(row);
     if (fixtureFallbackEnabled() && slug === DEFAULT_MARKET_SLUG) return defaultMarket;
@@ -105,7 +103,6 @@ export async function getActiveMarketOrFallback(preferredSlug?: string): Promise
   try {
     const rows = await prisma.market.findMany({
       where: { active: true },
-      include: { currentDisplayGeometry: { select: { sha256: true } } },
       orderBy: { slug: "asc" },
     });
     const row = rows.find((market) => market.slug === preferredSlug) ?? rows[0];
@@ -118,18 +115,6 @@ export async function getActiveMarketOrFallback(preferredSlug?: string): Promise
     if (fixtureFallbackEnabled()) return defaultMarket;
     throw new GeographyUnavailableError(undefined, { cause: error });
   }
-}
-
-export function marketApiShape(market: Market) {
-  return {
-    slug: market.slug,
-    label: market.label,
-    state: market.state,
-    country: market.country,
-    center: [market.center.lng, market.center.lat] as [number, number],
-    bbox: market.bbox,
-    boundary_geojson_path: market.boundaryGeojsonPath ?? null,
-  };
 }
 
 export async function getActiveMarketDisplayGeometryBySlug(slug: string, sha256?: string) {
@@ -386,9 +371,6 @@ function dbMarketToResult(row: DbMarket): Market {
   return {
     active: row.active,
     bbox: [row.bboxWest, row.bboxSouth, row.bboxEast, row.bboxNorth],
-    boundaryGeojsonPath: row.currentDisplayGeometry?.sha256
-      ? `/api/markets/${encodeURIComponent(row.slug)}/boundaries?v=${row.currentDisplayGeometry.sha256}`
-      : undefined,
     center: { lat: row.centerLat, lng: row.centerLng },
     country: row.country,
     label: row.label,

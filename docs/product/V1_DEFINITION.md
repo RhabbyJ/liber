@@ -66,7 +66,7 @@ The approved v1 launch market is Los Angeles County, California (County GEOID `0
 
 The remaining County statistical communities are retained as inactive reviewed geography and are not public selection options. Liber does not infer ZIP-to-city or ZIP-to-neighborhood membership at runtime; only explicit reviewed relationships may broaden a seller search.
 
-Interactive Mapbox maps may pan and zoom throughout the County bounds. They show the County outline, legal-city outlines, and approximate ZCTA outlines as noninteractive orientation layers. Selecting a supported area still draws the stronger canonical service-area polygon and scopes the same privacy-safe or seller-authorized result set.
+Interactive Mapbox maps may pan and zoom throughout the County bounds, but they do not show ambient County, city, or ZCTA borders. Selecting a supported ZIP, city, or neighborhood draws only that canonical service-area polygon and scopes the same privacy-safe or seller-authorized result set. Clearing the selection removes the polygon.
 
 ## Demo and production data policy
 

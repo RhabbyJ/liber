@@ -2,7 +2,6 @@ import { serviceAreaBounds, type ServiceArea } from "./service-areas";
 
 export type MarketMapContext = {
   bbox: [number, number, number, number];
-  boundaryGeojsonPath?: string;
   center: {
     lat: number;
     lng: number;

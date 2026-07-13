@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatRange } from "../lib/format";
 import { approximateBuyerPoint } from "../lib/buyer-map-point";
-import { syncMarketBoundaryLayers, syncSelectedAreaLayer } from "../lib/map-boundary-layers";
+import { syncSelectedAreaLayer } from "../lib/map-boundary-layers";
 import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
 import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
 import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
@@ -35,10 +35,6 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea: selec
   const [isReady, setIsReady] = useState(false);
   const [status, setStatus] = useState("Loading interactive map");
   const [didFail, setDidFail] = useState(false);
-  const marketBoundaryGeojson = useKeyedGeoJson(
-    market.boundaryGeojsonPath,
-    `${market.slug}:${market.boundaryGeojsonPath ?? ""}`,
-  );
   const selectedAreaGeojson = useKeyedGeoJson(selectedArea?.geojsonPath);
 
   const buyerPoints = useMemo(
@@ -145,9 +141,8 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea: selec
 
   useEffect(() => {
     if (!isReady || !mapRef.current) return;
-    syncMarketBoundaryLayers(mapRef.current, marketBoundaryGeojson);
     syncSelectedAreaLayer(mapRef.current, selectedAreaGeojson);
-  }, [isReady, marketBoundaryGeojson, selectedAreaGeojson]);
+  }, [isReady, selectedAreaGeojson]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current || !window.mapboxgl) return;
@@ -245,7 +240,7 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea: selec
       <div className="map-legend">
         <span><i className="legend-dot primary" /> Buyer profile</span>
         <span><i className="legend-dot active" /> Hover match</span>
-        <span>County · City · Approx. ZIP boundaries</span>
+        <span>{selectedArea ? "Selected area boundary" : "Search an area to show its boundary"}</span>
       </div>
       {status ? <div className="map-status">{status}</div> : null}
       {buyers.length === 0 ? <div className="map-empty">No active buyers match this area yet.</div> : null}

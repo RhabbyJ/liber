@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
-import { syncMarketBoundaryLayers, syncSelectedAreaLayer } from "../lib/map-boundary-layers";
+import { syncSelectedAreaLayer } from "../lib/map-boundary-layers";
 import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
 import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
 import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
@@ -50,11 +50,6 @@ export function PublicDemandMap({
   const [hasLiveMarkers, setHasLiveMarkers] = useState(false);
   const mapboxToken = token?.trim() ?? "";
   const shouldUseMapbox = Boolean(mapboxToken);
-  const boundaryPath = shouldUseMapbox ? market.boundaryGeojsonPath : undefined;
-  const marketBoundaryGeojson = useKeyedGeoJson(
-    boundaryPath,
-    boundaryPath ? `${market.slug}:${boundaryPath}` : "",
-  );
   const selectedAreaGeojson = useKeyedGeoJson(shouldUseMapbox ? selectedArea?.geojsonPath : undefined);
 
   const points = useMemo<PreviewPoint[]>(
@@ -143,9 +138,8 @@ export function PublicDemandMap({
 
   useEffect(() => {
     if (!isReady || !mapRef.current) return;
-    syncMarketBoundaryLayers(mapRef.current, marketBoundaryGeojson);
     syncSelectedAreaLayer(mapRef.current, selectedAreaGeojson);
-  }, [isReady, marketBoundaryGeojson, selectedAreaGeojson]);
+  }, [isReady, selectedAreaGeojson]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current || !window.mapboxgl) return;
@@ -214,7 +208,9 @@ export function PublicDemandMap({
       >
         View all LA County
       </button>
-      <div className="public-map-note">County · City · Approx. ZIP boundaries · anonymized demand</div>
+      <div className="public-map-note">
+        {selectedArea ? "Selected area boundary · anonymized demand" : "Search an area to show its boundary · anonymized demand"}
+      </div>
     </div>
   );
 }

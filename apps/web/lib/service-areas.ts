@@ -28,7 +28,6 @@ export type ServiceArea = {
 export type Market = {
   active: boolean;
   bbox: [number, number, number, number];
-  boundaryGeojsonPath?: string;
   center: {
     lat: number;
     lng: number;

@@ -47,7 +47,7 @@ describe("service-area geometry metadata", () => {
     serviceAreaFindFirst.mockReset();
   });
 
-  it("builds the immutable market display URL from its current pointer", async () => {
+  it("loads ordinary market metadata without display geometry", async () => {
     marketFindFirst.mockResolvedValue({
       active: true,
       bboxEast: -117.6,
@@ -57,7 +57,6 @@ describe("service-area geometry metadata", () => {
       centerLat: 34.2,
       centerLng: -118.2,
       country: "US",
-      currentDisplayGeometry: { sha256: "c".repeat(64) },
       id: "00000000-0000-4000-8000-000000000010",
       label: "Los Angeles County",
       slug: "los-angeles",
@@ -66,9 +65,8 @@ describe("service-area geometry metadata", () => {
 
     const market = await getActiveMarketBySlug("los-angeles");
 
-    expect(market.boundaryGeojsonPath).toBe(
-      `/api/markets/los-angeles/boundaries?v=${"c".repeat(64)}`,
-    );
+    expect(market).not.toHaveProperty("boundaryGeojsonPath");
+    expect(marketFindFirst).toHaveBeenCalledWith({ where: { active: true, slug: "los-angeles" } });
   });
 
   it("builds immutable URLs from the approved geometry pointer", async () => {

@@ -121,13 +121,9 @@ The rollback function restores the prior 15-area activation state, complete prio
 
 ## Map Rendering
 
-Both interactive maps load one immutable market display bundle below pins and the selected-area highlight:
+Both interactive maps start without County, city, or ZCTA border overlays and do not fetch the market display bundle for ordinary rendering. The retained immutable display bundle remains release evidence behind its public-safe versioned API, but it is not an ambient map layer.
 
-- County outline: visible at all zoom levels;
-- incorporated-city outlines: visible from zoom `7.5`;
-- approximate ZCTA outlines: visible from zoom `9.5`.
-
-The bundle contains only `kind`, `slug`, `label`, and simplified geometry. It contains no internal UUIDs, buyer data, source-administration fields, or relationships. Maps remain clamped to the active County bbox, support drag/touch pan and zoom, and provide a **View all LA County** control. Public touch maps use cooperative gestures so one-finger page scrolling remains usable.
+Maps remain clamped to the active County bbox, support drag/touch pan and zoom, and provide a **View all LA County** control. Public touch maps use cooperative gestures so one-finger page scrolling remains usable.
 
 When a supported area is selected:
 
@@ -164,7 +160,7 @@ ZIP-like areas use Census ZCTA data and must be labeled approximate, not officia
 
 Los Angeles County statistical communities are approximate Liber service areas and must not be presented as exact neighborhood or jurisdictional boundaries.
 
-Canonical city service areas use reviewed County CSA city membership; the orientation overlay uses County Public Works legal-city land boundaries dissolved to 88 city features. Neither is represented as survey-grade legal evidence.
+Canonical city service areas use reviewed County CSA city membership; the retained release display bundle uses County Public Works legal-city land boundaries dissolved to 88 city features. Neither is represented as survey-grade legal evidence.
 
 ## Acceptance Checklist
 
