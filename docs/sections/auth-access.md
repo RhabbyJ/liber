@@ -66,8 +66,10 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - `User.name` is authoritative private account data. Auth updates synchronize
   email only; later `user_metadata.name` edits never overwrite it.
 - Login, signup, confirmation resend, and collision-recovery signals consume
-  shared database-backed IP and normalized-email budgets. Production fails
-  closed if the shared limiter or its HMAC pepper is unavailable.
+  shared database-backed IP and normalized-email budgets. Every deployed Vercel
+  runtime, including Preview, must provide its own 32+ character
+  `AUTH_RATE_LIMIT_PEPPER`; production-mode runtimes fail closed when it is
+  unavailable.
 - Supabase failures are classified from structured status/code values. For an
   opaque database-trigger failure, the server performs a normalized application
   email lookup after signup fails; it never parses vendor error-message text to

@@ -31,8 +31,6 @@
   --sage-tint: #f2fbef;
   --sage-tint-strong: #e0f6d8;
   --sage-line: #bceaad;
-  --sage-ink: #2f7622;
-  --on-sage: #242326;
   --gold: #ffb22e;
 
   /* Cool supporting accent */
@@ -82,7 +80,7 @@
   --gutter: clamp(20px, 4vw, 56px);
 
   /* Focus */
-  --focus-ring: 0 0 0 2px #ffffff, 0 0 0 5px #47a62f;
+  --focus-ring: 0 0 0 3px rgba(95, 190, 67, 0.24);
 }
 
 * {
@@ -112,7 +110,7 @@ a {
 }
 
 a:hover {
-  color: var(--sage-ink);
+  color: var(--sage-strong);
 }
 
 button,
@@ -173,7 +171,7 @@ ol {
 
 ::selection {
   background: var(--sage-tint-strong);
-  color: var(--ink-strong);
+  color: var(--sage-deep);
 }
 
 /* ==========================================================================
@@ -237,7 +235,7 @@ main {
   background: var(--sage-strong);
   border-radius: 7px;
   box-shadow: none;
-  color: var(--on-sage);
+  color: #fff;
   display: inline-flex;
   height: 34px;
   justify-content: center;
@@ -246,7 +244,7 @@ main {
 }
 
 .brand-mark::after {
-  background: var(--on-sage);
+  background: rgba(255, 255, 255, 0.92);
   border-radius: 2px;
   content: "";
   height: 12px;
@@ -513,7 +511,7 @@ main {
   background: var(--sage-strong);
   border: 1px solid var(--sage-strong);
   border-radius: 7px;
-  color: var(--on-sage);
+  color: #fff;
   cursor: pointer;
   display: inline-flex;
   font-size: 14px;
@@ -531,7 +529,7 @@ main {
 .button:hover {
   background: var(--sage-deep);
   border-color: var(--sage-deep);
-  color: var(--on-sage);
+  color: #fff;
 }
 
 .button:active {
@@ -566,18 +564,18 @@ main {
 .button.secondary:hover {
   background: var(--sage-tint);
   border-color: var(--sage-line);
-  color: var(--sage-ink);
+  color: var(--sage-deep);
 }
 
 .button.ghost {
   background: #fff;
   border-color: var(--sage-strong);
-  color: var(--sage-ink);
+  color: var(--sage-strong);
 }
 
 .button.ghost:hover {
   background: var(--sage-tint);
-  color: var(--sage-ink);
+  color: var(--sage-deep);
 }
 
 .button.warning {
@@ -617,7 +615,7 @@ main {
   align-items: center;
   background: transparent;
   border: 0;
-  color: var(--sage-ink);
+  color: var(--sage-strong);
   cursor: pointer;
   display: inline-flex;
   font: inherit;
@@ -627,7 +625,7 @@ main {
 }
 
 .link-button:hover {
-  color: var(--sage-ink);
+  color: var(--sage-deep);
   text-decoration: underline;
 }
 
@@ -751,7 +749,7 @@ main {
 }
 
 .eyebrow {
-  color: var(--sage-ink);
+  color: var(--sage-strong);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.18em;
@@ -760,7 +758,7 @@ main {
 }
 
 .eyebrow.seller {
-  color: var(--sage-ink);
+  color: var(--amber-strong);
 }
 
 .eyebrow.amber {
@@ -1057,7 +1055,7 @@ main {
 
 .trust-badge.active .trust-badge-icon {
   background: var(--sage-strong);
-  color: var(--on-sage);
+  color: #fff;
 }
 
 .trust-badge.pending {
@@ -1391,11 +1389,11 @@ main {
 
 .hero-art-pin {
   align-items: center;
-  background: var(--sage-strong);
-  border: 2px solid var(--on-sage);
+  background: var(--sage-deep);
+  border: 3px solid #fff;
   border-radius: var(--r-pill);
-  box-shadow: 0 10px 24px rgba(36, 35, 38, 0.16);
-  color: var(--on-sage);
+  box-shadow: 0 10px 24px rgba(12, 35, 28, 0.18);
+  color: #fff;
   display: grid;
   font-size: 12px;
   font-weight: 800;
@@ -1437,7 +1435,7 @@ main {
 }
 
 .section-kicker {
-  color: var(--sage-ink);
+  color: var(--sage-strong);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.18em;
@@ -1660,7 +1658,7 @@ main {
 .signup-step.active .signup-step-num {
   background: var(--sage-strong);
   border-color: var(--sage-strong);
-  color: var(--on-sage);
+  color: #fff;
 }
 
 .signup-step.done .signup-step-num {
@@ -1701,7 +1699,7 @@ main {
 }
 
 .signup-eyebrow {
-  color: var(--sage-ink);
+  color: var(--sage-strong);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.18em;
@@ -1791,7 +1789,7 @@ main {
 
 .signup-role-card.selected .signup-role-icon {
   background: var(--sage-strong);
-  color: var(--on-sage);
+  color: #fff;
 }
 
 .signup-role-text {
@@ -2113,7 +2111,7 @@ main {
 }
 
 .map-search-intro span {
-  color: var(--sage-ink);
+  color: var(--sage-strong);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -2163,7 +2161,7 @@ main {
 }
 
 .public-map-search-box svg {
-  color: var(--sage-ink);
+  color: var(--sage-strong);
   flex: 0 0 auto;
 }
 
@@ -2183,10 +2181,10 @@ main {
 }
 
 .public-map-search-submit {
-  background: var(--sage-strong);
+  background: var(--sage-deep);
   border: 0;
   border-radius: 7px;
-  color: var(--on-sage);
+  color: #fff;
   cursor: pointer;
   font-size: 12.5px;
   font-weight: 800;
@@ -2195,7 +2193,7 @@ main {
 }
 
 .public-map-search-submit:hover {
-  background: var(--sage-deep);
+  background: var(--sage-strong);
 }
 
 .public-map-search-clear {
@@ -2605,7 +2603,7 @@ body:has(.map-landing) .site-footer {
 
 .demand-card-verified {
   align-items: center;
-  color: var(--sage-ink);
+  color: var(--sage-deep);
   display: inline-flex;
   font-size: 11.5px;
   font-weight: 700;
@@ -2957,7 +2955,7 @@ body:has(.map-landing) .site-footer {
 }
 
 .buyer-reference-type {
-  color: var(--sage-ink);
+  color: var(--sage-strong);
   font-size: 16px;
   font-weight: 500;
   margin: 0;
@@ -2975,7 +2973,7 @@ body:has(.map-landing) .site-footer {
   align-items: center;
   background: #7ad18f;
   border-radius: var(--r-pill);
-  color: var(--on-sage);
+  color: #fff;
   display: inline-flex;
   height: 24px;
   justify-content: center;
@@ -3559,7 +3557,7 @@ body:has(.map-landing) .site-footer {
 .invite-count {
   background: var(--sage-strong);
   border-radius: var(--r-pill);
-  color: var(--on-sage);
+  color: #fff;
   display: inline-flex;
   font-size: 12px;
   font-weight: 800;
@@ -3895,11 +3893,11 @@ body:has(.map-landing) .site-footer {
 
 .map-pin {
   align-items: center;
-  background: var(--sage-strong);
-  border: 2px solid var(--on-sage);
+  background: var(--sage-deep);
+  border: 3px solid #fff;
   border-radius: var(--r-pill);
-  box-shadow: 0 10px 26px rgba(36, 35, 38, 0.16), 0 0 0 8px rgba(103, 201, 79, 0.2);
-  color: var(--on-sage);
+  box-shadow: 0 10px 26px rgba(12, 35, 28, 0.22), 0 0 0 8px rgba(22, 131, 76, 0.18);
+  color: #fff;
   display: grid;
   font-size: 13px;
   font-weight: 800;
@@ -3948,11 +3946,11 @@ body:has(.map-landing) .site-footer {
 
 .buyer-map-marker {
   align-items: center;
-  background: var(--sage-strong);
-  border: 2px solid var(--on-sage);
+  background: var(--sage-deep);
+  border: 3px solid #fff;
   border-radius: var(--r-pill);
-  box-shadow: 0 10px 22px rgba(36, 35, 38, 0.17), 0 0 0 7px rgba(103, 201, 79, 0.2);
-  color: var(--on-sage);
+  box-shadow: 0 10px 22px rgba(12, 35, 28, 0.24), 0 0 0 7px rgba(22, 131, 76, 0.16);
+  color: #fff;
   cursor: pointer;
   display: grid;
   font-size: 12px;
@@ -3991,10 +3989,10 @@ body:has(.map-landing) .site-footer {
 .buyer-map-marker.public-demand-pin span,
 .buyer-map-marker.public-map-static-pin span {
   align-items: center;
-  background: var(--sage-strong);
-  border: 2px solid var(--on-sage);
+  background: var(--sage-deep);
+  border: 3px solid #fff;
   border-radius: var(--r-pill);
-  box-shadow: 0 0 0 7px rgba(103, 201, 79, 0.2);
+  box-shadow: 0 0 0 7px rgba(22, 131, 76, 0.16);
   display: flex;
   height: 28px;
   justify-content: center;
@@ -4005,7 +4003,7 @@ body:has(.map-landing) .site-footer {
 
 .buyer-map-marker.public-demand-pin span::after,
 .buyer-map-marker.public-map-static-pin span::after {
-  background: var(--on-sage);
+  background: #fff;
   border-radius: 50%;
   content: "";
   height: 6px;
@@ -4014,8 +4012,8 @@ body:has(.map-landing) .site-footer {
 
 .buyer-map-marker.active,
 .buyer-map-marker:hover {
-  background: var(--sage);
-  box-shadow: 0 18px 32px rgba(36, 35, 38, 0.2), 0 0 0 10px rgba(103, 201, 79, 0.28);
+  background: var(--sage-strong);
+  box-shadow: 0 18px 32px rgba(12, 35, 28, 0.28), 0 0 0 10px rgba(22, 131, 76, 0.22);
   transform: scale(1.08);
 }
 
@@ -4029,8 +4027,8 @@ body:has(.map-landing) .site-footer {
 .buyer-map-marker.public-map-static-pin:hover span,
 .buyer-map-marker.public-demand-pin.active span,
 .buyer-map-marker.public-map-static-pin.active span {
-  background: var(--sage);
-  box-shadow: 0 0 0 10px rgba(103, 201, 79, 0.3);
+  background: var(--sage-strong);
+  box-shadow: 0 0 0 10px rgba(22, 131, 76, 0.22);
 }
 
 .buyer-map-marker:focus-visible {
@@ -4068,7 +4066,7 @@ body:has(.map-landing) .site-footer {
 }
 
 .buyer-map-popup a {
-  color: var(--sage-ink);
+  color: var(--sage-strong);
   font-weight: 800;
 }
 
@@ -4455,7 +4453,7 @@ body:has(.map-landing) .site-footer {
   background: var(--sage-strong);
   border: 1px solid var(--sage-strong);
   border-radius: var(--r-sm);
-  color: var(--on-sage);
+  color: #fff;
   cursor: pointer;
   font-size: 14px;
   font-weight: 750;
@@ -4503,7 +4501,7 @@ body:has(.map-landing) .site-footer {
 }
 
 .property-lookup-status.success {
-  color: var(--sage-ink);
+  color: var(--sage-strong);
 }
 
 .property-intake-privacy {
@@ -4732,7 +4730,7 @@ body:has(.map-landing) .site-footer {
 }
 
 .seller-property-back:hover {
-  color: var(--sage-ink);
+  color: var(--sage-strong);
 }
 
 .seller-property-reference-head h1 {
@@ -4832,7 +4830,7 @@ body:has(.map-landing) .site-footer {
 
 .tab.active {
   background: var(--ink-strong);
-  color: var(--on-sage);
+  color: #fff;
 }
 
 /* ==========================================================================
@@ -4981,7 +4979,7 @@ body:has(.map-landing) .site-footer {
 
 .demand-atlas-halo i {
   background: var(--sage-strong);
-  border: 2px solid var(--on-sage);
+  border: 2px solid #fff;
   border-radius: 50%;
   height: 16px;
   width: 16px;
@@ -5050,13 +5048,13 @@ body:has(.map-landing) .site-footer {
 
 .privacy-demand-signal {
   background: var(--sage-strong);
-  border: 1px solid var(--on-sage);
+  border: 1px solid #fff;
   height: 17px;
   width: 17px;
 }
 
 .privacy-demand-signal i {
-  background: var(--on-sage);
+  background: #fff;
   border-radius: 50%;
   height: 4px;
   width: 4px;
@@ -5128,7 +5126,7 @@ body:has(.map-landing) .site-footer {
 
 .quiet-signal i {
   background: var(--sage-strong);
-  border: 1px solid var(--on-sage);
+  border: 1px solid #fff;
   border-radius: 50%;
   height: 8px;
   width: 8px;
@@ -5260,7 +5258,7 @@ body:has(.map-landing) .site-footer {
 .trust-step.verified .trust-step-icon {
   background: var(--sage-tint-strong);
   border-color: var(--sage-deep);
-  color: var(--sage-ink);
+  color: var(--sage-deep);
 }
 
 .trust-connector {
@@ -5510,7 +5508,7 @@ body:has(.map-landing) .site-footer {
 
   .mobile-nav-actions .button.primary,
   .mobile-nav-actions .button.primary:hover {
-    color: var(--on-sage);
+    color: #fff;
   }
 }
 
@@ -5813,7 +5811,7 @@ body:has(.map-landing) .site-footer {
 .add-neighborhood-link {
   background: none;
   border: none;
-  color: var(--sage-ink);
+  color: var(--sage-strong);
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
@@ -5823,7 +5821,7 @@ body:has(.map-landing) .site-footer {
 }
 
 .add-neighborhood-link:hover {
-  color: var(--sage-ink);
+  color: var(--sage-deep);
   text-decoration: underline;
 }
 
@@ -6020,7 +6018,7 @@ body:has(.map-landing) .site-footer {
 }
 
 .clear-filters-link:hover {
-  color: var(--sage-ink);
+  color: var(--sage-deep);
   text-decoration: underline;
 }
 
@@ -6097,7 +6095,7 @@ body:has(.map-landing) .site-footer {
 }
 
 .account-profile-links a:hover {
-  color: var(--sage-ink);
+  color: var(--sage-strong);
 }
 
 /* Read-only seller preview */
@@ -6380,7 +6378,7 @@ body:has(.map-landing) .site-footer {
   align-items: center;
   background: #7ad18f;
   border-radius: var(--r-pill);
-  color: var(--on-sage);
+  color: #fff;
   display: inline-flex;
   height: 22px;
   justify-content: center;
@@ -6399,7 +6397,7 @@ body:has(.map-landing) .site-footer {
 }
 
 .buyer-row-see-more {
-  color: var(--sage-ink);
+  color: var(--sage-strong);
   font-size: 14px;
   font-weight: 700;
   justify-self: end;
@@ -6409,7 +6407,7 @@ body:has(.map-landing) .site-footer {
 }
 
 .buyer-row-see-more:hover {
-  color: var(--sage-ink);
+  color: var(--sage-deep);
 }
 
 @media (max-width: 1024px) {
@@ -6467,7 +6465,7 @@ body:has(.map-landing) .site-footer {
   background: #fff;
   border: 1px solid var(--sage-line);
   border-radius: var(--r-sm);
-  color: var(--sage-ink);
+  color: var(--sage-strong);
   cursor: pointer;
   display: inline-flex;
   font-size: 14px;

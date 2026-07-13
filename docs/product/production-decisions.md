@@ -123,7 +123,7 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
 ## Environment and advisor decisions
 
 - Vercel cron schedules are temporarily disabled for the controlled Hobby-plan preview so deployments can proceed. Restore a per-minute outbox scheduler and the daily expiry scheduler before relying on automated email, Auth bans, invite expiry, or upload cleanup.
-- Configure a unique `AUTH_RATE_LIMIT_PEPPER` of at least 32 characters before public launch or opening the controlled preview beyond approved test accounts. The current controlled-preview deployment still lacks it.
+- Keep a unique `AUTH_RATE_LIMIT_PEPPER` of at least 32 characters in each deployed environment. Production and the `codex/ui-refresh` branch preview are configured separately; any additional preview branch must receive its own value before Auth can be exercised there.
 - Configure `CRON_SECRET` before scheduled maintenance is enabled.
 - Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` before relying on invite
   email delivery.

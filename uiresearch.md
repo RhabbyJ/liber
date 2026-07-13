@@ -42,7 +42,7 @@ Implementation decision: ship the first milestone as reusable HTML/CSS primitive
    #0c6ba8 / #1677c8: private documents and informational states.
    #ffb22e: pending review, invitation path, or one small highlight.
    #b42318: failures only.
-   Use #242326 dark ink on light-green filled controls; white text does not meet contrast requirements on the original Liber greens. Use a contrast-safe dark-green companion only where green text must appear on white. Avoid adding “fun” purples, decorative gradients, or multiple role colors. Blue remains a semantic information color, not a competing brand accent. The interface deliberately unifies buyer and seller surfaces; the art should do the same.
+   Preserve the production assignment of the original Liber greens: #5fbe43 for primary controls with white foregrounds, #47a62f for public search and map signals with white foregrounds, and #67c94f only for the lighter active accent. Use #f2fbef, #e0f6d8, and #bceaad for washes, halos, and lines. Do not introduce a substitute dark-green text token or dark outlines inside filled green controls. Avoid adding “fun” purples, decorative gradients, or multiple role colors. Blue remains a semantic information color, not a competing brand accent. The interface deliberately unifies buyer and seller surfaces; the art should do the same.
 2. Reusable asset families
    A. Liber Demand Atlas
    A modular library of abstract map fragments:
@@ -389,7 +389,7 @@ Implementation status
 The first milestone is implemented in the UI refresh branch:
 Demand Atlas backdrop primitives are shared by public and seller fallback maps.
 Public preview includes a compact exact-point → privacy-halo → approximate-signal explanation.
-Public and seller map signals use the same circular grammar, dark-on-green contrast, visible focus, and 44 px targets.
+Public and seller map signals use the same circular grammar, production deep-green fill with white centers and outlines, muted-green privacy halos, visible focus, and 44 px targets.
 Buyer verification includes the private evidence → Liber review → visible badge explanation.
 Search, seller access, property, invite, and notification empty states reuse one quiet contour/parcel/signal system.
 The shared UI micro-document records the authoritative palette, accessibility treatment, and geometry boundary.
