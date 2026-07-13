@@ -8,6 +8,9 @@ const migrationPath = path.resolve(
 const closureMigrationPath = path.resolve(
   "../../packages/db/prisma/migrations/20260711082500_close_property_identity_lifecycle/migration.sql",
 );
+const rateLimitRepairMigrationPath = path.resolve(
+  "../../packages/db/prisma/migrations/20260713230000_fix_rate_limit_timestamp_variable/migration.sql",
+);
 
 describe("architecture boundary migration", () => {
   it("contains the final database and Storage invariants", async () => {
@@ -61,6 +64,13 @@ describe("architecture boundary migration", () => {
     expect(source).toContain("idempotencyKey");
     expect(source).toContain("is_invite_deliverable");
     expect(source).toContain('status: "CANCELLED"');
+  });
+
+  it("uses an unambiguous timestamp variable in the legacy shared rate limiter", async () => {
+    const sql = await readFile(rateLimitRepairMigrationPath, "utf8");
+    expect(sql).toContain("v_now timestamp(3) := clock_timestamp()");
+    expect(sql).not.toMatch(/\bcurrent_time\b/i);
+    expect(sql).toContain('rate_bucket."expiresAt" <= v_now');
   });
 
   it("cleans upload sessions once and delegates image access to the database predicate", async () => {

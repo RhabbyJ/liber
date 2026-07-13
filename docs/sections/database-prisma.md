@@ -49,6 +49,7 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - Destructive migration rehearsal/import proof is disposable-target-only. The guarded production release command may stage the exact reviewed bundle, but staging must not change active rows, current pointers, market bounds, live terms, or live relationships. Activation is a separate owner-only exact-hash action installed by the same reviewed migration and runs only after stage/deploy reconciliation.
 - Demo seed data is allowed only for local development and CEO demo / private preview environments, never true public production.
 - Demo seed scripts must be explicit, guarded by an opt-in env flag, deterministic enough to clean up, and use obvious non-real users/data.
+- PL/pgSQL timestamp variables must not use SQL special-value names such as `current_time`; the three-argument rate-limiter overload uses `v_now` so writes remain compatible with Prisma `timestamp(3)` columns.
 - `npm run demo:buyers -- seed|verify|cleanup` is the only shared CEO-preview buyer-data command. It requires `LIBER_ALLOW_DEMO_SEED=true`, `LIBER_CEO_PREVIEW_TARGET=ceo-preview`, and an absolute `LIBER_CEO_PREVIEW_CREDENTIALS_FILE` path outside the repository; the Supabase API and direct database project refs must match.
 
 ## Agent notes

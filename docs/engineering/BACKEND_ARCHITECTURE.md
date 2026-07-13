@@ -268,6 +268,8 @@ Important actions should write `AdminAuditLog` or equivalent operational events 
 
 Abuse controls use `app_private.consume_rate_limit` and `RateLimitBucket`, an atomic Postgres-backed fixed-window limiter shared by serverless instances. Invite quota remains a separate rolling-24-hour business invariant serialized in the invite transaction. Audit rows are not quota counters.
 
+The retained three-argument limiter overload uses an explicitly named timestamp variable (`v_now`); do not use `current_time` as a PL/pgSQL variable because PostgreSQL can resolve it as the built-in `time with time zone` expression inside SQL statements.
+
 ## Maintenance
 
 `POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET` and expires stale invites/badges. `GET /api/maintenance/outbox` uses the same bearer secret for leased email delivery, Auth bans, and abandoned-upload cleanup. The endpoints remain available, but their Vercel schedules are temporarily disabled for the controlled Hobby-plan preview. Public launch is blocked until the outbox schedule is restored to every minute (`* * * * *`) and expiry is restored to daily at 09:00 UTC (`0 9 * * *`), with worker heartbeats verified.
