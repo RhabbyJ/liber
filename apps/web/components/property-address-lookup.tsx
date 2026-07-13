@@ -148,7 +148,7 @@ export function PropertyAddressLookup({
           return;
         }
 
-        setMessage(payload.error || "No property facts were found. You can still enter them manually below.");
+        setMessage(payload.error || "We couldn't find details. Add them below.");
         setMessageTone("error");
         focusPropertyDetails();
         return;
@@ -165,11 +165,11 @@ export function PropertyAddressLookup({
       setBathrooms(property.bathrooms ? String(property.bathrooms) : bathrooms);
       setSquareFeet(property.squareFeet ? String(property.squareFeet) : squareFeet);
       setLotSize(property.lotSize ? String(property.lotSize) : lotSize);
-      setMessage("Property facts loaded. Review them below before saving.");
+      setMessage("Found it. Review the details below.");
       setMessageTone("success");
       focusPropertyDetails();
     } catch {
-      setMessage("Property lookup failed. You can still enter the details manually below.");
+      setMessage("We couldn't find details. Add them below.");
       setMessageTone("error");
       focusPropertyDetails();
     } finally {
@@ -309,6 +309,7 @@ export function PropertyAddressLookup({
                 setZip(event.target.value);
                 clearDerivedLocation();
               }}
+              onKeyDown={handleLookupKeyDown}
               placeholder="ZIP code"
               ref={zipInputRef}
               value={zip}
@@ -316,16 +317,17 @@ export function PropertyAddressLookup({
             {zipDatalist}
           </div>
           <button className="property-intake-lookup-button" disabled={isLookingUp} onClick={lookupProperty} type="button">
-            {isLookingUp ? "Looking up" : "Look up property"}
+            {isLookingUp ? "Finding..." : "Find property"}
           </button>
         </div>
         {lookupStatus}
-        <p className="property-intake-privacy">Private by default. Nothing is posted publicly.</p>
+        <p className="property-intake-privacy">Private &mdash; never posted publicly.</p>
 
         <section className="seller-property-intake-section property-address-details" aria-labelledby="property-address-details-heading">
           <header className="property-intake-section-head">
-            <h2 id="property-address-details-heading" ref={detailsHeadingRef} tabIndex={-1}>Review the address and facts</h2>
-            <p>We may fill available property facts after lookup. Correct anything that does not match.</p>
+            <p className="eyebrow">Step 2</p>
+            <h2 id="property-address-details-heading" ref={detailsHeadingRef} tabIndex={-1}>Review the details</h2>
+            <p>Update anything we missed.</p>
           </header>
           <div className="form-grid">
             {locationDetails}

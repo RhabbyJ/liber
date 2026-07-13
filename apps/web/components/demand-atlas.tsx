@@ -11,15 +11,3 @@ export function DemandAtlasBackdrop() {
     </div>
   );
 }
-
-export function DemandPrivacyLegend() {
-  return (
-    <span aria-hidden="true" className="demand-privacy-legend">
-      <span className="privacy-exact-point" />
-      <span className="privacy-legend-connector" />
-      <span className="privacy-halo"><i /></span>
-      <span className="privacy-legend-connector" />
-      <span className="privacy-demand-signal"><i /></span>
-    </span>
-  );
-}

@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { signupWithPassword } from "../server/auth-actions";
 import { Icon } from "./icon";
+import { SignupHeroIllustration, SignupRoleIllustration } from "./signup-illustration";
 
 type Role = "buyer" | "seller" | "both";
 
@@ -12,63 +13,58 @@ type Notice = { tone: string; title: string; body: string };
 type Props = {
   initialRole: Role | null;
   initialEmail: string;
+  initialFocus: "name" | "email" | "password" | "notice" | null;
   initialStep: number | null;
   next: string;
   notice: Notice | null;
 };
 
-const STEP_LABELS = ["You", "Name", "Email", "Password"] as const;
 const SIGNUP_DRAFT_KEY = "liber.signup.draft";
 
-const ROLE_CARDS: Array<{
-  value: Role;
-  label: string;
-  description: string;
-  icon: "user" | "search" | "compass";
-}> = [
-  {
-    value: "buyer",
-    label: "Looking to buy a home",
-    description: "Publish what you’re looking for and let matching sellers reach out.",
-    icon: "user",
-  },
-  {
-    value: "seller",
-    label: "Looking to sell a home",
-    description: "Search the buyer directory before you list and send manual invites.",
-    icon: "search",
-  },
-  {
-    value: "both",
-    label: "Both, actually",
-    description: "Run buyer and seller workflows from one Liber account.",
-    icon: "compass",
-  },
+const ROLE_CARDS: Array<{ value: Role; label: string }> = [
+  { value: "buyer", label: "Buy a home" },
+  { value: "seller", label: "Sell a home" },
+  { value: "both", label: "Buy and sell" },
 ];
 
-export function SignupWizard({ initialRole, initialEmail, initialStep, next, notice }: Props) {
+type ValidationError = { field: "role" | "name" | "email" | "password"; message: string };
+
+export function SignupWizard({ initialRole, initialEmail, initialFocus, initialStep, next, notice }: Props) {
   const startingStep = initialStep ?? 0;
   const [step, setStep] = useState(startingStep);
   const [role, setRole] = useState<Role>(initialRole ?? "buyer");
   const [name, setName] = useState("");
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ValidationError | null>(null);
 
+  const noticeRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const roleCardRefs = useRef<Partial<Record<Role, HTMLButtonElement | null>>>({});
+  const initialFocusAppliedRef = useRef(false);
 
-  const total = STEP_LABELS.length;
+  const total = 2;
   const progress = ((step + 1) / total) * 100;
 
   useEffect(() => {
-    const ref = step === 1 ? nameRef : step === 2 ? emailRef : step === 3 ? passwordRef : null;
-    if (ref?.current) {
-      const id = window.setTimeout(() => ref.current?.focus(), 220);
+    if (!initialFocusAppliedRef.current && initialFocus) {
+      initialFocusAppliedRef.current = true;
+      const target = initialFocus === "notice"
+        ? noticeRef
+        : initialFocus === "email"
+          ? emailRef
+          : initialFocus === "password"
+            ? passwordRef
+            : nameRef;
+      const id = window.setTimeout(() => target.current?.focus(), 220);
       return () => window.clearTimeout(id);
     }
-  }, [step]);
+    if (step !== 1) return;
+    const id = window.setTimeout(() => nameRef.current?.focus(), 220);
+    return () => window.clearTimeout(id);
+  }, [initialFocus, step]);
 
   useEffect(() => {
     if (!notice) {
@@ -84,94 +80,84 @@ export function SignupWizard({ initialRole, initialEmail, initialStep, next, not
     if (!initialEmail && draft.email) setEmail(draft.email);
   }, [initialEmail, initialRole, notice]);
 
-  function validateCurrent(): string | null {
-    if (step === 0 && !role) return "Pick one to continue.";
-    if (step === 1 && name.trim().length < 1) return "Add your name to continue.";
-    if (step === 2) {
-      if (!email.trim()) return "Enter your email.";
-      if (!/^\S+@\S+\.\S+$/.test(email.trim())) return "Use a valid email format.";
-    }
-    if (step === 3) {
-      if (!password) return "Create a password.";
-      if (password.length < 12) return "Use at least 12 characters.";
+  function validateCurrent(): ValidationError | null {
+    if (step === 0 && !role) return { field: "role", message: "Pick one to continue." };
+    if (step === 1) {
+      if (name.trim().length < 1) return { field: "name", message: "Add your name to continue." };
+      if (!email.trim()) return { field: "email", message: "Enter your email." };
+      if (!/^\S+@\S+\.\S+$/.test(email.trim())) return { field: "email", message: "Use a valid email format." };
+      if (!password) return { field: "password", message: "Create a password." };
+      if (password.length < 12) return { field: "password", message: "Use at least 12 characters." };
     }
     return null;
   }
 
   function goNext() {
-    const message = validateCurrent();
-    if (message) {
-      setError(message);
+    const validationError = validateCurrent();
+    if (validationError) {
+      showValidationError(validationError);
       return;
     }
     setError(null);
-    setStep((s) => Math.min(s + 1, total - 1));
+    setStep((current) => Math.min(current + 1, total - 1));
   }
 
   function goBack() {
     setError(null);
-    setStep((s) => Math.max(s - 1, 0));
-  }
-
-  function handleKeyDown(event: KeyboardEvent<HTMLFormElement>) {
-    if (event.key !== "Enter") return;
-    if (step === total - 1) return;
-    const target = event.target as HTMLElement;
-    if (target.tagName === "TEXTAREA") return;
-    event.preventDefault();
-    goNext();
+    setStep(0);
+    window.requestAnimationFrame(() => roleCardRefs.current[role]?.focus());
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    const message = validateCurrent();
-    if (message) {
+    const validationError = validateCurrent();
+    if (validationError) {
       event.preventDefault();
-      setError(message);
+      showValidationError(validationError);
       return;
     }
     saveSignupDraft({ email, name, role });
   }
 
+  function showValidationError(validationError: ValidationError) {
+    setError(validationError);
+    window.requestAnimationFrame(() => {
+      if (validationError.field === "name") nameRef.current?.focus();
+      if (validationError.field === "email") emailRef.current?.focus();
+      if (validationError.field === "password") passwordRef.current?.focus();
+      if (validationError.field === "role") roleCardRefs.current[role]?.focus();
+    });
+  }
+
   return (
     <div className="signup-flow" data-signup-has-notice={notice ? "true" : undefined} data-signup-wizard>
-      <div className="signup-progress" aria-hidden="true">
+      <div
+        aria-label={`Step ${step + 1} of ${total}`}
+        aria-valuemax={total}
+        aria-valuemin={1}
+        aria-valuenow={step + 1}
+        className="signup-progress"
+        role="progressbar"
+      >
         <div className="signup-progress-fill" data-signup-progress style={{ width: `${progress}%` }} />
       </div>
-      <ol className="signup-steps" aria-label="Signup steps">
-        {STEP_LABELS.map((label, idx) => {
-          const isActive = step === idx;
-          const isDone = step > idx;
-          return (
-            <li
-              key={label}
-              data-signup-step-item
-              className={`signup-step ${isActive ? "active" : ""} ${isDone ? "done" : ""}`}
-              aria-current={isActive ? "step" : undefined}
-            >
-              <span className="signup-step-num">
-                {isDone ? <Icon name="check" size={11} /> : idx + 1}
-              </span>
-              <span>{label}</span>
-            </li>
-          );
-        })}
-      </ol>
 
-      <form action={signupWithPassword} className="signup-form" data-signup-form onSubmit={handleSubmit} onKeyDown={handleKeyDown}>
+      <form action={signupWithPassword} className="signup-form" data-signup-form onSubmit={handleSubmit}>
         <input name="next" type="hidden" value={next} />
         <input name="role" type="hidden" value={role} />
 
+        <SignupHeroIllustration />
+
         {notice ? (
-          <div className={`auth-alert ${notice.tone}`}>
+          <div className={`auth-alert ${notice.tone}`} ref={noticeRef} role="alert" tabIndex={-1}>
             <strong>{notice.title}</strong>
             <span>{notice.body}</span>
           </div>
         ) : null}
 
-        <section className="signup-pane" data-signup-pane hidden={step !== 0} aria-hidden={step !== 0} key={`pane-${step}`}>
+        <section className="signup-pane" data-signup-pane hidden={step !== 0} aria-hidden={step !== 0}>
           <p className="signup-eyebrow">Step 1 of {total}</p>
-          <h1 className="signup-question">What brings you to Liber?</h1>
-          <p className="signup-helper">Choose buyer, seller, or both for this account.</p>
+          <h1 className="signup-question">How will you use Liber?</h1>
+          <p className="signup-helper">Choose your path.</p>
           <div className="signup-role-cards">
             {ROLE_CARDS.map((card) => {
               const selected = role === card.value;
@@ -182,14 +168,14 @@ export function SignupWizard({ initialRole, initialEmail, initialStep, next, not
                   data-signup-role={card.value}
                   key={card.value}
                   onClick={() => setRole(card.value)}
+                  ref={(node) => { roleCardRefs.current[card.value] = node; }}
                   type="button"
                 >
-                  <span className="signup-role-icon">
-                    <Icon name={card.icon} size={20} />
+                  <span className="signup-role-art">
+                    <SignupRoleIllustration role={card.value} />
                   </span>
                   <span className="signup-role-text">
                     <strong>{card.label}</strong>
-                    <span>{card.description}</span>
                   </span>
                   {selected ? (
                     <span className="signup-role-check">
@@ -204,81 +190,79 @@ export function SignupWizard({ initialRole, initialEmail, initialStep, next, not
 
         <section className="signup-pane" data-signup-pane hidden={step !== 1} aria-hidden={step !== 1}>
           <p className="signup-eyebrow">Step 2 of {total}</p>
-          <h1 className="signup-question">What should we call you?</h1>
-          <p className="signup-helper">This private account name is never shown in the buyer directory. Buyer profiles use a generated alias.</p>
-          <input
-            autoComplete="name"
-            className="signup-input"
-            id="name"
-            name="name"
-            onChange={(event) => setName(event.target.value)}
-            placeholder="First Last"
-            ref={nameRef}
-            value={name}
-          />
-        </section>
-
-        <section className="signup-pane" data-signup-pane hidden={step !== 2} aria-hidden={step !== 2}>
-          <p className="signup-eyebrow">Step 3 of {total}</p>
-          <h1 className="signup-question">What&rsquo;s your email?</h1>
-          <p className="signup-helper">We&rsquo;ll send a verification link before your account goes live.</p>
-          <input
-            autoComplete="email"
-            className="signup-input"
-            id="email"
-            name="email"
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
-            ref={emailRef}
-            type="email"
-            value={email}
-          />
-        </section>
-
-        <section className="signup-pane" data-signup-pane hidden={step !== 3} aria-hidden={step !== 3}>
-          <p className="signup-eyebrow">Step 4 of {total}</p>
-          <h1 className="signup-question">Create a password</h1>
-          <p className="signup-helper">Use at least 12 characters.</p>
-          <input
-            autoComplete="new-password"
-            className="signup-input"
-            id="password"
-            minLength={12}
-            name="password"
-            onChange={(event) => setPassword(event.target.value)}
-            ref={passwordRef}
-            type="password"
-            value={password}
-          />
-          <div className="signup-summary">
-            <span className="signup-summary-row">
-              <Icon name="user" size={13} /> {summarizeRole(role)}
-            </span>
-            <span className="signup-summary-row">
-              <Icon name="mail" size={13} /> {email || "—"}
-            </span>
+          <h1 className="signup-question">Create your account</h1>
+          <p className="signup-helper">Your name stays private. We&rsquo;ll verify your email.</p>
+          <div className="signup-account-fields">
+            <label className="signup-field" htmlFor="name">
+              <span className="signup-field-label">Name <small>Private</small></span>
+              <input
+                autoComplete="name"
+                className="signup-input"
+                id="name"
+                name="name"
+                onChange={(event) => setName(event.target.value)}
+                placeholder="First Last"
+                ref={nameRef}
+                required
+                aria-describedby={error?.field === "name" ? "signup-error" : undefined}
+                aria-invalid={error?.field === "name" || undefined}
+                value={name}
+              />
+            </label>
+            <label className="signup-field" htmlFor="email">
+              <span className="signup-field-label">Email</span>
+              <input
+                autoComplete="email"
+                className="signup-input"
+                id="email"
+                name="email"
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@example.com"
+                ref={emailRef}
+                required
+                type="email"
+                aria-describedby={error?.field === "email" ? "signup-error" : undefined}
+                aria-invalid={error?.field === "email" || undefined}
+                value={email}
+              />
+            </label>
+            <label className="signup-field" htmlFor="password">
+              <span className="signup-field-label">Password <small>12+ characters</small></span>
+              <input
+                autoComplete="new-password"
+                className="signup-input"
+                id="password"
+                minLength={12}
+                name="password"
+                onChange={(event) => setPassword(event.target.value)}
+                ref={passwordRef}
+                required
+                type="password"
+                aria-describedby={error?.field === "password" ? "signup-error" : undefined}
+                aria-invalid={error?.field === "password" || undefined}
+                value={password}
+              />
+            </label>
           </div>
-          <p className="signup-next-step">
-            <Icon name="arrow-right" size={13} />
-            {nextStepLabel(role, next)}
-          </p>
         </section>
 
-        <p className="signup-error" data-signup-error hidden={!error}>
-          {error}
+        <p className="signup-error" data-signup-error hidden={!error} id="signup-error" role="alert">
+          {error?.message}
         </p>
 
-        <div className="signup-actions">
-          <button className="button ghost" data-signup-back disabled={step === 0} onClick={goBack} type="button">
-            Back
-          </button>
+        <div className={`signup-actions ${step === 0 ? "forward-only" : ""}`}>
+          {step > 0 ? (
+            <button className="button ghost" data-signup-back onClick={goBack} type="button">
+              Back
+            </button>
+          ) : null}
           <button
             className="button primary lg"
             data-signup-next
             onClick={step < total - 1 ? goNext : undefined}
             type={step < total - 1 ? "button" : "submit"}
           >
-            {step < total - 1 ? "Continue" : "Create account"}
+            {step < total - 1 ? continueLabel(role) : "Create account"}
             <Icon name="arrow-right" size={14} />
           </button>
         </div>
@@ -292,23 +276,10 @@ export function SignupWizard({ initialRole, initialEmail, initialStep, next, not
   );
 }
 
-function summarizeRole(role: Role) {
-  if (role === "seller") return "Selling a home";
-  if (role === "both") return "Buyer and seller";
-  return "Buying a home";
-}
-
-function nextStepLabel(role: Role, next: string) {
-  const hasBuyerRole = role === "buyer" || role === "both";
-  const hasSellerRole = role === "seller" || role === "both";
-  if (hasSellerRole && next.startsWith("/seller/")) {
-    return "Next: verify your email, then open your seller workspace.";
-  }
-  if (hasBuyerRole && next.startsWith("/buyer/")) {
-    return "Next: verify your email, then finish your buyer profile.";
-  }
-  if (role === "seller") return "Next: verify your email, then open your seller workspace.";
-  return "Next: verify your email, then finish your buyer profile.";
+function continueLabel(role: Role) {
+  if (role === "seller") return "Continue as seller";
+  if (role === "both") return "Continue with both";
+  return "Continue as buyer";
 }
 
 function saveSignupDraft(draft: { email: string; name: string; role: Role }) {

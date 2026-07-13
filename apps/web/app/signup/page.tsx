@@ -10,19 +10,20 @@ export default async function SignupPage({
 }: {
   searchParams: Promise<{ email?: string; next?: string; role?: string; status?: string; step?: string }>;
 }) {
-  const { email = "", next = "", role = "", status = "", step = "" } = await searchParams;
+  const { email = "", next = "", role = "", status = "" } = await searchParams;
   const safeNext = safeInternalPath(next, "");
   const initialRole = parseRole(role);
-  const initialStep = parseStep(step);
   const user = await getSessionUser();
   if (user) redirect(pathForSignedInAuthIntent(user, { next: safeNext }));
 
   const notice = signupNotice(status);
+  const initialStep = notice && status !== "invalid-role" ? 1 : 0;
 
   return (
     <div className="signup-shell">
       <SignupWizard
         initialEmail={email}
+        initialFocus={signupFocusTarget(status)}
         initialRole={initialRole}
         initialStep={initialStep}
         next={safeNext}
@@ -38,12 +39,11 @@ function parseRole(role: string): "buyer" | "seller" | "both" | null {
   return null;
 }
 
-function parseStep(step: string) {
-  const value = step.toLowerCase();
-  if (value === "role") return 0;
-  if (value === "name") return 1;
-  if (value === "email") return 2;
-  if (value === "password") return 3;
+function signupFocusTarget(status: string): "name" | "email" | "password" | "notice" | null {
+  if (status === "missing-fields") return "name";
+  if (status === "invalid-email") return "email";
+  if (status === "weak-password") return "password";
+  if (signupNotice(status)) return "notice";
   return null;
 }
 

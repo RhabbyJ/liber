@@ -1,5 +1,5 @@
 Liber should build a quiet, ownable visual system around “demand cartography”: maps, property geometry, privacy boundaries, and evidence-to-trust transformations. The current UI is already moving in the right direction—cool neutrals, Liber’s original light green, restrained blue and gold accents, flat cards, dense product information, and map-first discovery. Generic real-estate photography or character-heavy startup illustration would weaken it.
-Implementation decision: ship the first milestone as reusable HTML/CSS primitives built from Liber’s existing icon system—Demand Atlas signals and privacy cues, the Trust Transformation flow, and contextual quiet states. Keep the larger property, invitation, profile, address, authentication, and error illustration families deferred until editable vector masters are approved in Figma, Affinity Designer, or Illustrator.
+Implementation decision: keep Demand Atlas signals limited to maps and retain the focused Trust Transformation diagram, but do not spread one decorative empty-state template across the product. Ship the first illustration milestone on the two highest-value entry flows: an original signup scene with visual role choices and an original private-property scene with a smaller ownership-review graphic. Keep the larger invitation, profile, and error families deferred until editable vector masters are approved in Figma, Affinity Designer, or Illustrator.
 
 1. Recommended visual language
    Core idea: private demand, made legible
@@ -388,10 +388,11 @@ The strongest first milestone is the Demand Atlas plus Trust Transformation fami
 Implementation status
 The first milestone is implemented in the UI refresh branch:
 Demand Atlas backdrop primitives are shared by public and seller fallback maps.
-Public preview includes a compact exact-point → privacy-halo → approximate-signal explanation.
+Public preview keeps privacy explanation to a short text line; the abstract demand graphic stays inside maps.
 Public and seller map signals use the same circular grammar, production deep-green fill with white centers and outlines, muted-green privacy halos, visible focus, and 44 px targets.
 Buyer verification includes the private evidence → Liber review → visible badge explanation.
-Search, seller access, property, invite, and notification empty states reuse one quiet contour/parcel/signal system.
-The shared UI micro-document records the authoritative palette, accessibility treatment, and geometry boundary.
+Signup now uses two visual steps with short copy and original role graphics. Property creation uses an original private-parcel scene plus an `Address -> Details -> Confirm` path and ownership-review graphic.
+Demand Atlas remains limited to map fallback/privacy context, Trust Transformation remains a focused explanation, and the generic quiet-state rollout is deferred.
+The shared UI micro-document records the authoritative palette, entry-page hierarchy, and geometry boundary.
 
 No product behavior, authorization, schema, migration, environment variable, or dependency changed. Larger signature artwork remains subject to the approval workflow above and should not be replaced with raw AI or third-party illustration-library output.

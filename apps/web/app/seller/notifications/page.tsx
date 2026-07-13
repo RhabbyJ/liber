@@ -21,11 +21,11 @@ export default async function SellerNotificationsPage() {
         }
       />
       {notifications.length === 0 ? (
-        <EmptyState icon="sparkle" visual="notifications" title="All quiet" description="No new activity yet. Check back after buyers respond." />
+        <EmptyState icon="sparkle" title="All quiet" description="No new activity yet. Check back after buyers respond." />
       ) : (
-        <section className="activity-list">
+        <section className="grid two">
           {notifications.map((notification) => (
-            <article className="activity-row" key={notification.id}>
+            <article className="card stack" key={notification.id}>
               <div className="section-head compact">
                 <p className="eyebrow seller">{notification.type.replace(/_/g, " ")}</p>
                 <span className={notification.readAt ? "status-dot" : "status-dot warning"}>

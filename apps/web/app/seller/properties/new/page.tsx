@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Icon } from "../../../../components/icon";
 import { PropertyAddressLookup } from "../../../../components/property-address-lookup";
+import { OwnershipReviewIllustration, PropertyHeroIllustration } from "../../../../components/property-intake-illustration";
 import { propertyTypeOptions } from "../../../../lib/property-types";
 import { DEFAULT_MARKET_SLUG } from "../../../../lib/service-areas";
 import { submitSellerProperty } from "../../../../server/form-actions";
@@ -30,18 +31,22 @@ export default async function NewSellerPropertyPage({
         {safeNext ? <input name="next" type="hidden" value={safeNext} /> : null}
 
         <div className="seller-property-intake-hero">
-          <PropertyIntakeArtwork />
-          <h1>Add a private property</h1>
-          <p className="seller-property-intake-lede">
-            Start with the address. We will look for available property facts, then you can review every detail before saving.
-          </p>
+          <PropertyHeroIllustration />
+          <p className="eyebrow">Step 1</p>
+          <h1>Add your property</h1>
+          <p className="seller-property-intake-lede">Enter the address to get started. It stays private.</p>
+          <ol className="property-intake-steps" aria-label="Property setup steps">
+            <li><span>1</span><strong>Address</strong></li>
+            <li><span>2</span><strong>Details</strong></li>
+            <li><span>3</span><strong>Confirm</strong></li>
+          </ol>
           <PropertyAddressLookup marketSlug={market.slug} marketState={market.state} presentation="intake" />
         </div>
 
         <section className="seller-property-intake-section" aria-labelledby="property-context-heading">
           <header className="property-intake-section-head">
-            <h2 id="property-context-heading">Add matching context</h2>
-            <p>These details help compare your property with buyer demand. They are never published as a public listing.</p>
+            <h2 id="property-context-heading">Match with buyers</h2>
+            <p>Add details buyers care about.</p>
           </header>
           <div className="form-grid">
             <div className="field">
@@ -51,15 +56,13 @@ export default async function NewSellerPropertyPage({
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
-              <span className="field-hint">Used for matching against buyer seeking type.</span>
             </div>
             <div className="field">
               <label htmlFor="price">Asking price</label>
               <input id="price" name="price" placeholder="925000" inputMode="numeric" />
-              <span className="field-hint">Used only for matching and private invite context.</span>
             </div>
             <div className="field">
-              <label htmlFor="garage">Garage area</label>
+              <label htmlFor="garage">Garage size (sq ft)</label>
               <input id="garage" name="garageArea" placeholder="420" inputMode="numeric" />
             </div>
             <div className="field">
@@ -71,31 +74,31 @@ export default async function NewSellerPropertyPage({
               <textarea id="features" name="features" placeholder="Single story, attached garage, low-maintenance yard" />
             </div>
             <div className="field full">
-              <label htmlFor="description">Private description</label>
-              <textarea id="description" name="description" placeholder="Add useful context for buyers you choose to invite." />
+              <label htmlFor="description">Notes for invited buyers</label>
+              <textarea id="description" name="description" placeholder="Add useful private context." />
             </div>
           </div>
         </section>
 
         <section className="seller-property-intake-section" aria-labelledby="property-authority-heading">
           <header className="property-intake-section-head">
-            <h2 id="property-authority-heading">Confirm your authority</h2>
-            <p>A saved property remains private and cannot back new invites until the required ownership review is current.</p>
+            <p className="eyebrow">Step 3</p>
+            <h2 id="property-authority-heading">Confirm and save</h2>
           </header>
 
           <div className="property-intake-next-step">
-            <Icon name="lock" size={18} />
+            <OwnershipReviewIllustration />
             <div>
-              <strong>Evidence comes next</strong>
-              <p>After saving, upload a government-issued photo ID and a utility, tax, or mortgage bill for private admin review.</p>
+              <strong>Next: verify ownership</strong>
+              <p>After saving, upload your ID and a matching property bill for private review.</p>
             </div>
           </div>
 
           <div className="property-intake-attestation">
             <strong>Ownership confirmation required</strong>
             <p>
-              It is illegal to claim a property you do not legally own. Accepting an offer on a property you do not own or
-              represent can be a criminal offense punishable by law. Confirming here does not replace admin review of ownership evidence.
+              Only add a property you own or are authorized to represent. Claiming another person&rsquo;s property may be illegal.
+              Liber still reviews your documents.
             </p>
             <label className="checkbox-container">
               <input name="ownershipConfirmed" required type="checkbox" value="true" />
@@ -108,31 +111,11 @@ export default async function NewSellerPropertyPage({
             <Link className="button ghost" href="/seller/properties">Cancel</Link>
             <button className="button primary" type="submit">
               <Icon name="check" size={14} />
-              Save private property
+              Save and continue
             </button>
           </div>
         </section>
       </form>
-    </div>
-  );
-}
-
-function PropertyIntakeArtwork() {
-  return (
-    <div aria-hidden="true" className="property-intake-art">
-      <span className="property-intake-art-ground" />
-      <span className="property-intake-art-tree property-intake-art-tree-left">
-        <span />
-      </span>
-      <span className="property-intake-art-house">
-        <span className="property-intake-art-roof" />
-        <span className="property-intake-art-window property-intake-art-window-left" />
-        <span className="property-intake-art-window property-intake-art-window-right" />
-        <span className="property-intake-art-door" />
-      </span>
-      <span className="property-intake-art-tree property-intake-art-tree-right">
-        <span />
-      </span>
     </div>
   );
 }

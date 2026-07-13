@@ -25,13 +25,13 @@ export default async function SellerPropertiesPage() {
         Property records are required before sending an invite. They stay private and are only shared with the buyers you invite.
       </PageTitle>
 
-      <section className="privacy-note">
+      <section className="card cream stack">
         <div className="section-head compact">
           <div className="stack tight">
-            <p className="eyebrow">Privacy</p>
+            <p className="eyebrow amber">Privacy</p>
             <h2 style={{ fontSize: 20 }}>Not a public listing</h2>
           </div>
-          <span className="privacy-note-state">
+          <span className="status-dot amber">
             <Icon name="lock" size={12} />
             Invite-only
           </span>
@@ -45,7 +45,6 @@ export default async function SellerPropertiesPage() {
       {properties.length === 0 ? (
         <EmptyState
           icon="home"
-          visual="properties"
           title="No private properties yet"
           description="Add a property to send invites to matching buyers. Ownership documents are stored privately and reviewed by Liber admins."
           actions={

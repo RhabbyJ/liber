@@ -10,8 +10,8 @@ import { primaryNavItems } from "./primary-nav-items";
 const PRIMARY_NAV_FALLBACK = `
 (() => {
   function init(shell) {
-    if (shell.__liberPrimaryNavFallbackReady) return;
-    shell.__liberPrimaryNavFallbackReady = true;
+    if (shell.dataset.primaryNavFallbackReady === "true") return;
+    shell.dataset.primaryNavFallbackReady = "true";
 
     const button = shell.querySelector("[data-mobile-menu-button]");
     const nav = shell.querySelector("[data-primary-nav-menu]");

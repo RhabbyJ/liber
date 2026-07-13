@@ -28,7 +28,6 @@ export default async function BuyerInvitesPage() {
       {invites.length === 0 ? (
         <EmptyState
           icon="mail"
-          visual="invites"
           title="No invites yet"
           description="Sellers will reach out as your profile matches their property. Add verification badges to stand out faster."
           actions={

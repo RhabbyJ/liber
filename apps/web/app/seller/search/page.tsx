@@ -6,7 +6,6 @@ import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
 import { PageTitle } from "../../../components/page-title";
 import { PublicBuyerPreviewCard } from "../../../components/public-buyer-preview-card";
-import { QuietStateVisual } from "../../../components/quiet-state-visual";
 import { SearchFiltersSidebar } from "../../../components/search-filters-sidebar";
 import { SellerMapLocationSearch } from "../../../components/seller-map-location-search";
 import { SortSelect } from "../../../components/sort-select";
@@ -61,12 +60,9 @@ export default async function SellerSearchPage({
     if (sellerAccess.status === "SUSPENDED") {
       return (
         <div className="page stack loose">
-          <PageTitle eyebrow="Seller directory" title="Directory access unavailable" tone="seller">
-            Buyer browsing and invite tools are unavailable for this account.
-          </PageTitle>
+          <PageTitle eyebrow="Seller directory" title="Directory access unavailable" tone="seller" />
           <section className="seller-access-bar suspended" aria-label="Seller directory status">
             <div className="seller-access-main">
-              <QuietStateVisual compact name="access" />
               <div className="seller-access-copy">
                 <span>Directory status</span>
                 <strong>Suspended</strong>
@@ -84,15 +80,12 @@ export default async function SellerSearchPage({
       <div className="page wide seller-preview-page stack loose">
         <PageTitle
           eyebrow="Seller directory"
-          title="Browse current buyer demand"
+          title="Buyer demand"
           tone="seller"
-        >
-          Every seller can browse this privacy-safe view. Approval unlocks full profiles, advanced filters, and manual invites.
-        </PageTitle>
+        />
 
         <section className={`seller-access-bar ${accessState.tone}`} aria-label="Seller directory review status">
           <div className="seller-access-main">
-            <QuietStateVisual compact name="access" />
             <div className="seller-access-copy">
               <span>Directory review</span>
               <strong>{accessState.label}</strong>
@@ -107,9 +100,8 @@ export default async function SellerSearchPage({
         <section className="seller-preview-directory">
           <header className="seller-preview-header">
             <div>
-              <p className="eyebrow">Read-only buyer overview</p>
               <h2>{selectedServiceAreaLabel ? `Buyer demand near ${selectedServiceAreaLabel}` : `${market.label} buyer demand`}</h2>
-              <p>{previews.length} privacy-safe buyer demand {previews.length === 1 ? "summary" : "summaries"}</p>
+              <p>{previews.length} anonymized {previews.length === 1 ? "buyer summary" : "buyer summaries"}</p>
             </div>
             <div className="seller-preview-location-search">
               <SellerMapLocationSearch
@@ -129,16 +121,10 @@ export default async function SellerSearchPage({
           ) : (
             <EmptyState
               icon="people"
-              visual="search"
               title="No buyer demand to show here yet"
-              description="Try another supported city, neighborhood, or ZIP. New active buyer demand will appear here automatically."
+              description="Try another supported city, neighborhood, or ZIP."
             />
           )}
-
-          <footer className="seller-preview-lock-note">
-            <Icon name="lock" size={14} />
-            Buyer identities, full profiles, contact actions, and invites stay locked until directory approval.
-          </footer>
         </section>
       </div>
     );
@@ -250,7 +236,6 @@ export default async function SellerSearchPage({
               <div style={{ padding: 24 }}>
                 <EmptyState
                   icon="search"
-                  visual="search"
                   title="No buyers match these filters"
                   description="Try another supported area, raising the budget ceiling, or removing badge filters."
                 />
@@ -281,7 +266,7 @@ export default async function SellerSearchPage({
 function sellerAccessState(status?: string | null) {
   if (status === "REJECTED") {
     return {
-      description: "You can keep browsing anonymized demand and managing private properties, but full directory access is not approved.",
+      description: "Full profiles and invites are locked. You can still browse anonymized demand.",
       label: "Not approved",
       tone: "rejected",
     };
@@ -289,14 +274,14 @@ function sellerAccessState(status?: string | null) {
 
   if (!status) {
     return {
-      description: "You can browse anonymized demand, but a full-directory review has not started for this account.",
+      description: "Review has not started. You can still browse anonymized demand.",
       label: "Review not started",
       tone: "not-started",
     };
   }
 
   return {
-    description: "You can browse anonymized buyer needs and prepare properties while Liber reviews full directory access.",
+    description: "Full profiles and invites unlock after review.",
     label: "Awaiting review",
     tone: "pending",
   };

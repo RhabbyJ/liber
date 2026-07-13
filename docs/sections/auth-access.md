@@ -38,7 +38,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Signup name is private account identity; do not treat it as seller/public buyer profile display.
 - Signup role selection may initialize only BUYER/SELLER roles from the validated server form after Supabase creates the Auth UUID and before the email-verification redirect; admin remains server-controlled.
 - Signup asks for buyer, seller, or both exactly once. The verified callback reads the persisted database roles and never displays a second role-selection page.
-- Role-prefilled buyer/seller signup entry still opens on Step 1 with the role visibly selected. Explicit server-error recovery steps may reopen the relevant later pane.
+- Signup uses two presentation steps: confirm buyer/seller intent, then enter the private name, email, and password fields. Role-prefilled entry still opens on Step 1 with the role visibly selected; field-level server-error recovery reopens Step 2.
 - Signed-in users should continue only when they already have the role needed for the requested path; a role mismatch returns them to their existing default workspace.
 - Auth routes must not use `/login`, `/signup`, `/signup/*`, `/auth/callback`, or the removed legacy `/onboarding/role` path as post-login destinations; resolve stale auth-flow `next` values to the user's role-aware default.
 - Auth POST redirects and same-origin checks must use `request-origin.ts` to keep the incoming request host/protocol and avoid local `127.0.0.1`/`localhost` CSP and cookie mismatches.

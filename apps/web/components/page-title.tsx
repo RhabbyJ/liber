@@ -6,12 +6,14 @@ export function PageTitle({
   eyebrow,
   title,
   tone,
+  badge,
   actions,
   children,
 }: {
   eyebrow?: string;
   title: string;
   tone?: Tone;
+  badge?: ReactNode;
   actions?: ReactNode;
   children?: ReactNode;
 }) {
@@ -19,9 +21,10 @@ export function PageTitle({
 
   return (
     <section className="page-title">
-      {eyebrow ? (
+      {(eyebrow || badge) ? (
         <div className="page-title-top">
-          <span className={eyebrowClass}>{eyebrow}</span>
+          {badge}
+          {eyebrow ? <span className={eyebrowClass}>{eyebrow}</span> : null}
         </div>
       ) : null}
       <div className="section-head">

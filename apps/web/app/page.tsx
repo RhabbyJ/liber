@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { Icon } from "../components/icon";
-import { DemandPrivacyLegend } from "../components/demand-atlas";
-import { QuietStateVisual } from "../components/quiet-state-visual";
 import { PublicMapLocationSearch } from "../components/public-map-location-search";
 import { PublicBuyerPreviewCard } from "../components/public-buyer-preview-card";
 import { PublicDemandMap } from "../components/public-demand-map";
@@ -93,7 +91,7 @@ export default async function HomePage({
               ))
             ) : selectedArea ? (
               <article className="demand-card demand-empty-card">
-                <QuietStateVisual compact name="search" />
+                <span className="empty-icon"><Icon name="search" size={20} /></span>
                 <h3>No preview cards here yet</h3>
                 <p>No privacy-safe buyer previews match this selected area.</p>
               </article>
@@ -110,10 +108,7 @@ export default async function HomePage({
             />
           </div>
 
-          <p className="demand-privacy">
-            <DemandPrivacyLegend />
-            <span>Anonymized preview - exact locations stay private</span>
-          </p>
+          <p className="demand-privacy">Anonymized preview - exact locations stay private</p>
         </aside>
       </section>
     </div>
