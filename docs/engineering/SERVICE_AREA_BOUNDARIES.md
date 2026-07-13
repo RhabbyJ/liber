@@ -64,12 +64,14 @@ The v1 database shape is scalable for ZIP-first LA expansion without changing ma
   a market without blocking a boundary-crossing source area in an adjacent market.
 - `service_areas(market_id, active, type)` supports active-area listing inside a market.
 - `service_areas(postal_code)` supports ZIP metadata lookup.
-- `service_area_search_terms(market_id, term_normalized text_pattern_ops)` stores reviewed lookup terms for bounded deterministic exact/prefix search. Results are deduplicated by service-area UUID.
+- `service_area_search_terms_market_term_prefix_idx` is the composite unique covering index for `(market_id, term_normalized, service_area_id)`. It stores reviewed lookup terms for bounded deterministic exact/prefix search without retaining a redundant larger prefix index. Results are deduplicated by service-area UUID.
 - relationship UUID/type/reviewed indexes support recursive reviewed rollups without rewriting buyers.
 - `buyer_desired_service_areas(service_area_id, buyer_profile_id)` supports seller/public selected-area filtering.
 - a deferred constraint trigger prevents a buyer profile/selection transaction from committing an active profile without exactly one active primary `SELECTED` row; deactivating its market or area automatically drafts the profile and reactivation does not republish it.
 
 Before true public production, run advisors and `EXPLAIN` against realistic data volume. PostGIS remains a later point-in-polygon upgrade; do not add text/bbox fallback to compensate for missing polygons.
+
+The production default planner has been verified to use `service_area_search_terms_market_term_prefix_idx` for the bounded prefix path. Plan proof must use the default planner; disabling sequential scans is not acceptable evidence.
 
 ## Search And Filtering
 
@@ -77,6 +79,8 @@ Public service-area endpoints return metadata only:
 
 - `GET /api/service-areas/search?market=los-angeles&q=northridge`
 - `GET /api/service-areas/:slug?market=los-angeles`
+
+These are server-mediated Next.js endpoints. Raw Supabase Data API reads of the canonical geography tables are intentionally denied to `anon` and `authenticated`; do not restore table grants as an endpoint shortcut.
 
 The search endpoint returns both exact resolution and suggestions. Clients may auto-select only when `resolution.status` is `resolved`; a single prefix suggestion such as `stu` is still only a suggestion until the user chooses the supported service area.
 
@@ -194,6 +198,7 @@ Current fixture data passes when:
 - conflicting/unresolved legacy profiles are quarantined and draft,
 - every active area's bbox lies inside the recomputed market bbox,
 - no Mapbox temporary result payload is stored as canonical geography.
+- direct browser-role reads of canonical geography tables are denied while the narrow public search endpoint still returns safe results without database UUIDs.
 
 For richer future spatial queries, add PostGIS polygon matching (`service_areas.geom`, buyer desired point geometry, GIST indexes, and `ST_Covers`/equivalent point-in-polygon matching). It is not required for the ZIP-first launch, and text/bbox matching must not be reintroduced as a substitute.
 

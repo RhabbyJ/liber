@@ -126,15 +126,6 @@ describe.skipIf(!enabled)("database-backed canonical service areas", () => {
         sameSlugInSecondaryMarket.id,
       );
       await prisma.market.update({ where: { id: market.id }, data: { active: true } });
-      for (const role of ["anon", "authenticated"] as const) {
-        expect(await visibleMarketIdsAsRole(prisma, role)).toContain(market.id);
-        expect(await visibleAreaIdsAsRole(prisma, role, market.id)).toEqual(expect.arrayContaining([
-          firstParent.id,
-          secondParent.id,
-          studioCityZip.id,
-          dbOnlyZip.id,
-        ]));
-      }
       expect((await getActiveServiceAreaBySlug(studioCityZip.slug, marketSlug))?.id).toBe(studioCityZip.id);
       expect(findServiceAreaBySlug(dbOnlyZip.slug)).toBeNull();
       expect((await getActiveServiceAreaBySlug(dbOnlyZip.slug, marketSlug))?.id).toBe(dbOnlyZip.id);
@@ -157,10 +148,6 @@ describe.skipIf(!enabled)("database-backed canonical service areas", () => {
           source: "e2e-unreviewed",
         },
       });
-      for (const role of ["anon", "authenticated"] as const) {
-        expect(await visibleRelationshipSourcesAsRole(prisma, role, market.id)).toContain("e2e");
-        expect(await visibleRelationshipSourcesAsRole(prisma, role, market.id)).not.toContain("e2e-unreviewed");
-      }
       await expect(prisma.serviceAreaRelationship.create({
         data: {
           childServiceAreaId: sameSlugInSecondaryMarket.id,
@@ -332,10 +319,6 @@ describe.skipIf(!enabled)("database-backed canonical service areas", () => {
         where: { id: buyerProfileId },
         select: { visibilityStatus: true },
       }))?.visibilityStatus).toBe("DRAFT");
-      for (const role of ["anon", "authenticated"] as const) {
-        expect(await visibleAreaIdsAsRole(prisma, role, market.id)).not.toContain(studioCityZip.id);
-        expect(await visibleRelationshipSourcesAsRole(prisma, role, market.id)).not.toContain("e2e-changed");
-      }
 
       await prisma.serviceArea.update({ where: { id: studioCityZip.id }, data: { active: true } });
       expect((await prisma.buyerProfile.findUnique({
@@ -343,10 +326,6 @@ describe.skipIf(!enabled)("database-backed canonical service areas", () => {
         select: { visibilityStatus: true },
       }))?.visibilityStatus).toBe("DRAFT");
       expect(await matchingBuyerIds(prisma, marketSlug, [studioCityZip.id])).toEqual([]);
-      for (const role of ["anon", "authenticated"] as const) {
-        expect(await visibleAreaIdsAsRole(prisma, role, market.id)).toContain(studioCityZip.id);
-        expect(await visibleRelationshipSourcesAsRole(prisma, role, market.id)).toContain("e2e-changed");
-      }
 
       await prisma.buyerProfile.update({
         where: { id: buyerProfileId },
@@ -362,11 +341,6 @@ describe.skipIf(!enabled)("database-backed canonical service areas", () => {
         where: { id: buyerProfileId },
         select: { visibilityStatus: true },
       }))?.visibilityStatus).toBe("DRAFT");
-      for (const role of ["anon", "authenticated"] as const) {
-        expect(await visibleMarketIdsAsRole(prisma, role)).not.toContain(market.id);
-        expect(await visibleAreaIdsAsRole(prisma, role, market.id)).toEqual([]);
-        expect(await visibleRelationshipSourcesAsRole(prisma, role, market.id)).toEqual([]);
-      }
 
       await prisma.market.update({ where: { id: market.id }, data: { active: true } });
       expect((await prisma.buyerProfile.findUnique({
@@ -374,10 +348,6 @@ describe.skipIf(!enabled)("database-backed canonical service areas", () => {
         select: { visibilityStatus: true },
       }))?.visibilityStatus).toBe("DRAFT");
       expect(await matchingBuyerIds(prisma, marketSlug, [studioCityZip.id])).toEqual([]);
-      for (const role of ["anon", "authenticated"] as const) {
-        expect(await visibleMarketIdsAsRole(prisma, role)).toContain(market.id);
-        expect(await visibleAreaIdsAsRole(prisma, role, market.id)).toContain(studioCityZip.id);
-      }
     } finally {
       if (marketId) {
         await prisma.buyerProfile.updateMany({ where: { id: buyerProfileId }, data: { visibilityStatus: "DRAFT" } });
@@ -389,6 +359,268 @@ describe.skipIf(!enabled)("database-backed canonical service areas", () => {
         await prisma.serviceArea.deleteMany({ where: { marketId: secondaryMarketId } });
         await prisma.market.deleteMany({ where: { id: secondaryMarketId } });
       }
+    }
+  }, 30_000);
+
+  it("keeps canonical geography grants, RLS, policies, and function access exact", async () => {
+    process.env.DATABASE_URL = databaseUrl;
+    const { prisma } = await import("@liber/db");
+    await assertDisposableE2EDatabase(prisma, databaseUrl!);
+
+    const tables = [
+      "buyer_desired_service_areas",
+      "markets",
+      "service_area_relationships",
+      "service_areas",
+    ];
+    const acl = await prisma.$queryRaw<Array<{
+      grantee: string;
+      privilege: string;
+      tableName: string;
+    }>>`
+      SELECT relation.relname AS "tableName",
+             CASE WHEN exploded.grantee = 0 THEN 'PUBLIC' ELSE grantee.rolname END AS grantee,
+             exploded.privilege_type AS privilege
+      FROM pg_class relation
+      JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+      CROSS JOIN LATERAL aclexplode(coalesce(relation.relacl, acldefault('r', relation.relowner))) exploded
+      LEFT JOIN pg_roles grantee ON grantee.oid = exploded.grantee
+      WHERE namespace.nspname = 'public'
+        AND relation.relname = ANY(${tables}::text[])
+        AND (exploded.grantee = 0 OR grantee.rolname IN ('anon', 'authenticated', 'service_role'))
+      ORDER BY relation.relname, grantee, exploded.privilege_type
+    `;
+    expect(acl).toEqual(tables.flatMap((tableName) =>
+      ["DELETE", "INSERT", "SELECT", "UPDATE"].map((privilege) => ({
+        grantee: "service_role",
+        privilege,
+        tableName,
+      })),
+    ));
+
+    const rls = await prisma.$queryRaw<Array<{ rlsEnabled: boolean; tableName: string }>>`
+      SELECT relation.relname AS "tableName", relation.relrowsecurity AS "rlsEnabled"
+      FROM pg_class relation
+      JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+      WHERE namespace.nspname = 'public' AND relation.relname = ANY(${tables}::text[])
+      ORDER BY relation.relname
+    `;
+    expect(rls).toEqual(tables.map((tableName) => ({ rlsEnabled: true, tableName })));
+
+    const policies = await prisma.$queryRaw<Array<{
+      command: string;
+      policyName: string;
+      roles: string;
+      tableName: string;
+    }>>`
+      SELECT tablename AS "tableName", policyname AS "policyName", cmd AS command,
+             array_to_string(roles, ',') AS roles
+      FROM pg_policies
+      WHERE schemaname = 'public' AND tablename = ANY(${tables}::text[])
+      ORDER BY tablename, policyname
+    `;
+    expect(policies).toEqual([
+      {
+        command: "SELECT",
+        policyName: "Active markets are public metadata",
+        roles: "anon,authenticated",
+        tableName: "markets",
+      },
+      {
+        command: "SELECT",
+        policyName: "Reviewed relationships in active markets are public metadata",
+        roles: "anon,authenticated",
+        tableName: "service_area_relationships",
+      },
+      {
+        command: "SELECT",
+        policyName: "Active service areas in active markets are public metadata",
+        roles: "anon,authenticated",
+        tableName: "service_areas",
+      },
+    ]);
+
+    const functionAccess = await prisma.$queryRaw<Array<{
+      canExecute: boolean;
+      canUseSchema: boolean;
+      roleName: string;
+    }>>`
+      SELECT role_name AS "roleName",
+             has_schema_privilege(role_name, 'geography_admin', 'USAGE') AS "canUseSchema",
+             has_function_privilege(
+               role_name,
+               'geography_admin.search_active_service_areas(text,text,integer)',
+               'EXECUTE'
+             ) AS "canExecute"
+      FROM unnest(ARRAY['anon', 'authenticated', 'service_role']) role_name
+      ORDER BY role_name
+    `;
+    expect(functionAccess).toEqual([
+      { canExecute: false, canUseSchema: false, roleName: "anon" },
+      { canExecute: false, canUseSchema: false, roleName: "authenticated" },
+      { canExecute: false, canUseSchema: false, roleName: "service_role" },
+    ]);
+
+    const scratchSuffix = randomUUID().replaceAll("-", "");
+    const scratchTable = `geography_acl_table_${scratchSuffix}`;
+    const scratchSequence = `geography_acl_sequence_${scratchSuffix}`;
+    const scratchFunction = `geography_acl_function_${scratchSuffix}`;
+    try {
+      await prisma.$executeRawUnsafe(`CREATE TABLE public.${scratchTable} (id bigint)`);
+      await prisma.$executeRawUnsafe(`CREATE SEQUENCE public.${scratchSequence}`);
+      await prisma.$executeRawUnsafe(
+        `CREATE FUNCTION public.${scratchFunction}() RETURNS integer LANGUAGE sql AS 'SELECT 1'`,
+      );
+      const effectiveDefaults = await prisma.$queryRawUnsafe<Array<{
+        canDeleteTable: boolean;
+        canExecuteFunction: boolean;
+        canInsertTable: boolean;
+        canMaintainTable: boolean;
+        canReferenceTable: boolean;
+        canSelectSequence: boolean;
+        canSelectTable: boolean;
+        canTriggerTable: boolean;
+        canTruncateTable: boolean;
+        canUpdateSequence: boolean;
+        canUpdateTable: boolean;
+        canUseSequence: boolean;
+        roleName: string;
+      }>>(`
+        SELECT role_name AS "roleName",
+               has_table_privilege(role_name, $1, 'SELECT') AS "canSelectTable",
+               has_table_privilege(role_name, $1, 'INSERT') AS "canInsertTable",
+               has_table_privilege(role_name, $1, 'UPDATE') AS "canUpdateTable",
+               has_table_privilege(role_name, $1, 'DELETE') AS "canDeleteTable",
+               has_table_privilege(role_name, $1, 'TRUNCATE') AS "canTruncateTable",
+               has_table_privilege(role_name, $1, 'REFERENCES') AS "canReferenceTable",
+               has_table_privilege(role_name, $1, 'TRIGGER') AS "canTriggerTable",
+               has_table_privilege(role_name, $1, 'MAINTAIN') AS "canMaintainTable",
+               has_sequence_privilege(role_name, $2, 'SELECT') AS "canSelectSequence",
+               has_sequence_privilege(role_name, $2, 'UPDATE') AS "canUpdateSequence",
+               has_sequence_privilege(role_name, $2, 'USAGE') AS "canUseSequence",
+               has_function_privilege(role_name, $3, 'EXECUTE') AS "canExecuteFunction"
+        FROM unnest(ARRAY['anon', 'authenticated', 'service_role']) role_name
+        ORDER BY role_name
+      `, `public.${scratchTable}`, `public.${scratchSequence}`, `public.${scratchFunction}()`);
+      expect(effectiveDefaults).toEqual(["anon", "authenticated", "service_role"].map((roleName) => ({
+        canDeleteTable: false,
+        canExecuteFunction: false,
+        canInsertTable: false,
+        canMaintainTable: false,
+        canReferenceTable: false,
+        canSelectSequence: false,
+        canSelectTable: false,
+        canTriggerTable: false,
+        canTruncateTable: false,
+        canUpdateSequence: false,
+        canUpdateTable: false,
+        canUseSequence: false,
+        roleName,
+      })));
+    } finally {
+      await prisma.$executeRawUnsafe(`DROP FUNCTION IF EXISTS public.${scratchFunction}()`);
+      await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS public.${scratchTable}`);
+      await prisma.$executeRawUnsafe(`DROP SEQUENCE IF EXISTS public.${scratchSequence}`);
+    }
+
+    await assertPostgisSecurityGate(prisma);
+  }, 30_000);
+
+  it("uses the covering index for bounded service-area prefix lookup", async () => {
+    process.env.DATABASE_URL = databaseUrl;
+    const { prisma } = await import("@liber/db");
+    await assertDisposableE2EDatabase(prisma, databaseUrl!);
+    const suffix = randomUUID().slice(0, 8);
+    const market = await prisma.market.create({
+      data: {
+        active: true,
+        bboxEast: -118.2,
+        bboxNorth: 34.3,
+        bboxSouth: 34.0,
+        bboxWest: -118.5,
+        centerLat: 34.15,
+        centerLng: -118.35,
+        country: "US",
+        label: `Plan ${suffix}`,
+        slug: `plan-${suffix}`,
+        state: "CA",
+      },
+    });
+    const area = await prisma.serviceArea.create({
+      data: serviceAreaData(market.id, `plan-area-${suffix}`, "Plan area", "city"),
+    });
+
+    try {
+      await prisma.$executeRaw`
+        INSERT INTO public.service_area_search_terms (
+          market_id, service_area_id, term_normalized, term_kind, source, reviewed_at
+        )
+        SELECT ${market.id}::uuid, ${area.id}::uuid,
+               'a' || lpad(series::text, 5, '0'), 'PLAN_FIXTURE', 'e2e-plan', now()
+        FROM generate_series(1, 2000) series
+        UNION ALL
+        SELECT ${market.id}::uuid, ${area.id}::uuid,
+               '91325', 'PLAN_FIXTURE', 'e2e-plan', now()
+      `;
+      await prisma.$executeRawUnsafe("ANALYZE public.service_area_search_terms");
+
+      const planRows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
+        EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+        WITH input AS (
+          SELECT lower(btrim(regexp_replace(coalesce($2::text, ''), '[^a-zA-Z0-9]+', ' ', 'g'))) COLLATE "C" AS term,
+                 least(greatest(coalesce($3::integer, 8), 1), 8) AS row_limit
+        ), selected_market AS (
+          SELECT market.id FROM public.markets market
+          WHERE market.slug = $1 AND market.active = true
+        ), matches AS (
+          SELECT search_term.service_area_id,
+                 min(CASE
+                   WHEN replace(area.slug, '-', ' ') = input.term THEN 1
+                   WHEN area.postal_code = input.term THEN 2
+                   WHEN lower(btrim(regexp_replace(area.label, '[^a-zA-Z0-9]+', ' ', 'g'))) COLLATE "C" = input.term THEN 3
+                   WHEN search_term.term_normalized = input.term THEN 4
+                   ELSE 99
+                 END) AS exact_rank,
+                 min(search_term.term_normalized) AS matched_term
+          FROM input
+          JOIN selected_market ON true
+          JOIN public.service_area_search_terms search_term
+            ON search_term.market_id = selected_market.id
+           AND search_term.term_normalized >= input.term
+           AND search_term.term_normalized < input.term || U&'\\FFFF'
+           AND search_term.term_normalized LIKE input.term || '%'
+          JOIN public.service_areas area
+            ON area.id = search_term.service_area_id
+           AND area.market_id = selected_market.id
+           AND area.active = true
+          WHERE input.term <> ''
+          GROUP BY search_term.service_area_id
+        ), ranked AS (
+          SELECT matches.*,
+                 min(matches.exact_rank) FILTER (WHERE matches.exact_rank < 99) OVER () AS best_exact_rank
+          FROM matches
+        )
+        SELECT ranked.service_area_id,
+               ranked.exact_rank < 99 AND ranked.exact_rank = ranked.best_exact_rank AS exact_match
+        FROM ranked, input
+        ORDER BY exact_match DESC, ranked.exact_rank, ranked.matched_term, ranked.service_area_id
+        LIMIT (SELECT row_limit FROM input)
+      `, market.slug, "91325", 8);
+      const indexPlan = findPlanNode(planRows[0]?.["QUERY PLAN"], (node) =>
+        node["Index Name"] === "service_area_search_terms_market_term_prefix_idx",
+      );
+      expect(indexPlan).not.toBeNull();
+      expect(String(indexPlan?.["Index Cond"])).toMatch(/term_normalized.*(>=|~>=~)/);
+      expect(String(indexPlan?.["Index Cond"])).toMatch(/term_normalized.*(<|~<~)/);
+
+      const results = await prisma.$queryRaw<Array<{ serviceAreaId: string }>>`
+        SELECT service_area_id::text AS "serviceAreaId"
+        FROM geography_admin.search_active_service_areas(${market.slug}, '91325', 8)
+      `;
+      expect(results).toEqual([{ serviceAreaId: area.id }]);
+    } finally {
+      await prisma.serviceArea.deleteMany({ where: { marketId: market.id } });
+      await prisma.market.delete({ where: { id: market.id } });
     }
   }, 30_000);
 });
@@ -436,43 +668,80 @@ function sharedDatabaseUrls() {
   return [process.env.DIRECT_URL, process.env.DATABASE_URL].filter(Boolean) as string[];
 }
 
-async function visibleMarketIdsAsRole(prisma: any, role: "anon" | "authenticated") {
-  return prisma.$transaction(async (tx: any) => {
-    await tx.$executeRawUnsafe(`SET LOCAL ROLE ${role}`);
-    const rows = await tx.$queryRaw<Array<{ id: string }>>`
-      SELECT market.id::text AS id
-      FROM public.markets market
-      ORDER BY market.id
-    `;
-    return rows.map((row: { id: string }) => row.id);
-  });
+async function assertPostgisSecurityGate(prisma: any) {
+  const tableFindings = await prisma.$queryRaw<Array<{
+    objectName: string;
+    ownerCapable: boolean;
+    ownerName: string;
+    secure: boolean;
+  }>>`
+    SELECT 'public.spatial_ref_sys' AS "objectName",
+           pg_get_userbyid(relation.relowner) AS "ownerName",
+           current_role.rolsuper
+             OR relation.relowner = current_role.oid AS "ownerCapable",
+           relation.relrowsecurity
+             AND NOT EXISTS (
+               SELECT 1
+               FROM aclexplode(coalesce(relation.relacl, acldefault('r', relation.relowner))) privilege
+               LEFT JOIN pg_roles grantee ON grantee.oid = privilege.grantee
+               WHERE privilege.grantee = 0
+                  OR grantee.rolname IN ('anon', 'authenticated', 'service_role')
+             ) AS secure
+    FROM pg_class relation
+    JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+    JOIN pg_roles current_role ON current_role.rolname = current_user
+    WHERE namespace.nspname = 'public' AND relation.relname = 'spatial_ref_sys'
+  `;
+  expect(tableFindings).toHaveLength(1);
+
+  const functionFindings = await prisma.$queryRaw<Array<{
+    objectName: string;
+    ownerCapable: boolean;
+    ownerName: string;
+    secure: boolean;
+  }>>`
+    SELECT procedure.oid::regprocedure::text AS "objectName",
+           pg_get_userbyid(procedure.proowner) AS "ownerName",
+           current_role.rolsuper
+             OR procedure.proowner = current_role.oid AS "ownerCapable",
+           NOT has_function_privilege('anon', procedure.oid, 'EXECUTE')
+             AND NOT has_function_privilege('authenticated', procedure.oid, 'EXECUTE')
+             AND NOT has_function_privilege('service_role', procedure.oid, 'EXECUTE') AS secure
+    FROM pg_proc procedure
+    JOIN pg_namespace namespace ON namespace.oid = procedure.pronamespace
+    JOIN pg_roles current_role ON current_role.rolname = current_user
+    WHERE namespace.nspname = 'public' AND procedure.proname = 'st_estimatedextent'
+    ORDER BY procedure.oid::regprocedure::text
+  `;
+  expect(functionFindings).toHaveLength(3);
+
+  const unresolved = [...tableFindings, ...functionFindings].filter((finding) => !finding.secure);
+  expect(
+    unresolved.every((finding) => finding.ownerName === "supabase_admin" && !finding.ownerCapable),
+    `Unexpected owner-capable PostGIS findings: ${JSON.stringify(unresolved)}`,
+  ).toBe(true);
+  if (unresolved.length > 0) {
+    process.stderr.write(`POSTGIS_SUPPORTED_PLATFORM_GATE ${JSON.stringify(unresolved)}\n`);
+  }
 }
 
-async function visibleAreaIdsAsRole(prisma: any, role: "anon" | "authenticated", marketId: string) {
-  return prisma.$transaction(async (tx: any) => {
-    await tx.$executeRawUnsafe(`SET LOCAL ROLE ${role}`);
-    const rows = await tx.$queryRaw<Array<{ id: string }>>`
-      SELECT service_area.id::text AS id
-      FROM public.service_areas service_area
-      WHERE service_area.market_id = ${marketId}::uuid
-      ORDER BY service_area.id
-    `;
-    return rows.map((row: { id: string }) => row.id);
-  });
-}
-
-async function visibleRelationshipSourcesAsRole(prisma: any, role: "anon" | "authenticated", marketId: string) {
-  return prisma.$transaction(async (tx: any) => {
-    await tx.$executeRawUnsafe(`SET LOCAL ROLE ${role}`);
-    const rows = await tx.$queryRaw<Array<{ source: string }>>`
-      SELECT relationship.source
-      FROM public.service_area_relationships relationship
-      JOIN public.service_areas parent ON parent.id = relationship.parent_service_area_id
-      WHERE parent.market_id = ${marketId}::uuid
-      ORDER BY relationship.source
-    `;
-    return rows.map((row: { source: string }) => row.source);
-  });
+function findPlanNode(
+  raw: unknown,
+  predicate: (node: Record<string, unknown>) => boolean,
+): Record<string, unknown> | null {
+  const document = Array.isArray(raw) ? raw[0] : raw;
+  const root = document && typeof document === "object" && "Plan" in document
+    ? (document as Record<string, unknown>).Plan
+    : document;
+  if (!root || typeof root !== "object") return null;
+  const node = root as Record<string, unknown>;
+  if (predicate(node)) return node;
+  if (!Array.isArray(node.Plans)) return null;
+  for (const child of node.Plans) {
+    const match = findPlanNode(child, predicate);
+    if (match) return match;
+  }
+  return null;
 }
 
 async function quarantineCountAsRole(

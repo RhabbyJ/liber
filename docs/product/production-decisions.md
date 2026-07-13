@@ -1,6 +1,6 @@
 # Production Decisions
 
-Last reviewed: 2026-07-12
+Last reviewed: 2026-07-13
 
 This is the living launch-gate matrix for moving Liber from a controlled CEO
 demo/private preview to a public Los Angeles beta. It does not override
@@ -14,8 +14,12 @@ demo/private preview to a public Los Angeles beta. It does not override
   v2 release activates 88 incorporated cities and 304 approximate Census ZCTA
   service areas while preserving three reviewed neighborhoods.
 - The guarded v2 stage and activation completed in production on 2026-07-12;
-  both geography migrations are applied with zero unresolved Prisma rows and
-  zero invalid active buyers.
+  the release and 2026-07-13 security hardening migrations are applied with all
+  24 checked-in migrations accounted for, zero unresolved Prisma rows, and zero
+  invalid active buyers.
+- Canonical geography browser grants are closed, all four affected tables have
+  RLS enabled, and the server-mediated search path remains operational. This
+  hardening does not clear the remaining Supabase-owned PostGIS or Auth gates.
 - LA County geography activation is a coverage decision, not authorization to
   describe the entire product as publicly launched.
 
@@ -64,6 +68,8 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
 - Preserve ZIP labeling as approximate Census ZCTA coverage; do not claim USPS
   or survey-grade boundaries.
 - Do not add inferred ZIP-to-city rollups without a separately reviewed source.
+- Preserve server-mediated access to canonical geography. Do not grant raw
+  `anon` or `authenticated` table access to bypass the narrow APIs.
 
 ### Auth, suspension, and Storage
 
@@ -121,8 +127,14 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
 - Configure `CRON_SECRET` before scheduled maintenance is enabled.
 - Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` before relying on invite
   email delivery.
-- Enable Supabase Auth leaked-password protection before public launch.
-- Decide whether to move PostGIS out of the public schema or otherwise accept and document Supabase advisor findings for `spatial_ref_sys` and PostGIS SECURITY DEFINER functions.
+- Enable Supabase Auth leaked-password protection before public launch. It
+  remains disabled because this pass had neither an authenticated Dashboard
+  session nor a supported Management API control for the setting.
+- Use a Supabase-supported remediation for the `supabase_admin`-owned
+  `public.spatial_ref_sys` table and the three `st_estimatedextent` overloads
+  still executable by `anon` and `authenticated`. The PostGIS-in-`public`
+  advisor finding also remains. Do not hot-move or take ownership of platform
+  extension objects in an application migration.
 - Keep app tables protected by server-mediated access. Current RLS-with-no-policy advisor findings are deny-by-default for direct Data API access; add explicit policies only if browser/Data API access is intentionally introduced.
 - Re-run Supabase security and performance advisors before launch and after every schema migration.
 - Re-run `EXPLAIN` on seller buyer-search queries against realistic data volume before public launch.

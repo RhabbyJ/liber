@@ -11,6 +11,18 @@ describe("LA County geography migration", () => {
     path.resolve(process.cwd(), "../../packages/db/prisma/migrations/20260712100500_cover_service_area_search_term_market_fk/migration.sql"),
     "utf8",
   );
+  const hardeningSql = readFileSync(
+    path.resolve(process.cwd(), "../../packages/db/prisma/migrations/20260713051527_harden_la_geography_security/migration.sql"),
+    "utf8",
+  );
+  const globalFunctionDefaultsSql = readFileSync(
+    path.resolve(process.cwd(), "../../packages/db/prisma/migrations/20260713054016_close_public_function_defaults/migration.sql"),
+    "utf8",
+  );
+  const consolidatedPrefixIndexSql = readFileSync(
+    path.resolve(process.cwd(), "../../packages/db/prisma/migrations/20260713054720_consolidate_service_area_prefix_index/migration.sql"),
+    "utf8",
+  );
   const stagingFunction = sql.slice(
     sql.indexOf("CREATE OR REPLACE FUNCTION geography_admin.stage_service_area_dataset"),
     sql.indexOf("REVOKE ALL ON FUNCTION geography_admin.stage_service_area_dataset"),
@@ -135,5 +147,40 @@ describe("LA County geography migration", () => {
   it("covers the composite same-market search-term foreign key", () => {
     expect(advisorIndexSql).toContain("DROP INDEX IF EXISTS public.service_area_search_terms_area_idx");
     expect(advisorIndexSql).toContain("ON public.service_area_search_terms(service_area_id, market_id)");
+  });
+
+  it("uses one named index for search-term uniqueness and bounded prefix lookup", () => {
+    expect(consolidatedPrefixIndexSql).toContain(
+      "DROP INDEX public.service_area_search_terms_market_term_prefix_idx",
+    );
+    expect(consolidatedPrefixIndexSql).toContain(
+      "RENAME CONSTRAINT service_area_search_terms_market_id_term_normalized_service_key",
+    );
+    expect(consolidatedPrefixIndexSql).toContain("TO service_area_search_terms_market_term_prefix_idx");
+  });
+
+  it("closes raw geography grants and keeps future public objects opt-in", () => {
+    expect(hardeningSql).toContain("FROM PUBLIC, anon, authenticated, service_role");
+    expect(hardeningSql).toContain("TO service_role");
+    expect(hardeningSql.match(/ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public/g)).toHaveLength(3);
+    expect(hardeningSql).toContain("REVOKE ALL ON TABLES FROM PUBLIC, anon, authenticated, service_role");
+    expect(hardeningSql).toContain("REVOKE ALL ON SEQUENCES FROM PUBLIC, anon, authenticated, service_role");
+    expect(hardeningSql).toContain("REVOKE ALL ON FUNCTIONS FROM PUBLIC, anon, authenticated, service_role");
+    expect(hardeningSql).toContain("POSTGIS_SUPPORTED_PLATFORM_GATE");
+    expect(hardeningSql).not.toContain("SET ROLE supabase_admin");
+  });
+
+  it("revokes the global public function default", () => {
+    expect(globalFunctionDefaultsSql).toMatch(
+      /ALTER DEFAULT PRIVILEGES FOR ROLE postgres\s+REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated, service_role/,
+    );
+    expect(globalFunctionDefaultsSql).not.toContain("IN SCHEMA public");
+  });
+
+  it("bounds prefix search by the indexed term range", () => {
+    expect(hardeningSql).toContain("search_term.term_normalized >= input.term");
+    expect(hardeningSql).toContain("search_term.term_normalized < input.term || U&'\\FFFF'");
+    expect(hardeningSql).toContain("search_term.term_normalized LIKE input.term || '%'");
+    expect(hardeningSql).toContain("least(greatest(coalesce(requested_limit, 8), 1), 8)");
   });
 });

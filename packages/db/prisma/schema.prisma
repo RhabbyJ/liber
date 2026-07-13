@@ -395,8 +395,7 @@ model ServiceAreaSearchTerm {
   market      Market      @relation(fields: [marketId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   serviceArea ServiceArea @relation(fields: [serviceAreaId, marketId], references: [id, marketId], onDelete: Cascade, onUpdate: Restrict)
 
-  @@unique([marketId, termNormalized, serviceAreaId])
-  // The migration owns the text_pattern_ops covering index because Prisma cannot model INCLUDE columns.
+  @@unique([marketId, termNormalized, serviceAreaId], map: "service_area_search_terms_market_term_prefix_idx")
   @@index([serviceAreaId, marketId], map: "service_area_search_terms_area_idx")
   @@map("service_area_search_terms")
 }

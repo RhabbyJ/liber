@@ -64,7 +64,7 @@ The evidence must show:
 
 Use this sequence for repeat or replacement targets:
 
-1. Apply `20260712090000_expand_la_county_geography` and `20260712100500_cover_service_area_search_term_market_fk` through Prisma.
+1. Apply `20260712090000_expand_la_county_geography`, `20260712100500_cover_service_area_search_term_market_fk`, `20260713051527_harden_la_geography_security`, `20260713054016_close_public_function_defaults`, and `20260713054720_consolidate_service_area_prefix_index` through Prisma.
 2. Run the exact-hash stage action.
 3. Confirm the status reports 661 rows/versions while the prior 15 areas and pilot bbox remain live.
 4. Deploy the pointer-aware application and boundary API.
@@ -72,8 +72,10 @@ Use this sequence for repeat or replacement targets:
 6. Confirm 88 active cities, 304 active ZCTAs, three active neighborhoods, one current County boundary, one current display bundle, and zero invalid active buyers.
 7. Test desktop and mobile pan/zoom, View all LA County, no ambient border overlays, city/ZIP search, selected geometry and clearing, and public privacy.
 8. Re-run Supabase security and performance advisors.
+9. Reconcile the complete local migration set against `_prisma_migrations`; fail for a missing, unresolved failed, or rolled-back-only local migration.
+10. Verify zero `anon`/`authenticated` table privileges across the four canonical geography tables, RLS on all four, raw Data API denial, a working narrow search API with no UUIDs, and default-planner use of `service_area_search_terms_market_term_prefix_idx`.
 
-The initial production release completed on 2026-07-12, with `20260712100500_cover_service_area_search_term_market_fk` applied after activation as the advisor-driven follow-up. Future targets apply both migrations in step 1. Counts, checksums, API/browser acceptance, migration reconciliation, advisor results, Git commits, and Vercel deployment identities are recorded in `GEOGRAPHY_LA_COUNTY_RELEASE_EVIDENCE_2026-07-12.md`.
+The initial production release completed on 2026-07-12, with `20260712100500_cover_service_area_search_term_market_fk` applied after activation as the advisor-driven follow-up. The raw-access and prefix-plan hardening migration, global function-default correction, and index consolidation were applied on 2026-07-13. Future targets apply all five migrations in step 1. Release counts, checksums, API/browser acceptance, and deployment identities are recorded in `GEOGRAPHY_LA_COUNTY_RELEASE_EVIDENCE_2026-07-12.md`; the hardening and complete-ledger proof is recorded in `GEOGRAPHY_LA_SECURITY_HARDENING_EVIDENCE_2026-07-13.md`.
 
 The release command requires a dedicated connection env plus all of:
 

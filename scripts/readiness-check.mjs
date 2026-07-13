@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import pg from "pg";
 
+import { assessMigrationReadiness, readLocalMigrationNames } from "./migration-readiness.mjs";
+
 const envFile = await loadEnvFile(".env");
 const env = { ...envFile, ...process.env };
 const productionMode = process.argv.includes("--production");
@@ -54,7 +56,7 @@ checkAutoConfirm(failures);
 checkRateLimitPepper(productionMode ? failures : warnings);
 
 if (productionMode && failures.length === 0) {
-  await checkProductionDependencies(failures);
+  await checkProductionDependencies(failures, warnings);
 }
 
 console.log("");
@@ -174,20 +176,32 @@ function checkRateLimitPepper(collection) {
   }
 }
 
-async function checkProductionDependencies(collection) {
+async function checkProductionDependencies(collection, warningCollection) {
   const client = new pg.Client({ connectionString: env.DIRECT_URL, connectionTimeoutMillis: 10_000 });
   try {
     await client.connect();
-    const migration = await client.query(`
-      SELECT migration_name
+    const localMigrations = await readLocalMigrationNames(
+      new URL("../packages/db/prisma/migrations/", import.meta.url),
+    );
+    const migrations = await client.query(`
+      SELECT migration_name, finished_at, rolled_back_at
       FROM public._prisma_migrations
-      WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
-      ORDER BY finished_at DESC
-      LIMIT 1
+      ORDER BY migration_name, started_at
     `);
-    const expectedHead = "20260711082500_close_property_identity_lifecycle";
-    if (migration.rows[0]?.migration_name !== expectedHead) {
-      collection.push(`Database migration head must be ${expectedHead}.`);
+    const migrationReadiness = assessMigrationReadiness(localMigrations, migrations.rows);
+    if (migrationReadiness.missing.length > 0) {
+      collection.push(`Local migrations missing from the database: ${migrationReadiness.missing.join(", ")}.`);
+    }
+    if (migrationReadiness.failed.length > 0) {
+      collection.push(`Local migrations failed in the database: ${migrationReadiness.failed.join(", ")}.`);
+    }
+    if (migrationReadiness.rolledBack.length > 0) {
+      collection.push(`Local migrations rolled back in the database: ${migrationReadiness.rolledBack.join(", ")}.`);
+    }
+    if (migrationReadiness.databaseOnly.length > 0) {
+      warningCollection.push(
+        `Database-only migrations are not present locally: ${migrationReadiness.databaseOnly.join(", ")}.`,
+      );
     }
     const geography = await client.query(`
       SELECT
