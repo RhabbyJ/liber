@@ -24,7 +24,7 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - RLS/storage policies are security boundaries.
 - Do not weaken constraints to bypass application bugs.
 - Keep indexes aligned with search and ownership checks.
-- The service-area search-term composite ownership foreign key is covered in `(service_area_id, market_id)` order; its separate market/term prefix index remains migration-owned because Prisma cannot model `INCLUDE`.
+- The service-area search-term composite ownership foreign key is covered in `(service_area_id, market_id)` order. Prefix lookup and uniqueness share `service_area_search_terms_market_term_prefix_idx`; do not reintroduce a redundant `INCLUDE` index.
 - `PropertySubtype` values are `HOME` (displayed as House), `CONDO`, `TOWNHOUSE`, `MANUFACTURED`, and `LAND`.
 - `VerificationDocument.ownershipEvidenceKind` is nullable for legacy/non-ownership documents and typed for new seller ownership evidence.
 - `BuyerCriteria.buyerProfileId` is unique; an active buyer has exactly one criteria row and one active primary selected service area.
