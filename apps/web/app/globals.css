@@ -2267,13 +2267,7 @@ body:has(.map-landing) .site-footer {
 }
 
 .public-map-shell {
-  background:
-    linear-gradient(90deg, rgba(14, 95, 56, 0.07) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(14, 95, 56, 0.07) 1px, transparent 1px),
-    linear-gradient(32deg, transparent 0 42%, rgba(255, 255, 255, 0.72) 42% 45%, transparent 45%),
-    linear-gradient(145deg, rgba(22, 131, 76, 0.12), transparent 44%),
-    linear-gradient(160deg, #eaf4ef, #f8fbf9);
-  background-size: 62px 62px, 62px 62px, auto, auto, auto;
+  background: #e8ece9;
   overflow: hidden;
   position: relative;
 }
@@ -2334,33 +2328,22 @@ body:has(.map-landing) .site-footer {
   width: 100%;
 }
 
-.public-map-static-grid::before,
-.public-map-static-grid::after {
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(12, 35, 28, 0.07);
-  border-radius: 999px;
-  content: "";
-  height: 50px;
-  position: absolute;
-  transform: rotate(-22deg);
-  width: 72%;
+.public-map-static-image {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 
-.public-map-static-grid::before {
-  left: -12%;
-  top: 24%;
-}
-
-.public-map-static-grid::after {
-  bottom: 18%;
-  right: -18%;
-}
-
-.public-map-static-pin {
-  cursor: default;
-  position: absolute;
-  transform: translate(-50%, -50%);
-  z-index: 3;
+.public-map-loading {
+  align-items: center;
+  color: var(--ink-muted);
+  display: flex;
+  font-size: 13px;
+  font-weight: 600;
+  height: 100%;
+  justify-content: center;
+  width: 100%;
 }
 
 .public-map-static-empty {
@@ -2684,14 +2667,6 @@ body:has(.map-landing) .site-footer {
   .public-map-shell {
     height: 52svh;
     min-height: 320px;
-  }
-
-  .public-map-static-pin {
-    border-width: 2px;
-    box-shadow: 0 8px 16px rgba(12, 35, 28, 0.18), 0 0 0 5px rgba(22, 131, 76, 0.14);
-    font-size: 10px;
-    height: 28px;
-    padding: 0 7px;
   }
 
   .demand-panel {
@@ -3915,8 +3890,7 @@ body:has(.map-landing) .site-footer {
   transform: translateY(1px);
 }
 
-.buyer-map-marker.public-demand-pin,
-.buyer-map-marker.public-map-static-pin {
+.buyer-map-marker.public-demand-pin {
   background: transparent;
   border: 0;
   box-shadow: none;
@@ -3926,8 +3900,7 @@ body:has(.map-landing) .site-footer {
   width: 44px;
 }
 
-.buyer-map-marker.public-demand-pin span,
-.buyer-map-marker.public-map-static-pin span {
+.buyer-map-marker.public-demand-pin span {
   align-items: center;
   background: var(--sage-deep);
   border: 3px solid #fff;
@@ -3941,8 +3914,7 @@ body:has(.map-landing) .site-footer {
   width: 28px;
 }
 
-.buyer-map-marker.public-demand-pin span::after,
-.buyer-map-marker.public-map-static-pin span::after {
+.buyer-map-marker.public-demand-pin span::after {
   background: #fff;
   border-radius: 50%;
   content: "";
@@ -3957,16 +3929,13 @@ body:has(.map-landing) .site-footer {
   transform: scale(1.08);
 }
 
-.buyer-map-marker.public-demand-pin:hover,
-.buyer-map-marker.public-map-static-pin:hover {
+.buyer-map-marker.public-demand-pin:hover {
   background: transparent;
   box-shadow: none;
 }
 
 .buyer-map-marker.public-demand-pin:hover span,
-.buyer-map-marker.public-map-static-pin:hover span,
-.buyer-map-marker.public-demand-pin.active span,
-.buyer-map-marker.public-map-static-pin.active span {
+.buyer-map-marker.public-demand-pin.active span {
   background: var(--sage-strong);
   box-shadow: 0 0 0 10px rgba(22, 131, 76, 0.22);
 }
@@ -3976,8 +3945,7 @@ body:has(.map-landing) .site-footer {
   outline: 0;
 }
 
-.buyer-map-marker.public-demand-pin:focus-visible,
-.buyer-map-marker.public-map-static-pin:focus-visible {
+.buyer-map-marker.public-demand-pin:focus-visible {
   box-shadow: none;
   outline: 2px solid var(--sage-deep);
   outline-offset: -3px;

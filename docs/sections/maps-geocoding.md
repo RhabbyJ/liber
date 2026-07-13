@@ -27,7 +27,7 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - Map view and list view must reflect the same buyer results.
 - Seller search maps are buyer-demand maps; numbered pins/clusters represent buyers or buyer demand signals, not property listings.
 - Buyer map markers must preserve privacy and should not expose exact private addresses.
-- Mapbox must be optional; local development should degrade gracefully.
+- Mapbox must be optional; local development should degrade gracefully. When WebGL initialization fails but a public token is configured, the public demand map falls back to a Mapbox Static Images street map with the same privacy-safe approximate pins.
 - Interactive maps are clamped to the active market bbox, remain draggable/zoomable throughout Los Angeles County, and provide a View all LA County reset.
 - Maps do not draw ambient County, city, or ZCTA borders. They fetch and render a boundary only for the exact ZIP, city, or neighborhood selected through search, and remove it when the selection is cleared.
 - Public touch maps use cooperative gestures so the map does not trap one-finger vertical page scrolling.
@@ -36,7 +36,7 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - Hovering or keyboard-focusing a public preview card highlights only its corresponding privacy-safe map pin and does not move the map.
 - ZIP/city/neighborhood selection must render service-area polygons from GeoJSON, not radius circles.
 - If a non-Mapbox fallback cannot project the selected GeoJSON truthfully, omit the boundary; never draw a generic decorative shape as if it were the selected area.
-- Static seller/public pin fallbacks currently normalize pins independently, so they must omit selected boundaries until both use one bbox projection.
+- Static seller pin fallbacks normalize pins independently, and the public Static Images fallback does not project selected GeoJSON, so both must omit selected boundaries.
 - Mapbox search/geocoding payloads must not become the canonical service-area database.
 - Canonical lookup requires a market slug plus a market-scoped service-area slug or explicit per-area search term.
 - Empty reviewed search terms fail closed; runtime code must not synthesize city/state aliases from broad metadata.

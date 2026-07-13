@@ -5,8 +5,8 @@ import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
 import { syncSelectedAreaLayer } from "../lib/map-boundary-layers";
 import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
 import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
+import { mapboxStaticImageUrl } from "../lib/mapbox-static-image";
 import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
-import { DemandAtlasBackdrop } from "./demand-atlas";
 
 type Props = {
   market: MarketMapContext;
@@ -192,7 +192,7 @@ export function PublicDemandMap({
   ]);
 
   if (!shouldUseMapbox || didFail) {
-    return <PublicStaticDemandMap points={points} />;
+    return <PublicStaticDemandMap market={market} points={points} selectedArea={selectedArea} token={mapboxToken} />;
   }
 
   return (
@@ -200,7 +200,7 @@ export function PublicDemandMap({
       aria-label={selectedAreaLabel ? `Buyer demand preview map around ${selectedAreaLabel}` : "Buyer demand preview map"}
       className="public-map-shell"
     >
-      {hasLiveMarkers ? null : <StaticDemandLayer points={points} />}
+      {hasLiveMarkers ? null : <div className="public-map-loading">Loading map…</div>}
       <div className="map-canvas" ref={containerRef} />
       <button
         aria-label="Fit map to all of Los Angeles County"
@@ -217,39 +217,59 @@ export function PublicDemandMap({
   );
 }
 
-function PublicStaticDemandMap({ points }: { points: PreviewPoint[] }) {
+function PublicStaticDemandMap({
+  market,
+  points,
+  selectedArea,
+  token,
+}: {
+  market: MarketMapContext;
+  points: PreviewPoint[];
+  selectedArea: SelectedMapArea | null;
+  token: string;
+}) {
   return (
     <div className="public-map-shell fallback" aria-label="Buyer demand preview map">
-      <StaticDemandLayer points={points} />
-      <div className="public-map-note">Approximate service area - privacy-safe preview</div>
+      <StaticDemandLayer market={market} points={points} selectedArea={selectedArea} token={token} />
+      <div className="public-map-note">Approximate locations · privacy-safe preview</div>
     </div>
   );
 }
 
-function StaticDemandLayer({ points }: { points: PreviewPoint[] }) {
+function StaticDemandLayer({
+  market,
+  points,
+  selectedArea,
+  token,
+}: {
+  market: MarketMapContext;
+  points: PreviewPoint[];
+  selectedArea: SelectedMapArea | null;
+  token: string;
+}) {
+  const imageUrl = mapboxStaticImageUrl({ market, points, selectedArea, token });
+  const [failedImageUrl, setFailedImageUrl] = useState("");
+  const canShowImage = Boolean(imageUrl && failedImageUrl !== imageUrl);
+
   return (
     <div className="public-map-static-grid">
-      <DemandAtlasBackdrop />
-      {points.length === 0 ? (
-        <div className="public-map-static-empty">
-          <strong>Buyer demand map</strong>
-          <span>Preview pins will appear as active buyer demand is added.</span>
-        </div>
+      {canShowImage && imageUrl ? (
+        // Mapbox already returns a fixed rendered map; proxying it through Next Image would duplicate the request.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          alt=""
+          className="public-map-static-image"
+          key={imageUrl}
+          loading="eager"
+          onError={() => setFailedImageUrl(imageUrl)}
+          referrerPolicy="strict-origin-when-cross-origin"
+          src={imageUrl}
+        />
       ) : (
-        points.map((point) => {
-          const position = publicPinPosition(point, points);
-          return (
-            <span
-              aria-label={`Buyer demand around ${point.preview.area}`}
-              className="buyer-map-marker public-map-static-pin"
-              data-public-demand-preview-index={point.index}
-              key={`${point.preview.area}-${point.index}`}
-              style={{ left: `${position.left}%`, top: `${position.top}%` }}
-            >
-              <span aria-hidden="true" />
-            </span>
-          );
-        })
+        <div className="public-map-static-empty">
+          <strong>Map preview unavailable</strong>
+          <span>Search and buyer preview cards still work.</span>
+        </div>
       )}
     </div>
   );
@@ -290,37 +310,4 @@ function escapeHtml(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-}
-
-function publicPinPosition(point: PreviewPoint, points: PreviewPoint[]) {
-  const lats = points.map((item) => item.lat);
-  const lngs = points.map((item) => item.lng);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-  const latSpan = maxLat - minLat || 0.1;
-  const lngSpan = maxLng - minLng || 0.1;
-  const offset = staticPinOffset(point.index);
-
-  return {
-    left: clamp(((point.lng - minLng) / lngSpan) * 76 + 12 + offset.left),
-    top: clamp((1 - (point.lat - minLat) / latSpan) * 76 + 12 + offset.top),
-  };
-}
-
-function staticPinOffset(index: number) {
-  const offsets = [
-    { left: 0, top: 0 },
-    { left: 8, top: -5 },
-    { left: -7, top: 5 },
-    { left: 7, top: 6 },
-    { left: -8, top: -6 },
-    { left: 10, top: 3 },
-  ];
-  return offsets[index % offsets.length];
-}
-
-function clamp(value: number) {
-  return Math.max(24, Math.min(76, value));
 }
