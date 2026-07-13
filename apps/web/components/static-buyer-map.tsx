@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { MarketMapContext, SelectedMapArea } from "../lib/map-area";
 import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
 import { mapPinPosition } from "../lib/mapbox";
+import { DemandAtlasBackdrop } from "./demand-atlas";
 
 type Props = {
   buyers: SellerBuyerSummaryDTO[];
@@ -26,6 +27,7 @@ export function StaticBuyerMap({ buyers, label = "Approximate pins", market, sel
         </div>
       </div>
       <div className="map-pins">
+        <DemandAtlasBackdrop />
         {buyers.map((buyer) => {
           const position = mapPinPosition(buyer, buyers);
           if (!position) return null;

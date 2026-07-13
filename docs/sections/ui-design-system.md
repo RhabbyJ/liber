@@ -30,6 +30,8 @@ Owns shared visual language, navigation, layouts, reusable components, and globa
 - `/profile` is owner-only account identity. It may display the current session user's private name/email and workspace links, but those fields never become seller/public buyer identity.
 - Workspace context belongs in descriptive page eyebrows and navigation, not decorative Buyer mode / Seller mode pills.
 - Status styling uses one semantic icon or text label. Do not inject decorative dots beside an existing icon, and reserve warning/success color for real state.
+- Liber's original light-green palette is authoritative: `#67c94f`, `#5fbe43`, and `#47a62f`, with `#f2fbef`, `#e0f6d8`, and `#bceaad` for tints and decorative lines. Bright-green fills use dark ink rather than white text; normal green text on white uses the contrast-safe `--sage-ink` companion.
+- Demand visuals reuse the shared abstract atlas grammar: circular demand signals, privacy halos, parcel fragments, and clearly decorative contours. Canonical service-area geometry remains the only source for real selected boundaries. Trust explanations reuse the shared private-evidence -> Liber-review -> visible-badge flow, and contextual empty states use the same quiet visual primitives.
 - Role-prefilled buyer and seller signup links keep the role selected but still open at Step 1 so the user confirms intent.
 - On narrow screens the homepage may stack and scroll, but the map, preview cards, and mobile navigation actions must all remain reachable.
 - Do not use real-looking buyer imagery as a trust shortcut.

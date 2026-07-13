@@ -3,6 +3,7 @@ import { BadgePill } from "../../../components/badge-pill";
 import { DirectUploadField } from "../../../components/direct-upload-field";
 import { Icon } from "../../../components/icon";
 import { PageTitle } from "../../../components/page-title";
+import { TrustTransformation } from "../../../components/trust-transformation";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
 
 export default async function BuyerBadgesPage() {
@@ -19,13 +20,15 @@ export default async function BuyerBadgesPage() {
         Upload a pre-approval or proof of funds. Liber reviews privately - sellers only see the badge.
       </PageTitle>
 
-      <section className="stack tight verification-benefit">
-        <h2>Why get verified?</h2>
-        <p>
-          Getting verified shows sellers you’re serious and approved to purchase. Serious sellers look for the
-          verified badge on your profile and can filter by verified buyers, which can help increase the invites
-          you receive from sellers.
-        </p>
+      <section className="verification-benefit">
+        <div className="stack tight">
+          <h2>Why get verified?</h2>
+          <p>
+            Your evidence stays private while Liber reviews it. Sellers see only the resulting badge and can use
+            approved trust signals when searching for buyers.
+          </p>
+        </div>
+        <TrustTransformation />
       </section>
 
       <section className="card stack">

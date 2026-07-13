@@ -6,6 +6,7 @@ import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
 import { PageTitle } from "../../../components/page-title";
 import { PublicBuyerPreviewCard } from "../../../components/public-buyer-preview-card";
+import { QuietStateVisual } from "../../../components/quiet-state-visual";
 import { SearchFiltersSidebar } from "../../../components/search-filters-sidebar";
 import { SellerMapLocationSearch } from "../../../components/seller-map-location-search";
 import { SortSelect } from "../../../components/sort-select";
@@ -64,10 +65,13 @@ export default async function SellerSearchPage({
             Buyer browsing and invite tools are unavailable for this account.
           </PageTitle>
           <section className="seller-access-bar suspended" aria-label="Seller directory status">
-            <div className="seller-access-copy">
-              <span>Directory status</span>
-              <strong>Suspended</strong>
-              <p>Contact Liber support if you believe this restriction was applied in error.</p>
+            <div className="seller-access-main">
+              <QuietStateVisual compact name="access" />
+              <div className="seller-access-copy">
+                <span>Directory status</span>
+                <strong>Suspended</strong>
+                <p>Contact Liber support if you believe this restriction was applied in error.</p>
+              </div>
             </div>
           </section>
         </div>
@@ -87,10 +91,13 @@ export default async function SellerSearchPage({
         </PageTitle>
 
         <section className={`seller-access-bar ${accessState.tone}`} aria-label="Seller directory review status">
-          <div className="seller-access-copy">
-            <span>Directory review</span>
-            <strong>{accessState.label}</strong>
-            <p>{accessState.description}</p>
+          <div className="seller-access-main">
+            <QuietStateVisual compact name="access" />
+            <div className="seller-access-copy">
+              <span>Directory review</span>
+              <strong>{accessState.label}</strong>
+              <p>{accessState.description}</p>
+            </div>
           </div>
           <Link className="button secondary" href="/seller/properties">
             Manage properties
@@ -122,6 +129,7 @@ export default async function SellerSearchPage({
           ) : (
             <EmptyState
               icon="people"
+              visual="search"
               title="No buyer demand to show here yet"
               description="Try another supported city, neighborhood, or ZIP. New active buyer demand will appear here automatically."
             />
@@ -242,6 +250,7 @@ export default async function SellerSearchPage({
               <div style={{ padding: 24 }}>
                 <EmptyState
                   icon="search"
+                  visual="search"
                   title="No buyers match these filters"
                   description="Try another supported area, raising the budget ceiling, or removing badge filters."
                 />

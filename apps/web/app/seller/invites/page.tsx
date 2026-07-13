@@ -34,6 +34,7 @@ export default async function SellerInvitesPage() {
       {invites.length === 0 ? (
         <EmptyState
           icon="mail"
+          visual="invites"
           title="No invites sent yet"
           description="Search buyers and send a manual invite once you find a fit."
           actions={

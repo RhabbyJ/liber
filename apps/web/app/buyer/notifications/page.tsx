@@ -21,7 +21,7 @@ export default async function BuyerNotificationsPage() {
         }
       />
       {notifications.length === 0 ? (
-        <EmptyState icon="sparkle" title="All quiet" description="No new activity yet. Check back after sellers reach out." />
+        <EmptyState icon="sparkle" visual="notifications" title="All quiet" description="No new activity yet. Check back after sellers reach out." />
       ) : (
         <section className="activity-list">
           {notifications.map((notification) => (

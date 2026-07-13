@@ -6,6 +6,7 @@ import { syncSelectedAreaLayer } from "../lib/map-boundary-layers";
 import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
 import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
 import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
+import { DemandAtlasBackdrop } from "./demand-atlas";
 
 type Props = {
   market: MarketMapContext;
@@ -228,6 +229,7 @@ function PublicStaticDemandMap({ points }: { points: PreviewPoint[] }) {
 function StaticDemandLayer({ points }: { points: PreviewPoint[] }) {
   return (
     <div className="public-map-static-grid">
+      <DemandAtlasBackdrop />
       {points.length === 0 ? (
         <div className="public-map-static-empty">
           <strong>Buyer demand map</strong>

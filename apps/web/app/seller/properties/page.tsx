@@ -45,6 +45,7 @@ export default async function SellerPropertiesPage() {
       {properties.length === 0 ? (
         <EmptyState
           icon="home"
+          visual="properties"
           title="No private properties yet"
           description="Add a property to send invites to matching buyers. Ownership documents are stored privately and reviewed by Liber admins."
           actions={
