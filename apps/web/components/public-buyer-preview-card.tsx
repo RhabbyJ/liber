@@ -34,27 +34,28 @@ export function PublicBuyerPreviewCard({ index, preview }: { index: number; prev
       }}
       tabIndex={0}
     >
-      <div className="demand-card-media" aria-hidden="true">
-        <span className="demand-card-media-badge">Approx area</span>
-        <span className="demand-card-media-pin" />
-        <span className="demand-card-media-dot dot-a" />
-        <span className="demand-card-media-dot dot-b" />
-        <span className="demand-card-media-dot dot-c" />
-      </div>
       <div className="demand-card-body">
         <div className="demand-card-top">
-          <span className="demand-card-budget">{preview.budgetLabel}</span>
+          <div>
+            <p className="demand-card-kicker">Seeking a {preview.label.toLowerCase()}</p>
+            <h3 className="demand-card-budget">{preview.budgetLabel}</h3>
+          </div>
           {preview.badges.length > 0 ? (
             <span className="demand-card-verified">
               <Icon name="check-shield" size={13} />
-              Verified
+              Verified details
             </span>
           ) : null}
         </div>
-        {meta.length > 0 ? <p className="demand-card-meta">{meta.join(" | ")}</p> : null}
         <p className="demand-card-sub">
-          {preview.label} in {preview.area}
+          <Icon name="map-pin" size={13} />
+          {preview.area}
         </p>
+        {meta.length > 0 ? (
+          <div className="demand-card-facts" aria-label="Buyer criteria summary">
+            {meta.map((fact) => <span key={fact}>{fact}</span>)}
+          </div>
+        ) : null}
         {chips.length > 0 ? (
           <div className="demand-card-chips">
             {chips.map((chip) => (

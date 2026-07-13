@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { AccountMenu } from "../components/account-menu";
 import { Icon } from "../components/icon";
 import { PrimaryNav } from "../components/primary-nav";
 import { getSessionUser } from "../server/session";
@@ -37,17 +38,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   <Link
                     aria-label="Notifications"
                     className="notification-button"
-                    data-unread="true"
                     href={notificationHrefForRoles(roles)}
                   >
                     <Icon name="bell" size={18} />
                   </Link>
-                  <form action="/logout" method="post">
-                    <button className="button ghost" type="submit" aria-label="Log out">
-                      <Icon name="logout" size={15} />
-                      Sign out
-                    </button>
-                  </form>
+                  <AccountMenu
+                    avatarVariant={user?.avatarVariant}
+                    profileHref="/profile"
+                    userId={user?.id ?? "account"}
+                  />
                 </>
               ) : (
                 <>

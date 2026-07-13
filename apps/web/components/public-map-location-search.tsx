@@ -152,7 +152,7 @@ export function PublicMapLocationSearch({ defaultArea = "", marketSlug }: Props)
             setIsUnsupported(false);
             setIsSuggestionsOpen(true);
           }}
-          placeholder="Search city, neighborhood, or ZIP"
+          placeholder="City, neighborhood, or ZIP"
           value={query}
         />
         {query ? (

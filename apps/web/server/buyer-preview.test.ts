@@ -34,4 +34,13 @@ describe("public buyer preview service-area filters", () => {
     expect(homepage).toContain("isSignedIn={Boolean(user)}");
     expect(homepage).toContain("if (isSignedIn) return null;");
   });
+
+  it("uses the privacy-safe preview query for sellers awaiting full directory access", () => {
+    const sellerSearch = readFileSync(path.resolve("app/seller/search/page.tsx"), "utf8");
+
+    expect(sellerSearch).toContain("if (!canSearch)");
+    expect(sellerSearch).toContain("getPublicBuyerPreviews(market.slug, selectedServiceArea, user?.id)");
+    expect(sellerSearch).toContain("Buyer identities, full profiles, contact actions, and invites stay locked");
+    expect(sellerSearch).toContain('sellerAccess.status === "SUSPENDED"');
+  });
 });

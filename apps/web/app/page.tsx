@@ -47,7 +47,7 @@ export default async function HomePage({
   const buyerProfilePath = `/buyer/profile?market=${encodeURIComponent(market.slug)}`;
   const buyerProfileHref = user ? buyerProfilePath : `/signup?role=buyer&next=${encodeURIComponent(buyerProfilePath)}`;
   const mapPrimaryHref = isAdmin ? "/admin" : isSeller ? sellerSearchPath : isBuyer ? buyerProfilePath : sellerSearchHref;
-  const mapPrimaryLabel = isAdmin ? "Admin workspace" : isSeller ? "Seller workspace" : isBuyer ? "My buyer profile" : "Get seller access";
+  const mapPrimaryLabel = isAdmin ? "Admin workspace" : isSeller ? "Seller workspace" : isBuyer ? "Manage buyer profile" : "Get seller access";
   const activePreviewLabel = `${buyerPreviews.length} active preview${buyerPreviews.length === 1 ? "" : "s"}`;
 
   return (
@@ -79,13 +79,9 @@ export default async function HomePage({
               <h1>{selectedAreaLabel ? `${selectedAreaLabel} Buyer Demand` : `${market.label} Buyer Demand`}</h1>
               <p>{selectedArea ? "Preview cards in this selected area" : activePreviewLabel}</p>
               {hasDemoPreviews && buyerPreviews.length > 0 ? (
-                <span className="status-dot warning">Controlled demo data</span>
+                <span className="demand-data-note">Includes clearly labeled demo profiles.</span>
               ) : null}
             </div>
-            <Link className="demand-sort-link" href={mapPrimaryHref}>
-              {isSeller ? "Seller workspace" : isBuyer ? "My profile" : "Get access"}
-              <Icon name="chevron-right" size={13} />
-            </Link>
           </header>
 
           <div className="demand-card-grid">

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
-import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
 import { PrivatePropertyImages } from "../../../components/private-property-images";
 import { listBuyerInvites } from "../../../server/contracts";
@@ -16,7 +15,6 @@ export default async function BuyerInvitesPage() {
         eyebrow="Invite inbox"
         title="Property invites from sellers"
         tone="buyer"
-        badge={<ModeChip mode="buyer" />}
         actions={
           <Link className="button ghost" href="/buyer/notifications">
             <Icon name="bell" size={14} />

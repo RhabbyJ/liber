@@ -89,7 +89,7 @@ export function BuyerCard({
       </div>
 
       <Link className="buyer-row-see-more" href={`/buyers/${buyer.id}`}>
-        See More
+        View profile
       </Link>
     </article>
   );

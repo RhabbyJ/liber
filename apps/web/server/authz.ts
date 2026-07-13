@@ -1,7 +1,10 @@
 export type AppRole = "BUYER" | "SELLER" | "ADMIN";
 
 export type SessionUser = {
+  avatarVariant?: string | null;
+  email?: string;
   id: string;
+  name?: string | null;
   roles: AppRole[];
 };
 

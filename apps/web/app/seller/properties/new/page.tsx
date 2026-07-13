@@ -16,91 +16,123 @@ export default async function NewSellerPropertyPage({
   const safeNext = typeof next === "string" && next.startsWith("/seller/") ? next : null;
 
   return (
-    <div className="page wide seller-property-reference-page">
-      <div className="seller-property-reference-head">
-        <Link className="seller-property-back" href="/seller/properties">
+    <div className="seller-property-intake-page">
+      <header className="seller-property-intake-context">
+        <Link aria-label="Back to properties" className="seller-property-back" href="/seller/properties">
           <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
-          Back to properties
+          <span aria-hidden="true" className="seller-property-back-label">Back to properties</span>
+          <span aria-hidden="true" className="seller-property-back-label-mobile">Back</span>
         </Link>
-        <h1>Add Details About My Property</h1>
-        <p>Your property stays private and is only shared with buyers you invite.</p>
-      </div>
+        <strong>Your properties</strong>
+      </header>
 
-      <section className="seller-property-reference-shell">
-        <form action={submitSellerProperty} className="seller-property-reference-form form-grid">
-          {safeNext ? <input name="next" type="hidden" value={safeNext} /> : null}
+      <form action={submitSellerProperty} className="seller-property-intake-form">
+        {safeNext ? <input name="next" type="hidden" value={safeNext} /> : null}
 
-          <div className="field full seller-property-verify-section">
-            <label>Verify Ownership</label>
-            <span className="field-hint">
-              To verify ownership, submit a government-issued photo ID matching the exact title name or entity decision maker,
-              plus a utility, tax, or mortgage bill matching the property name and address.
-            </span>
+        <div className="seller-property-intake-hero">
+          <PropertyIntakeArtwork />
+          <h1>Add a private property</h1>
+          <p className="seller-property-intake-lede">
+            Start with the address. We will look for available property facts, then you can review every detail before saving.
+          </p>
+          <PropertyAddressLookup marketSlug={market.slug} marketState={market.state} presentation="intake" />
+        </div>
+
+        <section className="seller-property-intake-section" aria-labelledby="property-context-heading">
+          <header className="property-intake-section-head">
+            <h2 id="property-context-heading">Add matching context</h2>
+            <p>These details help compare your property with buyer demand. They are never published as a public listing.</p>
+          </header>
+          <div className="form-grid">
+            <div className="field">
+              <label htmlFor="propertyType">Property type</label>
+              <select id="propertyType" name="propertyType" defaultValue="HOME">
+                {propertyTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <span className="field-hint">Used for matching against buyer seeking type.</span>
+            </div>
+            <div className="field">
+              <label htmlFor="price">Asking price</label>
+              <input id="price" name="price" placeholder="925000" inputMode="numeric" />
+              <span className="field-hint">Used only for matching and private invite context.</span>
+            </div>
+            <div className="field">
+              <label htmlFor="garage">Garage area</label>
+              <input id="garage" name="garageArea" placeholder="420" inputMode="numeric" />
+            </div>
+            <div className="field">
+              <label htmlFor="condition">Condition</label>
+              <input id="condition" name="condition" placeholder="Well maintained" />
+            </div>
+            <div className="field full">
+              <label htmlFor="features">Features</label>
+              <textarea id="features" name="features" placeholder="Single story, attached garage, low-maintenance yard" />
+            </div>
+            <div className="field full">
+              <label htmlFor="description">Private description</label>
+              <textarea id="description" name="description" placeholder="Add useful context for buyers you choose to invite." />
+            </div>
+          </div>
+        </section>
+
+        <section className="seller-property-intake-section" aria-labelledby="property-authority-heading">
+          <header className="property-intake-section-head">
+            <h2 id="property-authority-heading">Confirm your authority</h2>
+            <p>A saved property remains private and cannot back new invites until the required ownership review is current.</p>
+          </header>
+
+          <div className="property-intake-next-step">
+            <Icon name="lock" size={18} />
+            <div>
+              <strong>Evidence comes next</strong>
+              <p>After saving, upload a government-issued photo ID and a utility, tax, or mortgage bill for private admin review.</p>
+            </div>
           </div>
 
-          <div className="auth-alert info field full">
-            Save the private property record first. The next screen uploads ownership evidence and images directly to private Storage.
-          </div>
-
-          <div className="field">
-            <label htmlFor="propertyType">Property type</label>
-            <select id="propertyType" name="propertyType" defaultValue="HOME">
-              {propertyTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <span className="field-hint">Used for matching against buyer seeking type.</span>
-          </div>
-          <div className="field">
-            <label htmlFor="price">Asking price</label>
-            <input id="price" name="price" placeholder="925000" inputMode="numeric" />
-            <span className="field-hint">Used only for matching; never displayed publicly.</span>
-          </div>
-
-          <PropertyAddressLookup marketSlug={market.slug} marketState={market.state} />
-
-          <div className="field">
-            <label htmlFor="garage">Garage area</label>
-            <input id="garage" name="garageArea" placeholder="420" inputMode="numeric" />
-          </div>
-          <div className="field">
-            <label htmlFor="condition">Condition</label>
-            <input id="condition" name="condition" placeholder="Well maintained" />
-          </div>
-
-          <div className="field full">
-            <label htmlFor="features">Features</label>
-            <textarea id="features" name="features" placeholder="Single story, no pool, attached garage, low-maintenance yard" />
-          </div>
-
-          <div className="field full">
-            <label htmlFor="description">Description</label>
-            <textarea id="description" name="description" placeholder="Quiet single-story home with low-maintenance yard." />
-          </div>
-
-          <div className="auth-alert info field full">
+          <div className="property-intake-attestation">
             <strong>Ownership confirmation required</strong>
-            <span>
-              It is illegal to claim a property you do not legally own. Accepting an offer on a property you do not
-              own or represent can be a criminal offense punishable by law. Confirming here does not replace admin
-              review of ownership evidence.
-            </span>
-            <label className="checkbox-container" style={{ marginTop: 8 }}>
+            <p>
+              It is illegal to claim a property you do not legally own. Accepting an offer on a property you do not own or
+              represent can be a criminal offense punishable by law. Confirming here does not replace admin review of ownership evidence.
+            </p>
+            <label className="checkbox-container">
               <input name="ownershipConfirmed" required type="checkbox" value="true" />
               <span className="checkmark" />
               I confirm I legally own this property or am authorized to represent the owner.
             </label>
           </div>
 
-          <div className="actions between" style={{ gridColumn: "1 / -1" }}>
+          <div className="property-intake-actions">
             <Link className="button ghost" href="/seller/properties">Cancel</Link>
             <button className="button primary" type="submit">
               <Icon name="check" size={14} />
-              Save
+              Save private property
             </button>
           </div>
-        </form>
-      </section>
+        </section>
+      </form>
+    </div>
+  );
+}
+
+function PropertyIntakeArtwork() {
+  return (
+    <div aria-hidden="true" className="property-intake-art">
+      <span className="property-intake-art-ground" />
+      <span className="property-intake-art-tree property-intake-art-tree-left">
+        <span />
+      </span>
+      <span className="property-intake-art-house">
+        <span className="property-intake-art-roof" />
+        <span className="property-intake-art-window property-intake-art-window-left" />
+        <span className="property-intake-art-window property-intake-art-window-right" />
+        <span className="property-intake-art-door" />
+      </span>
+      <span className="property-intake-art-tree property-intake-art-tree-right">
+        <span />
+      </span>
     </div>
   );
 }

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { BadgePill } from "../../../../components/badge-pill";
 import { GeneratedAvatar } from "../../../../components/generated-avatar";
 import { Icon } from "../../../../components/icon";
-import { ModeChip } from "../../../../components/mode-chip";
 import { PageTitle } from "../../../../components/page-title";
 import { formatMoney } from "../../../../lib/format";
 import { propertySubtypeLabel } from "../../../../lib/property-types";
@@ -27,7 +26,6 @@ export default async function InviteBuyerPage({
           eyebrow="Manual outreach"
           title="Seller access pending"
           tone="seller"
-          badge={<ModeChip mode="seller" />}
         >
           A Liber admin must approve seller directory access before buyer profile viewing or invites are available.
         </PageTitle>
@@ -69,7 +67,6 @@ export default async function InviteBuyerPage({
           eyebrow="Manual outreach"
           title="This is your buyer profile"
           tone="seller"
-          badge={<ModeChip mode="seller" />}
         >
           You can view your buyer demand in seller search, but invites are only for outreach to other buyers.
         </PageTitle>
@@ -106,7 +103,6 @@ export default async function InviteBuyerPage({
           eyebrow={`Invite ${buyer.name}`}
           title="Add a property first"
           tone="seller"
-          badge={<ModeChip mode="seller" />}
         >
           Add and verify a private property record before sending an invite. Your property is only shown to buyers you choose.
         </PageTitle>
@@ -151,7 +147,6 @@ export default async function InviteBuyerPage({
         eyebrow="Manual outreach"
         title={`Invite ${buyer.name}`}
         tone="seller"
-        badge={<ModeChip mode="seller" />}
         actions={
           <Link className="button ghost" href={`/buyers/${buyer.id}`}>
             <Icon name="user" size={14} />
@@ -168,7 +163,7 @@ export default async function InviteBuyerPage({
 
           <div className="invite-compose-heading">
             <p className="eyebrow seller">Manual invite</p>
-            <h2>Send Message to {buyer.name}</h2>
+            <h2>Write an invite to {buyer.name}</h2>
           </div>
           <div className="field">
             <label htmlFor="property">Property</label>
@@ -183,11 +178,11 @@ export default async function InviteBuyerPage({
           <div className="reference-form-section">
             <h3>Personal Info</h3>
             <div className="field full">
-              <label htmlFor="title">Message title</label>
+              <label htmlFor="title">Invite title</label>
               <input id="title" name="title" defaultValue="Invite to buy a house" />
             </div>
             <div className="field full">
-              <label htmlFor="message">Message body</label>
+              <label htmlFor="message">Invite note</label>
               <textarea
                 id="message"
                 name="message"

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Owns the homepage demand preview, public-safe buyer projection,
+Owns the homepage demand preview, pre-approval seller list, public-safe buyer projection,
 approximate pins, and the boundary between public teaser data and approved
 seller data.
 
@@ -28,6 +28,8 @@ seller data.
   with their own buyer profile excluded by server-side Auth UUID predicate.
 - Authentication changes only preview count. It does not authorize seller
   search, full buyer profiles, filters, contact actions, or additional fields.
+- Active sellers awaiting or denied full-directory approval may see the same signed-in preview DTO on `/seller/search`; a missing review row is handled as a distinct fail-limited state. Suspended seller-directory access does not receive that seller-route list.
+- The pre-approval seller list has no buyer routing IDs, profile links, contact controls, advanced filters, or invite actions and must not call the approved seller search contract.
 - The homepage stays map-first. Compact orientation copy, persistent navigation, and role-aware next-step CTAs may clarify the experience, but must not turn it into a separate marketing hero or expand the preview data contract.
 - Public and seller responses use dedicated Prisma `select` projections. Do not
   load a broad internal buyer object and sanitize it after serialization.

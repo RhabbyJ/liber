@@ -28,12 +28,6 @@ const guestItems: NavItem[] = [
 
 const buyerItems: NavItem[] = [
   {
-    href: "/buyer/profile",
-    label: "My profile",
-    isActive: (pathname) => pathname === "/buyer/profile" || pathname === "/buyer/badges",
-    mode: "buyer",
-  },
-  {
     href: "/buyer/invites",
     label: "Received invites",
     isActive: (pathname) => pathname === "/buyer/invites" || pathname === "/buyer/notifications",

@@ -12,4 +12,12 @@ describe("signup wizard interaction ownership", () => {
     expect(source).toContain("onSubmit={handleSubmit}");
     expect(source).toContain("onKeyDown={handleKeyDown}");
   });
+
+  it("starts role-prefilled buyer and seller entries on step one", () => {
+    const source = readFileSync(path.resolve("components/signup-wizard.tsx"), "utf8");
+
+    expect(source).toContain("const startingStep = initialStep ?? 0;");
+    expect(source).not.toContain("initialRole ? 1 : 0");
+    expect(source).toContain('const [role, setRole] = useState<Role>(initialRole ?? "buyer")');
+  });
 });

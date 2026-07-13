@@ -81,10 +81,10 @@ Key concepts:
 - `User.name` is private account identity for owner-only UI; seller/public buyer surfaces must use the generated `BuyerProfile.displayName` alias or an anonymized preview label.
 - `BuyerProfile.displayName` is a generated public buyer alias from a server allowlist, such as `Maple Haven`; profile input schemas do not expose public name editing.
 - `BuyerProfile.buyerType` stores the allowlisted purchase type (`Cash`, `Conventional financing`, `Other`) and `BuyerProfile.buyingPurpose` stores the allowlisted seeking property type (`House`, `Condo`, `Townhouse`, `Manufactured`, `Land`). The column names are legacy-compatible; product UI should use the new labels.
-- `User.avatarVariant` stores the allowlisted generated animal-avatar token used by buyer profile surfaces. Avatar image files are not stored.
+- `User.avatarVariant` stores the allowlisted generated animal-avatar token used by buyer profile and owner-only account navigation surfaces. Avatar image files are not stored.
 - `User.status` blocks suspended users.
-- `SellerAccess.status` controls buyer-directory/search/profile/invite access.
-- A user self-selecting `SELLER` does not automatically gain directory access.
+- `SellerAccess.status` controls full buyer-directory search, profile, and invite access. `PENDING` and `REJECTED` sellers may receive only the signed-in privacy-safe preview projection; `SUSPENDED` sellers receive no seller-route preview.
+- A user self-selecting `SELLER` does not automatically gain full directory access, profile routes, contact actions, or invite authority.
 - Admin status is not self-service.
 - Auth POST routes preserve the incoming request host/protocol for same-origin checks and redirects so local `127.0.0.1` and `localhost` sessions do not cross origins under the CSP `form-action` rule.
 - Login and signed-in auth entry points resolve `next` through a role-aware intent helper. Stale auth-flow destinations and destinations requiring a role the account does not have fall back to the user's existing default workspace instead of entering another role picker or auth loop.
@@ -234,9 +234,9 @@ Do not add search filters based on protected-class proxies or unnecessary person
 
 Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN` on the buyer search query against realistic data volume. Legacy city/state/ZIP lookup indexes are removed by the canonical cutover. Public launch requires measured indexes for the active canonical-area join, budget overlap, badge status, criteria filters, and sort/cursor patterns. The current unnumbered CTO proposal and temporary-table evidence live in `docs/engineering/SELLER_SEARCH_SQL_PROPOSAL.sql` and `docs/engineering/SELLER_SEARCH_SQL_EVIDENCE_2026-07-09.md`; neither is an applied migration.
 
-## Homepage buyer-demand preview
+## Privacy-safe buyer-demand preview
 
-`apps/web/server/buyer-preview.ts` powers the map-first homepage (V1 preview rules). The homepage renders a Zillow-style demand map (`apps/web/components/public-demand-map.tsx`) with budget-band pins plus preview cards and an audience-aware next step.
+`apps/web/server/buyer-preview.ts` powers the map-first homepage and the read-only pre-approval seller list (V1 preview rules). The homepage renders a demand map (`apps/web/components/public-demand-map.tsx`) with budget-band pins plus preview cards and an audience-aware next step. `/seller/search` reuses the same DTO for active `PENDING`, `REJECTED`, or anomalous missing-review seller states without calling the approved seller search contract.
 
 - without a validated session, reads at most 4 `ACTIVE` buyer profiles,
 - with a validated active session, reads every otherwise eligible preview except the viewer's own buyer profile; the Auth UUID is used only in the server-side exclusion predicate and is never selected or serialized,
@@ -246,9 +246,9 @@ Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN
 - the public map may let visitors select a known active ZIP/city/neighborhood service area to pan/draw an approximate area polygon and scope the limited preview cards to that area,
 - selected-area preview filtering uses the same canonical selected-area UUID and reviewed query-time rollups as seller search,
 - when a service area is selected, preview pins anchor to that selected service-area center plus the deterministic privacy offset instead of re-parsing buyer city text,
-- has no full public search/filter API and no buyer profile links; guests may sign in or create an account, while signed-in users receive only an applicable role-aware next step,
+- has no full public search/filter API, buyer routing identifiers, buyer profile links, contact actions, or invite actions; guests may sign in or create an account, while signed-in users receive only an applicable role-aware next step,
 - is best-effort: failures return an empty list / hide the map and must not break the homepage,
-- must not grow into public search or expose buyer profile URLs. Authentication changes the preview count only and never substitutes for approved seller-directory access.
+- must not grow into public search or expose buyer profile URLs. Authentication changes preview count and may place the same projection on the seller route; it never substitutes for approved seller-directory access. Full search APIs, profile reads, and invite commands retain their server and database approval checks.
 
 In a CEO demo / private preview environment, these records may come from clearly marked demo buyer seed data. In true production, preview records must come from real active buyer demand only.
 

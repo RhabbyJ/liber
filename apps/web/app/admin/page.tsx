@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Icon } from "../../components/icon";
-import { ModeChip } from "../../components/mode-chip";
 import { PageTitle } from "../../components/page-title";
 
 type Section = {
@@ -27,7 +26,6 @@ export default function AdminDashboardPage() {
         eyebrow="Internal admin"
         title="Verification dashboard"
         tone="admin"
-        badge={<ModeChip mode="admin" />}
       >
         Trust, moderation, and sensitive document decisions require audited admin action.
       </PageTitle>

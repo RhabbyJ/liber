@@ -21,7 +21,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
 
   const dbUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { email: true, roles: true, status: true },
+    select: { avatarVariant: true, email: true, name: true, roles: true, status: true },
   });
 
   if (
@@ -31,7 +31,13 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   ) {
     return null;
   }
-  return { id: userId, roles: dbUser.roles };
+  return {
+    avatarVariant: dbUser.avatarVariant,
+    email: dbUser.email,
+    id: userId,
+    name: dbUser.name,
+    roles: dbUser.roles,
+  };
 });
 
 export async function requireSessionRole(role: AppRole, next = "") {

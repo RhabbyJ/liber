@@ -15,7 +15,6 @@ describe("primary navigation", () => {
 
     expect(labels).toEqual([
       "Demand map",
-      "My profile",
       "Received invites",
       "Find buyers",
       "Properties",

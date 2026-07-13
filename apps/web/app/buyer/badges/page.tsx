@@ -2,7 +2,6 @@ import Link from "next/link";
 import { BadgePill } from "../../../components/badge-pill";
 import { DirectUploadField } from "../../../components/direct-upload-field";
 import { Icon } from "../../../components/icon";
-import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
 
@@ -16,7 +15,6 @@ export default async function BuyerBadgesPage() {
         eyebrow="Verification"
         title="Get verified"
         tone="buyer"
-        badge={<ModeChip mode="buyer" />}
       >
         Upload a pre-approval or proof of funds. Liber reviews privately - sellers only see the badge.
       </PageTitle>

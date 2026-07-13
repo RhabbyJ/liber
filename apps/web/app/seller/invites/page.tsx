@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
-import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
 import { listSellerInvites } from "../../../server/contracts";
 
@@ -22,7 +21,6 @@ export default async function SellerInvitesPage() {
         eyebrow="Outreach log"
         title="Sent invites"
         tone="seller"
-        badge={<ModeChip mode="seller" />}
         actions={
           <Link className="button ghost" href="/seller/notifications">
             <Icon name="bell" size={14} />

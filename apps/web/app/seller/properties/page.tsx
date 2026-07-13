@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
-import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
 import { formatMoney } from "../../../lib/format";
 import { propertySubtypeLabel } from "../../../lib/property-types";
@@ -16,7 +15,6 @@ export default async function SellerPropertiesPage() {
         eyebrow="Private property records"
         title="Your properties"
         tone="seller"
-        badge={<ModeChip mode="seller" />}
         actions={
           <Link className="button primary" href="/seller/properties/new">
             <Icon name="plus" size={14} />
@@ -27,13 +25,13 @@ export default async function SellerPropertiesPage() {
         Property records are required before sending an invite. They stay private and are only shared with the buyers you invite.
       </PageTitle>
 
-      <section className="card cream stack">
+      <section className="privacy-note">
         <div className="section-head compact">
           <div className="stack tight">
-            <p className="eyebrow amber">Privacy</p>
+            <p className="eyebrow">Privacy</p>
             <h2 style={{ fontSize: 20 }}>Not a public listing</h2>
           </div>
-          <span className="status-dot amber">
+          <span className="privacy-note-state">
             <Icon name="lock" size={12} />
             Invite-only
           </span>

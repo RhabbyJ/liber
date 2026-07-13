@@ -25,6 +25,7 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - No auth-bypass strings should be reintroduced.
 - Protected routes should redirect/reject unauthenticated users.
 - Visual smoke is for public/non-auth pages unless test auth is explicitly available.
+- Client-rendered visual-smoke targets must settle before capture and preserve the requested viewport dimensions; a `Loading...` shell or a wider layout cropped into a mobile PNG is not a valid pass.
 - Do not weaken tests to make a bad change pass.
 - Demo/test buyer data may be used for smoke and CEO demo verification only when clearly seeded and removable.
 - Tests and smoke scripts must not depend on fake data being present in true production.
@@ -43,6 +44,8 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - LA County map acceptance covers complete County pan/zoom and clamp, View all reset, absence of ambient borders, searched-area boundary rendering/clearing, preview-card-to-pin hover/focus highlighting, rapid selected-area switching, mobile cooperative scrolling, and absence of internal service-area UUIDs in public responses.
 - Before geometry activation, test an exact versioned URL before and after swapping the current pointer, plus duplicate aliases and same-named areas in separate markets against the real indexed SQL.
 - After auth, nav, or protected-route changes, run a focused browser auth pass covering signed-out CTAs, buyer signup/login/logout, buyer-to-seller intent, seller signup/access gating, both-role signup when supported, and mobile nav/logout.
+- Role-prefilled `For buyers` and `For sellers` acceptance must verify that Step 1 remains visible with the intended role preselected. Account-menu acceptance covers the stored avatar, `Your profile`, POST-only sign out, Escape/outside-close behavior, and the mobile equivalents.
+- Seller access acceptance covers approved full search, pending/rejected/missing-review privacy-safe lists, suspended seller blocking, absence of buyer IDs/profile/contact/invite links in preview cards, and continued 403 responses from the full seller API before approval.
 - Homepage preview acceptance must cover a four-card guest maximum, a scoped
   sign-in return to the homepage, all eligible signed-in previews except the
   viewer's own profile, identical forbidden-field/privacy assertions for both

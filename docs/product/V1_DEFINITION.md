@@ -54,7 +54,7 @@ The public or unauthenticated experience must not:
 
 Limited pre-signup previews are product marketing and onboarding support. They are not seller search, and they do not replace approved seller-directory access.
 
-After a server-validated sign-in, the homepage may show every otherwise eligible privacy-safe preview record except the signed-in user's own buyer profile. It must use the exact same preview DTO and approximate-pin rules as the public teaser. Authentication changes only the preview count: it does not grant seller search, filters, buyer profile links, contact or identity data, invite actions, or any field reserved for approved seller-directory access.
+After a server-validated sign-in, the homepage may show every otherwise eligible privacy-safe preview record except the signed-in user's own buyer profile. A signed-in seller awaiting or denied full-directory approval may browse that same read-only projection on the seller search route. Both surfaces must use the exact same preview DTO and approximate-pin rules as the public teaser. Authentication changes only preview count and placement: it does not grant full seller search, filters, buyer profile links, contact or identity data, invite actions, or any field reserved for approved seller-directory access. A suspended seller-directory account does not receive the seller-route preview.
 
 The map-first homepage keeps primary navigation visible, gives guests clear buyer/seller entry points, and gives signed-in users a next step matching their existing role. This orientation must not add public profile access or expand the preview contract.
 
@@ -128,6 +128,7 @@ A buyer cannot:
 A seller can:
 
 - request seller-directory access,
+- browse the privacy-safe, read-only buyer-demand preview while full-directory access is pending or rejected,
 - create and edit private property records,
 - upload property images and ownership evidence,
 - search active buyer profiles only after seller access is approved,
@@ -137,7 +138,7 @@ A seller can:
 
 A seller cannot:
 
-- browse buyers only by self-selecting the seller role,
+- access buyer identities, full profiles, advanced filters, contact actions, or invite actions only by self-selecting the seller role,
 - see private buyer verification documents,
 - bypass invite limits,
 - bulk spam buyers,
@@ -160,6 +161,7 @@ Admin role assignment is not self-service.
 
 ## V1 account identity and deletion rules
 
+- The private `/profile` page may show the current active session user's own account name, email, generated avatar, and available workspace links. It must not expose those private account fields to other users or use them as seller-facing buyer identity.
 - A Liber account is owned by its immutable Supabase Auth UUID, not by email.
 - Signup and email changes must never transfer buyer data, seller approval,
   properties, documents, invites, or ADMIN role between UUIDs.
@@ -210,6 +212,8 @@ Full buyer profiles are not public marketing pages. They are only for approved s
 
 Seller search is the core product surface.
 
+The seller route may show active, non-suspended sellers the same privacy-safe read-only preview projection available to signed-in homepage viewers before full-directory approval. This preview has no buyer routing IDs, full-profile links, identities, contact actions, advanced filters, or invite actions and is not seller search authorization.
+
 Seller search must:
 
 - require approved seller-directory access,
@@ -234,6 +238,8 @@ Seller search must not:
 ## V1 seller search UX direction
 
 The approved seller's main product page should feel like a map-first buyer-demand search experience.
+
+Before approval, the seller route should present a calm read-only list of privacy-safe buyer demand with the review state explained inline. It must distinguish pending, rejected, missing-review, and suspended states and must not imply that preview browsing enables contact or invites.
 
 The map should:
 
@@ -261,7 +267,7 @@ Seller search filters should include the v1-safe criteria needed to find propert
 
 Filters must remain property-fit and trust oriented. Do not add filters based on protected-class proxies or unnecessary personal characteristics.
 
-The public/unauthenticated homepage is a map-first preview of at most four buyer-demand records (anonymized, unlabeled pins at approximate locations plus preview cards). A signed-in user may see all otherwise eligible privacy-safe previews except their own, but neither audience may receive full buyer search, pins tied to precise locations, full buyer profiles, or crawlable buyer-directory data. The fully searchable, filterable buyer-demand map remains an approved-seller workspace.
+The public/unauthenticated homepage is a map-first preview of at most four buyer-demand records (anonymized, unlabeled pins at approximate locations plus preview cards). A signed-in user may see all otherwise eligible privacy-safe previews except their own, and an eligible unapproved seller may see that same projection as a read-only list on the seller route. None of these preview audiences may receive full buyer search, pins tied to precise locations, full buyer profiles, routing IDs, contact actions, invite actions, or crawlable buyer-directory data. The fully searchable, filterable buyer-demand map remains an approved-seller workspace.
 
 ## V1 property rules
 

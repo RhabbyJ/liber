@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Icon } from "../../components/icon";
-import { ModeChip } from "../../components/mode-chip";
 import { PageTitle } from "../../components/page-title";
 import { safeInternalPath } from "../../lib/redirect";
 import { getSessionUser, pathForSignedInAuthIntent } from "../../server/session";
@@ -25,7 +24,6 @@ export default async function LoginPage({
         eyebrow="Welcome back"
         title={context.loginTitle}
         tone={context.tone}
-        badge={context.tone ? <ModeChip mode={context.tone} /> : undefined}
       >
         {context.description}
       </PageTitle>

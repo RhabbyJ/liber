@@ -47,7 +47,7 @@ const ROLE_CARDS: Array<{
 ];
 
 export function SignupWizard({ initialRole, initialEmail, initialStep, next, notice }: Props) {
-  const startingStep = initialStep ?? (initialRole ? 1 : 0);
+  const startingStep = initialStep ?? 0;
   const [step, setStep] = useState(startingStep);
   const [role, setRole] = useState<Role>(initialRole ?? "buyer");
   const [name, setName] = useState("");
@@ -177,6 +177,7 @@ export function SignupWizard({ initialRole, initialEmail, initialStep, next, not
               const selected = role === card.value;
               return (
                 <button
+                  aria-pressed={selected}
                   className={`signup-role-card ${selected ? "selected" : ""}`}
                   data-signup-role={card.value}
                   key={card.value}

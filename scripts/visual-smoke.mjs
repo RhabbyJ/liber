@@ -1,5 +1,6 @@
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { spawn, spawnSync } from "node:child_process";
+import { createServer } from "node:http";
 import net from "node:net";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -10,6 +11,8 @@ const baseUrl = externalBaseUrl ?? `http://127.0.0.1:${port}`;
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const artifactDir = path.resolve(".artifacts", "visual-smoke");
 const profileDir = path.resolve(".artifacts", "chrome-profile");
+let settleBaseUrl = null;
+let settleServer = null;
 
 const firefoxCandidates = process.platform === "win32"
   ? [
@@ -105,6 +108,37 @@ function canListen(portToCheck) {
   });
 }
 
+async function startSettleServer() {
+  const server = createServer((request, response) => {
+    const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1");
+    const requestedDelay = Number(requestUrl.searchParams.get("ms"));
+    const delay = Number.isFinite(requestedDelay) ? Math.min(Math.max(requestedDelay, 0), 5_000) : 0;
+
+    setTimeout(() => {
+      response.writeHead(200, {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "no-store",
+        "Content-Type": "application/javascript",
+      });
+      response.end(";");
+    }, delay);
+  });
+
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    server.close();
+    throw new Error("Visual smoke settle server did not bind to a TCP port.");
+  }
+
+  settleServer = server;
+  settleBaseUrl = `http://127.0.0.1:${address.port}`;
+}
+
 async function waitForServer() {
   const startedAt = Date.now();
   while (Date.now() - startedAt < 20_000) {
@@ -139,10 +173,17 @@ async function resolvedPageUrl(target) {
     }
   }
 
-  const html = await inlineStyles(body
+  let snapshotBody = body
     .replace("<head>", `<head><base href="${baseUrl}/">`)
     .replaceAll('href="/', `href="${baseUrl}/`)
-    .replaceAll('src="/', `src="${baseUrl}/`));
+    .replaceAll('src="/', `src="${baseUrl}/`);
+
+  if (target.settleMs && settleBaseUrl) {
+    const settleScript = `<script src="${settleBaseUrl}/settle.js?ms=${target.settleMs}"></script>`;
+    snapshotBody = snapshotBody.replace("</body>", `${settleScript}</body>`);
+  }
+
+  const html = await inlineStyles(snapshotBody);
   const htmlPath = path.join(artifactDir, `${target.file}.html`);
   await writeFile(htmlPath, html);
   return pathToFileURL(htmlPath).href;
@@ -205,7 +246,6 @@ function screenshotArgs(browser, target, filePath) {
     "--disable-gpu-sandbox",
     "--disable-dev-shm-usage",
     "--in-process-gpu",
-    "--single-process",
     "--hide-scrollbars",
     "--no-first-run",
     "--no-default-browser-check",
@@ -219,13 +259,34 @@ function screenshotArgs(browser, target, filePath) {
 async function screenshot(browser, target) {
   const filePath = path.join(artifactDir, target.file);
   target.resolvedUrl = await resolvedPageUrl(target);
-  const result = spawnSync(browser.path, screenshotArgs(browser, target, filePath), {
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      MOZ_DISABLE_CONTENT_SANDBOX: "1",
-    },
-    timeout: 30_000,
+  const result = await new Promise((resolve, reject) => {
+    let stderr = "";
+    let stdout = "";
+    const screenshotProcess = spawn(browser.path, screenshotArgs(browser, target, filePath), {
+      env: {
+        ...process.env,
+        MOZ_DISABLE_CONTENT_SANDBOX: "1",
+      },
+    });
+    const timeout = setTimeout(() => {
+      screenshotProcess.kill();
+      reject(new Error(`Screenshot timed out for ${target.file}.\n${stdout}\n${stderr}`));
+    }, 30_000);
+
+    screenshotProcess.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    screenshotProcess.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    screenshotProcess.once("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    screenshotProcess.once("close", (status) => {
+      clearTimeout(timeout);
+      resolve({ status, stderr, stdout });
+    });
   });
 
   if (result.status !== 0) {
@@ -243,13 +304,14 @@ try {
   await rm(artifactDir, { force: true, recursive: true });
   await rm(profileDir, { force: true, recursive: true });
   await mkdir(artifactDir, { recursive: true });
+  await startSettleServer();
   await waitForServer();
 
   const targets = [
-    { file: "desktop-home.png", height: 1000, path: "/", width: 1440 },
+    { file: "desktop-home.png", height: 1000, path: "/", settleMs: 2500, width: 1440 },
     { file: "desktop-login.png", height: 900, markers: ["Log in", "Email"], path: "/login", width: 1440 },
     { file: "desktop-signup.png", height: 900, markers: ["What brings you to Liber?", "Looking to buy a home"], path: "/signup", width: 1440 },
-    { file: "mobile-home.png", height: 844, path: "/", width: 390 },
+    { file: "mobile-home.png", height: 844, path: "/", settleMs: 2500, width: 390 },
     { file: "mobile-login.png", height: 844, markers: ["Log in", "Email"], path: "/login", width: 390 },
   ];
 
@@ -263,6 +325,7 @@ try {
   console.error(error instanceof Error ? error.stack ?? error.message : error);
 } finally {
   stopServer();
+  settleServer?.close();
 }
 
 process.exit(exitCode);

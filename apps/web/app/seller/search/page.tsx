@@ -4,8 +4,8 @@ import { BuyerCard } from "../../../components/buyer-card";
 import { BuyerMap } from "../../../components/buyer-map";
 import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
-import { ModeChip } from "../../../components/mode-chip";
 import { PageTitle } from "../../../components/page-title";
+import { PublicBuyerPreviewCard } from "../../../components/public-buyer-preview-card";
 import { SearchFiltersSidebar } from "../../../components/search-filters-sidebar";
 import { SellerMapLocationSearch } from "../../../components/seller-map-location-search";
 import { SortSelect } from "../../../components/sort-select";
@@ -13,6 +13,7 @@ import { selectedMapArea } from "../../../lib/map-area";
 import { propertySubtypeLabel } from "../../../lib/property-types";
 import { DEFAULT_MARKET_SLUG, serviceAreaDisplayLabel } from "../../../lib/service-areas";
 import { canViewBuyerDirectory } from "../../../server/access";
+import { getPublicBuyerPreviews } from "../../../server/buyer-preview";
 import { getCurrentSellerAccess, searchBuyers } from "../../../server/contracts";
 import { getActiveMarketBySlug, getActiveServiceAreaBySlug } from "../../../server/service-areas";
 import { SellerSearchCursorError } from "../../../server/seller-search-query";
@@ -44,39 +45,92 @@ export default async function SellerSearchPage({
   const user = await getSessionUser();
   const { data: sellerAccess } = await getCurrentSellerAccess();
   const canSearch = user ? await canViewBuyerDirectory(user) : false;
+  const marketSlug = serviceAreaParam(params.market) ?? DEFAULT_MARKET_SLUG;
+  const market = await getActiveMarketBySlug(marketSlug);
+  const requestedServiceArea = serviceAreaParam(params.serviceArea);
+  const selectedServiceArea = requestedServiceArea
+    ? await getActiveServiceAreaBySlug(requestedServiceArea, market.slug)
+    : null;
+  const selectedMapServiceArea = selectedMapArea(selectedServiceArea);
+  const selectedServiceAreaLabel = selectedServiceArea ? serviceAreaDisplayLabel(selectedServiceArea) : "";
 
   if (!canSearch) {
-    return (
-      <div className="page stack loose">
-        <PageTitle
-          eyebrow="Seller workspace"
-          title="Buyer directory access pending"
-          tone="seller"
-          badge={<ModeChip mode="seller" />}
-        >
-          A Liber admin must approve seller directory access before buyer search, profile viewing, or invites are available.
-        </PageTitle>
-        <section className="card cream stack">
-          <div className="section-head compact">
-            <div>
-              <p className="eyebrow amber">Status</p>
-              <h2 style={{ fontSize: 22 }}>{sellerAccess.status ?? "PENDING"}</h2>
+    const accessState = sellerAccessState(sellerAccess.status);
+
+    if (sellerAccess.status === "SUSPENDED") {
+      return (
+        <div className="page stack loose">
+          <PageTitle eyebrow="Seller directory" title="Directory access unavailable" tone="seller">
+            Buyer browsing and invite tools are unavailable for this account.
+          </PageTitle>
+          <section className="seller-access-bar suspended" aria-label="Seller directory status">
+            <div className="seller-access-copy">
+              <span>Directory status</span>
+              <strong>Suspended</strong>
+              <p>Contact Liber support if you believe this restriction was applied in error.</p>
             </div>
-            <span className="status-dot amber">
-              <Icon name="info" size={12} />
-              Awaiting review
-            </span>
+          </section>
+        </div>
+      );
+    }
+
+    const previews = await getPublicBuyerPreviews(market.slug, selectedServiceArea, user?.id);
+
+    return (
+      <div className="page wide seller-preview-page stack loose">
+        <PageTitle
+          eyebrow="Seller directory"
+          title="Browse current buyer demand"
+          tone="seller"
+        >
+          Every seller can browse this privacy-safe view. Approval unlocks full profiles, advanced filters, and manual invites.
+        </PageTitle>
+
+        <section className={`seller-access-bar ${accessState.tone}`} aria-label="Seller directory review status">
+          <div className="seller-access-copy">
+            <span>Directory review</span>
+            <strong>{accessState.label}</strong>
+            <p>{accessState.description}</p>
           </div>
-          <p className="muted">
-            You can continue preparing private property records while access is reviewed. Properties stay private until you
-            invite a buyer.
-          </p>
-          <div className="actions">
-            <Link className="button primary" href="/seller/properties">
-              <Icon name="home" size={14} />
-              Manage properties
-            </Link>
-          </div>
+          <Link className="button secondary" href="/seller/properties">
+            Manage properties
+          </Link>
+        </section>
+
+        <section className="seller-preview-directory">
+          <header className="seller-preview-header">
+            <div>
+              <p className="eyebrow">Read-only buyer overview</p>
+              <h2>{selectedServiceAreaLabel ? `Buyer demand near ${selectedServiceAreaLabel}` : `${market.label} buyer demand`}</h2>
+              <p>{previews.length} privacy-safe buyer demand {previews.length === 1 ? "summary" : "summaries"}</p>
+            </div>
+            <div className="seller-preview-location-search">
+              <SellerMapLocationSearch
+                defaultArea={selectedServiceAreaLabel}
+                defaultServiceArea={requestedServiceArea || ""}
+                marketSlug={market.slug}
+              />
+            </div>
+          </header>
+
+          {previews.length > 0 ? (
+            <div className="preview-directory-grid">
+              {previews.map((preview, index) => (
+                <PublicBuyerPreviewCard index={index} key={`${preview.area}-${index}`} preview={preview} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon="people"
+              title="No buyer demand to show here yet"
+              description="Try another supported city, neighborhood, or ZIP. New active buyer demand will appear here automatically."
+            />
+          )}
+
+          <footer className="seller-preview-lock-note">
+            <Icon name="lock" size={14} />
+            Buyer identities, full profiles, contact actions, and invites stay locked until directory approval.
+          </footer>
         </section>
       </div>
     );
@@ -85,13 +139,6 @@ export default async function SellerSearchPage({
   const badges = Array.isArray(params.badges) ? params.badges : params.badges ? [params.badges] : [];
   const amenities = Array.isArray(params.amenities) ? params.amenities : params.amenities ? [params.amenities] : [];
   const sort = sellerSortParam(params.sort);
-  const marketSlug = serviceAreaParam(params.market) ?? DEFAULT_MARKET_SLUG;
-  const market = await getActiveMarketBySlug(marketSlug);
-  const requestedServiceArea = serviceAreaParam(params.serviceArea);
-  const selectedServiceArea = requestedServiceArea
-    ? await getActiveServiceAreaBySlug(requestedServiceArea, market.slug)
-    : null;
-  const selectedMapServiceArea = selectedMapArea(selectedServiceArea);
   let resultPage: Awaited<ReturnType<typeof searchBuyers>>["data"];
   try {
     ({ data: resultPage } = await searchBuyers({
@@ -117,7 +164,6 @@ export default async function SellerSearchPage({
   }
   const results = resultPage.items;
 
-  const selectedServiceAreaLabel = selectedServiceArea ? serviceAreaDisplayLabel(selectedServiceArea) : "";
   const activeFilters = buildActiveFilters(
     { ...params, market: market.slug },
     badges,
@@ -130,7 +176,7 @@ export default async function SellerSearchPage({
     <div className="page wide seller-profile-search-page">
       <div className="seller-profile-top-action">
         <Link className="button primary" href="/seller/properties/new">
-          Add My Property Details
+          Add property
         </Link>
       </div>
 
@@ -154,7 +200,7 @@ export default async function SellerSearchPage({
         <div className="seller-profile-results-column">
           <div className="seller-profile-results-header">
             <div>
-              <h2>{locationLabel} Buyers for your property</h2>
+              <h2>{locationLabel} buyers for your property</h2>
               <p>{results.length} active buyer {results.length === 1 ? "profile matches" : "profiles match"} your filters.</p>
             </div>
             <div className="header-controls">
@@ -221,6 +267,30 @@ export default async function SellerSearchPage({
       </section>
     </div>
   );
+}
+
+function sellerAccessState(status?: string | null) {
+  if (status === "REJECTED") {
+    return {
+      description: "You can keep browsing anonymized demand and managing private properties, but full directory access is not approved.",
+      label: "Not approved",
+      tone: "rejected",
+    };
+  }
+
+  if (!status) {
+    return {
+      description: "You can browse anonymized demand, but a full-directory review has not started for this account.",
+      label: "Review not started",
+      tone: "not-started",
+    };
+  }
+
+  return {
+    description: "You can browse anonymized buyer needs and prepare properties while Liber reviews full directory access.",
+    label: "Awaiting review",
+    tone: "pending",
+  };
 }
 
 function sellerSortParam(value?: string) {

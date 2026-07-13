@@ -20,6 +20,7 @@ Owns private seller property records, property images, ownership evidence upload
 ## Invariants
 
 - Seller properties are private invite context, not public listings.
+- New-property creation begins with a focused street-address and active-ZIP lookup, then keeps the complete review, matching context, and ownership attestation form available below. Lookup never creates or saves a property; only the final `Save private property` server action does.
 - Property creation requires `ownershipConfirmed` (validated in `createSellerPropertySchema`); the confirmation is audited but is not a substitute for admin-reviewed ownership evidence.
 - Seller property type choices are the v1 buyer-demand choices: house (`HOME` legacy enum value), condo, townhouse, manufactured, and land.
 - Seller ownership verification requires two private evidence uploads before admin approval: government-issued photo ID and utility/tax/mortgage proof matching the property address.

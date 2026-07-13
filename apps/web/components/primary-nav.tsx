@@ -10,8 +10,8 @@ import { primaryNavItems } from "./primary-nav-items";
 const PRIMARY_NAV_FALLBACK = `
 (() => {
   function init(shell) {
-    if (shell.dataset.primaryNavFallbackReady === "true") return;
-    shell.dataset.primaryNavFallbackReady = "true";
+    if (shell.__liberPrimaryNavFallbackReady) return;
+    shell.__liberPrimaryNavFallbackReady = true;
 
     const button = shell.querySelector("[data-mobile-menu-button]");
     const nav = shell.querySelector("[data-primary-nav-menu]");
@@ -107,12 +107,15 @@ export function PrimaryNav({
         })}
         <div className="mobile-nav-actions" data-mobile-nav-actions hidden={!isOpen} aria-hidden={isOpen ? "false" : "true"}>
           {isAuthenticated ? (
-            <form action="/logout" method="post">
-              <button className="button ghost" type="submit">
-                <Icon name="logout" size={15} />
-                Sign out
-              </button>
-            </form>
+            <>
+              <Link className="mobile-account-link" href="/profile" onClick={close}>Your profile</Link>
+              <form action="/logout" method="post">
+                <button className="button ghost" type="submit">
+                  <Icon name="logout" size={15} />
+                  Sign out
+                </button>
+              </form>
+            </>
           ) : (
             <>
               <Link className="button ghost" href="/login" onClick={close}>Log in</Link>
