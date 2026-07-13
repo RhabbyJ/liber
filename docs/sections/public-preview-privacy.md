@@ -38,6 +38,8 @@ seller data.
 - Approximate pins are calculated server-side from the canonical service-area
   center plus a deterministic privacy offset. Client code never receives raw
   buyer coordinates.
+- Hovering or keyboard-focusing a preview card highlights only the matching
+  approximate map pin; it does not expose additional data or move the map.
 - Serialized-response snapshots and recursive forbidden-field assertions cover
   the homepage, seller search API, and seller-view buyer profile; preserve them
   when a contract changes.

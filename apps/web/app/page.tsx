@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Icon } from "../components/icon";
 import { PublicMapLocationSearch } from "../components/public-map-location-search";
+import { PublicBuyerPreviewCard } from "../components/public-buyer-preview-card";
 import { PublicDemandMap } from "../components/public-demand-map";
-import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
 import { DEFAULT_MARKET_SLUG, serviceAreaDisplayLabel } from "../lib/service-areas";
 import { selectedMapArea } from "../lib/map-area";
 import { getPublicBuyerPreviews, hasControlledDemoBuyerPreviews } from "../server/buyer-preview";
@@ -87,7 +87,7 @@ export default async function HomePage({
           <div className="demand-card-grid">
             {buyerPreviews.length > 0 ? (
               buyerPreviews.map((preview, index) => (
-                <BuyerPreviewCard key={index} preview={preview} />
+                <PublicBuyerPreviewCard index={index} key={index} preview={preview} />
               ))
             ) : selectedArea ? (
               <article className="demand-card demand-empty-card">
@@ -178,49 +178,4 @@ async function resolveHomeServiceArea(value: string, marketSlug: string) {
 
 function serviceAreaParam(value?: string) {
   return value && /^[a-z0-9-]+$/.test(value) ? value : undefined;
-}
-
-function BuyerPreviewCard({ preview }: { preview: PublicBuyerPreviewDto }) {
-  const meta = [
-    preview.bedroomsMin ? `${preview.bedroomsMin}+ bd` : null,
-    preview.bathroomsMin ? `${preview.bathroomsMin}+ ba` : null,
-    preview.squareFeetMin ? `${preview.squareFeetMin.toLocaleString()}+ sqft` : null,
-    preview.condition || null,
-  ].filter((fact): fact is string => Boolean(fact));
-
-  const chips = [...preview.badges.slice(0, 2), ...preview.amenities].slice(0, 4);
-
-  return (
-    <article className="demand-card demand-result-card">
-      <div className="demand-card-media" aria-hidden="true">
-        <span className="demand-card-media-badge">Approx area</span>
-        <span className="demand-card-media-pin" />
-        <span className="demand-card-media-dot dot-a" />
-        <span className="demand-card-media-dot dot-b" />
-        <span className="demand-card-media-dot dot-c" />
-      </div>
-      <div className="demand-card-body">
-        <div className="demand-card-top">
-          <span className="demand-card-budget">{preview.budgetLabel}</span>
-          {preview.badges.length > 0 ? (
-            <span className="demand-card-verified">
-              <Icon name="check-shield" size={13} />
-              Verified
-            </span>
-          ) : null}
-        </div>
-        {meta.length > 0 ? <p className="demand-card-meta">{meta.join(" | ")}</p> : null}
-        <p className="demand-card-sub">
-          {preview.label} in {preview.area}
-        </p>
-        {chips.length > 0 ? (
-          <div className="demand-card-chips">
-            {chips.map((chip) => (
-              <span key={chip}>{chip}</span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </article>
-  );
 }

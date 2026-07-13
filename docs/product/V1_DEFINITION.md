@@ -30,7 +30,7 @@ The loop is successful when a seller can find a relevant buyer and send a compli
 
 Liber v1 includes a limited pre-signup preview of buyer demand to make the marketplace value obvious before account creation.
 
-The public homepage is a map-first landing surface: a Zillow-style map showing anonymized, unlabeled buyer-demand pins at approximate locations, plus a small set of matching preview cards and a signup wall. There is no separate marketing landing page.
+The public homepage is a map-first landing surface: a Zillow-style map showing anonymized, unlabeled buyer-demand pins at approximate locations, plus a small set of matching preview cards and a signup wall. Hovering or keyboard-focusing a preview card highlights only its matching map pin. There is no separate marketing landing page.
 
 The public or unauthenticated experience can:
 

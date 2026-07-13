@@ -152,6 +152,7 @@ export function PublicDemandMap({
       const markerNode = document.createElement("button");
       markerNode.type = "button";
       markerNode.className = "buyer-map-marker public-demand-pin";
+      markerNode.dataset.publicDemandPreviewIndex = String(point.index);
       markerNode.setAttribute("aria-label", `Buyer demand around ${point.preview.area}`);
       markerNode.innerHTML = `<span aria-hidden="true"></span>`;
 
@@ -239,6 +240,7 @@ function StaticDemandLayer({ points }: { points: PreviewPoint[] }) {
             <span
               aria-label={`Buyer demand around ${point.preview.area}`}
               className="buyer-map-marker public-map-static-pin"
+              data-public-demand-preview-index={point.index}
               key={`${point.preview.area}-${point.index}`}
               style={{ left: `${position.left}%`, top: `${position.top}%` }}
             >
