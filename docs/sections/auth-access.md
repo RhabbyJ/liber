@@ -29,6 +29,10 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Suspended users must not continue into protected workflows.
 - Suspension updates application user/profile/seller/property/invite state atomically, enqueues a retryable Supabase Auth ban, and relies on current-status Storage policies to block still-valid JWTs immediately.
 - Authorization must be server-side.
+- Only the validated active server session may switch the homepage from the
+  four-record guest teaser to all eligible privacy-safe previews. The query
+  excludes that session UUID's own buyer profile, but authentication alone
+  still grants no seller-directory or full-profile access.
 - Signup name is private account identity; do not treat it as seller/public buyer profile display.
 - Signup role selection may initialize only BUYER/SELLER roles from the validated server form after Supabase creates the Auth UUID and before the email-verification redirect; admin remains server-controlled.
 - Signup asks for buyer, seller, or both exactly once. The verified callback reads the persisted database roles and never displays a second role-selection page.

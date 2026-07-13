@@ -43,6 +43,10 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - LA County map acceptance covers complete County pan/zoom and clamp, View all reset, absence of ambient borders, searched-area boundary rendering/clearing, preview-card-to-pin hover/focus highlighting, rapid selected-area switching, mobile cooperative scrolling, and absence of internal service-area UUIDs in public responses.
 - Before geometry activation, test an exact versioned URL before and after swapping the current pointer, plus duplicate aliases and same-named areas in separate markets against the real indexed SQL.
 - After auth, nav, or protected-route changes, run a focused browser auth pass covering signed-out CTAs, buyer signup/login/logout, buyer-to-seller intent, seller signup/access gating, both-role signup when supported, and mobile nav/logout.
+- Homepage preview acceptance must cover a four-card guest maximum, a scoped
+  sign-in return to the homepage, all eligible signed-in previews except the
+  viewer's own profile, identical forbidden-field/privacy assertions for both
+  audiences, and distinct map pins when more than four previews share an area.
 - Browser auth QA failures or inconclusive results should include a screenshot or compact state dump with URL, relevant DOM attributes, visible text excerpt, and console errors.
 - Public and seller DTO tests must snapshot serialized responses and recursively reject forbidden identity, coordinate, criteria-ID, service-area-ID, badge, document, and Storage fields.
 - Release CI must execute real ESLint, exact fresh and representative upgrade migrations, typecheck, tests, production build, RLS/Storage security tests, readiness validation, and realistic seller-search query plans.

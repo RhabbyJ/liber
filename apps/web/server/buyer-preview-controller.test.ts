@@ -16,37 +16,39 @@ vi.mock("./service-areas", () => ({
 
 import { getPublicBuyerPreviews } from "./buyer-preview";
 
+const previewProfileRow = {
+  badges: [{ badgeType: "PRE_APPROVED" }],
+  budgetMax: 950_000,
+  budgetMin: 700_000,
+  buyerType: "Conventional financing",
+  buyingPurpose: "House",
+  criteria: [{
+    bathroomsMin: 2,
+    bedroomsMin: 3,
+    condition: "Move-in ready",
+    features: ["Garage"],
+    squareFeetMin: 1_600,
+  }],
+  desiredServiceAreas: [{
+    serviceArea: {
+      active: true,
+      centerLat: 34.1467,
+      centerLng: -118.433314,
+      city: "Sherman Oaks",
+      label: "Sherman Oaks",
+      market: { active: true },
+      state: "CA",
+      type: "neighborhood",
+    },
+  }],
+  user: { status: "ACTIVE" },
+  visibilityStatus: "ACTIVE",
+};
+
 describe("public buyer preview controller", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.findMany.mockResolvedValue([{
-      badges: [{ badgeType: "PRE_APPROVED" }],
-      budgetMax: 950_000,
-      budgetMin: 700_000,
-      buyerType: "Conventional financing",
-      buyingPurpose: "House",
-      criteria: [{
-        bathroomsMin: 2,
-        bedroomsMin: 3,
-        condition: "Move-in ready",
-        features: ["Garage"],
-        squareFeetMin: 1_600,
-      }],
-      desiredServiceAreas: [{
-        serviceArea: {
-          active: true,
-          centerLat: 34.1467,
-          centerLng: -118.433314,
-          city: "Sherman Oaks",
-          label: "Sherman Oaks",
-          market: { active: true },
-          state: "CA",
-          type: "neighborhood",
-        },
-      }],
-      user: { status: "ACTIVE" },
-      visibilityStatus: "ACTIVE",
-    }]);
+    mocks.findMany.mockResolvedValue([previewProfileRow]);
   });
 
   it("queries through the narrow projection and serializes only preview-safe fields", async () => {
@@ -55,7 +57,7 @@ describe("public buyer preview controller", () => {
 
     expect(query).toMatchObject({
       orderBy: { lastRefreshedAt: "desc" },
-      take: 6,
+      take: 4,
       where: {
         user: { status: "ACTIVE" },
         visibilityStatus: "ACTIVE",
@@ -65,6 +67,7 @@ describe("public buyer preview controller", () => {
       budgetMax: true,
       budgetMin: true,
     });
+    expect(query.where.userId).toBeUndefined();
     expect(JSON.stringify(query.select)).not.toMatch(
       /desiredLat|desiredLng|email|storagePath|displayName|userId|serviceAreaId/,
     );
@@ -83,6 +86,18 @@ describe("public buyer preview controller", () => {
       squareFeetMin: 1_600,
     }]);
     expectNoForbiddenFields(serialized);
+  });
+
+  it("returns every eligible privacy-safe preview after sign-in while excluding the viewer", async () => {
+    mocks.findMany.mockResolvedValue(Array.from({ length: 6 }, () => previewProfileRow));
+    const previews = await getPublicBuyerPreviews("los-angeles", null, "viewer-user-id");
+    const query = mocks.findMany.mock.calls[0]?.[0];
+
+    expect(query.take).toBeUndefined();
+    expect(query.where.userId).toEqual({ not: "viewer-user-id" });
+    expect(JSON.stringify(query.select)).not.toContain("userId");
+    expect(previews).toHaveLength(6);
+    expectNoForbiddenFields(JSON.parse(JSON.stringify(previews)));
   });
 
   it("uses selected-area coverage in the Prisma predicate without serializing its ID", async () => {

@@ -11,12 +11,14 @@ const previewBadgeLabels: Record<string, string> = {
   VERIFIED_FUNDS: "Verified funds",
 };
 
-export const PUBLIC_PREVIEW_LIMIT = 6;
+export const PUBLIC_PREVIEW_LIMIT = 4;
 
 const previewAmenities = ["Pool", "Parking", "ADU", "Yard", "Garage"];
 
 /**
- * Privacy-safe public teaser of buyer demand (V1 public preview rules).
+ * Privacy-safe homepage preview of buyer demand (V1 preview rules).
+ * Guests receive a capped teaser; a validated signed-in viewer receives the
+ * same DTO for every eligible profile except their own.
  * No ids, names, avatars, documents, exact locations, or profile links.
  * Coordinates are approximate only: service-area centers (or coarse-rounded
  * desired-area coordinates) with a deterministic display offset.
@@ -37,6 +39,7 @@ export type PublicBuyerPreview = {
 export async function getPublicBuyerPreviews(
   marketSlug: string,
   serviceArea?: ServiceAreaResult | null,
+  viewerUserId?: string,
 ): Promise<PublicBuyerPreview[]> {
   try {
     const coverageAreaIds = serviceArea
@@ -46,10 +49,11 @@ export async function getPublicBuyerPreviews(
       where: {
         visibilityStatus: "ACTIVE",
         user: { status: "ACTIVE" },
+        ...(viewerUserId ? { userId: { not: viewerUserId } } : {}),
         ...activePrimaryServiceAreaWhere(marketSlug, serviceArea ? coverageAreaIds : undefined),
       },
       orderBy: { lastRefreshedAt: "desc" },
-      take: PUBLIC_PREVIEW_LIMIT,
+      ...(viewerUserId ? {} : { take: PUBLIC_PREVIEW_LIMIT }),
       select: {
         badges: {
           where: {
@@ -100,6 +104,7 @@ export async function getPublicBuyerPreviews(
       const point = approximatePreviewPoint(
         serviceArea?.center ?? (primaryArea ? { lat: primaryArea.centerLat, lng: primaryArea.centerLng } : null),
         index,
+        profiles.length,
       );
       const areaLabel = primaryArea
         ? [primaryArea.type === "neighborhood" ? primaryArea.label : primaryArea.city ?? primaryArea.label, primaryArea.state]
@@ -170,12 +175,16 @@ function toNumber(value: unknown) {
  * area center when possible, otherwise round to ~1 km, then spread stacked
  * pins with a small deterministic offset so they stay readable.
  */
-export function approximatePreviewPoint(center: { lat: number; lng: number } | null, index: number) {
+export function approximatePreviewPoint(
+  center: { lat: number; lng: number } | null,
+  index: number,
+  total = PUBLIC_PREVIEW_LIMIT,
+) {
   const baseLat = center?.lat ?? 0;
   const baseLng = center?.lng ?? 0;
   if (!baseLat || !baseLng) return null;
 
-  const angle = (index * 2 * Math.PI) / PUBLIC_PREVIEW_LIMIT;
+  const angle = (index * 2 * Math.PI) / Math.max(total, 1);
   return {
     lat: baseLat + Math.sin(angle) * 0.006,
     lng: baseLng + Math.cos(angle) * 0.008,

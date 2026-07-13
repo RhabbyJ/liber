@@ -36,6 +36,15 @@ describe("pathForSignedInAuthIntent", () => {
     );
   });
 
+  it("returns a signed-in user to a query-scoped homepage demand preview", () => {
+    expect(
+      pathForSignedInAuthIntent(
+        { id: "buyer", roles: ["BUYER"] },
+        { next: "/?market=los-angeles&area=encino" },
+      ),
+    ).toBe("/?market=los-angeles&area=encino");
+  });
+
   it("treats buyer profile routes as authenticated cross-role destinations", () => {
     expect(pathForSignedInAuthIntent({ id: "seller", roles: ["SELLER"] }, { next: "/buyers/profile-1" })).toBe(
       "/buyers/profile-1",

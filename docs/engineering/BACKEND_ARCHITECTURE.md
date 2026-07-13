@@ -234,20 +234,21 @@ Do not add search filters based on protected-class proxies or unnecessary person
 
 Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN` on the buyer search query against realistic data volume. Legacy city/state/ZIP lookup indexes are removed by the canonical cutover. Public launch requires measured indexes for the active canonical-area join, budget overlap, badge status, criteria filters, and sort/cursor patterns. The current unnumbered CTO proposal and temporary-table evidence live in `docs/engineering/SELLER_SEARCH_SQL_PROPOSAL.sql` and `docs/engineering/SELLER_SEARCH_SQL_EVIDENCE_2026-07-09.md`; neither is an applied migration.
 
-## Public buyer-demand preview
+## Homepage buyer-demand preview
 
-`apps/web/server/buyer-preview.ts` powers the unauthenticated map-first homepage (V1 public preview rules). The homepage renders a public Zillow-style demand map (`apps/web/components/public-demand-map.tsx`) with budget-band pins plus preview cards and a signup wall.
+`apps/web/server/buyer-preview.ts` powers the map-first homepage (V1 preview rules). The homepage renders a Zillow-style demand map (`apps/web/components/public-demand-map.tsx`) with budget-band pins plus preview cards and an audience-aware next step.
 
-- reads at most 6 `ACTIVE` buyer profiles,
+- without a validated session, reads at most 4 `ACTIVE` buyer profiles,
+- with a validated active session, reads every otherwise eligible preview except the viewer's own buyer profile; the Auth UUID is used only in the server-side exclusion predicate and is never selected or serialized,
 - returns only privacy-safe fields: anonymized buyer-type label, coarse city/state, $50K-banded budget, structured criteria facts, active badge labels,
 - pin coordinates are approximate only: canonical service-area centers plus a deterministic display offset — never raw `desiredLat`/`desiredLng`,
 - never returns ids, names, avatars, exact locations, documents, or storage paths,
 - the public map may let visitors select a known active ZIP/city/neighborhood service area to pan/draw an approximate area polygon and scope the limited preview cards to that area,
 - selected-area preview filtering uses the same canonical selected-area UUID and reviewed query-time rollups as seller search,
 - when a service area is selected, preview pins anchor to that selected service-area center plus the deterministic privacy offset instead of re-parsing buyer city text,
-- has no full public search/filter API and no buyer profile links; the only action is signup,
+- has no full public search/filter API and no buyer profile links; guests may sign in or create an account, while signed-in users receive only an applicable role-aware next step,
 - is best-effort: failures return an empty list / hide the map and must not break the homepage,
-- must not grow into public search or expose buyer profile URLs.
+- must not grow into public search or expose buyer profile URLs. Authentication changes the preview count only and never substitutes for approved seller-directory access.
 
 In a CEO demo / private preview environment, these records may come from clearly marked demo buyer seed data. In true production, preview records must come from real active buyer demand only.
 

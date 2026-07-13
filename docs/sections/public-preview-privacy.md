@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Owns the unauthenticated homepage demand preview, public-safe buyer projection,
+Owns the homepage demand preview, public-safe buyer projection,
 approximate pins, and the boundary between public teaser data and approved
 seller data.
 
@@ -23,6 +23,11 @@ seller data.
 
 - Public preview is a small teaser, not unauthenticated buyer search or public
   buyer profiles.
+- Guests receive at most four eligible preview records. A validated signed-in
+  user receives all otherwise eligible previews through the same narrow DTO,
+  with their own buyer profile excluded by server-side Auth UUID predicate.
+- Authentication changes only preview count. It does not authorize seller
+  search, full buyer profiles, filters, contact actions, or additional fields.
 - The homepage stays map-first. Compact orientation copy, persistent navigation, and role-aware next-step CTAs may clarify the experience, but must not turn it into a separate marketing hero or expand the preview data contract.
 - Public and seller responses use dedicated Prisma `select` projections. Do not
   load a broad internal buyer object and sanitize it after serialization.
@@ -38,6 +43,8 @@ seller data.
 - Approximate pins are calculated server-side from the canonical service-area
   center plus a deterministic privacy offset. Client code never receives raw
   buyer coordinates.
+- Pin spacing uses the returned result count so signed-in results beyond the
+  four-card guest cap remain individually visible.
 - Hovering or keyboard-focusing a preview card highlights only the matching
   approximate map pin; it does not expose additional data or move the map.
 - Serialized-response snapshots and recursive forbidden-field assertions cover

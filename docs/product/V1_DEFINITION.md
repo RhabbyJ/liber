@@ -34,7 +34,7 @@ The public homepage is a map-first landing surface: a Zillow-style map showing a
 
 The public or unauthenticated experience can:
 
-- show a small fixed set of privacy-safe buyer preview records, currently up to 6, as map pins and preview cards,
+- show a small fixed set of privacy-safe buyer preview records, currently up to 4, as map pins and preview cards,
 - use active, non-hidden, non-suspended buyer demand records whose preview fields are approved or derived from preview-safe criteria,
 - place pins only at approximate active service-area centers with a display offset, never at precise buyer locations,
 - show coarse buyer-demand context in preview cards, such as broad geography, budget band, property type, size needs, room needs, amenities, condition preference, and display-safe trust signals,
@@ -53,6 +53,8 @@ The public or unauthenticated experience must not:
 - imply that previewed buyers are guaranteed to transact.
 
 Limited pre-signup previews are product marketing and onboarding support. They are not seller search, and they do not replace approved seller-directory access.
+
+After a server-validated sign-in, the homepage may show every otherwise eligible privacy-safe preview record except the signed-in user's own buyer profile. It must use the exact same preview DTO and approximate-pin rules as the public teaser. Authentication changes only the preview count: it does not grant seller search, filters, buyer profile links, contact or identity data, invite actions, or any field reserved for approved seller-directory access.
 
 The map-first homepage keeps primary navigation visible, gives guests clear buyer/seller entry points, and gives signed-in users a next step matching their existing role. This orientation must not add public profile access or expand the preview contract.
 
@@ -202,7 +204,7 @@ A buyer profile must not expose:
 - sensitive storage paths,
 - or any data that has not been approved for seller-directory display.
 
-Full buyer profiles are not public marketing pages. They are only for approved seller access, admins, and the owning buyer where appropriate. Public buyer previews may exist only as limited, privacy-safe teaser cards under the public preview rules above.
+Full buyer profiles are not public marketing pages. They are only for approved seller access, admins, and the owning buyer where appropriate. Homepage buyer previews may exist only as privacy-safe cards under the audience and field rules above.
 
 ## V1 seller search rules
 
@@ -259,7 +261,7 @@ Seller search filters should include the v1-safe criteria needed to find propert
 
 Filters must remain property-fit and trust oriented. Do not add filters based on protected-class proxies or unnecessary personal characteristics.
 
-The public/unauthenticated homepage is a map-first preview of limited buyer demand (anonymized, unlabeled pins at approximate locations plus preview cards), but must not expose full buyer search, pins tied to precise locations, full buyer profiles, or crawlable buyer-directory data. The fully searchable, filterable buyer-demand map remains an approved-seller workspace.
+The public/unauthenticated homepage is a map-first preview of at most four buyer-demand records (anonymized, unlabeled pins at approximate locations plus preview cards). A signed-in user may see all otherwise eligible privacy-safe previews except their own, but neither audience may receive full buyer search, pins tied to precise locations, full buyer profiles, or crawlable buyer-directory data. The fully searchable, filterable buyer-demand map remains an approved-seller workspace.
 
 ## V1 property rules
 

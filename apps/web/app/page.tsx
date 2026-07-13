@@ -27,23 +27,27 @@ export default async function HomePage({
   const selectedArea = selectedMapArea(selectedServiceArea);
   const selectedAreaLabel = selectedServiceArea ? serviceAreaDisplayLabel(selectedServiceArea) : "";
   const [buyerPreviews, hasDemoPreviews] = await Promise.all([
-    getPublicBuyerPreviews(market.slug, selectedServiceArea),
+    getPublicBuyerPreviews(market.slug, selectedServiceArea, user?.id),
     hasControlledDemoBuyerPreviews(),
   ]);
+  const isAdmin = user?.roles.includes("ADMIN") ?? false;
   const isBuyer = user?.roles.includes("BUYER") ?? false;
   const isSeller = user?.roles.includes("SELLER") ?? false;
   const mapboxToken = (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim();
   const sellerSearchPath = selectedServiceArea
     ? `/seller/search?market=${encodeURIComponent(market.slug)}&serviceArea=${encodeURIComponent(selectedServiceArea.slug)}`
     : `/seller/search?market=${encodeURIComponent(market.slug)}`;
+  const homepagePath = selectedServiceArea
+    ? `/?market=${encodeURIComponent(market.slug)}&area=${encodeURIComponent(selectedServiceArea.slug)}`
+    : `/?market=${encodeURIComponent(market.slug)}`;
   const sellerSearchHref = user
     ? sellerSearchPath
     : `/signup?role=seller&next=${encodeURIComponent(sellerSearchPath)}`;
-  const sellerLoginHref = `/login?next=${encodeURIComponent(sellerSearchPath)}`;
+  const homepageLoginHref = `/login?next=${encodeURIComponent(homepagePath)}`;
   const buyerProfilePath = `/buyer/profile?market=${encodeURIComponent(market.slug)}`;
   const buyerProfileHref = user ? buyerProfilePath : `/signup?role=buyer&next=${encodeURIComponent(buyerProfilePath)}`;
-  const mapPrimaryHref = isSeller ? sellerSearchPath : isBuyer ? buyerProfilePath : sellerSearchHref;
-  const mapPrimaryLabel = isSeller ? "Seller workspace" : isBuyer ? "My buyer profile" : "Get seller access";
+  const mapPrimaryHref = isAdmin ? "/admin" : isSeller ? sellerSearchPath : isBuyer ? buyerProfilePath : sellerSearchHref;
+  const mapPrimaryLabel = isAdmin ? "Admin workspace" : isSeller ? "Seller workspace" : isBuyer ? "My buyer profile" : "Get seller access";
   const activePreviewLabel = `${buyerPreviews.length} active preview${buyerPreviews.length === 1 ? "" : "s"}`;
 
   return (
@@ -62,8 +66,8 @@ export default async function HomePage({
           previews={buyerPreviews}
           primaryCtaHref={mapPrimaryHref}
           primaryCtaLabel={mapPrimaryLabel}
-          secondaryCtaHref={user ? undefined : sellerLoginHref}
-          secondaryCtaLabel={user ? undefined : "Log in"}
+          secondaryCtaHref={user ? undefined : homepageLoginHref}
+          secondaryCtaLabel={user ? undefined : "Sign in to see more"}
           selectedArea={selectedArea}
           selectedAreaLabel={selectedAreaLabel}
           token={mapboxToken}
@@ -92,15 +96,17 @@ export default async function HomePage({
             ) : selectedArea ? (
               <article className="demand-card demand-empty-card">
                 <h3>No preview cards here yet</h3>
-                <p>Sign in as a verified seller to search the full buyer workspace.</p>
+                <p>No privacy-safe buyer previews match this selected area.</p>
               </article>
             ) : null}
 
             <HomepageNextStep
               buyerProfileHref={buyerProfileHref}
+              homepageLoginHref={homepageLoginHref}
+              isAdmin={isAdmin}
               isBuyer={isBuyer}
               isSeller={isSeller}
-              sellerLoginHref={sellerLoginHref}
+              isSignedIn={Boolean(user)}
               sellerSearchHref={sellerSearchHref}
             />
           </div>
@@ -114,17 +120,35 @@ export default async function HomePage({
 
 function HomepageNextStep({
   buyerProfileHref,
+  homepageLoginHref,
+  isAdmin,
   isBuyer,
   isSeller,
-  sellerLoginHref,
+  isSignedIn,
   sellerSearchHref,
 }: {
   buyerProfileHref: string;
+  homepageLoginHref: string;
+  isAdmin: boolean;
   isBuyer: boolean;
   isSeller: boolean;
-  sellerLoginHref: string;
+  isSignedIn: boolean;
   sellerSearchHref: string;
 }) {
+  if (isAdmin) {
+    return (
+      <article className="demand-card signup-wall">
+        <span className="demand-lock" aria-hidden="true"><Icon name="shield" size={18} /></span>
+        <h3>Continue in your admin workspace</h3>
+        <p>Review marketplace access, evidence, and activity.</p>
+        <Link className="button primary" href="/admin">
+          Open admin workspace
+          <Icon name="arrow-right" size={14} />
+        </Link>
+      </article>
+    );
+  }
+
   if (isSeller) {
     return (
       <article className="demand-card signup-wall">
@@ -153,17 +177,19 @@ function HomepageNextStep({
     );
   }
 
+  if (isSignedIn) return null;
+
   return (
     <article className="demand-card signup-wall">
       <span className="demand-lock" aria-hidden="true"><Icon name="lock" size={18} /></span>
-      <h3>See matching buyers before you list</h3>
-      <p>Create a seller account and request access to the buyer directory.</p>
-      <Link className="button primary" href={sellerSearchHref}>
-        Get seller access
+      <h3>Sign in to see more buyers</h3>
+      <p>Preview up to four buyers now, then sign in to see the rest of the privacy-safe demand map.</p>
+      <Link className="button primary" href={homepageLoginHref}>
+        Sign in to see more
         <Icon name="arrow-right" size={14} />
       </Link>
+      <Link className="demand-buyer-link" href={sellerSearchHref}>Create a seller account</Link>
       <Link className="demand-buyer-link" href={buyerProfileHref}>Create a buyer profile</Link>
-      <Link className="demand-buyer-link" href={sellerLoginHref}>Log in</Link>
     </article>
   );
 }
