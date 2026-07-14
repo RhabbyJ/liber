@@ -1589,7 +1589,7 @@ main {
   display: grid;
   gap: 18px;
   margin: 0 auto;
-  max-width: 720px;
+  max-width: 760px;
 }
 
 .signup-progress {
@@ -1704,59 +1704,72 @@ main {
 
 .signup-role-cards {
   display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 7px;
   width: 100%;
 }
 
 .signup-role-card {
   align-items: center;
-  background: var(--surface);
-  border: 1.5px solid var(--line);
-  border-radius: var(--r-md);
+  background:
+    radial-gradient(circle at 50% 10%, rgba(93, 194, 68, 0.09), transparent 42%),
+    var(--surface);
+  border: 1.5px solid rgba(36, 35, 38, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 10px 26px rgba(36, 35, 38, 0.08);
   color: var(--ink-strong);
   cursor: pointer;
   display: grid;
   font-family: inherit;
-  gap: 7px;
-  grid-template-rows: 68px auto;
+  gap: 12px;
+  grid-template-rows: 112px auto;
   justify-items: center;
-  min-height: 140px;
-  padding: 15px 12px;
+  min-height: 196px;
+  padding: 22px 18px;
   position: relative;
   text-align: center;
-  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.22s ease, transform 0.22s ease, background 0.22s ease, box-shadow 0.22s ease;
   width: 100%;
 }
 
 .signup-role-card:hover {
   border-color: var(--sage-line);
-  transform: translateY(-1px);
+  box-shadow: 0 18px 38px rgba(36, 35, 38, 0.12);
+  transform: translateY(-5px);
+}
+
+.signup-role-card:focus-visible {
+  border-color: var(--sage-strong);
+  box-shadow: var(--focus-ring), 0 18px 38px rgba(36, 35, 38, 0.12);
+  outline: none;
+  transform: translateY(-2px);
 }
 
 .signup-role-card.selected {
-  background: var(--sage-tint);
+  background:
+    radial-gradient(circle at 50% 8%, rgba(93, 194, 68, 0.18), transparent 46%),
+    var(--sage-tint);
   border-color: var(--sage-strong);
-  box-shadow: var(--shadow-1);
+  box-shadow: 0 18px 38px rgba(69, 159, 48, 0.18);
 }
 
 .signup-role-art {
   align-items: center;
   color: var(--sage-strong);
   display: flex;
-  height: 68px;
+  height: 112px;
   justify-content: center;
-  width: 86px;
+  width: 140px;
 }
 
 .signup-role-illustration {
   border-radius: var(--r-sm);
   filter: drop-shadow(0 7px 10px rgba(36, 35, 38, 0.08));
-  height: 68px;
+  height: 104px;
   object-fit: cover;
   transition: filter 0.24s ease, transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
-  width: 68px;
+  width: 104px;
 }
 
 .signup-role-card:is(:hover, :focus-visible, .selected) .signup-role-illustration {
@@ -1773,8 +1786,38 @@ main {
 }
 
 .signup-role-text strong {
-  font-size: 15.5px;
+  font-size: 18px;
   font-weight: 700;
+}
+
+.signup-role-card[data-signup-role="both"] {
+  background:
+    radial-gradient(circle at 18% 50%, rgba(93, 194, 68, 0.1), transparent 30%),
+    var(--surface);
+  gap: 24px;
+  grid-column: 1 / -1;
+  grid-template-columns: 132px 1fr;
+  grid-template-rows: 1fr;
+  justify-items: start;
+  min-height: 132px;
+  padding: 16px 56px;
+  text-align: left;
+}
+
+.signup-role-card[data-signup-role="both"].selected {
+  background:
+    radial-gradient(circle at 18% 50%, rgba(93, 194, 68, 0.2), transparent 34%),
+    var(--sage-tint);
+}
+
+.signup-role-card[data-signup-role="both"] .signup-role-art {
+  height: 96px;
+  width: 112px;
+}
+
+.signup-role-card[data-signup-role="both"] .signup-role-illustration {
+  height: 86px;
+  width: 86px;
 }
 
 .signup-role-check {
@@ -1832,27 +1875,33 @@ main {
   }
 
   .signup-role-cards {
+    gap: 12px;
     grid-template-columns: 1fr;
   }
 
-  .signup-role-card {
-    gap: 12px;
-    grid-template-columns: 74px 1fr;
+  .signup-role-card,
+  .signup-role-card[data-signup-role="both"] {
+    border-radius: 17px;
+    gap: 14px;
+    grid-column: auto;
+    grid-template-columns: 78px 1fr;
     grid-template-rows: 1fr;
     justify-items: start;
-    min-height: 82px;
-    padding: 11px 44px 11px 12px;
+    min-height: 94px;
+    padding: 12px 44px 12px 14px;
     text-align: left;
   }
 
-  .signup-role-art {
-    height: 58px;
-    width: 66px;
+  .signup-role-art,
+  .signup-role-card[data-signup-role="both"] .signup-role-art {
+    height: 66px;
+    width: 72px;
   }
 
-  .signup-role-illustration {
-    height: 58px;
-    width: 58px;
+  .signup-role-illustration,
+  .signup-role-card[data-signup-role="both"] .signup-role-illustration {
+    height: 64px;
+    width: 64px;
   }
 
   .signup-actions {
@@ -1869,6 +1918,15 @@ main {
 @media (prefers-reduced-motion: reduce) {
   .signup-progress-fill {
     transition: none !important;
+  }
+
+  .signup-role-card {
+    transition: none !important;
+  }
+
+  .signup-role-card:hover,
+  .signup-role-card:focus-visible {
+    transform: none;
   }
 
   [data-artwork-motion] {

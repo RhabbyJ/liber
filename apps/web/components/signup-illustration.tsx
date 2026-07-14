@@ -50,7 +50,7 @@ export function SignupRoleIllustration({
         alt=""
         className="signup-role-illustration"
         height={384}
-        sizes="(max-width: 640px) 58px, 68px"
+        sizes="(max-width: 640px) 64px, 104px"
         src={roleArtwork[role]}
         width={384}
       />
