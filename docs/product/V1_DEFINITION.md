@@ -38,8 +38,9 @@ The public or unauthenticated experience can:
 - use active, non-hidden, non-suspended buyer demand records whose preview fields are approved or derived from preview-safe criteria,
 - place pins only at approximate active service-area centers with a display offset, never at precise buyer locations,
 - show coarse buyer-demand context in preview cards, such as broad geography, budget band, property type, size needs, room needs, amenities, condition preference, and display-safe trust signals,
+- show the buyer's generated neutral alias and generated animal avatar as public-safe presentation; these are not the buyer's private account name or photograph,
 - let visitors select an active ZIP/city/neighborhood service area to pan the public map, draw an approximate selected-area polygon, and scope the limited preview cards to that selected area, without exposing full search,
-- use anonymized or privacy-safe buyer labels,
+- use generated neutral aliases or other privacy-safe buyer labels,
 - invite the visitor to sign up or request seller access before viewing full search results or profiles.
 
 The public or unauthenticated experience must not:
@@ -54,7 +55,7 @@ The public or unauthenticated experience must not:
 
 Limited pre-signup previews are product marketing and onboarding support. They are not seller search, and they do not replace approved seller-directory access.
 
-After a server-validated sign-in, the homepage may show every otherwise eligible privacy-safe preview record except the signed-in user's own buyer profile. A signed-in seller awaiting or denied full-directory approval may browse that same read-only projection on the seller search route. Both surfaces must use the exact same preview DTO and approximate-pin rules as the public teaser. Authentication changes only preview count and placement: it does not grant full seller search, filters, buyer profile links, contact or identity data, invite actions, or any field reserved for approved seller-directory access. A suspended seller-directory account does not receive the seller-route preview.
+After a server-validated sign-in, the homepage may show every otherwise eligible privacy-safe preview record except the signed-in user's own buyer profile. A signed-in seller awaiting or denied full-directory approval may browse that same read-only projection on the seller search route. Both surfaces must use the exact same preview DTO and approximate-pin rules as the public teaser. Authentication changes only preview count and placement: it does not grant full seller search, filters, buyer profile links, private identity or contact data, invite actions, or any field reserved for approved seller-directory access. Generated aliases and avatars are part of the public preview for every audience. A suspended seller-directory account does not receive the seller-route preview.
 
 The map-first homepage keeps primary navigation visible, gives guests clear buyer/seller entry points, and gives signed-in users a next step matching their existing role. This orientation must not add public profile access or expand the preview contract.
 

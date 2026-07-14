@@ -59,7 +59,7 @@ describe("seller buyer read model", () => {
       expect(serialized).not.toContain(`"${forbidden}"`);
     }
     expect(dto).toMatchObject({
-      avatarSeed: "buyer-profile-public-id",
+      avatarSeed: "Maple Haven",
       badges: [
         { type: "VERIFIED_FUNDS", status: "active" },
         { type: "CASH_BUYER", status: "active" },

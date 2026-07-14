@@ -10,8 +10,10 @@ export type SafeBadgeDto = {
 export type SafeCriteriaDto = Omit<BuyerCriteriaDetail, "id" | "priceMax" | "priceMin">;
 
 export type PublicBuyerPreviewDto = {
+  alias: string;
   amenities: string[];
   area: string;
+  avatarVariant: string;
   badges: string[];
   bathroomsMin?: number;
   bedroomsMin?: number;

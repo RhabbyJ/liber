@@ -15,8 +15,12 @@ vi.mock("./service-areas", () => ({
 }));
 
 import { getPublicBuyerPreviews } from "./buyer-preview";
+import { avatarVariantFromSeed } from "../lib/avatar-variant";
+import { buyerAliasFromSeed } from "../lib/buyer-alias";
 
 const previewProfileRow = {
+  id: "buyer-profile-public-id",
+  displayName: "Maple Haven",
   badges: [{ badgeType: "PRE_APPROVED" }],
   budgetMax: 950_000,
   budgetMin: 700_000,
@@ -41,7 +45,7 @@ const previewProfileRow = {
       type: "neighborhood",
     },
   }],
-  user: { status: "ACTIVE" },
+  user: { avatarVariant: "avatarka:animals:7", status: "ACTIVE" },
   visibilityStatus: "ACTIVE",
 };
 
@@ -64,18 +68,23 @@ describe("public buyer preview controller", () => {
       },
     });
     expect(query.select).toMatchObject({
+      id: true,
+      displayName: true,
       budgetMax: true,
       budgetMin: true,
     });
+    expect(query.select.user).toEqual({ select: { avatarVariant: true } });
     expect(query.where.userId).toBeUndefined();
     expect(JSON.stringify(query.select)).not.toMatch(
-      /desiredLat|desiredLng|email|storagePath|displayName|userId|serviceAreaId/,
+      /desiredLat|desiredLng|email|storagePath|userId|serviceAreaId/,
     );
 
     const serialized = JSON.parse(JSON.stringify(previews));
     expect(serialized).toEqual([{
+      alias: "Maple Haven",
       amenities: ["Garage"],
       area: "Sherman Oaks, CA",
+      avatarVariant: "avatarka:animals:7",
       badges: ["Pre-approved"],
       bathroomsMin: 2,
       bedroomsMin: 3,
@@ -85,7 +94,28 @@ describe("public buyer preview controller", () => {
       pin: { latitude: 34.1467, longitude: -118.425314 },
       squareFeetMin: 1_600,
     }]);
+    expect(JSON.stringify(serialized)).not.toContain("buyer-profile-public-id");
     expectNoForbiddenFields(serialized);
+  });
+
+  it("normalizes stale public identity fields without leaking the profile id", async () => {
+    const profileId = "legacy-profile-private-id";
+    const alias = buyerAliasFromSeed(profileId);
+    mocks.findMany.mockResolvedValue([{
+      ...previewProfileRow,
+      displayName: "Julie P.",
+      id: profileId,
+      user: { avatarVariant: "https://example.test/avatar.png", status: "ACTIVE" },
+    }]);
+
+    const [preview] = await getPublicBuyerPreviews("los-angeles");
+    const serialized = JSON.stringify(preview);
+
+    expect(preview.alias).toBe(alias);
+    expect(preview.avatarVariant).toBe(avatarVariantFromSeed(alias));
+    expect(serialized).not.toContain("Julie P.");
+    expect(serialized).not.toContain(profileId);
+    expectNoForbiddenFields(preview);
   });
 
   it("returns every eligible privacy-safe preview after sign-in while excluding the viewer", async () => {
@@ -138,6 +168,8 @@ describe("public buyer preview controller", () => {
 
 const forbiddenKeys = new Set([
   "id",
+  "buyerProfileId",
+  "avatarSeed",
   "userId",
   "name",
   "displayName",

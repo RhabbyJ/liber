@@ -36,6 +36,7 @@ Owns shared visual language, navigation, layouts, reusable components, and globa
 - On narrow screens the homepage may stack and scroll, but the map, preview cards, and mobile navigation actions must all remain reachable.
 - Do not use real-looking buyer imagery as a trust shortcut.
 - Buyer avatar UI uses generated 2D animal avatars from the app-approved `avatarka` animals theme. The SVG is generated locally from an allowlisted token and rendered as a data image.
+- Public preview cards pair the generated neutral buyer alias with that generated avatar, while profile links and invite actions remain exclusive to their existing server-authorized seller surfaces.
 
 ## Agent notes
 

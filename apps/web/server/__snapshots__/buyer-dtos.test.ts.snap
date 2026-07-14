@@ -4,11 +4,13 @@ exports[`buyer response contracts > snapshots serialized public, seller-search, 
 {
   "publicPreview": [
     {
+      "alias": "Maple Haven",
       "amenities": [
         "Pool",
         "Garage",
       ],
       "area": "Sherman Oaks, CA",
+      "avatarVariant": "avatarka:animals:3",
       "badges": [
         "Pre-approved",
         "Verified funds",

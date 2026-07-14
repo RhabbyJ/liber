@@ -40,7 +40,7 @@ describe("public buyer preview service-area filters", () => {
 
     expect(sellerSearch).toContain("if (!canSearch)");
     expect(sellerSearch).toContain("getPublicBuyerPreviews(market.slug, selectedServiceArea, user?.id)");
-    expect(sellerSearch).toContain("Buyer identities, full profiles, contact actions, and invites stay locked");
+    expect(sellerSearch).toContain("Full profiles and invites unlock after review.");
     expect(sellerSearch).toContain('sellerAccess.status === "SUSPENDED"');
   });
 });

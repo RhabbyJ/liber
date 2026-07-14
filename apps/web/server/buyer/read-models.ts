@@ -158,12 +158,13 @@ export function sellerBuyerSummary(row: SellerBuyerRow, viewerUserId: string, is
   const criteria = criteriaLabels(criteriaDetails);
   const point = approximateSellerPoint(row.id, area.centerLat, area.centerLng);
   const city = area.type === "neighborhood" ? area.label : area.city ?? area.label;
+  const alias = buyerAliasForDisplay(row.displayName, row.id);
   return {
     id: row.id,
     isDemo,
-    avatarSeed: row.id,
+    avatarSeed: alias,
     avatarVariant: row.user.avatarVariant ?? undefined,
-    name: buyerAliasForDisplay(row.displayName, row.id),
+    name: alias,
     location: area.type === "zip" && area.postalCode
       ? `${city}, ${area.state} ${area.postalCode}`
       : `${area.label}, ${area.state}`,

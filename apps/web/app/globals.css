@@ -2499,12 +2499,37 @@ body:has(.map-landing) .site-footer {
   padding: 18px;
 }
 
+.demand-card-identity {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
 .demand-card-top {
   align-items: flex-start;
   display: flex;
   gap: 8px;
   justify-content: space-between;
   min-width: 0;
+}
+
+.demand-card-identity .generated-avatar {
+  flex: 0 0 auto;
+}
+
+.demand-card-identity-copy {
+  min-width: 0;
+}
+
+.demand-card-identity-copy h3 {
+  color: var(--ink-strong);
+  font-size: 16px;
+  line-height: 1.2;
+  margin: 0 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .demand-card-kicker {

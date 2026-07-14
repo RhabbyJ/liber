@@ -1,5 +1,7 @@
 import { Prisma, prisma } from "@liber/db";
 import { seekingPropertyTypeSchema } from "@liber/validators";
+import { resolveAvatarVariant } from "../lib/avatar-variant";
+import { buyerAliasForDisplay } from "../lib/buyer-alias";
 import type { ServiceAreaResult } from "./service-areas";
 import { getSearchCoverageServiceAreaIds } from "./service-areas";
 import { activePrimaryServiceAreaWhere } from "./service-area-matching";
@@ -19,13 +21,16 @@ const previewAmenities = ["Pool", "Parking", "ADU", "Yard", "Garage"];
  * Privacy-safe homepage preview of buyer demand (V1 preview rules).
  * Guests receive a capped teaser; a validated signed-in viewer receives the
  * same DTO for every eligible profile except their own.
- * No ids, names, avatars, documents, exact locations, or profile links.
+ * No ids, private names, documents, exact locations, or profile links.
+ * Generated aliases and allowlisted avatar variants are public-safe identity.
  * Coordinates are approximate only: service-area centers (or coarse-rounded
  * desired-area coordinates) with a deterministic display offset.
  */
 export type PublicBuyerPreview = {
+  alias: string;
   amenities: string[];
   area: string;
+  avatarVariant: string;
   badges: string[];
   bathroomsMin?: number;
   bedroomsMin?: number;
@@ -55,6 +60,8 @@ export async function getPublicBuyerPreviews(
       orderBy: { lastRefreshedAt: "desc" },
       ...(viewerUserId ? {} : { take: PUBLIC_PREVIEW_LIMIT }),
       select: {
+        id: true,
+        displayName: true,
         badges: {
           where: {
             badgeType: { in: ["PRE_APPROVED", "VERIFIED_IDENTITY", "VERIFIED_FUNDS"] },
@@ -92,6 +99,7 @@ export async function getPublicBuyerPreviews(
             },
           },
         },
+        user: { select: { avatarVariant: true } },
       },
     });
 
@@ -111,10 +119,13 @@ export async function getPublicBuyerPreviews(
             .filter(Boolean)
             .join(", ")
         : "Liber service area";
+      const alias = buyerAliasForDisplay(profile.displayName, profile.id);
 
       return {
+        alias,
         amenities: previewAmenities.filter((amenity) => amenitySet.has(amenity.toLowerCase())),
         area: areaLabel,
+        avatarVariant: resolveAvatarVariant(profile.user.avatarVariant, alias).value,
         badges: [
           ...profile.badges.map((badge) => previewBadgeLabels[badge.badgeType] ?? "Verified"),
           ...(profile.buyerType === "Cash" && profile.badges.some((badge) => badge.badgeType === "VERIFIED_FUNDS")

@@ -81,7 +81,7 @@ Key concepts:
 - `User.name` is private account identity for owner-only UI; seller/public buyer surfaces must use the generated `BuyerProfile.displayName` alias or an anonymized preview label.
 - `BuyerProfile.displayName` is a generated public buyer alias from a server allowlist, such as `Maple Haven`; profile input schemas do not expose public name editing.
 - `BuyerProfile.buyerType` stores the allowlisted purchase type (`Cash`, `Conventional financing`, `Other`) and `BuyerProfile.buyingPurpose` stores the allowlisted seeking property type (`House`, `Condo`, `Townhouse`, `Manufactured`, `Land`). The column names are legacy-compatible; product UI should use the new labels.
-- `User.avatarVariant` stores the allowlisted generated animal-avatar token used by buyer profile and owner-only account navigation surfaces. Avatar image files are not stored.
+- `User.avatarVariant` stores the allowlisted generated animal-avatar token used by buyer profile, public/seller buyer cards, and owner-only account navigation surfaces. Avatar image files are not stored.
 - `User.status` blocks suspended users.
 - `SellerAccess.status` controls full buyer-directory search, profile, and invite access. `PENDING` and `REJECTED` sellers may receive only the signed-in privacy-safe preview projection; `SUSPENDED` sellers receive no seller-route preview.
 - A user self-selecting `SELLER` does not automatically gain full directory access, profile routes, contact actions, or invite authority.
@@ -154,7 +154,7 @@ Buckets:
 Rules:
 
 - Buyer public display names are generated locally from an allowlisted neutral alias list; there is no alias API, free-text public-name field, or separate alias storage object.
-- Buyer profile display uses generated 2D animal avatars from `User.avatarVariant`; seller DTOs seed rendering with the opaque buyer-profile ID, never the Auth UUID.
+- Buyer profile display uses generated 2D animal avatars from `User.avatarVariant`; public and seller DTOs seed rendering with the generated public alias, never a buyer-profile ID or Auth UUID.
 - Avatar SVGs are generated locally in the app from the `avatarka` animals theme and rendered as data images; there is no avatar API, Supabase avatar bucket, storage path, or saved image file.
 - Verification documents are immutable user evidence.
 - Document owners must not be able to overwrite/delete evidence after upload.
@@ -240,9 +240,9 @@ Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN
 
 - without a validated session, reads at most 4 `ACTIVE` buyer profiles,
 - with a validated active session, reads every otherwise eligible preview except the viewer's own buyer profile; the Auth UUID is used only in the server-side exclusion predicate and is never selected or serialized,
-- returns only privacy-safe fields: anonymized buyer-type label, coarse city/state, $50K-banded budget, structured criteria facts, active badge labels,
+- returns only privacy-safe fields: generated neutral alias, allowlisted generated-avatar variant, anonymized buyer-type label, coarse city/state, $50K-banded budget, structured criteria facts, active badge labels,
 - pin coordinates are approximate only: canonical service-area centers plus a deterministic display offset — never raw `desiredLat`/`desiredLng`,
-- never returns ids, names, avatars, exact locations, documents, or storage paths,
+- never returns ids, private account names, avatar files, exact locations, documents, or storage paths; the generated alias and allowlisted avatar variant are the only public identity presentation,
 - the public map may let visitors select a known active ZIP/city/neighborhood service area to pan/draw an approximate area polygon and scope the limited preview cards to that area,
 - selected-area preview filtering uses the same canonical selected-area UUID and reviewed query-time rollups as seller search,
 - when a service area is selected, preview pins anchor to that selected service-area center plus the deterministic privacy offset instead of re-parsing buyer city text,

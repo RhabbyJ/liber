@@ -2,6 +2,7 @@
 
 import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
 import { syncPublicDemandPinHighlights } from "../lib/public-demand-highlight";
+import { GeneratedAvatar } from "./generated-avatar";
 import { Icon } from "./icon";
 
 export function PublicBuyerPreviewCard({ index, preview }: { index: number; preview: PublicBuyerPreviewDto }) {
@@ -35,10 +36,20 @@ export function PublicBuyerPreviewCard({ index, preview }: { index: number; prev
       tabIndex={0}
     >
       <div className="demand-card-body">
+        <div className="demand-card-identity">
+          <GeneratedAvatar
+            alt={`${preview.alias} generated buyer avatar`}
+            seed={preview.alias}
+            variant={preview.avatarVariant}
+          />
+          <div className="demand-card-identity-copy">
+            <h3>{preview.alias}</h3>
+          </div>
+        </div>
         <div className="demand-card-top">
           <div>
             <p className="demand-card-kicker">Seeking a {preview.label.toLowerCase()}</p>
-            <h3 className="demand-card-budget">{preview.budgetLabel}</h3>
+            <p className="demand-card-budget">{preview.budgetLabel}</p>
           </div>
           {preview.badges.length > 0 ? (
             <span className="demand-card-verified">

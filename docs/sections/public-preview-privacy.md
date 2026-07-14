@@ -28,14 +28,17 @@ seller data.
   with their own buyer profile excluded by server-side Auth UUID predicate.
 - Authentication changes only preview count. It does not authorize seller
   search, full buyer profiles, filters, contact actions, or additional fields.
+- Every audience may see the allowlisted generated buyer alias and generated
+  animal avatar. These are public-safe presentation, never private account
+  identity or a buyer photograph.
 - Active sellers awaiting or denied full-directory approval may see the same signed-in preview DTO on `/seller/search`; a missing review row is handled as a distinct fail-limited state. Suspended seller-directory access does not receive that seller-route list.
 - The pre-approval seller list has no buyer routing IDs, profile links, contact controls, advanced filters, or invite actions and must not call the approved seller search contract.
 - The homepage stays map-first. Compact orientation copy, persistent navigation, and role-aware next-step CTAs may clarify the experience, but must not turn it into a separate marketing hero or expand the preview data contract.
 - Public and seller responses use dedicated Prisma `select` projections. Do not
   load a broad internal buyer object and sanitize it after serialization.
-- Never serialize Auth UUIDs, internal criteria/service-area IDs, raw buyer
-  coordinates, names, contact data, documents, Storage paths, or inactive
-  badges to public clients.
+- Never serialize Auth UUIDs, buyer routing IDs, internal criteria/service-area
+  IDs, raw buyer coordinates, private account names, contact data, documents,
+  Storage paths, or inactive badges to public clients.
 - Public geography responses use market/service-area slugs and immutable geometry hashes. County/city/ZCTA display features contain only kind, slug, label, and geometry.
 - Public visibility requires an active application user, active buyer profile,
   active canonical service area, and an explicit preview-safe eligibility rule.
@@ -55,8 +58,9 @@ seller data.
 
 ## Response contracts
 
-- Public preview: `{ label, area, budgetLabel, bedroomsMin?, bathroomsMin?,
-  squareFeetMin?, condition?, amenities, badges, pin? }`.
+- Public preview: `{ alias, avatarVariant, label, area, budgetLabel,
+  bedroomsMin?, bathroomsMin?, squareFeetMin?, condition?, amenities, badges,
+  pin? }`.
 - Seller search buyer: `{ buyerProfileId, alias, avatarVariant?, purchaseType,
   propertyType, location, budgetMin, budgetMax, downPaymentMin,
   downPaymentMax, criteria, badges, mapPoint, refreshedAt, canInvite }`.
