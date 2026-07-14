@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Icon } from "../../../../components/icon";
 import { PropertyAddressLookup } from "../../../../components/property-address-lookup";
 import { OwnershipReviewIllustration, PropertyHeroIllustration } from "../../../../components/property-intake-illustration";
-import { propertyTypeOptions } from "../../../../lib/property-types";
+import { PropertyTypePicker } from "../../../../components/property-type-picker";
 import { DEFAULT_MARKET_SLUG } from "../../../../lib/service-areas";
 import { submitSellerProperty } from "../../../../server/form-actions";
 import { getActiveMarketBySlug } from "../../../../server/service-areas";
@@ -49,14 +49,12 @@ export default async function NewSellerPropertyPage({
             <p>Add details buyers care about.</p>
           </header>
           <div className="form-grid">
-            <div className="field">
-              <label htmlFor="propertyType">Property type</label>
-              <select id="propertyType" name="propertyType" defaultValue="HOME">
-                {propertyTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
+            <PropertyTypePicker
+              defaultValue="HOME"
+              legend="Property type"
+              name="propertyType"
+              required
+            />
             <div className="field">
               <label htmlFor="price">Asking price</label>
               <input id="price" name="price" placeholder="925000" inputMode="numeric" />

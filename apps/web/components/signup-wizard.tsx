@@ -171,9 +171,7 @@ export function SignupWizard({ initialRole, initialEmail, initialFocus, initialS
                   ref={(node) => { roleCardRefs.current[card.value] = node; }}
                   type="button"
                 >
-                  <span className="signup-role-art">
-                    <SignupRoleIllustration role={card.value} />
-                  </span>
+                  <SignupRoleIllustration role={card.value} />
                   <span className="signup-role-text">
                     <strong>{card.label}</strong>
                   </span>

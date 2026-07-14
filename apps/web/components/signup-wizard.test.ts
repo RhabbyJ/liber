@@ -38,13 +38,14 @@ describe("signup wizard interaction ownership", () => {
     expect(page).not.toContain("parseStep(step)");
   });
 
-  it("uses original inline graphics instead of generic buyer and seller icons", () => {
+  it("uses the generated flow artwork instead of generic buyer and seller icons", () => {
     const wizard = readFileSync(path.resolve("components/signup-wizard.tsx"), "utf8");
     const illustration = readFileSync(path.resolve("components/signup-illustration.tsx"), "utf8");
 
     expect(wizard).toContain("SignupHeroIllustration");
     expect(wizard).toContain("SignupRoleIllustration");
-    expect(illustration).toContain('viewBox="0 0 220 128"');
-    expect(illustration).toContain('viewBox="0 0 66 48"');
+    expect(illustration).toContain('src="/images/flows/signup-hero-2d.webp"');
+    expect(illustration).toContain("roleArtwork[role]");
+    expect(illustration).not.toContain("<svg");
   });
 });

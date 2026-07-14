@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BadgePill } from "../../../../components/badge-pill";
 import { GeneratedAvatar } from "../../../../components/generated-avatar";
 import { Icon } from "../../../../components/icon";
+import { PropertyTypeArtwork } from "../../../../components/property-type-artwork";
 import { PageTitle } from "../../../../components/page-title";
 import { formatMoney } from "../../../../lib/format";
 import { propertySubtypeLabel } from "../../../../lib/property-types";
@@ -240,6 +241,11 @@ export default async function InviteBuyerPage({
           <article className="property-card quick-overview-card">
             <p className="eyebrow seller">Quick overview</p>
             <div className="media-preview">
+              <PropertyTypeArtwork
+                className="property-card-artwork"
+                sizes="340px"
+                value={property.propertyType}
+              />
               <span className="media-hint">
                 <Icon name="home" size={12} />
                 {propertySubtypeLabel(property.propertyType)}

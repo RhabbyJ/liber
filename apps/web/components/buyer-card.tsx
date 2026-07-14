@@ -4,6 +4,7 @@ import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
 import { BadgePill } from "./badge-pill";
 import { GeneratedAvatar } from "./generated-avatar";
 import { Icon } from "./icon";
+import { PropertyTypeArtwork } from "./property-type-artwork";
 
 export function BuyerCard({
   buyer,
@@ -28,6 +29,12 @@ export function BuyerCard({
               {profileLocationSummary}
             </p>
           </div>
+          <PropertyTypeArtwork
+            className="buyer-card-property-art"
+            sizes="52px"
+            value={buyer.purpose}
+            variant="emoji"
+          />
         </div>
         <p className="muted">{buyer.bio}</p>
         <div className="buyer-card-stats">
@@ -84,7 +91,15 @@ export function BuyerCard({
       </div>
 
       <div className="buyer-row-fit">
-        <strong>{formatRange(buyer.budgetMin, buyer.budgetMax)}</strong>
+        <div className="buyer-row-fit-heading">
+          <PropertyTypeArtwork
+            className="buyer-row-property-art"
+            sizes="36px"
+            value={buyer.purpose}
+            variant="emoji"
+          />
+          <strong>{formatRange(buyer.budgetMin, buyer.budgetMax)}</strong>
+        </div>
         <span>{fitSummary}</span>
       </div>
 

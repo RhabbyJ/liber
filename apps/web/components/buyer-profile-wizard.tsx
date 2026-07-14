@@ -11,6 +11,7 @@ import {
 import type { BuyerProfileFormState } from "../lib/buyer-profile-form";
 import { GeneratedAvatar } from "./generated-avatar";
 import { LocationLookupFields } from "./location-lookup-fields";
+import { PropertyTypePicker } from "./property-type-picker";
 
 const purchaseTypeOptions = ["Cash", "Conventional financing", "Other"];
 const seekingPropertyTypeOptions = ["House", "Condo", "Townhouse", "Manufactured", "Land"];
@@ -159,14 +160,13 @@ export function BuyerProfileWizard({
               ))}
             </select>
           </div>
-          <div className="field">
-            <label htmlFor="purpose">Seeking property type</label>
-            <select id="purpose" name="buyingPurpose" defaultValue={selectedSeekingPropertyType} required>
-              {seekingPropertyTypeOptions.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-          </div>
+          <PropertyTypePicker
+            defaultValue={selectedSeekingPropertyType}
+            legend="Seeking property type"
+            name="buyingPurpose"
+            required
+            valueMode="label"
+          />
           <NumberRangeField
             defaultMax={String(buyer.budgetMax || "")}
             defaultMin={String(buyer.budgetMin || "")}

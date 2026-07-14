@@ -4,6 +4,7 @@ import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
 import { syncPublicDemandPinHighlights } from "../lib/public-demand-highlight";
 import { GeneratedAvatar } from "./generated-avatar";
 import { Icon } from "./icon";
+import { PropertyTypeArtwork } from "./property-type-artwork";
 
 export function PublicBuyerPreviewCard({ index, preview }: { index: number; preview: PublicBuyerPreviewDto }) {
   const meta = [
@@ -45,6 +46,12 @@ export function PublicBuyerPreviewCard({ index, preview }: { index: number; prev
           <div className="demand-card-identity-copy">
             <h3>{preview.alias}</h3>
           </div>
+          <PropertyTypeArtwork
+            className="demand-card-property-art"
+            sizes="46px"
+            value={preview.label}
+            variant="emoji"
+          />
         </div>
         <div className="demand-card-top">
           <div>

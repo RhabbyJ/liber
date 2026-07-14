@@ -1720,9 +1720,9 @@ main {
   display: grid;
   font-family: inherit;
   gap: 7px;
-  grid-template-rows: 58px auto;
+  grid-template-rows: 68px auto;
   justify-items: center;
-  min-height: 126px;
+  min-height: 140px;
   padding: 15px 12px;
   position: relative;
   text-align: center;
@@ -1745,14 +1745,27 @@ main {
   align-items: center;
   color: var(--sage-strong);
   display: flex;
-  height: 58px;
+  height: 68px;
   justify-content: center;
-  width: 78px;
+  width: 86px;
 }
 
 .signup-role-illustration {
-  height: 48px;
-  width: 66px;
+  border-radius: var(--r-sm);
+  filter: drop-shadow(0 7px 10px rgba(36, 35, 38, 0.08));
+  height: 68px;
+  object-fit: cover;
+  transition: filter 0.24s ease, transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+  width: 68px;
+}
+
+.signup-role-card:is(:hover, :focus-visible, .selected) .signup-role-illustration {
+  filter: saturate(1.04) drop-shadow(0 9px 12px rgba(36, 35, 38, 0.1));
+  transform: translateY(-2px) rotate(-1deg) scale(1.06);
+}
+
+.signup-role-card.selected .signup-role-art {
+  animation-duration: 4.4s;
 }
 
 .signup-role-text {
@@ -1832,6 +1845,16 @@ main {
     text-align: left;
   }
 
+  .signup-role-art {
+    height: 58px;
+    width: 66px;
+  }
+
+  .signup-role-illustration {
+    height: 58px;
+    width: 58px;
+  }
+
   .signup-actions {
     flex-direction: column-reverse;
     gap: 10px;
@@ -1845,6 +1868,18 @@ main {
 
 @media (prefers-reduced-motion: reduce) {
   .signup-progress-fill {
+    transition: none !important;
+  }
+
+  [data-artwork-motion] {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  [data-artwork-motion] .property-type-artwork-image,
+  .signup-role-illustration {
+    filter: none !important;
+    transform: none !important;
     transition: none !important;
   }
 }
@@ -1997,6 +2032,88 @@ main {
 .buyer-card-head h3 {
   font-size: 18px;
   margin: 0;
+}
+
+.property-type-artwork {
+  background: #f7f8f5;
+  display: block;
+  flex: 0 0 auto;
+  overflow: hidden;
+  pointer-events: none;
+  position: relative;
+}
+
+.property-type-artwork-image {
+  object-fit: cover;
+  transition: filter 0.3s ease, transform 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+  user-select: none;
+}
+
+.property-type-artwork[data-artwork-variant="emoji"] {
+  border: 0;
+  border-radius: 50%;
+}
+
+@keyframes generated-artwork-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0); }
+  50% { transform: translate3d(0, -4px, 0) rotate(0.5deg); }
+}
+
+@keyframes generated-artwork-pulse {
+  0%, 100% { filter: drop-shadow(0 8px 12px rgba(36, 35, 38, 0.06)); transform: scale(1); }
+  50% { filter: drop-shadow(0 12px 18px rgba(71, 166, 47, 0.13)); transform: scale(1.025); }
+}
+
+[data-artwork-motion="float"] {
+  animation: generated-artwork-float 5.8s ease-in-out infinite;
+  transform-origin: 50% 56%;
+}
+
+[data-artwork-motion="pulse"] {
+  animation: generated-artwork-pulse 5.4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+[data-artwork-motion="lift"] {
+  transition: transform 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transform-origin: center;
+}
+
+[data-property-type="CONDO"][data-artwork-motion="float"],
+[data-signup-role="seller"][data-artwork-motion="float"] {
+  animation-delay: -1.4s;
+}
+
+[data-property-type="TOWNHOUSE"][data-artwork-motion="float"],
+[data-signup-role="both"][data-artwork-motion="float"] {
+  animation-delay: -2.8s;
+}
+
+[data-property-type="MANUFACTURED"][data-artwork-motion="float"] {
+  animation-delay: -4.2s;
+}
+
+[data-property-type="LAND"][data-artwork-motion="float"] {
+  animation-delay: -5.2s;
+}
+
+:where(.buyer-card, .buyer-row, .demand-card, .property-card):is(:hover, :focus-within)
+  [data-artwork-motion="lift"] {
+  transform: translateY(-3px) scale(1.025);
+}
+
+:where(.buyer-card, .buyer-row, .demand-card, .property-card):is(:hover, :focus-within)
+  [data-artwork-motion="lift"] .property-type-artwork-image {
+  filter: saturate(1.04);
+  transform: scale(1.045);
+}
+
+.buyer-card-property-art {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  height: 52px;
+  margin-left: auto;
+  width: 52px;
 }
 
 .buyer-card-stats {
@@ -2530,6 +2647,14 @@ body:has(.map-landing) .site-footer {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.demand-card-property-art {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  height: 46px;
+  margin-left: auto;
+  width: 46px;
 }
 
 .demand-card-kicker {
@@ -3181,6 +3306,116 @@ body:has(.map-landing) .site-footer {
   max-width: 700px;
 }
 
+.property-type-picker {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.property-type-picker > legend {
+  margin-bottom: 9px;
+}
+
+.property-type-options {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.field label.property-type-choice {
+  align-content: start;
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  min-width: 0;
+  padding: 8px 8px 11px;
+  position: relative;
+  text-align: center;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.field label.property-type-choice:hover {
+  border-color: var(--sage-line);
+  transform: translateY(-1px);
+}
+
+.property-type-choice:is(:hover, :focus-within) .property-type-artwork-image {
+  filter: saturate(1.04);
+  transform: scale(1.045);
+}
+
+.property-type-choice:has(input:checked) {
+  background: var(--sage-tint);
+  border-color: var(--sage-strong);
+  box-shadow: var(--shadow-1);
+}
+
+.property-type-choice:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.field .property-type-choice input {
+  border: 0;
+  height: 1px;
+  min-height: 0;
+  opacity: 0;
+  padding: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 1px;
+}
+
+.property-type-choice-art {
+  aspect-ratio: 1;
+  border-radius: calc(var(--r-sm) - 1px);
+  max-width: 104px;
+  width: 100%;
+}
+
+.property-type-choice strong {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.property-type-choice-check {
+  align-items: center;
+  background: var(--sage-strong);
+  border: 2px solid var(--surface);
+  border-radius: var(--r-pill);
+  color: #fff;
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  opacity: 0;
+  position: absolute;
+  right: 7px;
+  top: 7px;
+  transform: scale(0.8);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  width: 24px;
+}
+
+.property-type-choice input:checked ~ .property-type-choice-check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@media (max-width: 640px) {
+  .property-type-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .property-type-choice-art {
+    max-width: 96px;
+  }
+}
+
 .buyer-profile-form .form-grid {
   gap: 18px 28px;
 }
@@ -3390,6 +3625,63 @@ body:has(.map-landing) .site-footer {
 .buyer-profile-info-block {
   display: grid;
   gap: 18px;
+}
+
+.buyer-profile-account-body {
+  align-items: end;
+  display: grid;
+  gap: 36px;
+  grid-template-columns: minmax(0, 1fr) minmax(270px, 310px);
+}
+
+.buyer-profile-preapproval {
+  background: var(--sage-tint);
+  border: 1px solid var(--sage-line);
+  border-radius: var(--r-md);
+  display: grid;
+  gap: 18px;
+  min-height: 224px;
+  padding: 20px;
+}
+
+.buyer-profile-preapproval-head {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.buyer-profile-preapproval-icon {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--sage-line);
+  border-radius: var(--r-sm);
+  color: var(--sage-deep);
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.buyer-profile-preapproval-copy {
+  display: grid;
+  gap: 7px;
+}
+
+.buyer-profile-preapproval-copy h2 {
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+
+.buyer-profile-preapproval-copy > p:last-child {
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.buyer-profile-preapproval-action {
+  justify-self: stretch;
+  width: 100%;
 }
 
 .buyer-profile-info-block h2,
@@ -4030,11 +4322,7 @@ body:has(.map-landing) .site-footer {
 }
 
 .media-preview {
-  background:
-    linear-gradient(90deg, rgba(14, 95, 56, 0.08) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(14, 95, 56, 0.08) 1px, transparent 1px),
-    linear-gradient(160deg, #d8f0e3 0%, #9fd7b6 100%);
-  background-size: 42px 42px, 42px 42px, auto;
+  background: #f7f8f5;
   border-bottom: 1px solid var(--line);
   display: grid;
   min-height: 200px;
@@ -4043,13 +4331,19 @@ body:has(.map-landing) .site-footer {
 }
 
 .media-preview::after {
-  background-image:
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 18px);
-  content: "";
+  content: none;
+}
+
+.media-preview .property-card-artwork {
+  border-radius: 0;
+  height: 100%;
   inset: 0;
-  mix-blend-mode: overlay;
-  pointer-events: none;
   position: absolute;
+  width: 100%;
+}
+
+.media-preview .property-type-artwork-image {
+  object-fit: contain;
 }
 
 .media-preview .media-hint {
@@ -4437,6 +4731,10 @@ body:has(.map-landing) .site-footer {
 
 .seller-property-intake-section .field textarea {
   min-height: 128px;
+}
+
+.seller-property-intake-section .field .property-type-choice input {
+  min-height: 0;
 }
 
 .property-intake-next-step {
@@ -5226,6 +5524,10 @@ body:has(.map-landing) .site-footer {
   }
 
   .buyer-profile-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .buyer-profile-account-body {
     grid-template-columns: 1fr;
   }
 
@@ -6088,6 +6390,19 @@ body:has(.map-landing) .site-footer {
 .buyer-row-fit strong {
   color: var(--ink-strong);
   font-size: 14px;
+}
+
+.buyer-row-fit-heading {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.buyer-row-property-art {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-xs);
+  height: 36px;
+  width: 36px;
 }
 
 .buyer-row-see-more {

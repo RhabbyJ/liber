@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Icon } from "../../../../../components/icon";
 import { DirectUploadField } from "../../../../../components/direct-upload-field";
 import { PropertyAddressLookup } from "../../../../../components/property-address-lookup";
-import { propertyTypeOptions } from "../../../../../lib/property-types";
+import { PropertyTypePicker } from "../../../../../components/property-type-picker";
 import { DEFAULT_MARKET_SLUG } from "../../../../../lib/service-areas";
 import { getSellerProperty } from "../../../../../server/contracts";
 import { submitSellerPropertyUpdate } from "../../../../../server/form-actions";
@@ -79,14 +79,12 @@ export default async function EditSellerPropertyPage({
           </div>
 
 
-          <div className="field">
-            <label htmlFor="propertyType">Property type</label>
-            <select id="propertyType" name="propertyType" defaultValue={property.propertyType}>
-              {propertyTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </div>
+          <PropertyTypePicker
+            defaultValue={property.propertyType}
+            legend="Property type"
+            name="propertyType"
+            required
+          />
           <div className="field">
             <label htmlFor="price">Asking price</label>
             <input id="price" name="price" defaultValue={property.price} inputMode="numeric" />

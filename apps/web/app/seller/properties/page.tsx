@@ -2,6 +2,7 @@ import Link from "next/link";
 import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
 import { PageTitle } from "../../../components/page-title";
+import { PropertyTypeArtwork } from "../../../components/property-type-artwork";
 import { formatMoney } from "../../../lib/format";
 import { propertySubtypeLabel } from "../../../lib/property-types";
 import { listSellerProperties } from "../../../server/contracts";
@@ -61,6 +62,11 @@ export default async function SellerPropertiesPage() {
             return (
               <article className="property-card" key={property.id}>
                 <div className="media-preview">
+                  <PropertyTypeArtwork
+                    className="property-card-artwork"
+                    sizes="(max-width: 760px) 100vw, 50vw"
+                    value={property.propertyType}
+                  />
                   <span className="media-hint">
                     <Icon name="home" size={12} />
                     Private property

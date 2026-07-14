@@ -45,8 +45,15 @@ export default async function BuyerProfileBuilderPage({
     : buyer;
   const isActive = buyer.visibility === "active";
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
-  const hasPreApproval = activeBadges.some((badge) => badge.type === "PRE_APPROVED");
-  const hasPendingPreApproval = buyer.badges.some((badge) => badge.type === "PRE_APPROVED" && badge.status === "pending");
+  const activePreApproval = activeBadges.find((badge) => badge.type === "PRE_APPROVED");
+  const pendingPreApproval = buyer.badges.find(
+    (badge) => badge.type === "PRE_APPROVED" && badge.status === "pending",
+  );
+  const expiredPreApproval = buyer.badges.find(
+    (badge) => badge.type === "PRE_APPROVED" && badge.status === "expired",
+  );
+  const hasPreApproval = Boolean(activePreApproval);
+  const hasPendingPreApproval = Boolean(pendingPreApproval);
   const isAdminControlled = buyer.visibility === "hidden";
   const showProfileWizard = !isAdminControlled && (
     !isActive || edit === "profile" || buyer.primaryServiceArea?.active === false
@@ -72,6 +79,34 @@ export default async function BuyerProfileBuilderPage({
     { label: "Profile status", value: visibilityLabel },
     { label: "Last updated", value: buyer.refreshedAt || "Not set" },
   ];
+  const preApprovalTitle = hasPreApproval
+    ? "Pre-approved"
+    : hasPendingPreApproval
+      ? "In review"
+      : expiredPreApproval
+        ? "Pre-approval expired"
+        : "Get pre-approved";
+  const preApprovalStatus = hasPreApproval
+    ? "Active"
+    : hasPendingPreApproval
+      ? "In review"
+      : expiredPreApproval
+        ? "Expired"
+        : "Not verified";
+  const preApprovalAction = hasPreApproval || hasPendingPreApproval
+    ? "View verification"
+    : expiredPreApproval
+      ? "Renew pre-approval"
+      : "Get pre-approved";
+  const preApprovalDescription = hasPreApproval
+    ? activePreApproval?.expiresInDays !== undefined
+      ? `Active for ${activePreApproval.expiresInDays} more day${activePreApproval.expiresInDays === 1 ? "" : "s"}. Sellers see the badge, not your documents.`
+      : "Your verified badge is active. Sellers see the badge, not your documents."
+    : hasPendingPreApproval
+      ? "Liber is reviewing your private document. Sellers will only see it after approval."
+      : expiredPreApproval
+        ? "Upload a current document to renew your badge. Your evidence remains private."
+        : "Upload a pre-approval letter or proof of funds. Liber keeps your documents private.";
   const verificationCard = (
     <article
       className={`card stack verification-card buyer-preapproval-card ${!hasPreApproval ? "priority" : ""}`}
@@ -212,16 +247,43 @@ export default async function BuyerProfileBuilderPage({
             </div>
           </div>
 
-          <div className="buyer-profile-info-block">
-            <h2>General Information</h2>
-            <dl className="buyer-profile-info-grid">
-              {generalInformation.map((item) => (
-                <div key={item.label}>
-                  <dt>{item.label}</dt>
-                  <dd>{item.value}</dd>
-                </div>
-              ))}
-            </dl>
+          <div className="buyer-profile-account-body">
+            <div className="buyer-profile-info-block">
+              <h2>General Information</h2>
+              <dl className="buyer-profile-info-grid">
+                {generalInformation.map((item) => (
+                  <div key={item.label}>
+                    <dt>{item.label}</dt>
+                    <dd>{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+
+            <section className="buyer-profile-preapproval" aria-labelledby="buyer-preapproval-title">
+              <div className="buyer-profile-preapproval-head">
+                <span className="buyer-profile-preapproval-icon">
+                  <Icon name={hasPreApproval ? "check-shield" : "lock"} size={20} />
+                </span>
+                <span
+                  className={`status-dot ${hasPreApproval ? "active" : hasPendingPreApproval ? "warning" : expiredPreApproval ? "danger" : "info"}`}
+                >
+                  {preApprovalStatus}
+                </span>
+              </div>
+              <div className="buyer-profile-preapproval-copy">
+                <p className="eyebrow">Financing readiness</p>
+                <h2 id="buyer-preapproval-title">{preApprovalTitle}</h2>
+                <p>{preApprovalDescription}</p>
+              </div>
+              <Link
+                className={`button buyer-profile-preapproval-action ${hasPreApproval || hasPendingPreApproval ? "secondary" : "primary"}`}
+                href="/buyer/badges"
+              >
+                {preApprovalAction}
+                <Icon name="arrow-right" size={14} />
+              </Link>
+            </section>
           </div>
         </article>
 
@@ -242,8 +304,6 @@ export default async function BuyerProfileBuilderPage({
             <p className="muted small">No verified information yet.</p>
           )}
         </article>
-
-        {verificationCard}
       </div>
     </div>
   );
