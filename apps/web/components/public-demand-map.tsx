@@ -92,7 +92,7 @@ export function PublicDemandMap({
           attributionControl: true,
           center: [marketCenterLng, marketCenterLat],
           container: containerRef.current,
-          cooperativeGestures: true,
+          cooperativeGestures: false,
           maxBounds: [[marketWest, marketSouth], [marketEast, marketNorth]],
           style: "mapbox://styles/mapbox/streets-v12",
           zoom: 10.6,

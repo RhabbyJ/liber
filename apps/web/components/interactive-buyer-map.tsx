@@ -93,7 +93,7 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea: selec
           antialias: true,
           attributionControl: true,
           center: [marketCenterLng, marketCenterLat],
-          cooperativeGestures: true,
+          cooperativeGestures: false,
           container: containerRef.current,
           maxBounds: [[marketWest, marketSouth], [marketEast, marketNorth]],
           style: "mapbox://styles/mapbox/streets-v12",

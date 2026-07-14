@@ -30,7 +30,7 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - Mapbox must be optional; local development should degrade gracefully. When WebGL initialization fails but a public token is configured, the public demand map falls back to a Mapbox Static Images street map with the same privacy-safe approximate pins.
 - Interactive maps are clamped to the active market bbox, remain draggable/zoomable throughout Los Angeles County, and provide a View all LA County reset.
 - Maps do not draw ambient County, city, or ZCTA borders. They fetch and render a boundary only for the exact ZIP, city, or neighborhood selected through search, and remove it when the selection is cleared.
-- Public touch maps use cooperative gestures so the map does not trap one-finger vertical page scrolling.
+- Customer-facing maps support direct wheel and touch gestures without requiring a modifier key.
 - Geocoding endpoints need validation and rate limits.
 - Public homepage area selection is limited to known active service areas; it draws approximate Liber-owned polygons and scopes the limited preview cards only, and must not become unauthenticated buyer search.
 - Hovering or keyboard-focusing a public preview card highlights only its corresponding privacy-safe map pin and does not move the map.
