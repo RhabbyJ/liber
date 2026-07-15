@@ -220,7 +220,7 @@ Invite creation must check:
 - duplicate active invite rules,
 - rate limits / DB trigger constraints.
 
-Invite creation serializes per seller with a transaction-scoped advisory lock. The quota is 25 sends in the preceding rolling 24 hours for a currently ownership-approved `READY_FOR_INVITES` property. Invite responses atomically require an unexpired `SENT`/`VIEWED` row.
+Invite creation serializes per seller with a transaction-scoped advisory lock. Prisma raw queries must project the PostgreSQL `void` lock result to a supported scalar so the driver does not reject the transaction before invite validation. The quota is 25 sends in the preceding rolling 24 hours for a currently ownership-approved `READY_FOR_INVITES` property. Invite responses atomically require an unexpired `SENT`/`VIEWED` row.
 
 Property authority attestations, images, and invites are stamped with the current property `identityVersion`. An identity-relevant edit clears the attestation, resets verification, withdraws `SENT`, `VIEWED`, and `ACCEPTED` invites, and prevents old images or delayed email from being reused for the new identity. Sellers explicitly re-attest after editing. Admin ownership review locks and re-reads the property before approving current-version evidence.
 

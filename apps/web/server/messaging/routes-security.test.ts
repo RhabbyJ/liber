@@ -102,6 +102,21 @@ describe("messaging API security contracts", () => {
     expect(respond.indexOf("lockAndAssertInvitePairAvailable(")).toBeLessThan(respond.indexOf("FOR UPDATE"));
   });
 
+  it("projects advisory-lock void results to a driver-supported scalar", async () => {
+    const [service, contracts] = await Promise.all([
+      readFile(path.resolve("server/messaging/service.ts"), "utf8"),
+      readFile(path.resolve("server/contracts.ts"), "utf8"),
+    ]);
+    const inviteSend = between(contracts, "export async function sendInvite", "export async function listSellerInvites");
+    const pairLock = between(service, "async function lockPair", "async function lockConversation");
+    const senderLock = between(service, "async function lockMessageSender", "async function messageMarker");
+
+    for (const lockQuery of [inviteSend, pairLock, senderLock]) {
+      expect(lockQuery).toContain("pg_advisory_xact_lock");
+      expect(lockQuery).toContain("IS NULL AS locked");
+    }
+  });
+
   it("checks the DB-backed session's active admin role before exposing report evidence", async () => {
     const [source, session] = await Promise.all([
       readFile(path.resolve("server/messaging/service.ts"), "utf8"),
