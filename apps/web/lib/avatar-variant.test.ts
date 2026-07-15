@@ -32,7 +32,14 @@ describe("buyer avatar variants", () => {
 
     expect(resolved.value).toBe(avatarVariantFromSeed("buyer-user-id"));
     expect(resolvedPaletteToken.value).toBe(avatarVariantFromSeed("buyer-user-id"));
-    expect(resolved.seed).toBe(`buyer-user-id:${resolved.salt}`);
+    expect(resolved.seed).toBe(`liber:buyer-avatar:${resolved.salt}`);
+  });
+
+  it("renders a saved avatar token identically across private and seller-facing seeds", () => {
+    const variant = "avatarka:animals:7";
+
+    expect(resolveAvatarVariant(variant, "private-user-id").seed)
+      .toBe(resolveAvatarVariant(variant, "Bright Hearth").seed);
   });
 
   it("does not return the excluded currently displayed avatar when shuffling", () => {

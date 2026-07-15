@@ -7,6 +7,7 @@ import type {
   SellerBuyerSummaryDTO,
 } from "../../lib/buyer-dtos";
 import { buyerAliasForDisplay } from "../../lib/buyer-alias";
+import { resolveAvatarVariant } from "../../lib/avatar-variant";
 import { propertySubtypeLabel } from "../../lib/property-types";
 
 const SELLER_BADGE_TYPES = ["PRE_APPROVED", "VERIFIED_IDENTITY", "VERIFIED_FUNDS"] as const;
@@ -163,7 +164,7 @@ export function sellerBuyerSummary(row: SellerBuyerRow, viewerUserId: string, is
     id: row.id,
     isDemo,
     avatarSeed: alias,
-    avatarVariant: row.user.avatarVariant ?? undefined,
+    avatarVariant: resolveAvatarVariant(row.user.avatarVariant, row.id).value,
     name: alias,
     location: area.type === "zip" && area.postalCode
       ? `${city}, ${area.state} ${area.postalCode}`

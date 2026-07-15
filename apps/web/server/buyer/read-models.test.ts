@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { avatarVariantFromSeed } from "../../lib/avatar-variant";
 import { sellerBuyerSummary, type SellerBuyerRow } from "./read-models";
 
 const authUserId = "11111111-1111-1111-1111-111111111111";
@@ -60,6 +61,7 @@ describe("seller buyer read model", () => {
     }
     expect(dto).toMatchObject({
       avatarSeed: "Maple Haven",
+      avatarVariant: avatarVariantFromSeed("buyer-profile-public-id"),
       badges: [
         { type: "VERIFIED_FUNDS", status: "active" },
         { type: "CASH_BUYER", status: "active" },

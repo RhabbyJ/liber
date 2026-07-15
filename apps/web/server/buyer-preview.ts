@@ -125,7 +125,7 @@ export async function getPublicBuyerPreviews(
         alias,
         amenities: previewAmenities.filter((amenity) => amenitySet.has(amenity.toLowerCase())),
         area: areaLabel,
-        avatarVariant: resolveAvatarVariant(profile.user.avatarVariant, alias).value,
+        avatarVariant: resolveAvatarVariant(profile.user.avatarVariant, profile.id).value,
         badges: [
           ...profile.badges.map((badge) => previewBadgeLabels[badge.badgeType] ?? "Verified"),
           ...(profile.buyerType === "Cash" && profile.badges.some((badge) => badge.badgeType === "VERIFIED_FUNDS")

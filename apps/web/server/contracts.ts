@@ -25,6 +25,7 @@ import {
   avatarVariantFromSeed,
   normalizeAvatarVariant,
   randomAvatarVariant,
+  resolveAvatarVariant,
 } from "../lib/avatar-variant";
 import {
   buyerAliasForDisplay,
@@ -277,7 +278,7 @@ function buyerFromDb(profile: {
 
   return {
     id: profile.id,
-    avatarVariant: profile.user?.avatarVariant ?? undefined,
+    avatarVariant: resolveAvatarVariant(profile.user?.avatarVariant, profile.id).value,
     userId: profile.userId,
     name: buyerAliasForDisplay(profile.displayName, profile.userId),
     location: canonicalLocation.location,
@@ -320,7 +321,7 @@ function buyerFromDb(profile: {
 function emptyBuyerForUser(user: SessionUser, avatarVariant?: string | null): Buyer {
   return {
     id: "new-profile",
-    avatarVariant: avatarVariant ?? undefined,
+    avatarVariant: resolveAvatarVariant(avatarVariant, user.id).value,
     userId: user.id,
     name: buyerAliasFromSeed(user.id),
     location: "",

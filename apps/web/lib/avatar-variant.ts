@@ -43,7 +43,7 @@ export function resolveAvatarVariant(value: string | null | undefined, seed: str
   const salt = Number(saltValue);
 
   return {
-    seed: `${seed || "buyer"}:${salt}`,
+    seed: `liber:buyer-avatar:${salt}`,
     salt,
     value: normalized,
   };

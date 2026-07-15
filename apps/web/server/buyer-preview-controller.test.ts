@@ -112,7 +112,7 @@ describe("public buyer preview controller", () => {
     const serialized = JSON.stringify(preview);
 
     expect(preview.alias).toBe(alias);
-    expect(preview.avatarVariant).toBe(avatarVariantFromSeed(alias));
+    expect(preview.avatarVariant).toBe(avatarVariantFromSeed(profileId));
     expect(serialized).not.toContain("Julie P.");
     expect(serialized).not.toContain(profileId);
     expectNoForbiddenFields(preview);
