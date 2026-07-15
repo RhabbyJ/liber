@@ -33,6 +33,9 @@ Owns private seller property records, property images, ownership evidence upload
 - Invite is manual outreach only.
 - The HTML invite form's guided-template version is normalized from FormData text to an integer before strict validation; JSON messaging contracts remain numeric-only.
 - Invite response does not create an offer, escrow, or transaction.
+- Invite creation binds its queued email to the new invite row. The outbox must
+  use the canonical invite reference and worker lease; retired generic
+  recipient/UUID-lease artifacts are not part of this flow.
 - A successful valid invite creates exactly one invite-scoped conversation,
   two authoritative participants, and the immutable rendered opening message.
 - Accepted invites remain messageable; decline, effective expiry, withdrawal,

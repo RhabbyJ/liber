@@ -11,6 +11,9 @@ const closureMigrationPath = path.resolve(
 const rateLimitRepairMigrationPath = path.resolve(
   "../../packages/db/prisma/migrations/20260713230000_fix_rate_limit_timestamp_variable/migration.sql",
 );
+const emailOutboxReconciliationMigrationPath = path.resolve(
+  "../../packages/db/prisma/migrations/20260715215000_reconcile_email_outbox_lease/migration.sql",
+);
 
 describe("architecture boundary migration", () => {
   it("contains the final database and Storage invariants", async () => {
@@ -64,6 +67,30 @@ describe("architecture boundary migration", () => {
     expect(source).toContain("idempotencyKey");
     expect(source).toContain("is_invite_deliverable");
     expect(source).toContain('status: "CANCELLED"');
+  });
+
+  it("retires the incompatible outbox proposal without weakening delivery references", async () => {
+    const sql = await readFile(emailOutboxReconciliationMigrationPath, "utf8");
+    for (const required of [
+      "EmailOutbox_sendable_recipient_check",
+      "EmailOutbox_delivery_reference_check",
+      "EmailOutbox_lease_state_check",
+      "app_private.claim_email_outbox(integer, uuid, integer, integer)",
+      "app_private.suspend_identity(uuid, uuid, text, text)",
+      'DROP COLUMN IF EXISTS "recipientUserId"',
+      'DROP COLUMN IF EXISTS "cancelledAt"',
+      'DROP COLUMN IF EXISTS "leaseToken"',
+      'DROP COLUMN IF EXISTS "leaseExpiresAt"',
+      'type = \'INVITE\' AND "inviteId" IS NOT NULL',
+      'type = \'MESSAGE_UNREAD\'',
+      '"messageRecipientUserId" IS NOT NULL',
+      '"lockedAt" IS NOT NULL',
+      '"leaseUntil" IS NOT NULL',
+      '"workerId" IS NOT NULL',
+    ]) {
+      expect(sql).toContain(required);
+    }
+    expect(sql).toContain("An active legacy EmailOutbox lease requires provider reconciliation.");
   });
 
   it("uses an unambiguous timestamp variable in the legacy shared rate limiter", async () => {

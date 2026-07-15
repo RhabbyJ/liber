@@ -22,6 +22,9 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - The current baseline is locked through Guided Messaging V1. Later migrations
   remain separate forward files in both roots and must be byte-identical; run
   `npm run db:baseline:generate` and `npm run db:baseline:check` after adding one.
+- Migration `20260715215000_reconcile_email_outbox_lease` removes the retired
+  unnumbered outbox recipient/UUID-lease artifacts from drifted targets and
+  validates the canonical worker-lease and delivery-reference constraints.
 - User IDs must remain Supabase Auth UUID-compatible.
 - `User.id` is immutable and validated against the `auth.users` primary key.
   Auth deletion and all ownership-key updates are restricted until the explicit
