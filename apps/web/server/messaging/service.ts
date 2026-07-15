@@ -1128,7 +1128,9 @@ export async function lockAndAssertInvitePairAvailable(
 
 async function lockPair(tx: TransactionClient, firstUserId: string, secondUserId: string) {
   const key = [firstUserId, secondUserId].sort().join(":");
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${'messaging-pair:' + key}, 0))`;
+  await tx.$queryRaw`
+    SELECT pg_advisory_xact_lock(hashtextextended(${'messaging-pair:' + key}, 0)) IS NULL AS locked
+  `;
 }
 
 async function lockConversation(tx: TransactionClient, conversationId: string) {
@@ -1146,7 +1148,9 @@ async function lockInvite(tx: TransactionClient, inviteId: string) {
 }
 
 async function lockMessageSender(tx: TransactionClient, userId: string) {
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${'messaging-sender:' + userId}, 0))`;
+  await tx.$queryRaw`
+    SELECT pg_advisory_xact_lock(hashtextextended(${'messaging-sender:' + userId}, 0)) IS NULL AS locked
+  `;
 }
 
 async function messageMarker(client: Pick<typeof prisma, "$queryRaw">, conversationId: string, messageId: string) {

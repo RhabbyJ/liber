@@ -868,7 +868,9 @@ export async function sendInvite(input: unknown) {
   const inviteMessage = openingNote ? `${openingTemplate.text}\n\n${openingNote}` : openingTemplate.text;
   const inviteTitle = "Private property invitation";
   const result = await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${seller.id}::text, 0))`;
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(hashtextextended(${seller.id}::text, 0)) IS NULL AS locked
+    `;
     const [buyer, property, sentInviteCount, activeDuplicate, access] = await Promise.all([
       tx.buyerProfile.findFirst({
         where: {

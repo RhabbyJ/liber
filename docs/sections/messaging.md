@@ -32,6 +32,8 @@ and report-driven admin moderation.
   Sending also rechecks blocks, invite state/effective expiry, seller approval,
   buyer eligibility, and the invite's property identity version under the
   canonical pair -> `Invite` -> `Conversation` -> sender-quota lock order.
+  Runtime Prisma advisory-lock queries project PostgreSQL's `void` result to a
+  boolean scalar; returning `void` directly is not supported by the Pg adapter.
 - The first successfully inserted buyer reply atomically changes the invite to
   `ACCEPTED`, records `respondedAt`, and activates the conversation. A duplicate
   or conflicting insert that writes no message cannot activate it. Accepted
