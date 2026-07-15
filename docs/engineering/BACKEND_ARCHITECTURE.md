@@ -186,7 +186,7 @@ Rules:
 - Document owners must not be able to overwrite/delete evidence after upload.
 - Private documents are viewed through admin/server-mediated signed URLs only.
 - Storage paths and signed URLs must not become public profile data.
-- Browser uploads use an authorized `UploadSession`, a server-selected path, a signed upload token, direct Storage transfer, and server finalization. Finalization verifies ownership, expiry, object path, actual size/type, initial-byte signature, and current property identity version before creating a document/image row.
+- Browser uploads use an authorized `UploadSession`, a server-selected path, a signed upload token, direct Storage transfer, and server finalization. Finalization verifies ownership, expiry, object path, actual size/type, initial-byte signature, and current property identity version before creating a document/image row. `propertyIdentityVersion` is the sole supported property-evidence binding; migration `20260715071054_retire_legacy_ownership_version` removes retired parallel version triggers that could reject valid finalization on drifted targets.
 - Abandoned sessions and orphaned objects are removed by the outbox maintenance worker.
 - Browser DTOs never return raw Storage paths. Finalization returns document/image IDs and status; authorized reads return short-lived server-mediated signed URLs only.
 - Seller ownership verification documents keep `DocumentType.OWNERSHIP` and use `OwnershipEvidenceKind` to distinguish government ID from property address proof. Ownership status can become approved only after both required current-version evidence kinds and the structured owner/address/authority checklist are approved by an admin.

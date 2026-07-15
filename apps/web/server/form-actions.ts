@@ -87,6 +87,7 @@ export async function submitSellerPropertyUpdate(formData: FormData) {
   revalidatePath("/seller/properties");
   revalidatePath(`/seller/properties/${propertyId}/edit`);
   revalidatePath("/admin/documents");
+  redirect("/seller/properties");
 }
 
 export async function submitInvite(formData: FormData) {

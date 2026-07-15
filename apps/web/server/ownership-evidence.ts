@@ -1,52 +1,6 @@
 export const ownershipEvidenceKinds = ["GOVERNMENT_ID", "PROPERTY_ADDRESS_PROOF"] as const;
-export const requiredOwnershipEvidenceKinds = ownershipEvidenceKinds;
 
 export type OwnershipEvidenceKind = (typeof ownershipEvidenceKinds)[number];
-export type OwnershipReviewStatus = "PENDING" | "APPROVED" | "REJECTED";
-
-export type VersionedOwnershipDocument = {
-  ownershipEvidenceKind?: string | null;
-  propertyOwnershipVersion?: number | null;
-  reviewStatus: string;
-  userId: string;
-};
-
-export function isOwnershipEvidenceAuditOnly(
-  documentType: string,
-  propertyOwnershipVersion?: number | null,
-) {
-  return documentType === "OWNERSHIP" && propertyOwnershipVersion == null;
-}
-
-export function isOwnershipEvidenceStale(
-  documentType: string,
-  propertyOwnershipVersion?: number | null,
-  currentPropertyOwnershipVersion?: number | null,
-) {
-  return documentType === "OWNERSHIP" && (
-    propertyOwnershipVersion == null ||
-    currentPropertyOwnershipVersion == null ||
-    propertyOwnershipVersion !== currentPropertyOwnershipVersion
-  );
-}
-
-export function assertOwnershipEvidenceApprovalAllowed(
-  documentType: string,
-  decision: "APPROVED" | "REJECTED",
-  propertyOwnershipVersion?: number | null,
-  currentPropertyOwnershipVersion?: number | null,
-) {
-  if (documentType !== "OWNERSHIP" || decision !== "APPROVED") return;
-  if (propertyOwnershipVersion == null) {
-    throw new Error("Legacy ownership evidence is audit-only and cannot be approved.");
-  }
-  if (
-    currentPropertyOwnershipVersion == null ||
-    propertyOwnershipVersion !== currentPropertyOwnershipVersion
-  ) {
-    throw new Error("Ownership evidence belongs to a previous property version.");
-  }
-}
 
 export function ownershipEvidenceKindForInput(value: unknown): OwnershipEvidenceKind {
   if (typeof value === "string" && ownershipEvidenceKinds.includes(value as OwnershipEvidenceKind)) {
@@ -67,36 +21,4 @@ export function verificationDocumentTypeLabel(documentType: string, ownershipEvi
   if (documentType === "VERIFIED_FUNDS") return "Proof of funds";
   if (documentType === "IDENTITY") return "Identity";
   return "Other";
-}
-
-export function nextOwnershipVerificationStatus(
-  documents: VersionedOwnershipDocument[],
-  propertyOwnershipVersion: number,
-  propertyOwnerUserId: string,
-): OwnershipReviewStatus {
-  const kindedDocuments = documents.filter((document) =>
-    document.ownershipEvidenceKind &&
-    document.propertyOwnershipVersion === propertyOwnershipVersion &&
-    document.userId === propertyOwnerUserId,
-  );
-
-  const statusesForKind = (kind: OwnershipEvidenceKind) =>
-    kindedDocuments
-      .filter((document) => document.ownershipEvidenceKind === kind)
-      .map((document) => document.reviewStatus);
-  const allRequiredKindsApproved = requiredOwnershipEvidenceKinds.every((kind) =>
-    statusesForKind(kind).includes("APPROVED"),
-  );
-  if (allRequiredKindsApproved) return "APPROVED";
-
-  const anyRequiredKindPending = requiredOwnershipEvidenceKinds.some((kind) =>
-    statusesForKind(kind).includes("PENDING"),
-  );
-  if (anyRequiredKindPending) return "PENDING";
-
-  const anyRequiredKindOnlyRejected = requiredOwnershipEvidenceKinds.some((kind) => {
-    const statuses = statusesForKind(kind);
-    return statuses.length > 0 && statuses.every((status) => status === "REJECTED");
-  });
-  return anyRequiredKindOnlyRejected ? "REJECTED" : "PENDING";
 }
