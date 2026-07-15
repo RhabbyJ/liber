@@ -1897,7 +1897,12 @@ async function restoreSentinel(db) {
 }
 
 function run(command, args, env) {
-  const result = spawnSync(command, args, { cwd: process.cwd(), env, stdio: "inherit" });
+  const result = spawnSync(command, args, {
+    cwd: process.cwd(),
+    env,
+    shell: process.platform === "win32",
+    stdio: "inherit",
+  });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} exited with ${result.status}.`);
 }
