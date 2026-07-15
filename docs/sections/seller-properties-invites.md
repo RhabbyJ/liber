@@ -31,6 +31,7 @@ Owns private seller property records, property images, ownership evidence upload
 - Seller can invite only from owned properties.
 - Seller cannot invite their own buyer profile.
 - Invite is manual outreach only.
+- The HTML invite form's guided-template version is normalized from FormData text to an integer before strict validation; JSON messaging contracts remain numeric-only.
 - Invite response does not create an offer, escrow, or transaction.
 - A successful valid invite creates exactly one invite-scoped conversation,
   two authoritative participants, and the immutable rendered opening message.
