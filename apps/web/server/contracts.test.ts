@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { sendInviteSchema } from "@liber/validators";
 import { buyerLocationFromSelectedServiceArea } from "./canonical-buyer-location";
 import { normalizeInput } from "./normalize-input";
 
@@ -19,6 +20,24 @@ describe("server contract input normalization", () => {
     expect(normalizeInput(form)).toEqual({
       buyerType: "Cash",
       desiredServiceAreaSlug: null,
+    });
+  });
+
+  it("normalizes the invite template version from HTML FormData before strict validation", () => {
+    const form = new FormData();
+    form.set("buyerProfileId", "buyer-profile-1");
+    form.set("propertyId", "property-1");
+    form.set("templateKey", "SELLER_PRIVATE_VIEWING");
+    form.set("templateVersion", "1");
+    form.set("note", "");
+    form.set("termsAccepted", "true");
+
+    expect(sendInviteSchema.parse(normalizeInput(form))).toEqual({
+      buyerProfileId: "buyer-profile-1",
+      propertyId: "property-1",
+      templateKey: "SELLER_PRIVATE_VIEWING",
+      templateVersion: 1,
+      termsAccepted: true,
     });
   });
 });

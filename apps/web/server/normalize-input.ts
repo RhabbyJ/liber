@@ -38,6 +38,10 @@ export function normalizeInput(input: unknown) {
     output.ownershipConfirmed = output.ownershipConfirmed === "true" || output.ownershipConfirmed === "on";
   }
 
+  if (typeof output.templateVersion === "string" && /^[1-9]\d*$/.test(output.templateVersion)) {
+    output.templateVersion = Number(output.templateVersion);
+  }
+
   for (const key of ["identityMatchesOwner", "authorityConfirmed", "addressMatchesProperty", "ownerOrEntityMatches"]) {
     if (typeof output[key] === "string") output[key] = output[key] === "true" || output[key] === "on";
   }
