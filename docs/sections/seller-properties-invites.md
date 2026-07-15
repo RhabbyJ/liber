@@ -38,6 +38,7 @@ Owns private seller property records, property images, ownership evidence upload
   unavailable result rather than disclosing the block.
 - Expired invites are rejected whenever they are read or used, even if the maintenance job has not updated their stored status yet.
 - Only current `READY_FOR_INVITES` properties can send invites. Invite quota means the preceding rolling 24 hours, not a calendar day.
+- The invite page distinguishes no property from an existing property that is not invite-ready. Existing blocked properties show their ownership state and link back to the property record; the server-side invite gate remains unchanged.
 - Property images are private. The owner/admin may view them; invited buyers may view them only while invite status is `SENT`, `VIEWED`, or `ACCEPTED`.
 - Identity-relevant property edits increment `identityVersion`, reset ownership approval, and preserve prior versioned evidence for audit only.
 - Identity changes clear the seller attestation and withdraw `SENT`, `VIEWED`, and `ACCEPTED` invites. The seller must explicitly re-attest to the new version.

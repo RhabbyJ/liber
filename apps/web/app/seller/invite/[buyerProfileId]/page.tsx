@@ -6,6 +6,10 @@ import { PropertyTypeArtwork } from "../../../../components/property-type-artwor
 import { PageTitle } from "../../../../components/page-title";
 import { messagingTemplateLabel } from "../../../../components/messaging/types";
 import { formatMoney } from "../../../../lib/format";
+import {
+  sellerInvitePropertyState,
+  type SellerInvitePropertyBlockReason,
+} from "../../../../lib/invite-property-state";
 import { propertySubtypeLabel } from "../../../../lib/property-types";
 import { canViewBuyerDirectory } from "../../../../server/access";
 import { getBuyerProfileForSeller, listSellerProperties } from "../../../../server/contracts";
@@ -20,6 +24,33 @@ if (
 ) {
   throw new Error("Seller opening templates must share one form version.");
 }
+
+const blockedPropertyCopy: Record<SellerInvitePropertyBlockReason, {
+  actionLabel: string;
+  guidance: string;
+  title: string;
+}> = {
+  archived: {
+    actionLabel: "Review property",
+    guidance: "This property is archived and cannot be used in an invite. Review it or add an active property.",
+    title: "Choose an active property",
+  },
+  "needs-evidence": {
+    actionLabel: "Finish property verification",
+    guidance: "Upload your government-issued photo ID and a utility, tax, or mortgage document matching this property. An admin must approve both before invitations are available.",
+    title: "Finish verifying your property",
+  },
+  rejected: {
+    actionLabel: "Update verification",
+    guidance: "This property needs corrected ownership evidence. Open it to review and replace the required documents.",
+    title: "Finish verifying your property",
+  },
+  "review-pending": {
+    actionLabel: "View review status",
+    guidance: "Your ownership evidence is awaiting admin review. Invitations stay locked until the property is approved.",
+    title: "Ownership review is in progress",
+  },
+};
 
 export default async function InviteBuyerPage({
   params,
@@ -101,13 +132,12 @@ export default async function InviteBuyerPage({
   }
 
   const { data: properties } = await listSellerProperties();
-  const readyProperties = properties.filter((item) => item.lifecycleStatus === "READY_FOR_INVITES");
-  const property = readyProperties[0];
+  const propertyState = sellerInvitePropertyState(properties);
 
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
   const buyerSummary = [buyer.type, buyer.purpose, buyer.location].filter(Boolean).join(" - ") || "Buyer";
 
-  if (!property) {
+  if (propertyState.kind === "missing") {
     return (
       <div className="page stack loose">
         <PageTitle
@@ -149,6 +179,58 @@ export default async function InviteBuyerPage({
       </div>
     );
   }
+
+  if (propertyState.kind === "blocked") {
+    const { property, reason } = propertyState;
+    const copy = blockedPropertyCopy[reason];
+
+    return (
+      <div className="page stack loose">
+        <PageTitle
+          eyebrow={`Invite ${buyer.name}`}
+          title={copy.title}
+          tone="seller"
+        >
+          Your property is saved, but only a current ownership-approved property can be used in an invite.
+        </PageTitle>
+        <section className="card cream stack">
+          <div className="section-head compact">
+            <div className="stack tight">
+              <p className="eyebrow amber">Property found</p>
+              <h2 style={{ fontSize: 22 }}>{property.title}</h2>
+            </div>
+            <span className="status-dot warning">
+              <Icon name="info" size={12} />
+              {reason === "archived" ? "Archived" : property.status}
+            </span>
+          </div>
+          <p className="muted small" style={{ margin: 0 }}>
+            <Icon name="map-pin" size={12} /> {property.location}
+          </p>
+          <p>{copy.guidance}</p>
+          <div className="auth-alert info">
+            This verification gate protects buyers and remains enforced by the server when an invite is submitted.
+          </div>
+          <div className="actions">
+            <Link className="button primary" href={`/seller/properties/${property.id}/edit`}>
+              <Icon name="pencil" size={14} />
+              {copy.actionLabel}
+            </Link>
+            <Link className="button secondary" href="/seller/properties">
+              <Icon name="home" size={14} />
+              Manage properties
+            </Link>
+            <Link className="button ghost" href="/seller/search">
+              <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
+              Back to buyers
+            </Link>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  const { property, readyProperties } = propertyState;
 
   const verified = property.status.toLowerCase().includes("verified");
 
