@@ -1,4 +1,4 @@
-export type ServiceAreaType = "zip" | "city" | "neighborhood" | "custom";
+type ServiceAreaType = "zip" | "city" | "neighborhood" | "custom";
 
 export type ServiceArea = {
   active: boolean;

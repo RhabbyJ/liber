@@ -100,7 +100,7 @@ jobs:
         run: npm run db:test-geography:fresh
 
   security:
-    name: Identity, buyer, seller, and Auth/Storage proof
+    name: Current architecture and Auth/Storage proof
     runs-on: ubuntu-latest
     timeout-minutes: 90
     environment: disposable-security-proof
@@ -112,19 +112,11 @@ jobs:
       AUTH_SECURITY_STAGING_SENTINEL: ${{ secrets.SECURITY_SENTINEL }}
       AUTH_SECURITY_STAGING_SERVICE_ROLE_KEY: ${{ secrets.SECURITY_SERVICE_ROLE_KEY }}
       AUTH_SECURITY_STAGING_SUPABASE_URL: ${{ vars.SECURITY_SUPABASE_URL }}
-      BUYER_PROFILE_TEST_ALLOW_WRITES: "true"
-      BUYER_PROFILE_TEST_DATABASE_URL: ${{ secrets.SECURITY_DATABASE_URL }}
-      BUYER_PROFILE_TEST_SENTINEL: ${{ secrets.SECURITY_SENTINEL }}
       CONFIRM_DISPOSABLE: ${{ inputs.confirm_disposable }}
       DATABASE_URL: ${{ vars.SHARED_DATABASE_ID_URL_1 }}
       DIRECT_URL: ${{ vars.SHARED_DATABASE_ID_URL_2 }}
-      IDENTITY_MIGRATION_TEST_ALLOW_WRITES: "true"
-      IDENTITY_MIGRATION_TEST_DATABASE_URL: ${{ secrets.SECURITY_DATABASE_URL }}
-      IDENTITY_MIGRATION_TEST_PREPARE_EMPTY: "true"
-      IDENTITY_MIGRATION_TEST_SENTINEL: ${{ secrets.SECURITY_SENTINEL }}
-      SELLER_PROPERTY_INTEGRITY_TEST_ALLOW_WRITES: "true"
-      SELLER_PROPERTY_INTEGRITY_TEST_DATABASE_URL: ${{ secrets.SECURITY_DATABASE_URL }}
-      SELLER_PROPERTY_INTEGRITY_TEST_SENTINEL: ${{ secrets.SECURITY_SENTINEL }}
+      SERVICE_AREA_E2E_ALLOW_WRITES: "true"
+      SERVICE_AREA_E2E_DATABASE_URL: ${{ secrets.SECURITY_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -143,7 +135,6 @@ jobs:
       - run: npm install --global npm@10.9.0
       - run: npm ci
       - run: npm run db:generate
-      - run: npm run db:test-identity
-      - run: npm run db:test-buyer-profile-atomicity
-      - run: npm run db:test-seller-property-integrity
+      - run: npm run db:validate
+      - run: npm run test -w @liber/web -- server/architecture-db.e2e.test.ts
       - run: npm run db:test-auth-security:staging

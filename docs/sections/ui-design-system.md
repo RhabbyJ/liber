@@ -15,7 +15,6 @@ Owns shared visual language, navigation, layouts, reusable components, and globa
 - `apps/web/components/page-title.tsx`
 - `apps/web/components/empty-state.tsx`
 - `apps/web/components/icon.tsx`
-- `apps/web/components/stat.tsx`
 
 ## Invariants
 

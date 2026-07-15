@@ -19,6 +19,9 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
   migration root. Brand-new current Supabase databases use
   `prisma.baseline.config.ts` and the locked current-baseline root; pointing the
   fresh-only path at an existing Liber schema must fail closed.
+- Applied migrations and the locked baseline are the only executable schema
+  sources. Superseded unnumbered proposal SQL does not belong under the Prisma
+  tree and must not be applied to a current database.
 - The current baseline is locked through Guided Messaging V1. Later migrations
   remain separate forward files in both roots and must be byte-identical; run
   `npm run db:baseline:generate` and `npm run db:baseline:check` after adding one.

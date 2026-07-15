@@ -42,16 +42,18 @@
     "db:rehearse-la-geography": "node scripts/rehearse-la-geography-release.mjs",
     "db:test-geography:fresh": "node scripts/test-geography-migration-fresh.mjs",
     "db:test-geography:upgrade": "node scripts/test-geography-migration-upgrade.mjs",
-    "db:test-identity": "node scripts/test-identity-migration.mjs",
     "db:test-messaging:fresh": "node scripts/test-messaging-migration.mjs fresh",
     "db:test-messaging:upgrade": "node scripts/test-messaging-migration.mjs upgrade",
-    "db:test-buyer-profile-atomicity": "node scripts/test-buyer-profile-atomicity.mjs",
-    "db:test-seller-property-integrity": "node scripts/test-seller-property-integrity.mjs",
     "db:test-auth-security:staging": "node scripts/test-auth-security-staging.mjs"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.8.0",
+    "@supabase/supabase-js": "2.110.5",
+    "dotenv": "17.4.2",
+    "pg": "8.21.0"
   },
   "devDependencies": {
     "prisma": "7.8.0",
-    "typescript": "6.0.3",
-    "vitest": "4.1.6"
+    "typescript": "6.0.3"
   }
 }

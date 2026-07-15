@@ -88,7 +88,7 @@ export function validateRuntimeConfig(env, { workspaceRoot = ROOT } = {}) {
   return { credentialsPath: path.resolve(credentialsPath), directUrl, projectRef: apiRef, serviceRoleKey, supabaseUrl };
 }
 
-export function isPathInside(root, candidate) {
+function isPathInside(root, candidate) {
   const relative = path.relative(path.resolve(root), path.resolve(candidate));
   return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
 }
@@ -385,7 +385,7 @@ async function runCleanup(prisma, admin) {
   console.log("Cleaned six CEO-preview demo buyers.");
 }
 
-export async function runCli(argv = process.argv.slice(2), env = process.env) {
+async function runCli(argv = process.argv.slice(2), env = process.env) {
   const command = validateCommand(argv[0]);
   validateScenarioConfig();
   const config = validateRuntimeConfig(env);

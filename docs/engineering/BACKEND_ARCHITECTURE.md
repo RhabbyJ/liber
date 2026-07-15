@@ -97,6 +97,13 @@ schema-equivalent on separate sentinel-marked disposable databases before a
 release that changes the schema. Operational details live in
 `CURRENT_DATABASE_BASELINE_RUNBOOK.md`.
 
+The immutable migration history and locked current baseline are the only
+executable schema sources. Pre-integration unnumbered Auth, buyer atomicity, and
+seller property proposal SQL was removed after its supported behavior landed in
+`20260711071555_complete_architecture_boundaries` and
+`20260711082500_close_property_identity_lifecycle`; current proof targets the
+applied schema directly.
+
 ## Auth and access
 
 Runtime authorization must read server-controlled state from the database, not browser metadata.
@@ -364,7 +371,7 @@ Canonical geography is server-mediated. Browser roles have no direct table privi
 
 Service-area prefix lookup uses C-collated lower/upper lexical bounds plus the prefix predicate. Migration `20260713054720_consolidate_service_area_prefix_index` removes the redundant larger index and names the composite unique covering index `service_area_search_terms_market_term_prefix_idx`. The default production planner must select it; do not remove the range bounds or rely on a forced planner setting in proof.
 
-Budget filters are treated as range-overlap filters: a buyer matches when the buyer's max budget is at or above the seller's minimum and the buyer's min budget is at or below the seller's maximum. The persisted seller-search path applies geography, budget, property-fit criteria, condition, canonical amenities, active badges, and sorting in `apps/web/server/seller-search-query.ts`; `apps/web/server/domain.ts` remains fixture-only test behavior. Amenity filters match the canonical criteria feature tokens (Pool, Parking, ADU, Yard, Garage).
+Budget filters are treated as range-overlap filters: a buyer matches when the buyer's max budget is at or above the seller's minimum and the buyer's min budget is at or below the seller's maximum. The persisted seller-search path applies geography, budget, property-fit criteria, condition, canonical amenities, active badges, and sorting in `apps/web/server/seller-search-query.ts`. Amenity filters match the canonical criteria feature tokens (Pool, Parking, ADU, Yard, Garage).
 
 Persisted seller search uses keyset pagination rather than an offset or fixed pre-filter cap. The result contract returns unchanged seller-safe buyer DTO items plus page metadata. Each opaque cursor is bound to the current filter/sort fingerprint, the first-page snapshot, the last SQL sort key, and buyer id. Ordering always includes buyer id as a unique tiebreaker. Cursors expire after 30 minutes and reject future snapshots; new profiles created after the first-page snapshot do not enter later pages. List and map receive the same page items. Cursor snapshots do not recreate historical values for profiles edited between requests, so mutable-sort updates remain eventually consistent.
 

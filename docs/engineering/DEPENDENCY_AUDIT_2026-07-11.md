@@ -27,3 +27,15 @@ then remove the override rather than maintaining it indefinitely.
 
 CI now rejects moderate-or-higher dependency advisories. Do not use
 `npm audit fix --force`; review and test every dependency or override change.
+
+## Dependency ownership cleanup — 2026-07-15
+
+Root database scripts now declare their direct `dotenv`, `pg`, Supabase, and
+Prisma adapter dependencies instead of relying on workspace hoisting. The web
+workspace declares its direct `@next/env` and database-test dependencies.
+Unused root `vitest` and web `typescript-eslint` declarations were removed;
+workspace test runners and `eslint-config-next` remain the active owners.
+
+`@prisma/client` stays in `@liber/db` because the configured
+`prisma-client-js` generator requires it even though application source imports
+the generated client from the custom output directory.

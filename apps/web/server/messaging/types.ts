@@ -1,7 +1,7 @@
 export type ConversationStatusValue = "ACTIVE" | "AWAITING_BUYER" | "BLOCKED" | "READ_ONLY";
 export type ConversationParticipantRoleValue = "BUYER" | "SELLER";
-export type MessageKindValue = "FREE_TEXT" | "GUIDED" | "INVITE" | "SYSTEM";
-export type MessageModerationStatusValue = "ALLOWED" | "FLAGGED" | "REDACTED";
+type MessageKindValue = "FREE_TEXT" | "GUIDED" | "INVITE" | "SYSTEM";
+type MessageModerationStatusValue = "ALLOWED" | "FLAGGED" | "REDACTED";
 
 export type PropertySnapshotDTO = {
   identityVersion: number | null;
@@ -50,7 +50,7 @@ export type ConversationThreadDTO = ConversationSummaryDTO & {
   pageInfo: MessagePageInfo;
 };
 
-export type MessagePageInfo = {
+type MessagePageInfo = {
   hasMore: boolean;
   newestMessageId: string | null;
   nextCursor: string | null;

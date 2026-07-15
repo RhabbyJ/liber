@@ -1,5 +1,5 @@
-export const avatarProvider = "avatarka" as const;
-export const avatarTheme = "animals" as const;
+const avatarProvider = "avatarka" as const;
+const avatarTheme = "animals" as const;
 
 export type AvatarVariantParts = {
   seed: string;

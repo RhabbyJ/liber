@@ -138,7 +138,7 @@ export function messagePageMetadata(value: unknown) {
   };
 }
 
-export function mergeMessages(
+function mergeMessages(
   current: MessagingMessage[],
   incoming: MessagingMessage[],
 ): MessagingMessage[] {

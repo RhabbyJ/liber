@@ -1,4 +1,4 @@
-export const badgeEvidenceRules = {
+const badgeEvidenceRules = {
   PRE_APPROVED: ["PRE_APPROVAL"],
   VERIFIED_FUNDS: ["VERIFIED_FUNDS"],
   VERIFIED_IDENTITY: ["IDENTITY"],

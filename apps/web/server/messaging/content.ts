@@ -1,6 +1,6 @@
 import { MessagingError } from "./errors";
 
-export const REDACTED_MESSAGE_BODY = "This message was removed by Liber.";
+const REDACTED_MESSAGE_BODY = "This message was removed by Liber.";
 
 export function visibleMessageBody(body: string, moderationStatus: string) {
   return moderationStatus === "REDACTED" ? REDACTED_MESSAGE_BODY : body;

@@ -7,10 +7,10 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 ## Main files
 
 - `apps/web/**/*.test.ts`
+- `apps/web/server/architecture-db.e2e.test.ts`
 - `apps/web/server/service-area-db.e2e.test.ts`
 - `scripts/test-geography-migration-fresh.mjs`
 - `scripts/test-geography-migration-upgrade.mjs`
-- `scripts/test-identity-migration.mjs`
 - `scripts/test-messaging-migration.mjs`
 - `scripts/database-target.mjs`
 - `scripts/route-smoke.mjs`
@@ -32,14 +32,10 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - Before the canonical geography cutover, run both guarded migration commands against a sentinel-marked disposable database: `npm run db:test-geography:upgrade`, then reset the disposable target with `npm run db:test-geography:fresh`. The scripts verify both the sentinel and configured shared URLs. Preserve their counts/quarantine output and delete the disposable branch afterward.
 - Destructive database harnesses must reject both exact shared URLs and direct/pooler URLs that identify the same Supabase project.
 - Before activating a broader market, run the guarded database E2E with `SERVICE_AREA_E2E_DATABASE_URL`, `SERVICE_AREA_E2E_ALLOW_WRITES=true`, and the matching `GEOGRAPHY_MIGRATION_TEST_SENTINEL`; it covers stale city/ZIP conflicts, DB-only areas, inactive markets, relationship changes, bounds, RLS, seller filtering, and public/seller pins.
-- Before deploying identity migration `00016`, run `npm run db:test-identity`
-  against a sentinel-marked disposable database. It verifies UUID immutability,
-  the validated Auth FK, all 11 ownership FK update restrictions, email
-  collision recovery, Auth deletion restriction, buyer/seller/ADMIN ownership,
-  and clean same-email re-registration after an explicit purge.
-- The identity harness must use branch-specific direct credentials. Connector
-  proof does not substitute for its two-connection Auth-write/migration lock
-  assertion.
+- The protected security proof runs `architecture-db.e2e.test.ts` against a
+  sentinel-marked current-schema database, then runs the Auth/Storage staging
+  harness. Do not apply retired unnumbered proposal SQL to prove current
+  behavior.
 - LA dataset validation is read-only by default. Disposable staging still requires `SERVICE_AREA_IMPORT_DATABASE_URL`, explicit write opt-in, and a sentinel distinct from every shared target. The production v2 release additionally requires an exact dataset confirmation and exact Supabase project ref. Rehearse schema, stage, double-stage, activation, double-activation, and rollback inside an outer rolled-back transaction before any persistent write.
 - LA County map acceptance covers complete County pan/zoom and clamp, View all reset, absence of ambient borders, searched-area boundary rendering/clearing, preview-card-to-pin hover/focus highlighting, rapid selected-area switching, mobile cooperative scrolling, and absence of internal service-area UUIDs in public responses.
 - Before geometry activation, test an exact versioned URL before and after swapping the current pointer, plus duplicate aliases and same-named areas in separate markets against the real indexed SQL.
@@ -85,7 +81,7 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - The protected production-readiness workflow receives the deployed messaging
   enablement and cohort variables; an enabled production rollout fails unless
   its cohort is an explicit reviewed UUID list.
-- CI runs deterministic Prisma generation/validation, real ESLint, typecheck, unit tests, production build, and security smoke checks. Protected disposable-database jobs run exact fresh/upgrade, identity, RLS/geography, and seller-search plan gates using guarded branch credentials.
+- CI runs deterministic Prisma generation/validation, real ESLint, typecheck, unit tests, production build, and security smoke checks. Protected disposable-database jobs run exact fresh/upgrade, current architecture, Auth/Storage, RLS/geography, and seller-search plan gates using guarded branch credentials.
 - Secret smoke scans tracked repository text, including force-tracked `.env*`
   files and tracked files under normally generated/artifact directories, plus
   bounded entries in ZIPs present in its workspace. Nested ZIPs and opaque

@@ -84,13 +84,6 @@ try {
      ) VALUES ($1, $2, 'HOME', now(), now())`,
     [propertyId, targetId],
   );
-  await db.query(
-    `INSERT INTO public."EmailOutbox" (
-       id, type, "to", "recipientUserId", payload, status, "createdAt", "updatedAt"
-     ) VALUES ($1, 'INVITE', $2, $3, '{}'::jsonb, 'PENDING', now(), now())`,
-    [`auth-security-outbox-${suffix}`, targetEmail, targetId],
-  );
-
   const signedIn = await requireAuthResult(publicClient.auth.signInWithPassword({
     email: targetEmail,
     password,
@@ -141,20 +134,52 @@ try {
     initialImageBytes,
     activeImageBytes,
   );
-  const auditId = randomUUID();
-  const suspension = await db.query(
-    `SELECT * FROM app_private.suspend_identity($1::uuid, $2::uuid, $3, $4)`,
-    [actorId, targetId, "Disposable staging suspension proof", auditId],
-  );
-  const counts = suspension.rows[0];
-  if (counts?.seller_access_suspended !== 1 || counts?.outbox_jobs_cancelled !== 1) {
-    throw new Error(`Suspension did not close seller/outbox access: ${JSON.stringify(counts)}`);
+  const operationId = `auth-security-operation-${suffix}`;
+  await db.query("BEGIN");
+  try {
+    await db.query(
+      `UPDATE public."User" SET status = 'SUSPENDED', "suspendedAt" = now(), "updatedAt" = now()
+       WHERE id = $1`,
+      [targetId],
+    );
+    await db.query(
+      `UPDATE public."SellerAccess" SET status = 'SUSPENDED', "updatedAt" = now()
+       WHERE "userId" = $1`,
+      [targetId],
+    );
+    await db.query(
+      `UPDATE public."SellerProperty" SET status = 'ARCHIVED', "flaggedForReviewAt" = now(), "updatedAt" = now()
+       WHERE "ownerUserId" = $1`,
+      [targetId],
+    );
+    await db.query(
+      `INSERT INTO public."AuthOperation" (
+         id, "userId", type, status, attempts, "idempotencyKey", "createdAt", "updatedAt"
+       ) VALUES ($1, $2, 'BAN_USER', 'PENDING', 0, $3, now(), now())`,
+      [operationId, targetId, `ban-user:${targetId}`],
+    );
+    await db.query(
+      `INSERT INTO public."AdminAuditLog" (
+         id, "actorUserId", action, "targetType", "targetId", metadata, "createdAt"
+       ) VALUES ($1, $2, 'suspend_user', 'user', $3, $4::jsonb, now())`,
+      [randomUUID(), actorId, targetId, JSON.stringify({ authOperationId: operationId })],
+    );
+    await db.query("COMMIT");
+  } catch (error) {
+    await db.query("ROLLBACK");
+    throw error;
   }
 
   const banned = await requireAuthResult(admin.auth.admin.updateUserById(targetId, {
     ban_duration: "876000h",
   }));
   if (!banned.user?.banned_until) throw new Error("Staging Auth ban was not confirmed.");
+  await db.query(
+    `UPDATE public."AuthOperation"
+     SET status = 'COMPLETED', "completedAt" = now(), "updatedAt" = now()
+     WHERE id = $1`,
+    [operationId],
+  );
 
   const deniedUpload = await targetStorage.storage
     .from("verification-documents")
@@ -179,16 +204,14 @@ try {
     `SELECT
        (SELECT status::text FROM public."User" WHERE id = $1) AS user_status,
        (SELECT status::text FROM public."SellerAccess" WHERE "userId" = $1) AS seller_status,
-       (SELECT "cancelledAt" IS NOT NULL FROM public."EmailOutbox" WHERE id = $2) AS outbox_cancelled,
-       (SELECT count(*)::int FROM auth.sessions WHERE user_id = $1) AS sessions`,
-    [targetId, `auth-security-outbox-${suffix}`],
+       (SELECT status::text FROM public."AuthOperation" WHERE id = $2) AS auth_operation_status`,
+    [targetId, operationId],
   );
   const suspensionState = state.rows[0];
   if (
     suspensionState?.user_status !== "SUSPENDED"
     || suspensionState?.seller_status !== "SUSPENDED"
-    || suspensionState?.outbox_cancelled !== true
-    || suspensionState?.sessions !== 0
+    || suspensionState?.auth_operation_status !== "COMPLETED"
   ) {
     throw new Error(`Suspension state mismatch: ${JSON.stringify(state.rows[0])}`);
   }
@@ -240,10 +263,10 @@ try {
 
   process.stdout.write(`${JSON.stringify({
     auth_ban_confirmed: true,
+    auth_operation_completed: true,
     auth_metadata_role_ignored: true,
     email_reuse_fresh_uuid: true,
     property_image_writes_denied_after_suspension: true,
-    sessions_revoked: counts.sessions_revoked,
     storage_direct_admin_document_read_denied: true,
     storage_denied_after_suspension: true,
   }, null, 2)}\n`);

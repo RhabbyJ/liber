@@ -1,6 +1,6 @@
 import type { AppRole } from "../server/authz";
 
-export type NavItem = {
+type NavItem = {
   href: string;
   isActive: (pathname: string) => boolean;
   label: string;

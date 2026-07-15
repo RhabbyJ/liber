@@ -62,4 +62,6 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 
 Keep buyer profile UX focused on becoming searchable and trusted. Do not add public SEO profile behavior; limited preview cards are allowed only to support pre-signup marketplace understanding.
 
-The constraint and deferred-trigger SQL in `packages/db/prisma/proposals/buyer-profile-atomicity.sql` is reserved for `00018`; reservation is not deployment authorization. Source-shape tests are not database proof; the integrated publication service must pass the disposable two-connection harness.
+Buyer criteria uniqueness and atomic activation are implemented by applied
+migration `20260711071555_complete_architecture_boundaries`. Current database
+proof must exercise the applied schema, not superseded unnumbered SQL.

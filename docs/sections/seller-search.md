@@ -54,8 +54,9 @@ Owns the core map-first seller workspace for finding matched buyers by geography
   UUID or raw buyer coordinates.
 - Seller search serializes active, unexpired badges only and never criteria or
   canonical service-area IDs.
-- Validate the reserved `00020` indexes and final query plans against realistic
-  LA-scale data; the synthetic 25K CI plan is only a regression signal.
+- Validate the unapplied search-index proposal and final query plans against
+  realistic LA-scale data; the synthetic 25K CI plan is only a regression
+  signal.
 
 ## Query contract
 

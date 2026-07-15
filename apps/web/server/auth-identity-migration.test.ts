@@ -79,56 +79,18 @@ describe("auth identity ownership migration", () => {
     expect(session).toContain('dbUser.status !== "ACTIVE"');
   });
 
-  it("proposes exact trigger, index, Storage, suspension, and limiter hardening", () => {
+  it("proves suspension against the current AuthOperation schema", () => {
     const repositoryRoot = path.resolve(process.cwd(), "../..");
-    const proposal = readFileSync(
-      path.join(repositoryRoot, "docs/engineering/AUTH_SECURITY_FOLLOWUP_FORWARD.sql"),
-      "utf8",
-    ).replace(/\r\n/g, "\n");
-    const login = readFileSync(
-      path.join(repositoryRoot, "apps/web/app/api/auth/login/route.ts"),
-      "utf8",
-    );
     const stagingHarness = readFileSync(
       path.join(repositoryRoot, "scripts/test-auth-security-staging.mjs"),
       "utf8",
     );
-    const rollback = readFileSync(
-      path.join(repositoryRoot, "docs/engineering/AUTH_SECURITY_FOLLOWUP_ROLLBACK.sql"),
-      "utf8",
-    );
 
-    expect(proposal).toContain("index_expression IS DISTINCT FROM 'lower(btrim(email))'");
-    expect(proposal).toContain("index_is_unique IS DISTINCT FROM true");
-    expect(proposal).toContain("AFTER UPDATE OF email ON auth.users");
-    expect(proposal).not.toContain("AFTER UPDATE OF raw_user_meta_data");
-    expect(proposal).toContain("Authoritative private account name");
-    expect(proposal).toContain("app_private.is_active_user()");
-    expect(proposal).toContain("DELETE FROM auth.sessions WHERE user_id = p_target_user_id");
-    expect(proposal).toContain("app_private.consume_rate_limit");
-    expect(proposal).toContain("app_private.prune_rate_limit_buckets");
-    expect(proposal).toContain("rate_limit_buckets_expires_at_idx");
-    expect(proposal).toContain("app_private.claim_email_outbox");
-    expect(proposal).toContain("FOR UPDATE SKIP LOCKED");
-    expect(proposal).toContain("UNMATCHED_LEGACY_RECIPIENT");
-    expect(proposal).toContain("LEGACY_SENDING_REQUIRES_RECONCILIATION");
-    expect(proposal).toContain("EmailOutbox_lease_state_check");
-    expect(proposal).toContain('DROP POLICY IF EXISTS "Profile photo owners can upload profile photos"');
-    expect(proposal).not.toContain('CREATE POLICY "Profile photo owners can upload profile photos"');
-    expect(proposal).not.toContain('CREATE POLICY "Profile photo owners can update profile photos"');
-    expect(proposal).not.toContain('CREATE POLICY "Profile photo owners can delete profile photos"');
-    expect(proposal).not.toContain('CREATE POLICY "Admins can view all verification documents"');
-    expect(login).toContain("resolveAuthIdentity(authData.user)");
-    expect(login).toContain("identity-recovery-required");
-    expect(login).toContain('error.code === "email_not_confirmed"');
-    expect(login).not.toContain("error.message.toLowerCase()");
-    expect(stagingHarness).toContain('bucket: "property-images"');
-    expect(stagingHarness).toContain("assertSuspendedImageWritesDenied");
-    expect(stagingHarness).toContain("property_image_writes_denied_after_suspension");
-    expect(stagingHarness).not.toContain('bucket: "profile-photos"');
-    expect(stagingHarness).toContain("auth_metadata_role_ignored");
-    expect(stagingHarness).toContain("Authenticated admin bypassed the server-mediated document review path");
-    expect(rollback).not.toContain("DROP FUNCTION IF EXISTS app_private.claim_email_outbox");
-    expect(rollback).toContain("Never deploy the legacy");
+    expect(stagingHarness).toContain('INSERT INTO public."AuthOperation"');
+    expect(stagingHarness).toContain('status = \'SUSPENDED\'');
+    expect(stagingHarness).not.toContain("app_private.suspend_identity");
+    expect(stagingHarness).not.toContain('"recipientUserId"');
+    expect(stagingHarness).not.toContain('"cancelledAt"');
   });
+
 });

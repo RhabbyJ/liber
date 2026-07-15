@@ -1,12 +1,6 @@
 import type { PropertySubtype } from "./property-types";
 
-export const supportedBadgeTypes = [
-  "PRE_APPROVED",
-  "VERIFIED_IDENTITY",
-  "VERIFIED_FUNDS",
-] as const;
-
-export type SupportedBadgeType = (typeof supportedBadgeTypes)[number];
+type SupportedBadgeType = "PRE_APPROVED" | "VERIFIED_IDENTITY" | "VERIFIED_FUNDS";
 
 export type SellerBadgeDTO = {
   type: SupportedBadgeType | "CASH_BUYER";
@@ -14,7 +8,6 @@ export type SellerBadgeDTO = {
   status: "active";
   expiresInDays?: number;
 };
-
 export type SellerBuyerCriteriaDTO = {
   propertyCategory: "HOME";
   propertySubtype: PropertySubtype;
@@ -110,13 +103,4 @@ export type OwnerBuyerProfileDTO = {
   lat: number;
   lng: number;
   accountName?: string;
-};
-
-export type AdminBuyerDTO = OwnerBuyerProfileDTO & {
-  approvedDocuments: Array<{
-    id: string;
-    documentType: string;
-    fileSha256: string | null;
-    originalFilename: string | null;
-  }>;
 };

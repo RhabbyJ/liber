@@ -16,11 +16,17 @@ const imagePath = `${propertyId}/test/image.jpg`;
 
 suite("architecture database boundaries", () => {
   beforeAll(async () => {
-    const sentinel = process.env.GEOGRAPHY_MIGRATION_TEST_SENTINEL;
-    const guard = await pool!.query(`
-      SELECT to_regclass('public.geography_migration_test_sentinel') IS NOT NULL AS present,
-        EXISTS (SELECT 1 FROM public.geography_migration_test_sentinel WHERE token = $1) AS verified
-    `, [sentinel]);
+    const authSentinel = process.env.AUTH_SECURITY_STAGING_SENTINEL;
+    const sentinel = authSentinel ?? process.env.GEOGRAPHY_MIGRATION_TEST_SENTINEL;
+    const guard = authSentinel
+      ? await pool!.query(`
+          SELECT to_regclass('public.identity_migration_test_sentinel') IS NOT NULL AS present,
+            EXISTS (SELECT 1 FROM public.identity_migration_test_sentinel WHERE token = $1) AS verified
+        `, [sentinel])
+      : await pool!.query(`
+          SELECT to_regclass('public.geography_migration_test_sentinel') IS NOT NULL AS present,
+            EXISTS (SELECT 1 FROM public.geography_migration_test_sentinel WHERE token = $1) AS verified
+        `, [sentinel]);
     if (!guard.rows[0]?.present || !guard.rows[0]?.verified) throw new Error("Disposable database sentinel is missing.");
 
     for (const [id, email] of [

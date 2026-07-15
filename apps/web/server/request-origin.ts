@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 
-export function requestOrigin(request: NextRequest) {
+function requestOrigin(request: NextRequest) {
   const host = request.headers.get("host");
   const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
   const protocol = forwardedProto || request.nextUrl.protocol.replace(":", "");

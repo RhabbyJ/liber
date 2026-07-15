@@ -4,6 +4,11 @@ This artifact records read-only shared-database audit results and disposable
 proof for `20260709000016_harden_auth_identity_ownership`. It does not authorize
 deployment to the shared database.
 
+> Historical evidence: the migration was subsequently applied and is immutable
+> production history. Current release proof targets the applied architecture
+> schema and Auth/Storage lifecycle; open-gate language below describes the
+> July 9 evidence window only.
+
 ## Exact artifacts
 
 - `00016` SHA-256:
@@ -138,33 +143,11 @@ These remain later security/release gates; they were not caused by `00016`.
   database assertions passed; the direct two-connection run remains a staging
   gate as described above.
 
-## Resource lifecycle and remaining gates
+## Current status - 2026-07-15
 
-- Disposable branch deleted after proof and confirmed absent from the branch
-  list.
-- Shared Liber data and schema were not changed.
-- Exact historical fresh migration remains blocked at deployed `00005` on
-  current Supabase.
-- Full two-connection harness, staging Auth API flows, session revocation, and
-  direct Storage denial remain required before shared deployment.
-
-## Cleanup review addendum
-
-The post-proof lean-code review removed an unused duplicate password-login
-server action and the unauthenticated application-email preflight. The guarded
-identity harness now rejects direct and pooler URLs for the same Supabase
-project, its three database-target tests pass, and the runbook explicitly
-requires operators to create the disposable sentinel before an empty-branch
-run. The direct two-connection staging run remains open; this addendum does not
-represent it as passed.
-
-## Transaction-boundary addendum - 2026-07-10
-
-The shared migration catalog still did not contain `00016`, so the migration was
-wrapped in explicit `BEGIN`/`COMMIT`. The checksum above is the LF-normalized
-checked-in artifact. This makes the runbook's all-or-nothing rollback guarantee
-an explicit property of the SQL rather than an assumption about migration-runner
-behavior. The Prisma checksum now also includes the unnumbered follow-up's
-additive EmailOutbox recipient/lease fields and indexes. The exact wrapped
-migration plus current schema/proposal still requires the guarded disposable
-fresh/upgrade run; no shared database write was made.
+- `00016` remains immutable applied history and is included in the supported
+  current baseline.
+- Superseded unnumbered follow-up SQL and proposal-only harnesses were removed
+  after their supported behavior landed in applied architecture migrations.
+- Current protected proof runs the applied architecture database E2E followed
+  by the Auth/Storage staging harness; it does not replay proposal SQL.

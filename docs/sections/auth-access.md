@@ -84,11 +84,13 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
   opaque database-trigger failure, the server performs a normalized application
   email lookup after signup fails; it never parses vendor error-message text to
   decide whether identity recovery is required.
-- User suspension atomically suspends the User, seller access, buyer visibility,
-  unsent recipient-bound outbox jobs, and Auth sessions before the Admin API ban
-  is confirmed and audited.
-- These runtime paths depend on the unnumbered Auth/security SQL reserved for
-  `00017`; they are not deployable to a database that stops at `00016`.
+- User suspension atomically suspends the User, seller access, and buyer
+  visibility; archives seller properties; withdraws active invites; audits the
+  action; and queues an idempotent Auth ban. Outbox delivery re-checks current
+  identity and invite/conversation eligibility before sending.
+- These runtime paths depend on applied migration
+  `20260711071555_complete_architecture_boundaries` and later forward
+  migrations. Readiness must reject any database missing them.
 
 ## Agent notes
 

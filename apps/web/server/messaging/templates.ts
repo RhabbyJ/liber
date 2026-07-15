@@ -3,7 +3,7 @@ import { MessagingError } from "./errors";
 export type MessagingParticipantRole = "BUYER" | "SELLER";
 export type MessagingTemplateUse = "OPENING" | "QUICK_REPLY" | "SELLER_FOLLOW_UP";
 
-export type MessagingTemplate = {
+type MessagingTemplate = {
   key: string;
   role: MessagingParticipantRole;
   text: string;

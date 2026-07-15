@@ -6,7 +6,7 @@ declare global {
   }
 }
 
-export type MapboxGeoJsonSource = {
+type MapboxGeoJsonSource = {
   setData(data: Record<string, unknown>): void;
 };
 
@@ -31,11 +31,11 @@ export type MapboxMarker = {
   setPopup(popup: MapboxPopup): MapboxMarker;
 };
 
-export type MapboxPopup = {
+type MapboxPopup = {
   setHTML(html: string): MapboxPopup;
 };
 
-export type MapboxLngLatBounds = {
+type MapboxLngLatBounds = {
   extend(coordinates: [number, number]): MapboxLngLatBounds;
 };
 

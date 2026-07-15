@@ -13,7 +13,7 @@ const previewBadgeLabels: Record<string, string> = {
   VERIFIED_FUNDS: "Verified funds",
 };
 
-export const PUBLIC_PREVIEW_LIMIT = 4;
+const PUBLIC_PREVIEW_LIMIT = 4;
 
 const previewAmenities = ["Pool", "Parking", "ADU", "Yard", "Garage"];
 

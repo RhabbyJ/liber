@@ -29,7 +29,7 @@ export const purchaseTypeSchema = z.enum(["Cash", "Conventional financing", "Oth
 
 export const seekingPropertyTypeSchema = z.enum(["House", "Condo", "Townhouse", "Manufactured", "Land"]);
 
-export const buyingPurposeSchema = seekingPropertyTypeSchema;
+const buyingPurposeSchema = seekingPropertyTypeSchema;
 
 export const badgeTypeSchema = z.enum([
   "PRE_APPROVED",

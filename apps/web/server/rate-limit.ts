@@ -18,7 +18,7 @@ export function clientIpFromHeaders(headers: Pick<Headers, "get">) {
   return forwardedFor || headers.get("x-real-ip") || "unknown-ip";
 }
 
-export const postgresRateLimitStore: RateLimitStore = {
+const postgresRateLimitStore: RateLimitStore = {
   async consume(key, limit, windowMs) {
     const { prisma } = await import("@liber/db");
     const rows = await prisma.$queryRaw<Array<{

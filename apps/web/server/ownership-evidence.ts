@@ -1,4 +1,4 @@
-export const ownershipEvidenceKinds = ["GOVERNMENT_ID", "PROPERTY_ADDRESS_PROOF"] as const;
+const ownershipEvidenceKinds = ["GOVERNMENT_ID", "PROPERTY_ADDRESS_PROOF"] as const;
 
 export type OwnershipEvidenceKind = (typeof ownershipEvidenceKinds)[number];
 
@@ -9,7 +9,7 @@ export function ownershipEvidenceKindForInput(value: unknown): OwnershipEvidence
   throw new Error("Unsupported ownership evidence type.");
 }
 
-export function ownershipEvidenceKindLabel(value?: string | null) {
+function ownershipEvidenceKindLabel(value?: string | null) {
   if (value === "GOVERNMENT_ID") return "government-issued photo ID";
   if (value === "PROPERTY_ADDRESS_PROOF") return "utility, tax, or mortgage bill";
   return "ownership document";

@@ -1,13 +1,12 @@
 import type { Badge, BuyerCriteriaDetail } from "./domain-types";
 
-export type SafeBadgeDto = {
+type SafeBadgeDto = {
   expiresInDays?: number;
   label: string;
   status: "active";
   type: Badge["type"];
 };
-
-export type SafeCriteriaDto = Omit<BuyerCriteriaDetail, "id" | "priceMax" | "priceMin">;
+type SafeCriteriaDto = Omit<BuyerCriteriaDetail, "id" | "priceMax" | "priceMin">;
 
 export type PublicBuyerPreviewDto = {
   alias: string;
@@ -46,32 +45,4 @@ export type SellerBuyerSearchDto = {
   propertyType: string;
   purchaseType: string;
   refreshedAt: string;
-};
-
-export type SellerBuyerSearchResponseDto = {
-  items: SellerBuyerSearchDto[];
-  pageInfo: {
-    hasMore: boolean;
-    nextCursor: string | null;
-    pageSize: number;
-    snapshotAt: string;
-  };
-};
-
-export type SellerBuyerProfileDto = {
-  alias: string;
-  avatarVariant?: string;
-  badges: SafeBadgeDto[];
-  budgetMax: number;
-  budgetMin: number;
-  buyerProfileId: string;
-  downPaymentMax: number;
-  downPaymentMin: number;
-  location: string;
-  needs: string[];
-  propertyType: string;
-  purchaseType: string;
-  viewerCanInvite: boolean;
-  viewerIsOwner: boolean;
-  wants: string[];
 };
