@@ -229,6 +229,13 @@ Property authority attestations, images, and invites are stamped with the curren
 Invited-buyer image access is centralized in `app_private.can_read_property_image`. It requires current image/invite/property versions, active buyer and seller accounts, an active buyer profile, an approved unflagged `READY_FOR_INVITES` property, and an eligible invite state. Owners and admins remain subject to current application-user status.
 
 Invite email should be queued through `EmailOutbox`, not sent inline as the source of truth.
+Invite outbox jobs are bound to `inviteId`; unread-message jobs are bound to
+their conversation and recipient UUID. Migration
+`20260715215000_reconcile_email_outbox_lease` removes incompatible
+`recipientUserId`/UUID-lease artifacts left by a retired unnumbered proposal,
+then validates the canonical `lockedAt`/`leaseUntil`/`workerId` lease and
+type-specific delivery-reference constraints. Do not restore or write the
+retired columns.
 
 ## Guided messaging architecture
 

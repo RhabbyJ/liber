@@ -36,6 +36,10 @@ Owns transactional email queueing, invite email delivery, expiry jobs, and maint
 - Production `CRON_SECRET` must contain at least 32 characters. Maintenance
   routes compare its hash in constant time; readiness rejects shorter values.
 - Invite email rows reference their invite. Workers revalidate current property identity and account/workflow eligibility immediately before sending; invalid work becomes `CANCELLED`.
+- Outbox lease state uses `lockedAt`, `leaseUntil`, and `workerId`. Invite jobs
+  use `inviteId`; unread-message jobs use `messageConversationId` plus
+  `messageRecipientUserId`. The retired generic `recipientUserId` and UUID
+  lease columns are incompatible and must not be restored.
 - Upload cleanup marks a session `CLEANED` only after Storage deletion succeeds, so completed cleanup is not selected again.
 
 ## Agent notes

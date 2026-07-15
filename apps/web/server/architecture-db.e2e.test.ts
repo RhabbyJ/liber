@@ -12,6 +12,7 @@ const buyerUserId = randomUUID();
 const outsiderId = randomUUID();
 const buyerProfileId = `buyer_${randomUUID()}`;
 const propertyId = `property_${randomUUID()}`;
+const inviteId = `invite_${randomUUID()}`;
 const imagePath = `${propertyId}/test/image.jpg`;
 
 suite("architecture database boundaries", () => {
@@ -64,9 +65,11 @@ suite("architecture database boundaries", () => {
       (id, "propertyId", "propertyIdentityVersion", "storagePath", "sortOrder", "createdAt")
       VALUES ($1, $2, 1, $3, 0, now())`, [`image_${randomUUID()}`, propertyId, imagePath]);
     await pool!.query(`INSERT INTO public."Invite"
-      (id, "sellerId", "buyerProfileId", "propertyId", "propertyIdentityVersion", title, message, status, "sentAt", "expiresAt", "createdAt", "updatedAt")
-      VALUES ($1, $2, $3, $4, 1, 'Test', 'Test', 'SENT', now(), now() + interval '1 day', now(), now())`,
-      [`invite_${randomUUID()}`, ownerId, buyerProfileId, propertyId]);
+      (id, "sellerId", "buyerProfileId", "propertyId", "propertyIdentityVersion", title, message,
+       "openingTemplateKey", "openingTemplateVersion", status, "sentAt", "expiresAt", "createdAt", "updatedAt")
+      VALUES ($1, $2, $3, $4, 1, 'Test', 'Would you like more photos or property details?',
+        'SELLER_MORE_DETAILS', 1, 'SENT', now(), now() + interval '1 day', now(), now())`,
+      [inviteId, ownerId, buyerProfileId, propertyId]);
   }, 30_000);
 
   afterAll(async () => {
@@ -124,9 +127,9 @@ suite("architecture database boundaries", () => {
     const ids = Array.from({ length: 4 }, () => `email_${randomUUID()}`);
     for (const id of ids) {
       await pool!.query(`INSERT INTO public."EmailOutbox"
-        (id, type, "to", payload, status, attempts, "idempotencyKey", "createdAt", "updatedAt")
-        VALUES ($1, 'INVITE', 'buyer@example.test', '{}'::jsonb, 'PENDING', 0, $2, now(), now())`,
-        [id, `architecture-e2e:${id}`]);
+        (id, type, "to", payload, status, attempts, "idempotencyKey", "inviteId", "createdAt", "updatedAt")
+        VALUES ($1, 'INVITE', 'buyer@example.test', '{}'::jsonb, 'PENDING', 0, $2, $3, now(), now())`,
+        [id, `architecture-e2e:${id}`, inviteId]);
     }
     const [first, second] = await Promise.all([
       claimEmailJobs(4, "architecture-worker-a"),
