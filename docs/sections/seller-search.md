@@ -45,6 +45,9 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - A seller who also owns an active buyer profile may see that buyer demand in search; self-invite actions stay blocked elsewhere.
 - The seller's own active buyer demand remains in the shared list/map result;
   its server-derived `canInvite` flag is false.
+- A blocked buyer/seller pair must not regain invite authority through search or
+  profile routes. The server returns `canInvite = false` or omits the result and
+  always rejects the invite with a generic unavailable response.
 - Search rows require an active owning User and use the dedicated seller-search
   projection/DTO. Client map code receives only the approved canonical-area
   `mapPoint` and a server-derived `canInvite` flag, never either party's Auth

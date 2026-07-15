@@ -43,6 +43,14 @@ import {
 } from "./access";
 import type { EmailResult } from "./email";
 import { inviteExpiresAt } from "./maintenance";
+import { normalizeMessageBody, visibleMessageBody } from "./messaging/content";
+import { messagingV1EnabledForPair } from "./messaging/feature";
+import { messagingInviteUnavailable } from "./messaging/errors";
+import {
+  lockAndAssertInvitePairAvailable,
+  usersHaveMessagingBlock,
+} from "./messaging/service";
+import { resolveMessagingTemplate } from "./messaging/templates";
 import { verificationDocumentTypeLabel } from "./ownership-evidence";
 import { assertRateLimit } from "./rate-limit";
 import { getSessionUser } from "./session";
@@ -58,6 +66,12 @@ type Buyer = OwnerBuyerProfileDTO;
 type BuyerCriteriaDetail = SellerBuyerCriteriaDTO;
 type Invite = InviteDTO;
 type Property = SellerPropertyDTO;
+
+const inviteModerationMessages = {
+  where: { kind: "INVITE" as const },
+  select: { moderationStatus: true },
+  take: 1,
+};
 
 async function requireCurrentUser(role: "BUYER" | "SELLER" | "ADMIN") {
   const user = await getSessionUser();
@@ -355,7 +369,6 @@ function propertyFromDb(property: {
   garageArea: number | null;
   id: string;
   lotSize: number | null;
-  ownerUserId: string;
   ownershipVerificationStatus: string;
   status: Property["lifecycleStatus"];
   identityVersion: number;
@@ -371,7 +384,6 @@ function propertyFromDb(property: {
 
   return {
     id: property.id,
-    ownerUserId: property.ownerUserId,
     title: property.addressLine1 || `${property.city || "Property"} ${propertySubtypeLabel(property.propertyType).toLowerCase()}`,
     location,
     price: toNumber(property.price),
@@ -404,7 +416,7 @@ async function createVerificationSignedUrl(storagePath: string) {
 
 async function searchDbBuyerProfiles(filters: SearchBuyersInput, viewerUserId: string) {
   return prisma.$transaction(async (tx) => {
-    const page = await querySellerSearchIds(tx, filters);
+    const page = await querySellerSearchIds(tx, filters, new Date(), Prisma.raw("public"), viewerUserId);
     const profiles = page.ids.length > 0
       ? await tx.buyerProfile.findMany({
           where: { id: { in: page.ids } },
@@ -440,6 +452,10 @@ async function searchDbBuyerProfiles(filters: SearchBuyersInput, viewerUserId: s
 function inviteFromDb(invite: {
   buyerProfile: { displayName: string; userId: string };
   buyerProfileId: string;
+  conversation?: {
+    id?: string;
+    messages?: Array<{ moderationStatus: "ALLOWED" | "FLAGGED" | "REDACTED" }>;
+  } | null;
   id: string;
   message: string;
   property: {
@@ -459,9 +475,18 @@ function inviteFromDb(invite: {
   title: string;
 }): Invite {
   const currentIdentity = invite.propertyIdentityVersion === invite.property.identityVersion;
+  const displayMessage = visibleMessageBody(
+    invite.message,
+    invite.conversation?.messages?.some((message) => message.moderationStatus === "REDACTED")
+      ? "REDACTED"
+      : "ALLOWED",
+  );
+  const conversationAvailable = Boolean(
+    invite.conversation?.id
+    && messagingV1EnabledForPair(invite.sellerId, invite.buyerProfile.userId),
+  );
   return {
     id: invite.id,
-    sellerId: invite.sellerId,
     buyerProfileId: invite.buyerProfileId,
     propertyId: invite.propertyId,
     buyer: buyerAliasForDisplay(invite.buyerProfile.displayName, invite.buyerProfile.userId),
@@ -474,12 +499,14 @@ function inviteFromDb(invite: {
     sentAtDate: dateKey(invite.sentAt),
     expiresAt: invite.expiresAt?.toISOString(),
     title: invite.title,
-    message: invite.message,
+    message: displayMessage,
     imageIds: currentIdentity
       ? invite.property.images
         ?.filter((image) => image.propertyIdentityVersion === invite.property.identityVersion)
         .map((image) => image.id) ?? []
       : [],
+    conversationAvailable,
+    conversationId: conversationAvailable ? invite.conversation?.id : undefined,
   };
 }
 
@@ -621,6 +648,12 @@ export async function listBuyerInvites() {
     where: { id: { in: validInviteIds.map((invite) => invite.id) } },
     include: {
       buyerProfile: { select: { displayName: true, userId: true } },
+      conversation: {
+        select: {
+          id: true,
+          messages: inviteModerationMessages,
+        },
+      },
       property: {
         select: {
           addressLine1: true,
@@ -640,16 +673,30 @@ export async function listBuyerInvites() {
 export async function respondToInvite(input: unknown) {
   const user = await requireCurrentUser("BUYER");
   const data = respondToInviteSchema.parse(normalizeInput(input));
-  const changed = await prisma.$executeRaw`
-    UPDATE public."Invite"
-    SET status = CAST(${data.response} AS public."InviteStatus"),
-        "respondedAt" = now(),
-        "updatedAt" = now()
-    WHERE id = ${data.inviteId}
-      AND status IN ('SENT', 'VIEWED')
-      AND "expiresAt" > now()
-      AND app_private.is_invite_property_access_valid(id, ${user.id}::uuid)
-  `;
+  const changed = await prisma.$transaction(async (tx) => {
+    const invite = await tx.invite.findFirst({
+      where: { id: data.inviteId, buyerProfile: { userId: user.id } },
+      select: { sellerId: true },
+    });
+    if (!invite) return 0;
+
+    await lockAndAssertInvitePairAvailable(tx, invite.sellerId, user.id);
+    const locked = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM public."Invite" WHERE id = ${data.inviteId} FOR UPDATE
+    `;
+    if (locked.length !== 1) return 0;
+
+    return tx.$executeRaw`
+      UPDATE public."Invite"
+      SET status = CAST(${data.response} AS public."InviteStatus"),
+          "respondedAt" = now(),
+          "updatedAt" = now()
+      WHERE id = ${data.inviteId}
+        AND status IN ('SENT', 'VIEWED')
+        AND "expiresAt" > now()
+        AND app_private.is_invite_property_access_valid(id, ${user.id}::uuid)
+    `;
+  });
   if (changed !== 1) throw new Error("Invite cannot be changed after response, identity change, or expiration.");
   return { ok: true, data };
 }
@@ -674,6 +721,9 @@ export async function getBuyerProfileForSeller(buyerProfileId: string) {
     select: sellerBuyerSelect(),
   });
   if (!buyer) throw new Error("Buyer profile not found.");
+  if (await usersHaveMessagingBlock(prisma, seller.id, buyer.userId)) {
+    throw new Error("Buyer profile not found.");
+  }
   const isDemo = await isControlledDemoBuyerProfile(buyer.id);
   await auditSecurityEvent(seller, "buyer_profile_view", "buyer_profile", buyer.id);
   return { ok: true, data: sellerBuyerDetail(buyer, seller.id, isDemo) };
@@ -688,6 +738,10 @@ export async function getAuthorizedBuyerProfile(buyerProfileId: string) {
   });
 
   if (buyer) {
+    if (await usersHaveMessagingBlock(prisma, user.id, buyer.userId)) {
+      await auditSecurityEvent(user, "blocked_buyer_profile_view", "buyer_profile", buyer.id);
+      return { ok: false as const, error: "NOT_FOUND" as const };
+    }
     if (!(await canViewBuyerProfile(user, buyer.userId))) {
       await auditSecurityEvent(user, "blocked_buyer_profile_view", "buyer_profile", buyer.id);
       return { ok: false as const, error: "UNAUTHORIZED" as const };
@@ -803,7 +857,16 @@ export async function sendInvite(input: unknown) {
   const seller = await requireApprovedSellerAccess();
   await assertRateLimit(`invite-send:${seller.id}`, 30, 60 * 60_000);
   const data = sendInviteSchema.parse(normalizeInput(input));
-  const invite = await prisma.$transaction(async (tx) => {
+  const openingTemplate = resolveMessagingTemplate({
+    key: data.templateKey,
+    role: "SELLER",
+    use: "OPENING",
+    version: data.templateVersion,
+  });
+  const openingNote = data.note ? normalizeMessageBody(data.note) : undefined;
+  const inviteMessage = openingNote ? `${openingTemplate.text}\n\n${openingNote}` : openingTemplate.text;
+  const inviteTitle = "Private property invitation";
+  const result = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${seller.id}::text, 0))`;
     const [buyer, property, sentInviteCount, activeDuplicate, access] = await Promise.all([
       tx.buyerProfile.findFirst({
@@ -824,14 +887,15 @@ export async function sendInvite(input: unknown) {
           buyerProfileId: data.buyerProfileId,
           propertyId: data.propertyId,
           sellerId: seller.id,
-          status: { in: ["SENT", "VIEWED"] },
+          status: { in: ["SENT", "VIEWED", "ACCEPTED"] },
         },
         select: { id: true },
       }),
       tx.sellerAccess.findFirst({ where: { userId: seller.id, status: "APPROVED" }, select: { id: true } }),
     ]);
     if (!access) throw new Error("Seller directory access must be approved before sending invites.");
-    if (!buyer) throw new Error("Buyer profile must be active before receiving invites.");
+    if (!buyer) throw messagingInviteUnavailable();
+    await lockAndAssertInvitePairAvailable(tx, seller.id, buyer.userId);
     if (!property) throw new Error("Seller must own property before sending invites.");
     if (buyer.userId === seller.id) throw new Error("Sellers cannot invite their own buyer profile.");
     if (
@@ -849,11 +913,14 @@ export async function sendInvite(input: unknown) {
     const created = await tx.invite.create({
       data: {
         buyerProfileId: data.buyerProfileId,
-        message: data.message,
+        message: inviteMessage,
+        openingNote,
+        openingTemplateKey: openingTemplate.key,
+        openingTemplateVersion: openingTemplate.version,
         propertyId: data.propertyId,
         propertyIdentityVersion: property.identityVersion,
         sellerId: seller.id,
-        title: data.title,
+        title: inviteTitle,
         expiresAt: inviteExpiresAt(),
       },
       include: {
@@ -880,7 +947,7 @@ export async function sendInvite(input: unknown) {
       data: {
         body: "A seller sent a property invite.",
         metadata: { inviteId: created.id, propertyId: created.propertyId },
-        title: data.title,
+        title: inviteTitle,
         type: "invite_received",
         userId: created.buyerProfile.userId,
       },
@@ -889,29 +956,18 @@ export async function sendInvite(input: unknown) {
       data: {
         body: "Your manual invite was sent to the buyer.",
         metadata: { buyerProfileId: created.buyerProfileId, inviteId: created.id, propertyId: created.propertyId },
-        title: data.title,
+        title: inviteTitle,
         type: "invite_sent",
         userId: seller.id,
       },
     });
-    const propertyTitle =
-      created.property.addressLine1 ||
-      [created.property.city, created.property.state].filter(Boolean).join(", ") ||
-      `${propertySubtypeLabel(created.property.propertyType).toLowerCase()} property`;
-    const emailPayload = {
-      buyerName: buyerAliasForDisplay(created.buyerProfile.displayName, created.buyerProfile.userId),
-      message: data.message,
-      propertyTitle,
-      title: data.title,
-      to: created.buyerProfile.user.email,
-    };
     await tx.emailOutbox.create({
       data: {
         idempotencyKey: `invite-email:${created.id}`,
         inviteId: created.id,
-        payload: emailPayload,
+        payload: {},
         status: "PENDING",
-        subject: data.title,
+        subject: "You have a Liber invitation",
         templateName: "invite",
         to: created.buyerProfile.user.email,
         type: "INVITE",
@@ -926,10 +982,50 @@ export async function sendInvite(input: unknown) {
         targetType: "invite",
       },
     });
-    return created;
+    const [conversation] = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT conversation.id
+      FROM public."Conversation" conversation
+      WHERE conversation."inviteId" = ${created.id}
+        AND (
+          SELECT count(*)
+          FROM public."ConversationParticipant" participant
+          WHERE participant."conversationId" = conversation.id
+        ) = 2
+        AND (
+          SELECT count(*)
+          FROM public."ConversationParticipant" participant
+          WHERE participant."conversationId" = conversation.id
+            AND participant."userId" = ${seller.id}::uuid
+            AND participant.role = 'SELLER'::public."ConversationParticipantRole"
+        ) = 1
+        AND (
+          SELECT count(*)
+          FROM public."ConversationParticipant" participant
+          WHERE participant."conversationId" = conversation.id
+            AND participant."userId" = ${created.buyerProfile.userId}::uuid
+            AND participant.role = 'BUYER'::public."ConversationParticipantRole"
+        ) = 1
+        AND (
+          SELECT count(*)
+          FROM public."Message" message
+          WHERE message."conversationId" = conversation.id
+            AND message.kind = 'INVITE'::public."MessageKind"
+        ) = 1
+    `;
+    if (!conversation) throw new Error("Invite conversation trigger did not create a conversation.");
+    return { conversationId: conversation.id, created };
   });
   const email: EmailResult = { provider: "outbox", queued: true };
-  return { ok: true, data: { ...inviteFromDb(invite), email } };
+  const conversationAvailable = messagingV1EnabledForPair(seller.id, result.created.buyerProfile.userId);
+  return {
+    ok: true,
+    data: {
+      ...inviteFromDb({ ...result.created, conversation: { id: result.conversationId } }),
+      conversationAvailable,
+      conversationId: conversationAvailable ? result.conversationId : undefined,
+      email,
+    },
+  };
 }
 export async function listSellerInvites() {
   const seller = await requireCurrentUser("SELLER");
@@ -937,6 +1033,12 @@ export async function listSellerInvites() {
     where: { sellerId: seller.id },
     include: {
       buyerProfile: { select: { displayName: true, userId: true } },
+      conversation: {
+        select: {
+          id: true,
+          messages: inviteModerationMessages,
+        },
+      },
       property: { select: { addressLine1: true, city: true, identityVersion: true, ownershipVerificationStatus: true, propertyType: true } },
     },
     orderBy: { sentAt: "desc" },
@@ -1067,6 +1169,11 @@ export async function listAdminInvites() {
   const invites = await prisma.invite.findMany({
     include: {
       buyerProfile: { select: { displayName: true, userId: true } },
+      conversation: {
+        select: {
+          messages: inviteModerationMessages,
+        },
+      },
       property: { select: { addressLine1: true, city: true, identityVersion: true, ownershipVerificationStatus: true, propertyType: true } },
     },
     orderBy: { sentAt: "desc" },

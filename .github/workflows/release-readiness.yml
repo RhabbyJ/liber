@@ -26,11 +26,14 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
       LIBER_AUTO_CONFIRM_SIGNUPS: "false"
+      LIBER_MESSAGING_V1_COHORT_USER_IDS: ${{ vars.LIBER_MESSAGING_V1_COHORT_USER_IDS }}
+      LIBER_MESSAGING_V1_ENABLED: ${{ vars.LIBER_MESSAGING_V1_ENABLED }}
       NEXT_PUBLIC_MAPBOX_TOKEN: ${{ vars.NEXT_PUBLIC_MAPBOX_TOKEN }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}
+      SITE_URL: ${{ vars.SITE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v6
@@ -44,6 +47,9 @@ jobs:
           test "$GITHUB_SHA" = "$APPROVED_SHA"
       - uses: actions/setup-node@v6
         with:
+          cache: npm
           node-version: 24
+      - run: npm install --global npm@10.9.0
+      - run: npm ci
       - name: Validate presence and format only
         run: node scripts/readiness-check.mjs --production

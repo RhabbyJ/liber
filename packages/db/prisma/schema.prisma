@@ -105,6 +105,60 @@ enum InviteStatus {
   WITHDRAWN
 }
 
+enum ConversationStatus {
+  AWAITING_BUYER
+  ACTIVE
+  READ_ONLY
+  BLOCKED
+}
+
+enum ConversationClosedReason {
+  INVITE_DECLINED
+  INVITE_EXPIRED
+  INVITE_WITHDRAWN
+  PROPERTY_IDENTITY_CHANGED
+  PROPERTY_INELIGIBLE
+  SELLER_INELIGIBLE
+  BUYER_INELIGIBLE
+  USER_SUSPENDED
+  USER_BLOCKED
+}
+
+enum ConversationParticipantRole {
+  SELLER
+  BUYER
+}
+
+enum MessageKind {
+  INVITE
+  GUIDED
+  FREE_TEXT
+  SYSTEM
+}
+
+enum MessageModerationStatus {
+  ALLOWED
+  FLAGGED
+  REDACTED
+}
+
+enum MessageReportCategory {
+  HARASSMENT_OR_THREAT
+  DISCRIMINATORY_CONTENT
+  FRAUD_OR_SCAM
+  SPAM
+  SENSITIVE_INFORMATION_REQUEST
+  OFF_PLATFORM_PAYMENT_REQUEST
+  OTHER
+}
+
+enum MessageReportStatus {
+  OPEN
+  IN_REVIEW
+  ACTIONED
+  DISMISSED
+}
+
 enum EmailOutboxStatus {
   PENDING
   SENDING
@@ -157,25 +211,31 @@ model User {
   status        UserStatus @default(ACTIVE)
   suspendedAt   DateTime?
 
-  buyerProfile        BuyerProfile?
-  sellerProperties    SellerProperty[]       @relation("SellerProperties")
-  sellerInvites       Invite[]               @relation("SellerInvites")
-  sellerAccess        SellerAccess?          @relation("SellerAccessUser")
-  sellerAccessReviews SellerAccess[]         @relation("SellerAccessReviewer")
-  notifications       Notification[]
-  documents           VerificationDocument[] @relation("UserDocuments")
-  documentsUploaded   VerificationDocument[] @relation("DocumentUploader")
-  badgesGranted       BuyerBadge[]           @relation("BadgeGranter")
-  documentsReviewed   VerificationDocument[] @relation("DocumentReviewer")
-  auditLogs           AdminAuditLog[]        @relation("AuditActor")
-  authorityAttestations SellerProperty[]     @relation("PropertyAuthorityAttester")
-  propertyDecisions   PropertyVerificationDecision[] @relation("PropertyDecisionReviewer")
-  uploadSessions      UploadSession[]
-  authOperations      AuthOperation[]
+  buyerProfile             BuyerProfile?
+  sellerProperties         SellerProperty[]               @relation("SellerProperties")
+  sellerInvites            Invite[]                       @relation("SellerInvites")
+  sellerAccess             SellerAccess?                  @relation("SellerAccessUser")
+  sellerAccessReviews      SellerAccess[]                 @relation("SellerAccessReviewer")
+  notifications            Notification[]
+  documents                VerificationDocument[]         @relation("UserDocuments")
+  documentsUploaded        VerificationDocument[]         @relation("DocumentUploader")
+  badgesGranted            BuyerBadge[]                   @relation("BadgeGranter")
+  documentsReviewed        VerificationDocument[]         @relation("DocumentReviewer")
+  auditLogs                AdminAuditLog[]                @relation("AuditActor")
+  authorityAttestations    SellerProperty[]               @relation("PropertyAuthorityAttester")
+  propertyDecisions        PropertyVerificationDecision[] @relation("PropertyDecisionReviewer")
+  uploadSessions           UploadSession[]
+  authOperations           AuthOperation[]
+  conversationParticipants ConversationParticipant[]
+  userBlocksCreated        UserBlock[]                    @relation("UserBlockBlocker")
+  userBlocksReceived       UserBlock[]                    @relation("UserBlockBlocked")
+  messageReportsFiled      MessageReport[]                @relation("MessageReportReporter")
+  messageReportsReceived   MessageReport[]                @relation("MessageReportReportedUser")
+  messageReportsReviewed   MessageReport[]                @relation("MessageReportReviewer")
+  messageOutboxJobs        EmailOutbox[]                  @relation("MessageOutboxRecipient")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
 }
 
 model SellerAccess {
@@ -234,34 +294,34 @@ model BuyerProfile {
 }
 
 model Market {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug              String   @unique
-  label             String
-  state             String
-  country           String
-  jurisdictionType  String?  @map("jurisdiction_type")
-  jurisdictionGeoid String?  @map("jurisdiction_geoid")
+  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug                     String   @unique
+  label                    String
+  state                    String
+  country                  String
+  jurisdictionType         String?  @map("jurisdiction_type")
+  jurisdictionGeoid        String?  @map("jurisdiction_geoid")
   stableExternalId         String?  @unique(map: "markets_stable_external_id_key") @map("stable_external_id")
   currentBoundaryId        String?  @unique(map: "markets_current_boundary_id_key") @map("current_boundary_id") @db.Uuid
   currentDisplayGeometryId String?  @unique(map: "markets_current_display_geometry_id_key") @map("current_display_geometry_id") @db.Uuid
-  centerLat         Float    @map("center_lat")
-  centerLng         Float    @map("center_lng")
-  bboxWest          Float    @map("bbox_west")
-  bboxSouth         Float    @map("bbox_south")
-  bboxEast          Float    @map("bbox_east")
-  bboxNorth         Float    @map("bbox_north")
-  active            Boolean  @default(false)
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
+  centerLat                Float    @map("center_lat")
+  centerLng                Float    @map("center_lng")
+  bboxWest                 Float    @map("bbox_west")
+  bboxSouth                Float    @map("bbox_south")
+  bboxEast                 Float    @map("bbox_east")
+  bboxNorth                Float    @map("bbox_north")
+  active                   Boolean  @default(false)
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @default(now()) @updatedAt @map("updated_at")
 
   activationSnapshots     GeographyActivationSnapshot[]
-  boundaryVersions MarketBoundaryVersion[]   @relation("MarketBoundaryVersions")
-  currentBoundary  MarketBoundaryVersion?    @relation("CurrentMarketBoundary", fields: [currentBoundaryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  boundaryVersions        MarketBoundaryVersion[]        @relation("MarketBoundaryVersions")
+  currentBoundary         MarketBoundaryVersion?         @relation("CurrentMarketBoundary", fields: [currentBoundaryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   currentDisplayGeometry  MarketDisplayGeometryVersion?  @relation("CurrentMarketDisplayGeometry", fields: [currentDisplayGeometryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  datasetVersions  GeographyDatasetVersion[]
+  datasetVersions         GeographyDatasetVersion[]
   displayGeometryVersions MarketDisplayGeometryVersion[] @relation("MarketDisplayGeometryVersions")
-  searchTerms      ServiceAreaSearchTerm[]
-  serviceAreas     ServiceArea[]
+  searchTerms             ServiceAreaSearchTerm[]
+  serviceAreas            ServiceArea[]
 
   @@unique([country, jurisdictionType, jurisdictionGeoid], map: "markets_country_jurisdiction_type_jurisdiction_geoid_key")
   @@map("markets")
@@ -401,19 +461,19 @@ model ServiceAreaSearchTerm {
 }
 
 model GeographyDatasetVersion {
-  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  datasetVersion          String   @unique @map("dataset_version")
-  marketId                String   @map("market_id") @db.Uuid
-  marketBoundaryVersionId String   @map("market_boundary_version_id") @db.Uuid
+  id                             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  datasetVersion                 String   @unique @map("dataset_version")
+  marketId                       String   @map("market_id") @db.Uuid
+  marketBoundaryVersionId        String   @map("market_boundary_version_id") @db.Uuid
   marketDisplayGeometryVersionId String?  @map("market_display_geometry_version_id") @db.Uuid
-  manifestSha256          String   @map("manifest_sha256")
-  relationshipsSha256     String   @map("relationships_sha256")
-  manifest                Json
-  relationships           Json
-  stagedAt                DateTime @default(now()) @map("staged_at")
+  manifestSha256                 String   @map("manifest_sha256")
+  relationshipsSha256            String   @map("relationships_sha256")
+  manifest                       Json
+  relationships                  Json
+  stagedAt                       DateTime @default(now()) @map("staged_at")
 
-  market         Market                @relation(fields: [marketId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  marketBoundary MarketBoundaryVersion @relation(fields: [marketBoundaryVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  market                Market                        @relation(fields: [marketId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  marketBoundary        MarketBoundaryVersion         @relation(fields: [marketBoundaryVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   marketDisplayGeometry MarketDisplayGeometryVersion? @relation(fields: [marketDisplayGeometryVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([marketId, stagedAt(sort: Desc)], map: "geography_dataset_versions_market_staged_idx")
@@ -546,40 +606,40 @@ model SellerProperty {
   ownerUserId String @db.Uuid
   owner       User   @relation("SellerProperties", fields: [ownerUserId], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
-  addressLine1                String?
-  addressLine2                String?
-  city                        String?
-  state                       String?
-  zip                         String?
-  lat                         Decimal?                   @db.Decimal(10, 7)
-  lng                         Decimal?                   @db.Decimal(10, 7)
-  propertyType                PropertySubtype
-  bedrooms                    Int?
-  bathrooms                   Int?
-  garageArea                  Int?
-  squareFeet                  Int?
-  lotSize                     Int?
-  condition                   String?
-  features                    String[]                   @default([])
-  description                 String?
-  price                       Decimal?                   @db.Decimal(12, 2)
-  ownershipVerificationStatus PropertyVerificationStatus @default(NOT_SUBMITTED)
-  status                      PropertyStatus             @default(DRAFT)
-  identityVersion             Int                        @default(1)
-  addressFingerprint          String?
-  providerPropertyId          String?
-  authorityAttestedAt         DateTime?
-  authorityAttestedByUserId   String?                    @db.Uuid
-  authorityAttestedBy         User?                      @relation("PropertyAuthorityAttester", fields: [authorityAttestedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
-  attestationVersion          String?
+  addressLine1                     String?
+  addressLine2                     String?
+  city                             String?
+  state                            String?
+  zip                              String?
+  lat                              Decimal?                   @db.Decimal(10, 7)
+  lng                              Decimal?                   @db.Decimal(10, 7)
+  propertyType                     PropertySubtype
+  bedrooms                         Int?
+  bathrooms                        Int?
+  garageArea                       Int?
+  squareFeet                       Int?
+  lotSize                          Int?
+  condition                        String?
+  features                         String[]                   @default([])
+  description                      String?
+  price                            Decimal?                   @db.Decimal(12, 2)
+  ownershipVerificationStatus      PropertyVerificationStatus @default(NOT_SUBMITTED)
+  status                           PropertyStatus             @default(DRAFT)
+  identityVersion                  Int                        @default(1)
+  addressFingerprint               String?
+  providerPropertyId               String?
+  authorityAttestedAt              DateTime?
+  authorityAttestedByUserId        String?                    @db.Uuid
+  authorityAttestedBy              User?                      @relation("PropertyAuthorityAttester", fields: [authorityAttestedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  attestationVersion               String?
   authorityAttestedIdentityVersion Int?
-  flaggedForReviewAt          DateTime?
+  flaggedForReviewAt               DateTime?
 
-  images    PropertyImage[]
-  invites   Invite[]
-  documents VerificationDocument[]
+  images                PropertyImage[]
+  invites               Invite[]
+  documents             VerificationDocument[]
   verificationDecisions PropertyVerificationDecision[]
-  uploadSessions UploadSession[]
+  uploadSessions        UploadSession[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -592,14 +652,14 @@ model SellerProperty {
 }
 
 model PropertyImage {
-  id          String         @id @default(cuid())
-  propertyId  String
-  property    SellerProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  storagePath String         @unique
+  id                      String         @id @default(cuid())
+  propertyId              String
+  property                SellerProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  storagePath             String         @unique
   propertyIdentityVersion Int
-  altText     String?
-  sortOrder   Int            @default(0)
-  createdAt   DateTime       @default(now())
+  altText                 String?
+  sortOrder               Int            @default(0)
+  createdAt               DateTime       @default(now())
 
   @@index([propertyId])
   @@index([propertyId, propertyIdentityVersion])
@@ -616,26 +676,26 @@ model VerificationDocument {
   propertyId       String?
   property         SellerProperty? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  documentType          DocumentType
-  fileSha256            String?
-  fileSizeBytes         Int?
-  mimeType              String?
-  storageBucket         String                 @default("verification-documents")
-  storagePath           String
-  originalFilename      String?
-  uploadedAt            DateTime               @default(now())
-  reviewStatus          DocumentStatus         @default(PENDING)
-  reviewedByUserId      String?                @db.Uuid
-  reviewedBy            User?                  @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
-  reviewedAt            DateTime?
-  reviewNotes           String?
-  reviewChecklist       Json?
-  rejectionReason       String?
-  ownershipEvidenceKind OwnershipEvidenceKind?
+  documentType            DocumentType
+  fileSha256              String?
+  fileSizeBytes           Int?
+  mimeType                String?
+  storageBucket           String                 @default("verification-documents")
+  storagePath             String
+  originalFilename        String?
+  uploadedAt              DateTime               @default(now())
+  reviewStatus            DocumentStatus         @default(PENDING)
+  reviewedByUserId        String?                @db.Uuid
+  reviewedBy              User?                  @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  reviewedAt              DateTime?
+  reviewNotes             String?
+  reviewChecklist         Json?
+  rejectionReason         String?
+  ownershipEvidenceKind   OwnershipEvidenceKind?
   propertyIdentityVersion Int?
 
-  badgeEvidence BuyerBadge[] @relation("BadgeEvidence")
-  governmentIdDecisions PropertyVerificationDecision[] @relation("GovernmentIdDecision")
+  badgeEvidence            BuyerBadge[]                   @relation("BadgeEvidence")
+  governmentIdDecisions    PropertyVerificationDecision[] @relation("GovernmentIdDecision")
   addressEvidenceDecisions PropertyVerificationDecision[] @relation("AddressEvidenceDecision")
 
   createdAt DateTime @default(now())
@@ -653,33 +713,145 @@ model VerificationDocument {
 }
 
 model Invite {
-  id             String         @id @default(cuid())
-  sellerId       String         @db.Uuid
-  seller         User           @relation("SellerInvites", fields: [sellerId], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  buyerProfileId String
-  buyerProfile   BuyerProfile   @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
-  propertyId     String
-  property       SellerProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  id                      String         @id @default(cuid())
+  sellerId                String         @db.Uuid
+  seller                  User           @relation("SellerInvites", fields: [sellerId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  buyerProfileId          String
+  buyerProfile            BuyerProfile   @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
+  propertyId              String
+  property                SellerProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   propertyIdentityVersion Int
 
-  title       String
-  message     String
-  status      InviteStatus @default(SENT)
-  sentAt      DateTime     @default(now())
-  viewedAt    DateTime?
-  respondedAt DateTime?
-  expiresAt   DateTime?
+  title                  String
+  message                String
+  openingTemplateKey     String?
+  openingTemplateVersion Int?
+  openingNote            String?
+  status                 InviteStatus @default(SENT)
+  sentAt                 DateTime     @default(now())
+  viewedAt               DateTime?
+  respondedAt            DateTime?
+  expiresAt              DateTime
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  emailOutbox EmailOutbox[]
+  emailOutbox  EmailOutbox[]
+  conversation Conversation?
 
   @@index([sellerId])
   @@index([buyerProfileId])
   @@index([propertyId])
   @@index([propertyId, propertyIdentityVersion])
   @@index([status])
+}
+
+model Conversation {
+  id                  String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  inviteId            String                    @unique
+  invite              Invite                    @relation(fields: [inviteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  status              ConversationStatus        @default(AWAITING_BUYER)
+  closedReason        ConversationClosedReason?
+  propertySnapshot    Json
+  lastMessageAt       DateTime
+  moderationUpdatedAt DateTime?
+
+  participants ConversationParticipant[]
+  messages     Message[]
+  reports      MessageReport[]
+  emailOutbox  EmailOutbox[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, lastMessageAt])
+  @@index([lastMessageAt, id])
+}
+
+model ConversationParticipant {
+  conversationId    String                      @db.Uuid
+  conversation      Conversation                @relation(fields: [conversationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  userId            String                      @db.Uuid
+  user              User                        @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  role              ConversationParticipantRole
+  lastReadMessageId String?                     @db.Uuid
+  lastReadMessage   Message?                    @relation("ConversationParticipantLastReadMessage", fields: [conversationId, lastReadMessageId], references: [conversationId, id], onDelete: Restrict, onUpdate: Restrict)
+  lastReadAt        DateTime?
+  mutedAt           DateTime?
+  sentMessages      Message[]                   @relation("MessageSender")
+  createdAt         DateTime                    @default(now())
+
+  @@id([conversationId, userId])
+  @@unique([conversationId, role])
+  @@index([userId, conversationId])
+  @@index([conversationId, lastReadMessageId])
+}
+
+model Message {
+  id               String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId   String                   @db.Uuid
+  conversation     Conversation             @relation(fields: [conversationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  senderUserId     String?                  @db.Uuid
+  sender           ConversationParticipant? @relation("MessageSender", fields: [conversationId, senderUserId], references: [conversationId, userId], onDelete: Restrict, onUpdate: Restrict)
+  kind             MessageKind
+  templateKey      String?
+  templateVersion  Int?
+  body             String
+  clientMessageId  String                   @db.Uuid
+  moderationStatus MessageModerationStatus  @default(ALLOWED)
+  createdAt        DateTime                 @default(now())
+
+  lastReadBy ConversationParticipant[] @relation("ConversationParticipantLastReadMessage")
+  reports    MessageReport[]
+
+  @@unique([conversationId, clientMessageId])
+  @@unique([conversationId, id])
+  @@index([conversationId, senderUserId])
+  @@index([conversationId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([senderUserId, createdAt])
+}
+
+model UserBlock {
+  blockerUserId String   @db.Uuid
+  blocker       User     @relation("UserBlockBlocker", fields: [blockerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  blockedUserId String   @db.Uuid
+  blocked       User     @relation("UserBlockBlocked", fields: [blockedUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reason        String?
+  createdAt     DateTime @default(now())
+
+  @@id([blockerUserId, blockedUserId])
+  @@index([blockedUserId, blockerUserId])
+}
+
+model MessageReport {
+  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reporterUserId       String                @db.Uuid
+  reporter             User                  @relation("MessageReportReporter", fields: [reporterUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reportedUserId       String                @db.Uuid
+  reportedUser         User                  @relation("MessageReportReportedUser", fields: [reportedUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversationId       String                @db.Uuid
+  conversation         Conversation          @relation(fields: [conversationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  messageId            String                @db.Uuid
+  message              Message               @relation(fields: [conversationId, messageId], references: [conversationId, id], onDelete: Restrict, onUpdate: Restrict)
+  category             MessageReportCategory
+  details              String?
+  evidenceBodySnapshot String
+  evidenceContext      Json
+  status               MessageReportStatus   @default(OPEN)
+  reviewedByUserId     String?               @db.Uuid
+  reviewedBy           User?                 @relation("MessageReportReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  reviewedAt           DateTime?
+  resolution           String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@unique([reporterUserId, messageId])
+  @@index([conversationId, messageId])
+  @@index([conversationId, createdAt])
+  @@index([messageId])
+  @@index([reportedUserId, createdAt])
+  @@index([reviewedByUserId])
+  @@index([status, createdAt])
 }
 
 model Notification {
@@ -713,24 +885,28 @@ model AdminAuditLog {
 }
 
 model EmailOutbox {
-  id            String            @id @default(cuid())
-  type          String
-  to            String
-  subject       String?
-  templateName  String?
-  payload       Json
-  status        EmailOutboxStatus @default(PENDING)
-  attempts      Int               @default(0)
-  lastError     String?
-  nextAttemptAt DateTime?
-  sentAt        DateTime?
-  lockedAt      DateTime?
-  leaseUntil    DateTime?
-  workerId      String?
-  providerMessageId String?
-  idempotencyKey String            @unique
-  inviteId       String?
-  invite         Invite?           @relation(fields: [inviteId], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  id                     String            @id @default(cuid())
+  type                   String
+  to                     String
+  subject                String?
+  templateName           String?
+  payload                Json
+  status                 EmailOutboxStatus @default(PENDING)
+  attempts               Int               @default(0)
+  lastError              String?
+  nextAttemptAt          DateTime?
+  sentAt                 DateTime?
+  lockedAt               DateTime?
+  leaseUntil             DateTime?
+  workerId               String?
+  providerMessageId      String?
+  idempotencyKey         String            @unique
+  inviteId               String?
+  invite                 Invite?           @relation(fields: [inviteId], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  messageConversationId  String?           @db.Uuid
+  messageConversation    Conversation?     @relation(fields: [messageConversationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  messageRecipientUserId String?           @db.Uuid
+  messageRecipient       User?             @relation("MessageOutboxRecipient", fields: [messageRecipientUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -739,44 +915,47 @@ model EmailOutbox {
   @@index([status, leaseUntil])
   @@index([createdAt])
   @@index([inviteId])
+  @@index([messageConversationId])
+  @@index([messageRecipientUserId])
+  @@index([messageConversationId, messageRecipientUserId, status, nextAttemptAt])
 }
 
 model PropertyVerificationDecision {
-  id                        String               @id @default(cuid())
+  id                        String                     @id @default(cuid())
   propertyId                String
-  property                  SellerProperty       @relation(fields: [propertyId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  property                  SellerProperty             @relation(fields: [propertyId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   propertyIdentityVersion   Int
-  reviewerUserId            String               @db.Uuid
-  reviewer                  User                 @relation("PropertyDecisionReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reviewerUserId            String                     @db.Uuid
+  reviewer                  User                       @relation("PropertyDecisionReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   governmentIdDocumentId    String
-  governmentIdDocument      VerificationDocument @relation("GovernmentIdDecision", fields: [governmentIdDocumentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  governmentIdDocument      VerificationDocument       @relation("GovernmentIdDecision", fields: [governmentIdDocumentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   addressEvidenceDocumentId String
-  addressEvidenceDocument   VerificationDocument @relation("AddressEvidenceDecision", fields: [addressEvidenceDocumentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  addressEvidenceDocument   VerificationDocument       @relation("AddressEvidenceDecision", fields: [addressEvidenceDocumentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   decision                  PropertyVerificationStatus
   checklist                 Json
   notes                     String?
-  reviewedAt                DateTime             @default(now())
-  createdAt                 DateTime             @default(now())
+  reviewedAt                DateTime                   @default(now())
+  createdAt                 DateTime                   @default(now())
 
   @@unique([propertyId, propertyIdentityVersion])
   @@index([reviewerUserId])
 }
 
 model UploadSession {
-  id                      String              @id @default(cuid())
-  ownerUserId             String              @db.Uuid
-  owner                   User                @relation(fields: [ownerUserId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  id                      String                 @id @default(cuid())
+  ownerUserId             String                 @db.Uuid
+  owner                   User                   @relation(fields: [ownerUserId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   purpose                 UploadPurpose
-  status                  UploadSessionStatus @default(PENDING)
+  status                  UploadSessionStatus    @default(PENDING)
   bucket                  String
-  storagePath             String              @unique
+  storagePath             String                 @unique
   originalFilename        String
   expectedSizeBytes       Int
   expectedMimeType        String
   propertyId              String?
-  property                SellerProperty?     @relation(fields: [propertyId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  property                SellerProperty?        @relation(fields: [propertyId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   buyerProfileId          String?
-  buyerProfile            BuyerProfile?       @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  buyerProfile            BuyerProfile?          @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   documentType            DocumentType?
   ownershipEvidenceKind   OwnershipEvidenceKind?
   propertyIdentityVersion Int?
@@ -784,8 +963,8 @@ model UploadSession {
   finalizedAt             DateTime?
   expiresAt               DateTime
   rejectionReason         String?
-  createdAt               DateTime            @default(now())
-  updatedAt               DateTime            @updatedAt
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
 
   @@index([ownerUserId, status, expiresAt])
   @@index([propertyId])
@@ -793,21 +972,21 @@ model UploadSession {
 }
 
 model AuthOperation {
-  id            String              @id @default(cuid())
-  userId        String              @db.Uuid
-  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  type          String
-  status        AuthOperationStatus @default(PENDING)
-  attempts      Int                 @default(0)
-  lastError     String?
-  nextAttemptAt DateTime?
-  lockedAt      DateTime?
-  leaseUntil    DateTime?
-  workerId      String?
-  completedAt   DateTime?
-  idempotencyKey String             @unique
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  id             String              @id @default(cuid())
+  userId         String              @db.Uuid
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  type           String
+  status         AuthOperationStatus @default(PENDING)
+  attempts       Int                 @default(0)
+  lastError      String?
+  nextAttemptAt  DateTime?
+  lockedAt       DateTime?
+  leaseUntil     DateTime?
+  workerId       String?
+  completedAt    DateTime?
+  idempotencyKey String              @unique
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   @@index([status, nextAttemptAt, leaseUntil])
   @@index([userId])

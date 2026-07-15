@@ -15,6 +15,7 @@ Owns private seller property records, property images, ownership evidence upload
 - `apps/web/components/property-address-lookup.tsx`
 - `apps/web/server/contracts.ts`
 - `apps/web/server/form-actions.ts`
+- `apps/web/server/messaging/**`
 - `apps/web/server/ownership-evidence.ts`
 
 ## Invariants
@@ -29,6 +30,12 @@ Owns private seller property records, property images, ownership evidence upload
 - Seller cannot invite their own buyer profile.
 - Invite is manual outreach only.
 - Invite response does not create an offer, escrow, or transaction.
+- A successful valid invite creates exactly one invite-scoped conversation,
+  two authoritative participants, and the immutable rendered opening message.
+- Accepted invites remain messageable; decline, effective expiry, withdrawal,
+  property identity invalidation, and participant blocking disable sends.
+- A block in either direction prevents a new invite and returns a generic
+  unavailable result rather than disclosing the block.
 - Expired invites are rejected whenever they are read or used, even if the maintenance job has not updated their stored status yet.
 - Only current `READY_FOR_INVITES` properties can send invites. Invite quota means the preceding rolling 24 hours, not a calendar day.
 - Property images are private. The owner/admin may view them; invited buyers may view them only while invite status is `SENT`, `VIEWED`, or `ACCEPTED`.

@@ -89,20 +89,3 @@ export type Property = {
   ownershipVerificationStatus: PropertyVerificationStatus;
   status: string;
 };
-
-export type Invite = {
-  id: string;
-  sellerId: string;
-  buyerProfileId: string;
-  propertyId: string;
-  buyer: string;
-  property: string;
-  propertyStatus?: string;
-  propertyOwnershipVerificationStatus?: PropertyVerificationStatus;
-  status: "Sent" | "Viewed" | "Accepted" | "Declined" | "Expired";
-  sentAt: string;
-  sentAtDate: string;
-  expiresAt?: string;
-  title: string;
-  message: string;
-};

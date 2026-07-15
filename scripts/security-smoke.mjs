@@ -111,6 +111,13 @@ try {
   }
   console.log("ok buyer profile robots header");
 
+  const messages = await expectStatus("/messages", 307);
+  const messagesRobots = expectHeader(messages, "x-robots-tag");
+  if (!messagesRobots.includes("noindex") || !messagesRobots.includes("noarchive")) {
+    throw new Error(`/messages route X-Robots-Tag was ${messagesRobots}.`);
+  }
+  console.log("ok messages robots header");
+
   const propertyEnrichment = await fetch(`${baseUrl}/api/property/enrich`, {
     body: JSON.stringify({ addressLine1: "1 Main", market: "los-angeles", zip: "91423" }),
     headers: { "content-type": "application/json", origin: new URL(baseUrl).origin },
@@ -123,6 +130,8 @@ try {
   await expectStatus("/api/geo/geocode?query=Sherman", 401);
   await expectStatus("/api/seller/buyers?service_area=northridge", 401);
   await expectStatus("/api/property-images/security-smoke", 401);
+  await expectStatus("/api/conversations", 401);
+  await expectStatus("/api/messages/reports", 404);
   const uploadSession = await fetch(`${baseUrl}/api/uploads/sessions`, {
     body: "{}",
     headers: { "content-type": "application/json", origin: new URL(baseUrl).origin },
@@ -142,6 +151,42 @@ try {
   });
   if (badOrigin.status !== 403) throw new Error(`Bad-origin login returned ${badOrigin.status}, expected 403.`);
   console.log("ok bad origin rejected");
+
+  const badMessagingOrigin = await fetch(
+    `${baseUrl}/api/conversations/00000000-0000-4000-8000-000000000001/messages`,
+    {
+      body: JSON.stringify({
+        body: "privacy-safe smoke message",
+        clientMessageId: "00000000-0000-4000-8000-000000000002",
+        kind: "FREE_TEXT",
+      }),
+      headers: { "content-type": "application/json", origin: "https://evil.example" },
+      method: "POST",
+      redirect: "manual",
+    },
+  );
+  if (badMessagingOrigin.status !== 403) {
+    throw new Error(`Bad-origin messaging request returned ${badMessagingOrigin.status}, expected 403.`);
+  }
+  console.log("ok bad messaging origin rejected");
+
+  const missingOrigin = await fetch(
+    `${baseUrl}/api/conversations/00000000-0000-4000-8000-000000000001/messages`,
+    {
+      body: JSON.stringify({
+        body: "privacy-safe smoke message",
+        clientMessageId: "00000000-0000-4000-8000-000000000002",
+        kind: "FREE_TEXT",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+      redirect: "manual",
+    },
+  );
+  if (missingOrigin.status !== 403) {
+    throw new Error(`Missing-origin messaging request returned ${missingOrigin.status}, expected 403.`);
+  }
+  console.log("ok missing messaging origin rejected");
 
   console.log("security smoke passed");
 } catch (error) {

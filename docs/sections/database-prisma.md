@@ -30,6 +30,13 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - `BuyerCriteria.buyerProfileId` is unique; an active buyer has exactly one criteria row and one active primary selected service area.
 - Property authority attestations, ownership decisions, documents, images, and invites are tied to `SellerProperty.identityVersion`.
 - `UploadSession.buyerProfileId` is a real foreign key. Abandoned sessions leave cleanup eligibility only after their object has been removed, then enter terminal `CLEANED` state.
+- Guided messaging tables enforce one conversation per invite, exactly two
+  invite-derived participants, participant-only human senders, immutable
+  message bodies, UUID client idempotency, report evidence, and all FK/query
+  indexes at the database boundary.
+- New messaging tables are RLS-enabled and have no raw browser CRUD. The only
+  browser-facing database policy is private Realtime receive authorization via
+  an active-participant helper; browsers receive no Broadcast INSERT policy.
 - `property-images` and `verification-documents` are private buckets; signed upload sessions authorize immutable server-selected paths.
 - Market and service-area records use immutable UUID primary keys. Service-area slugs and stable source identities are unique within `market_id`, not globally; this permits a boundary-clipped source area in an adjacent future market.
 - Active service-area metadata may be public only through the narrow server API when its parent market is active. `anon` and `authenticated` have no direct privileges on the canonical geography tables; RLS remains enabled as defense in depth.

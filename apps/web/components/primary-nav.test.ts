@@ -11,7 +11,7 @@ describe("primary navigation", () => {
   });
 
   it("uses distinct action labels for dual-role accounts", () => {
-    const labels = primaryNavItems(true, ["BUYER", "SELLER"]).map((item) => item.label);
+    const labels = primaryNavItems(true, ["BUYER", "SELLER"], true).map((item) => item.label);
 
     expect(labels).toEqual([
       "Demand map",
@@ -19,7 +19,18 @@ describe("primary navigation", () => {
       "Find buyers",
       "Properties",
       "Sent invites",
+      "Messages",
     ]);
     expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it("omits messaging when the server-derived release flag is off", () => {
+    expect(primaryNavItems(true, ["BUYER", "SELLER"], false).some((item) => item.href === "/messages")).toBe(false);
+  });
+
+  it("adds messaging once for an eligible dual-role account and never for an admin-only account", () => {
+    const dualRoleItems = primaryNavItems(true, ["BUYER", "SELLER", "ADMIN"], true);
+    expect(dualRoleItems.filter((item) => item.href === "/messages")).toHaveLength(1);
+    expect(primaryNavItems(true, ["ADMIN"], true).some((item) => item.href === "/messages")).toBe(false);
   });
 });

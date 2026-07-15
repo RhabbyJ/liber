@@ -64,12 +64,19 @@ const adminItem: NavItem = {
   mode: "admin",
 };
 
-export function primaryNavItems(isAuthenticated: boolean, roles: AppRole[]) {
+const messagesItem: NavItem = {
+  href: "/messages",
+  label: "Messages",
+  isActive: (pathname) => pathname === "/messages" || pathname.startsWith("/messages/"),
+};
+
+export function primaryNavItems(isAuthenticated: boolean, roles: AppRole[], messagingEnabled = false) {
   if (!isAuthenticated) return [demandMapItem, ...guestItems];
 
   const items: NavItem[] = [demandMapItem];
   if (roles.includes("BUYER")) items.push(...buyerItems);
   if (roles.includes("SELLER")) items.push(...sellerItems);
+  if (messagingEnabled && (roles.includes("BUYER") || roles.includes("SELLER"))) items.push(messagesItem);
   if (roles.includes("ADMIN")) items.push(adminItem);
   return items;
 }

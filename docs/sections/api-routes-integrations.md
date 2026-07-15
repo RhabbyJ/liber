@@ -16,6 +16,8 @@ Owns Next route handlers and external provider adapters for auth callbacks, geoc
 - `apps/web/app/api/uploads/sessions/[sessionId]/finalize/route.ts`
 - `apps/web/app/api/property-images/[imageId]/route.ts`
 - `apps/web/app/api/maintenance/expire/route.ts`
+- `apps/web/app/api/conversations/**`
+- `apps/web/app/api/messages/**`
 - `apps/web/app/auth/callback/route.ts`
 - `apps/web/server/attom.ts`
 - `apps/web/server/rate-limit.ts`
@@ -35,7 +37,15 @@ Owns Next route handlers and external provider adapters for auth callbacks, geoc
 - Public service-area DTOs use the market slug, service-area slug, and versioned geometry path; internal service-area UUIDs remain server-side.
 - Service-area search returns `{ resolution, suggestions }`; callers must not silently choose the first suggestion for ambiguous terms or unique prefixes.
 - Seller buyer APIs must require approved seller-directory access and return seller-safe buyer fields only.
-- State-changing routes need appropriate origin/session protection.
+- State-changing routes require an authorized session plus shared fail-closed origin protection: an exact matching `Origin`, or `Sec-Fetch-Site: same-origin` only when `Origin` is absent. Missing or conflicting browser signals are rejected.
+- Conversation list/read/send/read-state/mute/block/report routes require active
+  participant authorization, private no-store responses, safe errors, and
+  shared validation. They never return blocker identity, report evidence,
+  Auth UUIDs, email, message bodies in logs, or current property details for an
+  identity-invalidated invite.
+- The only message-report API mutation available to participants creates a
+  report for one counterparty message. Admin review uses server-only pages and
+  actions rather than duplicate list/detail/resolve API routes.
 - Property enrichment is for private seller property prep. It requires an authenticated seller/admin role and rate limits, but not approved seller-directory access.
 - Exact-address enrichment uses same-origin `POST` JSON with `private, no-store`; exact addresses must not appear in query strings.
 - Upload-session creation/finalization and private property-image signing are authenticated, same-origin, narrow-response endpoints.

@@ -14,12 +14,15 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - `apps/web/components/buyer-profile-wizard.tsx`
 - `apps/web/server/form-actions.ts`
 - `apps/web/server/contracts.ts`
+- `apps/web/app/messages/**`
 - `apps/web/server/buyer-dtos.ts`
 - `apps/web/lib/buyer-dto-types.ts`
 
 ## Invariants
 
 - Draft/hidden/suspended profiles must not appear in seller search.
+- Buyer conversation identity remains the generated neutral alias. Buyer
+  account names and contact details do not become messaging DTO fields.
 - Full buyer profiles are not public pages.
 - Public pre-signup buyer previews must be limited, privacy-safe teaser cards only (`apps/web/server/buyer-preview.ts`).
 - Buyer documents are never shown to sellers.

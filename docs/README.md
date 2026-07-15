@@ -38,6 +38,8 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `engineering/SELLER_SEARCH_SQL_PROPOSAL.sql` — unnumbered CTO index proposal; not an applied migration.
 - `engineering/UPLOAD_MALWARE_SCANNING.md` — selected OPSWAT private-processing scanner and credential-blocked public-launch gate.
 - `engineering/DEPENDENCY_AUDIT_2026-07-11.md` — current dependency findings, reachability triage, and compatible-upgrade policy.
+- `engineering/Liber_Messaging_v1` — approved Guided Messaging V1 decision,
+  lifecycle, security model, implementation sequence, and launch gates.
 - `engineering/GEOGRAPHY_LA_COUNTY_RELEASE_RUNBOOK.md` — exact-hash LA County staging, activation, production reconciliation, and rollback.
 - `engineering/GEOGRAPHY_LA_COUNTY_RELEASE_EVIDENCE_2026-07-12.md` — pinned source, transaction rehearsal, verification, and production reconciliation evidence for the active County release.
 - `engineering/GEOGRAPHY_LA_SECURITY_HARDENING_EVIDENCE_2026-07-13.md` — applied raw-access/default-privilege hardening, prefix-index and migration-ledger proof, plus the remaining Supabase-owned launch blockers.
@@ -57,6 +59,7 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `sections/email-maintenance.md`
 - `sections/database-prisma.md`
 - `sections/testing-smoke.md`
+- `sections/messaging.md`
 
 These are intentionally short. They tell agents what a section is for, where the entry points are, and what not to break.
 

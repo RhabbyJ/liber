@@ -45,6 +45,7 @@ export async function querySellerSearchIds(
   filters: SearchBuyersInput,
   now = new Date(),
   schema = Prisma.raw("public"),
+  viewerUserId?: string,
 ): Promise<SellerSearchIdPage> {
   const cursor = filters.cursor ? decodeSellerSearchCursor(filters.cursor) : null;
   const filterHash = sellerSearchFilterHash(filters);
@@ -61,7 +62,7 @@ export async function querySellerSearchIds(
     throw new SellerSearchCursorError("Seller search cursor has expired.");
   }
   const rows = await client.$queryRaw<SellerSearchRow[]>(
-    buildSellerSearchQuery(filters, snapshotAt, cursor, schema),
+    buildSellerSearchQuery(filters, snapshotAt, cursor, schema, viewerUserId),
   );
   const hasMore = rows.length > filters.pageSize;
   const pageRows = hasMore ? rows.slice(0, filters.pageSize) : rows;
@@ -90,6 +91,7 @@ export function buildSellerSearchQuery(
   snapshotAt: Date,
   cursor: SellerSearchCursor | null = null,
   schema = Prisma.raw("public"),
+  viewerUserId?: string,
 ) {
   const criteriaPredicates: Prisma.Sql[] = [];
   if (filters.propertyCategory) {
@@ -122,6 +124,21 @@ export function buildSellerSearchQuery(
     Prisma.sql`account.status::text = 'ACTIVE'`,
     Prisma.sql`buyer."createdAt" <= ${snapshotAt}`,
   ];
+  if (viewerUserId) {
+    predicates.push(Prisma.sql`
+      NOT EXISTS (
+        SELECT 1
+        FROM ${schema}."UserBlock" block
+        WHERE (
+          block."blockerUserId" = ${viewerUserId}::uuid
+          AND block."blockedUserId" = buyer."userId"
+        ) OR (
+          block."blockerUserId" = buyer."userId"
+          AND block."blockedUserId" = ${viewerUserId}::uuid
+        )
+      )
+    `);
+  }
   if (filters.serviceArea) {
     predicates.push(Prisma.sql`buyer_area.id IN (SELECT id FROM coverage)`);
   }

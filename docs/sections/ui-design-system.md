@@ -20,6 +20,10 @@ Owns shared visual language, navigation, layouts, reusable components, and globa
 ## Invariants
 
 - UI must not be the only security control.
+- Messaging is role-neutral under `/messages`. It must render content as inert
+  text, preserve unsent text after recoverable errors, expose guided and
+  plain-text paths, announce send/load errors accessibly, and clearly render
+  read-only/blocked/offline states on mobile and desktop.
 - CTAs should describe the actual action.
 - Focused task-entry pages may use generous open-canvas spacing and a single high-emphasis input composition. Artwork must be original and brand-specific; visual references may guide hierarchy and proportions but not copied assets, brand colors, or product claims.
 - Avoid fake/dead controls.

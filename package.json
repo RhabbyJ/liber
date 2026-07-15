@@ -9,6 +9,7 @@
   "overrides": {
     "@hono/node-server": "1.19.13",
     "hono": "4.12.25",
+    "postcss": "8.5.19",
     "vite": "8.0.16"
   },
   "scripts": {
@@ -16,14 +17,17 @@
     "build": "npm run build -w @liber/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test:database-target && npm run test:readiness && npm run test:demo-buyers && npm run test --workspaces --if-present",
+    "test": "npm run test:database-target && npm run test:readiness && npm run test:demo-buyers && npm run test:secret-scan && npm run test:messaging-migration && npm run test --workspaces --if-present",
     "test:database-target": "node --test scripts/database-target.test.mjs",
     "test:readiness": "node --test scripts/readiness-check.test.mjs",
     "test:demo-buyers": "node --test scripts/manage-demo-buyers.test.mjs",
+    "test:messaging-migration": "node scripts/test-messaging-migration.mjs static",
+    "test:secret-scan": "node --test scripts/secret-scan.test.mjs",
     "demo:buyers": "node --env-file-if-exists=.env scripts/with-local-ca.mjs node scripts/manage-demo-buyers.mjs",
     "smoke:routes": "node scripts/route-smoke.mjs",
     "smoke:security": "node scripts/security-smoke.mjs",
     "smoke:no-auth-bypass": "node scripts/forbidden-auth-bypass-smoke.mjs",
+    "smoke:secrets": "node scripts/secret-scan.mjs",
     "smoke:visual": "node scripts/visual-smoke.mjs",
     "readiness:env": "node scripts/readiness-check.mjs",
     "readiness:production": "node scripts/readiness-check.mjs --production",
@@ -35,6 +39,8 @@
     "db:test-geography:fresh": "node scripts/test-geography-migration-fresh.mjs",
     "db:test-geography:upgrade": "node scripts/test-geography-migration-upgrade.mjs",
     "db:test-identity": "node scripts/test-identity-migration.mjs",
+    "db:test-messaging:fresh": "node scripts/test-messaging-migration.mjs fresh",
+    "db:test-messaging:upgrade": "node scripts/test-messaging-migration.mjs upgrade",
     "db:test-buyer-profile-atomicity": "node scripts/test-buyer-profile-atomicity.mjs",
     "db:test-seller-property-integrity": "node scripts/test-seller-property-integrity.mjs",
     "db:test-auth-security:staging": "node scripts/test-auth-security-staging.mjs"

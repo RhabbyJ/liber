@@ -20,6 +20,47 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  messaging:
+    name: Messaging upgrade then fresh proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: disposable-messaging-proof
+    env:
+      APPROVED_SHA: ${{ inputs.approved_sha }}
+      CONFIRM_DISPOSABLE: ${{ inputs.confirm_disposable }}
+      DATABASE_URL: ${{ vars.SHARED_DATABASE_ID_URL_1 }}
+      DIRECT_URL: ${{ vars.SHARED_DATABASE_ID_URL_2 }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.approved_sha }}
+      - name: Confirm exact reviewed disposable run
+        shell: bash
+        run: |
+          [[ "$APPROVED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$APPROVED_SHA"
+          test "$CONFIRM_DISPOSABLE" = "DISPOSABLE_ONLY"
+      - uses: actions/setup-node@v6
+        with:
+          cache: npm
+          node-version: 24
+      - run: npm install --global npm@10.9.0
+      - run: npm ci
+      - run: npm run db:generate
+      - name: Representative messaging upgrade proof
+        env:
+          MESSAGING_MIGRATION_TEST_ALLOW_WRITES: "true"
+          MESSAGING_MIGRATION_TEST_DATABASE_URL: ${{ secrets.MESSAGING_UPGRADE_DATABASE_URL }}
+          MESSAGING_MIGRATION_TEST_SENTINEL: ${{ secrets.MESSAGING_UPGRADE_SENTINEL }}
+        run: npm run db:test-messaging:upgrade
+      - name: Exact messaging fresh-chain proof
+        env:
+          MESSAGING_MIGRATION_TEST_ALLOW_RESET: "true"
+          MESSAGING_MIGRATION_TEST_DATABASE_URL: ${{ secrets.MESSAGING_FRESH_DATABASE_URL }}
+          MESSAGING_MIGRATION_TEST_SENTINEL: ${{ secrets.MESSAGING_FRESH_SENTINEL }}
+        run: npm run db:test-messaging:fresh
+
   geography:
     name: Geography upgrade then fresh proof
     runs-on: ubuntu-latest

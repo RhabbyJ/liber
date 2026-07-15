@@ -119,6 +119,10 @@ async function expectNotFound(path) {
 async function expectPostRedirect(path, form, expectedPath, expectedStatus) {
   const response = await fetch(`${baseUrl}${path}`, {
     body: new URLSearchParams(form),
+    headers: {
+      Origin: baseUrl,
+      "Sec-Fetch-Site": "same-origin",
+    },
     method: "POST",
     redirect: "manual",
   });
@@ -151,7 +155,7 @@ try {
     "test@gmail.com",
   ]);
   await expectPostRedirect("/api/auth/login", { email: "", password: "", next: "/" }, "/login", "missing-credentials");
-  await expectPage("/signup", ["What brings you to Liber"]);
+  await expectPage("/signup", ["How will you use Liber?"]);
   await expectPage("/signup/verify?email=test%40gmail.com&next=/buyer/profile", [
     "Confirm your email",
     "test@gmail.com",

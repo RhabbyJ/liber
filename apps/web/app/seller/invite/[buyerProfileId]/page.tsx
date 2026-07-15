@@ -4,12 +4,22 @@ import { GeneratedAvatar } from "../../../../components/generated-avatar";
 import { Icon } from "../../../../components/icon";
 import { PropertyTypeArtwork } from "../../../../components/property-type-artwork";
 import { PageTitle } from "../../../../components/page-title";
+import { messagingTemplateLabel } from "../../../../components/messaging/types";
 import { formatMoney } from "../../../../lib/format";
 import { propertySubtypeLabel } from "../../../../lib/property-types";
 import { canViewBuyerDirectory } from "../../../../server/access";
 import { getBuyerProfileForSeller, listSellerProperties } from "../../../../server/contracts";
 import { submitInvite } from "../../../../server/form-actions";
+import { sellerOpeningTemplates } from "../../../../server/messaging/templates";
 import { getSessionUser } from "../../../../server/session";
+
+const sellerOpeningTemplateVersion = sellerOpeningTemplates[0]?.version;
+if (
+  !sellerOpeningTemplateVersion
+  || sellerOpeningTemplates.some((template) => template.version !== sellerOpeningTemplateVersion)
+) {
+  throw new Error("Seller opening templates must share one form version.");
+}
 
 export default async function InviteBuyerPage({
   params,
@@ -161,10 +171,11 @@ export default async function InviteBuyerPage({
       <section className="invite-compose-grid">
         <form action={submitInvite} className="invite-compose-form">
           <input name="buyerProfileId" type="hidden" value={buyer.id} />
+          <input name="templateVersion" type="hidden" value={sellerOpeningTemplateVersion} />
 
           <div className="invite-compose-heading">
             <p className="eyebrow seller">Manual invite</p>
-            <h2>Write an invite to {buyer.name}</h2>
+            <h2>Choose an opening for {buyer.name}</h2>
           </div>
           <div className="field">
             <label htmlFor="property">Property</label>
@@ -176,21 +187,30 @@ export default async function InviteBuyerPage({
               ))}
             </select>
           </div>
-          <div className="reference-form-section">
-            <h3>Personal Info</h3>
-            <div className="field full">
-              <label htmlFor="title">Invite title</label>
-              <input id="title" name="title" defaultValue="Invite to buy a house" />
+          <fieldset className="invite-template-fieldset">
+            <legend>Guided opening</legend>
+            <p className="field-hint">Choose one reviewed property-focused question.</p>
+            <div className="invite-template-options">
+              {sellerOpeningTemplates.map((template, index) => (
+                <label className="invite-template-option" key={template.key}>
+                  <input defaultChecked={index === 0} name="templateKey" required type="radio" value={template.key} />
+                  <span>
+                    <strong>{messagingTemplateLabel(template.key)}</strong>
+                    <small>{template.text}</small>
+                  </span>
+                </label>
+              ))}
             </div>
-            <div className="field full">
-              <label htmlFor="message">Invite note</label>
-              <textarea
-                id="message"
-                name="message"
-                defaultValue={`Hi ${buyer.name}, I'm inviting you to review my property because it appears to fit your preferred location, budget, and home needs.`}
-              />
-              <span className="field-hint">Keep it short. {buyer.name} will see this in their invite inbox.</span>
-            </div>
+          </fieldset>
+          <div className="field full">
+            <label htmlFor="note">Short note (optional)</label>
+            <textarea
+              id="note"
+              maxLength={500}
+              name="note"
+              placeholder={`Add brief property context for ${buyer.name}`}
+            />
+            <span className="field-hint">Plain text only, up to 500 characters. The guided opening is stored separately.</span>
           </div>
 
           <div className="auth-alert info">
@@ -200,7 +220,7 @@ export default async function InviteBuyerPage({
           <div className="divider" />
 
           <label className="checkbox-row">
-            <input type="checkbox" name="termsAccepted" value="true" />
+            <input name="termsAccepted" required type="checkbox" value="true" />
             <span>
               I confirm this is a manual invite and does not create an offer, escrow, or funds custody. I own this property
               or am authorized to invite buyers on the owner&apos;s behalf.

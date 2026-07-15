@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { AccountMenu } from "../components/account-menu";
 import { Icon } from "../components/icon";
 import { PrimaryNav } from "../components/primary-nav";
+import { messagingV1NavigationEnabledForUser } from "../server/messaging/feature";
 import { getSessionUser } from "../server/session";
 import "./globals.css";
 
@@ -17,6 +18,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const user = await getSessionUser();
   const isAuthenticated = Boolean(user);
   const roles = user?.roles ?? [];
+  const messagingEnabled = user ? messagingV1NavigationEnabledForUser(user.id) : false;
 
   return (
     <html lang="en">
@@ -31,7 +33,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 <span className="brand-subtitle">Buyer Directory</span>
               </span>
             </Link>
-            <PrimaryNav isAuthenticated={isAuthenticated} roles={roles} />
+            <PrimaryNav isAuthenticated={isAuthenticated} messagingEnabled={messagingEnabled} roles={roles} />
             <div className="top-actions">
               {isAuthenticated ? (
                 <>

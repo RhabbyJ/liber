@@ -33,6 +33,7 @@ Buyer profile exists
 -> Seller sees why buyer fits the property
 -> Seller creates/selects private listing context
 -> Seller sends a short manual invite
+-> Buyer and seller continue in one invite-scoped guided conversation
 ```
 
 ## V1 roadmap: prove the marketplace loop
@@ -49,12 +50,15 @@ V1 must be narrow and trustworthy:
 - buyer profile seller-view,
 - seller private properties,
 - manual invites,
+- invite-scoped guided messaging with plain-text fallback, blocking, and reporting,
 - notifications/email outbox,
 - admin document review,
 - admin-controlled trust badges,
 - audit logs and rate limits.
 
-Success signal: a seller can find matched buyers and send relevant private invites.
+Success signal: a seller can find matched buyers, send a relevant private invite, and receive a property-fit response without creating a transaction workflow.
+
+Guided Messaging V1 is approved as a controlled continuation of the manual invite, not as general chat. One invite creates one two-party conversation. PostgreSQL remains authoritative; private Realtime is only an identifier-only update hint. The production flag stays off outside the approved cohort until retention, fair-housing template review, moderation operations, credential cleanup, and messaging security evidence are complete.
 
 Immediate UX priority: make the marketplace value obvious before and after signup. The public homepage is the map itself — a Zillow-style buyer-demand map with anonymized budget pins (buyers, not listings) at approximate locations, a small set of preview cards, and a signup wall; there is no separate marketing landing page. After approved seller access, the seller workspace is the full version of that experience: map first, budget-labeled buyer-demand pins, a clear filter control, and buyer cards tied to the same filtered result set.
 
@@ -79,7 +83,7 @@ Do not add major new transaction capabilities in this phase.
 Only after v1 has real marketplace usage:
 
 - richer invite status workflow,
-- structured seller/buyer Q&A around an invite,
+- richer structured seller/buyer Q&A beyond the constrained V1 template set,
 - request-more-info flow,
 - saved searches and alerts,
 - property/buyer match explanations,

@@ -11,6 +11,7 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - `scripts/test-geography-migration-fresh.mjs`
 - `scripts/test-geography-migration-upgrade.mjs`
 - `scripts/test-identity-migration.mjs`
+- `scripts/test-messaging-migration.mjs`
 - `scripts/database-target.mjs`
 - `scripts/route-smoke.mjs`
 - `scripts/security-smoke.mjs`
@@ -53,9 +54,38 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - Public and seller DTO tests must snapshot serialized responses and recursively reject forbidden identity, coordinate, criteria-ID, service-area-ID, badge, document, and Storage fields.
 - Release CI must execute real ESLint, exact fresh and representative upgrade migrations, typecheck, tests, production build, RLS/Storage security tests, readiness validation, and realistic seller-search query plans.
 - Production readiness must reject a missing or shorter-than-32-character `AUTH_RATE_LIMIT_PEPPER`; production Auth rate limiting fails closed without it.
-- Production readiness enumerates every local Prisma migration directory and requires a successful, non-rolled-back database record for each one. Missing, failed, and rolled-back local migrations fail the gate; database-only migration names are reported separately.
+- Production readiness enumerates every local Prisma migration directory and requires a successful, non-rolled-back database record for each one. Missing, failed, rolled-back, and database-only migrations all fail the gate; production cannot run schema or security SQL absent from the reviewed repository.
+- Production readiness also compares each applied Prisma checksum to the local
+  migration SQL and validates the command, authenticated-only role, and helper
+  predicates of the two critical private Storage policies; matching names alone
+  are insufficient.
 - Add concurrency tests for buyer save cardinality, distributed rate limits, outbox claim leases, and invite/property state transitions.
-- CI runs deterministic Prisma generation/validation, real ESLint, typecheck, unit tests, production build, and security smoke checks. Manual disposable-database jobs run exact fresh/upgrade, identity, RLS/geography, and seller-search plan gates using guarded branch credentials.
+- Messaging release proof covers fresh/upgrade invite backfill, exactly two
+  participants, outsider/Data API/Realtime denial, keyset cursor binding,
+  duplicate client IDs, accepted-versus-expired lifecycle, property identity
+  snapshots, block/send and invite/block races, content-free Broadcast/email,
+  report evidence/audit, focus/poll recovery, and accessible composer behavior.
+- Security smoke must reject state-changing requests that omit both `Origin` and
+  `Sec-Fetch-Site`, as well as requests with a mismatched `Origin`.
+- Messaging migration static proof runs in the normal test suite. Its guarded
+  fresh and upgrade modes require a sentinel-marked disposable target, explicit
+  reset/write opt-ins, and reject configured shared URLs/project refs.
+- The protected `release-proof` workflow runs the messaging upgrade proof before
+  the exact fresh-chain proof in the `disposable-messaging-proof` environment.
+  That environment holds separate upgrade and fresh targets with separate 16+
+  character sentinels plus shared-target deny URLs. The upgrade target remains
+  at the immediate pre-messaging baseline after its rollback proof; the fresh
+  target is reset on every run. Neither target is a persistent environment.
+- The protected production-readiness workflow receives the deployed messaging
+  enablement and cohort variables; an enabled production rollout fails unless
+  its cohort is an explicit reviewed UUID list.
+- CI runs deterministic Prisma generation/validation, real ESLint, typecheck, unit tests, production build, and security smoke checks. Protected disposable-database jobs run exact fresh/upgrade, identity, RLS/geography, and seller-search plan gates using guarded branch credentials.
+- Secret smoke scans tracked repository text, including force-tracked `.env*`
+  files and tracked files under normally generated/artifact directories, plus
+  bounded entries in ZIPs present in its workspace. Nested ZIPs and opaque
+  candidate entries fail closed. CI covers a release packet only when that
+  packet is supplied to the checkout; other binary formats require a separately
+  recorded approved scan.
 - The non-database CI job uses syntactically valid local dummy database URLs only for Prisma configuration parsing. The manually initiated `release-database-gate` remains required before deployment and is the only job that receives protected disposable/shared database credentials.
 
 ## Agent notes

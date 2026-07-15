@@ -1,6 +1,6 @@
 # Production Decisions
 
-Last reviewed: 2026-07-13
+Last reviewed: 2026-07-14
 
 This is the living launch-gate matrix for moving Liber from a controlled CEO
 demo/private preview to a public Los Angeles beta. It does not override
@@ -10,6 +10,9 @@ demo/private preview to a public Los Angeles beta. It does not override
 
 - Keep Liber in controlled preview availability; malware scanning and scheduled
   maintenance remain public-launch blockers.
+- Guided Messaging V1 is approved for implementation as invite-scoped guided
+  conversation only. Its production flag remains off outside a server-managed
+  cohort until the messaging launch gates below are closed.
 - Los Angeles County is the approved v1 geography boundary. The exact reviewed
   v2 release activates 88 incorporated cities and 304 approximate Census ZCTA
   service areas while preserving three reviewed neighborhoods.
@@ -46,6 +49,15 @@ Product-owner decision on 2026-07-11: do not add scanner API code or provisional
 
 The seller invite quota is 25 sends per seller in the preceding rolling 24 hours. Private property images are available only to an active property owner, active admin, or active buyer whose invite is `SENT`, `VIEWED`, or `ACCEPTED`; `SENT` and `VIEWED` access ends when the invite expires. Browser access uses a short-lived signed URL and never exposes the stored object path.
 
+Guided Messaging V1 adds exactly one two-party conversation per invite,
+immutable PostgreSQL messages, versioned guided copy, plain-text fallback,
+read state, permanent V1 blocking, message reporting, and report-driven admin
+moderation. Initial operating constants are one curated seller follow-up after
+24 hours, 20 send attempts per user per minute, 120 successful messages per
+conversation per hour, 500 successful messages per user per rolling 24 hours,
+and a 10-minute content-free unread-email debounce. These beta controls do not
+change or weaken the existing invite quota.
+
 ## Required release sequence
 
 1. Prove the canonical geography cutover on both a supported fresh baseline and
@@ -58,6 +70,9 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
    concurrency-safe outbox leasing, and invite-expiry enforcement.
 7. Run the full migration/security suite on staging with production-like data.
 8. Activate the reviewed LA County city/ZCTA allowlist through the exact-hash release command. **Applied and reconciled 2026-07-12.**
+9. Rehearse Guided Messaging V1 on a guarded disposable database, prove its
+   participant/RLS/block/send/backfill matrix, then enable only the reviewed
+   staff/demo cohort.
 
 ## LA launch blockers by owner
 
@@ -81,6 +96,11 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
   outsider, expired-invite, accepted-invite, and suspended-user connections.
 - Keep customer hard deletion disabled until retention, Storage, outbox, and
   audited purge behavior is implemented.
+- Guided Messaging V1 requires a maintenance/traffic-drain cutover because its
+  schema and invite-trigger contract cannot overlap safely with the old app.
+  Keep invite writes stopped from the first migration statement until the exact
+  approved app SHA is deployed and smoke-tested; the feature flag is not a
+  substitute for this cutover.
 
 ### Public and seller data contracts
 
@@ -102,6 +122,32 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
 - Prove property identity invalidation, structured current-version approval,
   rolling-24-hour quota serialization, and expired-invite rejection against a
   disposable then staging database.
+
+### Guided messaging and moderation
+
+- Confirm any credentials exposed in source packets or archives were rotated
+  or revoked. CI scans tracked repository text (including force-tracked local
+  environment files) and ZIP files present in the scanned workspace. A release
+  packet is not covered by CI unless it is supplied to that workspace; record
+  a separate approved scan for external or non-ZIP binary packets/archives.
+- Obtain fair-housing counsel approval for every guided template and the
+  moderation/enforcement policy before public use.
+- Publish a counsel-approved retention, de-identification, legal-hold, and
+  deletion rule. The 24-month idea remains a proposal and no automatic message
+  deletion is authorized yet.
+- Prove fresh and representative upgrade backfill, exactly two invite-derived
+  participants, message-sender constraints, immutable evidence, keyset reads,
+  idempotent sends, and block/send linearization on a guarded disposable
+  database.
+- Prove private `conversation:<uuid>` Realtime joins on Supabase with public
+  channels disabled. Events may contain only conversation/message/type IDs;
+  canonical reads must reject outsiders and suspended users even if a stale
+  socket remains connected.
+- Staff the report queue and audit report-content reads, status changes, and
+  redactions. There is no unrestricted admin inbox.
+- Keep `LIBER_MESSAGING_V1_ENABLED` disabled by default in production and use
+  `LIBER_MESSAGING_V1_COHORT_USER_IDS` for the reviewed cohort. Both
+  participants must be eligible before interactive messaging is exposed.
 
 ### Release infrastructure
 
@@ -127,6 +173,9 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
 - Configure `CRON_SECRET` before scheduled maintenance is enabled.
 - Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` before relying on invite
   email delivery.
+- Unread-message email is also outbox-backed and content-free. Do not enable it
+  until the per-minute worker schedule and cancel-on-read/block revalidation
+  are proven.
 - Enable Supabase Auth leaked-password protection before public launch. It
   remains disabled because this pass had neither an authenticated Dashboard
   session nor a supported Management API control for the setting.

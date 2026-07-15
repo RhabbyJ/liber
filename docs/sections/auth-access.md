@@ -21,6 +21,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - `apps/web/app/login/page.tsx`
 - `apps/web/app/profile/page.tsx`
 - `apps/web/app/signup/page.tsx`
+- `apps/web/app/messages/**`
 
 ## Invariants
 
@@ -29,6 +30,9 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Verified callbacks and successful password logins idempotently ensure a SELLER has an access row. A new row starts `PENDING`; an existing review status is preserved, and neither path can approve access.
 - Admin cannot be self-assigned through customer UI.
 - Suspended users must not continue into protected workflows.
+- `/messages` and every conversation API require an active authenticated
+  application user. Participant membership is checked server-side on every
+  canonical operation; a role alone never grants conversation access.
 - Suspension updates application user/profile/seller/property/invite state atomically, enqueues a retryable Supabase Auth ban, and relies on current-status Storage policies to block still-valid JWTs immediately.
 - Authorization must be server-side.
 - Only the validated active server session may switch the homepage from the
@@ -41,7 +45,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Signup uses two presentation steps: confirm buyer/seller intent, then enter the private name, email, and password fields. Role-prefilled entry still opens on Step 1 with the role visibly selected; field-level server-error recovery reopens Step 2.
 - Signed-in users should continue only when they already have the role needed for the requested path; a role mismatch returns them to their existing default workspace.
 - Auth routes must not use `/login`, `/signup`, `/signup/*`, `/auth/callback`, or the removed legacy `/onboarding/role` path as post-login destinations; resolve stale auth-flow `next` values to the user's role-aware default.
-- Auth POST redirects and same-origin checks must use `request-origin.ts` to keep the incoming request host/protocol and avoid local `127.0.0.1`/`localhost` CSP and cookie mismatches.
+- Auth POST redirects and same-origin checks must use `request-origin.ts` to keep the incoming request host/protocol and avoid local `127.0.0.1`/`localhost` CSP and cookie mismatches. Mutations accept an exact matching `Origin`, or `Sec-Fetch-Site: same-origin` only when `Origin` is absent; missing both signals fails closed.
 - Password login has one write path: `POST /api/auth/login`. Do not reintroduce a duplicate login server action with separate identity checks.
 - Server-side signup errors should return to the relevant wizard pane instead of restarting the user at the role/name step. Do not put the private signup account name in URLs; same-browser draft recovery is acceptable for error recovery.
 - Logout is a POST-only auth action. Desktop and mobile logout controls must submit successfully under the CSP `form-action` policy, clear Supabase cookies, and land on `/login?status=signed-out`.
@@ -70,6 +74,12 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
   runtime, including Preview, must provide its own 32+ character
   `AUTH_RATE_LIMIT_PEPPER`; production-mode runtimes fail closed when it is
   unavailable.
+- Readiness rejects secret/service-role Supabase keys in the browser variable
+  and publishable/anon keys in the server-only variable. Legacy JWT keys must
+  carry the expected `anon` or `service_role` claim.
+- Production Auth callbacks and email links share server-only `SITE_URL`; the
+  browser URL variable is never a production fallback. Readiness requires a
+  canonical HTTPS origin without credentials, path, query, or fragment.
 - Supabase failures are classified from structured status/code values. For an
   opaque database-trigger failure, the server performs a normalized application
   email lookup after signup fails; it never parses vendor error-message text to

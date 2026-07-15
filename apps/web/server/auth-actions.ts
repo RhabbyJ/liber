@@ -13,6 +13,7 @@ import { enforceSharedAuthRateLimit } from "./auth-rate-limit";
 import type { AppRole } from "./authz";
 import { clientIpFromHeaders } from "./rate-limit";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
+import { configuredSiteOrigin } from "./site-origin";
 
 function requiredText(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -267,10 +268,8 @@ async function identityFailureLoginPath(
 }
 
 async function authCallbackUrl(next: string) {
-  const origin =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.SITE_URL ||
-    "http://localhost:3000";
+  const origin = configuredSiteOrigin();
+  if (!origin) throw new Error("Authentication callback origin is not configured.");
   const url = new URL("/auth/callback", origin);
   url.searchParams.set("next", next);
   return url.toString();

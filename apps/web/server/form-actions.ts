@@ -17,7 +17,6 @@ import {
   updateSellerProperty,
 } from "./contracts";
 import { saveBuyerProfile } from "./buyer/commands";
-import { requireApprovedSellerAccess } from "./access";
 import {
   buyerProfileFormMessage,
   type BuyerProfileFormState,
@@ -91,17 +90,20 @@ export async function submitSellerPropertyUpdate(formData: FormData) {
 }
 
 export async function submitInvite(formData: FormData) {
-  await requireApprovedSellerAccess();
   const propertyId = formData.get("propertyId");
 
   if (typeof propertyId !== "string") {
     throw new Error("Property is required.");
   }
 
-  await sendInvite(formData);
+  const { data: invite } = await sendInvite(formData);
   revalidatePath("/seller/invites");
   revalidatePath(`/seller/properties/${propertyId}/edit`);
   revalidatePath("/buyer/notifications");
+  if (invite.conversationAvailable && invite.conversationId) {
+    redirect(`/messages/${invite.conversationId}`);
+  }
+  redirect("/seller/invites");
 }
 
 export async function submitDocumentReview(formData: FormData) {

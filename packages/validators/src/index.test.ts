@@ -1,15 +1,33 @@
 import { describe, expect, it } from "vitest";
 import {
+  blockConversationSchema,
+  buyerGuidedMessageTemplateKeyValues,
+  conversationListQuerySchema,
+  conversationMessagesQuerySchema,
+  conversationRouteParamsSchema,
   createBuyerProfileSchema,
   createSellerPropertySchema,
   grantBadgeSchema,
+  guidedMessageTemplateKeySchema,
+  markConversationReadSchema,
+  messageBodySchema,
+  messageReportCategorySchema,
+  muteConversationSchema,
+  reportMessageSchema,
+  resolveMessageReportSchema,
   reviewDocumentSchema,
   searchBuyersSchema,
   sellerAccessReviewSchema,
+  sellerGuidedMessageTemplateKeyValues,
+  sendConversationMessageSchema,
   sendInviteSchema,
   updateBuyerProfileSchema,
   upsertBuyerCriteriaSchema,
 } from "./index";
+
+const conversationId = "019f62c5-1c07-7a62-9f9a-8302778aa011";
+const messageId = "019f62c5-1c07-7a62-9f9a-8302778aa012";
+const clientMessageId = "019f62c5-1c07-7a62-9f9a-8302778aa013";
 
 describe("Liber validators", () => {
   it("rejects reversed buyer budget ranges", () => {
@@ -111,11 +129,200 @@ describe("Liber validators", () => {
       sendInviteSchema.parse({
         buyerProfileId: "buyer-1",
         propertyId: "property-1",
-        title: "Fit",
-        message: "This looks aligned.",
+        templateKey: "SELLER_PRIVATE_VIEWING",
+        templateVersion: 1,
         termsAccepted: false,
       }),
     ).toThrow();
+  });
+
+  it("accepts only a versioned seller template and optional normalized invite note", () => {
+    expect(sendInviteSchema.parse({
+      buyerProfileId: "buyer-1",
+      note: "  Cafe\u0301\r\nviewing?  ",
+      propertyId: "property-1",
+      templateKey: "SELLER_MORE_DETAILS",
+      templateVersion: 1,
+      termsAccepted: true,
+    })).toEqual({
+      buyerProfileId: "buyer-1",
+      note: "Caf\u00e9\nviewing?",
+      propertyId: "property-1",
+      templateKey: "SELLER_MORE_DETAILS",
+      templateVersion: 1,
+      termsAccepted: true,
+    });
+
+    expect(() => sendInviteSchema.parse({
+      buyerProfileId: "buyer-1",
+      propertyId: "property-1",
+      templateKey: "BUYER_MORE_DETAILS",
+      templateVersion: 1,
+      termsAccepted: true,
+    })).toThrow();
+
+    expect(sendInviteSchema.parse({
+      buyerProfileId: "buyer-1",
+      note: "   ",
+      propertyId: "property-1",
+      templateKey: "SELLER_NEXT_STEPS",
+      templateVersion: 1,
+      termsAccepted: true,
+    }).note).toBeUndefined();
+    expect(() => sendInviteSchema.parse({
+      buyerProfileId: "buyer-1",
+      propertyId: "property-1",
+      templateKey: "SELLER_MORE_DETAILS",
+      templateVersion: 2,
+      termsAccepted: true,
+    })).toThrow();
+  });
+
+  it("removes client-authored invite title and message fields from the contract", () => {
+    expect(() => sendInviteSchema.parse({
+      buyerProfileId: "buyer-1",
+      message: "Client-rendered copy must not be accepted.",
+      propertyId: "property-1",
+      templateKey: "SELLER_NEXT_STEPS",
+      templateVersion: 1,
+      termsAccepted: true,
+      title: "Client title",
+    })).toThrow();
+  });
+
+  it("allowlists all reviewed guided-message template keys", () => {
+    for (const templateKey of [
+      ...sellerGuidedMessageTemplateKeyValues,
+      ...buyerGuidedMessageTemplateKeyValues,
+    ]) {
+      expect(guidedMessageTemplateKeySchema.parse(templateKey)).toBe(templateKey);
+    }
+    expect(() => guidedMessageTemplateKeySchema.parse("CUSTOM_PROMPT")).toThrow();
+  });
+
+  it("validates strict guided and free-text message bodies", () => {
+    expect(sendConversationMessageSchema.parse({
+      clientMessageId,
+      kind: "GUIDED",
+      templateKey: "BUYER_SCHEDULE_VIEWING",
+      templateVersion: 1,
+    })).toEqual({
+      clientMessageId,
+      kind: "GUIDED",
+      templateKey: "BUYER_SCHEDULE_VIEWING",
+      templateVersion: 1,
+    });
+
+    const freeText = sendConversationMessageSchema.parse({
+      body: "  Cafe\u0301\rquestion  ",
+      clientMessageId,
+      kind: "FREE_TEXT",
+    });
+    expect(freeText.kind === "FREE_TEXT" ? freeText.body : null).toBe("Caf\u00e9\nquestion");
+
+    expect(() => sendConversationMessageSchema.parse({
+      body: "The server renders guided text.",
+      clientMessageId,
+      kind: "GUIDED",
+      templateKey: "BUYER_MORE_DETAILS",
+      templateVersion: 1,
+    })).toThrow();
+    expect(() => sendConversationMessageSchema.parse({ clientMessageId, kind: "SYSTEM" })).toThrow();
+    expect(() => sendConversationMessageSchema.parse({ clientMessageId, kind: "INVITE" })).toThrow();
+  });
+
+  it("rejects empty, oversized, null-containing, and malformed Unicode text", () => {
+    expect(() => messageBodySchema.parse(" \r\n ")).toThrow();
+    expect(() => messageBodySchema.parse("x".repeat(2001))).toThrow();
+    expect(messageBodySchema.parse("\ud83c\udfe1".repeat(2000))).toHaveLength(4000);
+    expect(() => messageBodySchema.parse("\ud83c\udfe1".repeat(2001))).toThrow("at most 2000 characters");
+    expect(() => messageBodySchema.parse("hello\u0000world")).toThrow();
+    expect(() => messageBodySchema.parse("broken\ud800")).toThrow("malformed Unicode");
+    expect(() => messageBodySchema.parse("broken\udfff")).toThrow("malformed Unicode");
+    expect(messageBodySchema.parse("<script>alert(1)</script>")).toBe("<script>alert(1)</script>");
+  });
+
+  it("validates UUID route and read-state inputs", () => {
+    expect(conversationRouteParamsSchema.parse({ conversationId: ` ${conversationId} ` })).toEqual({
+      conversationId,
+    });
+    expect(markConversationReadSchema.parse({ lastReadMessageId: messageId })).toEqual({
+      lastReadMessageId: messageId,
+    });
+    expect(() => conversationRouteParamsSchema.parse({ conversationId: "conversation-1" })).toThrow();
+    expect(() => markConversationReadSchema.parse({ lastReadMessageId: "message-1" })).toThrow();
+  });
+
+  it("validates mute, block, report, and report-resolution inputs", () => {
+    expect(muteConversationSchema.parse({ muted: true })).toEqual({ muted: true });
+    expect(blockConversationSchema.parse({ reason: "  repeated spam  " })).toEqual({ reason: "repeated spam" });
+
+    for (const category of messageReportCategorySchema.options) {
+      expect(reportMessageSchema.parse({ category })).toEqual({
+        block: false,
+        category,
+      });
+    }
+    expect(reportMessageSchema.parse({ block: true, category: "SPAM", details: "  Repeated links. " })).toEqual({
+      block: true,
+      category: "SPAM",
+      details: "Repeated links.",
+    });
+    expect(() => reportMessageSchema.parse({ category: "DISLIKE" })).toThrow();
+    expect(() => resolveMessageReportSchema.parse({ status: "ACTIONED" })).toThrow();
+    expect(() => resolveMessageReportSchema.parse({ redactMessage: true, status: "IN_REVIEW" })).toThrow();
+    expect(() => resolveMessageReportSchema.parse({ resolution: "Not needed yet.", status: "IN_REVIEW" })).toThrow();
+    expect(() => resolveMessageReportSchema.parse({ status: "DISMISSED" })).toThrow();
+    expect(() => resolveMessageReportSchema.parse({
+      redactMessage: true,
+      resolution: "No violation.",
+      status: "DISMISSED",
+    })).toThrow();
+    expect(resolveMessageReportSchema.parse({
+      resolution: "  No policy violation. ",
+      status: "DISMISSED",
+    })).toEqual({
+      resolution: "No policy violation.",
+      status: "DISMISSED",
+    });
+    expect(resolveMessageReportSchema.parse({
+      redactMessage: true,
+      resolution: "  Removed from participant view. ",
+      status: "ACTIONED",
+    })).toEqual({
+      redactMessage: true,
+      resolution: "Removed from participant view.",
+      status: "ACTIONED",
+    });
+  });
+
+  it("defaults conversation message pagination to a bounded keyset page", () => {
+    expect(conversationMessagesQuerySchema.parse({})).toEqual({ pageSize: 50 });
+    expect(conversationMessagesQuerySchema.parse({ cursor: "opaque", pageSize: "100" })).toEqual({
+      cursor: "opaque",
+      pageSize: 100,
+    });
+    expect(conversationMessagesQuerySchema.parse({ after: messageId })).toEqual({
+      after: messageId,
+      pageSize: 50,
+    });
+    expect(conversationMessagesQuerySchema.parse({ after: "server-signed-cursor" })).toEqual({
+      after: "server-signed-cursor",
+      pageSize: 50,
+    });
+    expect(() => conversationMessagesQuerySchema.parse({ after: messageId, cursor: "opaque" })).toThrow(
+      "either after or cursor",
+    );
+    expect(() => conversationMessagesQuerySchema.parse({ pageSize: 101 })).toThrow();
+  });
+
+  it("bounds conversation inbox pagination", () => {
+    expect(conversationListQuerySchema.parse({})).toEqual({ pageSize: 25 });
+    expect(conversationListQuerySchema.parse({ cursor: "opaque", pageSize: "50" })).toEqual({
+      cursor: "opaque",
+      pageSize: 50,
+    });
+    expect(() => conversationListQuerySchema.parse({ pageSize: 51 })).toThrow();
   });
 
   it("keeps seller property input structured", () => {

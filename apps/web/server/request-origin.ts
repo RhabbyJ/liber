@@ -13,5 +13,7 @@ export function requestUrl(request: NextRequest, path: string) {
 
 export function isRequestSameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
-  return !origin || origin === requestOrigin(request);
+  if (origin) return origin === requestOrigin(request);
+
+  return request.headers.get("sec-fetch-site") === "same-origin";
 }

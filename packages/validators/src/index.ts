@@ -47,6 +47,184 @@ export const inviteStatusSchema = z.enum([
   "WITHDRAWN",
 ]);
 
+export const sellerGuidedMessageTemplateKeyValues = [
+  "SELLER_PRIVATE_VIEWING",
+  "SELLER_MORE_DETAILS",
+  "SELLER_TIMING_AND_PLANS",
+  "SELLER_NEXT_STEPS",
+] as const;
+
+export const buyerGuidedMessageTemplateKeyValues = [
+  "BUYER_SCHEDULE_VIEWING",
+  "BUYER_MORE_DETAILS",
+  "BUYER_PROPERTY_CONDITION",
+  "BUYER_INTERESTED_QUESTIONS",
+  "BUYER_NOT_A_FIT",
+] as const;
+
+export const guidedMessageTemplateKeyValues = [
+  ...sellerGuidedMessageTemplateKeyValues,
+  ...buyerGuidedMessageTemplateKeyValues,
+] as const;
+
+export const sellerGuidedMessageTemplateKeySchema = z.enum(
+  sellerGuidedMessageTemplateKeyValues,
+);
+export const buyerGuidedMessageTemplateKeySchema = z.enum(
+  buyerGuidedMessageTemplateKeyValues,
+);
+export const guidedMessageTemplateKeySchema = z.enum(
+  guidedMessageTemplateKeyValues,
+);
+export const guidedMessageTemplateVersionSchema = z.literal(1);
+
+export const messageReportCategorySchema = z.enum([
+  "HARASSMENT_OR_THREAT",
+  "DISCRIMINATORY_CONTENT",
+  "FRAUD_OR_SCAM",
+  "SPAM",
+  "SENSITIVE_INFORMATION_REQUEST",
+  "OFF_PLATFORM_PAYMENT_REQUEST",
+  "OTHER",
+]);
+
+function hasWellFormedUtf16(value: string) {
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      if (index + 1 >= value.length) return false;
+      const nextCodeUnit = value.charCodeAt(index + 1);
+      if (nextCodeUnit < 0xdc00 || nextCodeUnit > 0xdfff) return false;
+      index += 1;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function normalizedPlainTextSchema(maxLength: number) {
+  return z.string()
+    .superRefine((value, context) => {
+      if (!hasWellFormedUtf16(value)) {
+        context.addIssue({
+          code: "custom",
+          message: "Text contains malformed Unicode.",
+        });
+      }
+      if (value.includes("\u0000")) {
+        context.addIssue({
+          code: "custom",
+          message: "Text contains an unsupported null character.",
+        });
+      }
+    })
+    .transform((value) => value.normalize("NFC").replace(/\r\n?/g, "\n").trim())
+    .pipe(z.string().min(1).superRefine((value, context) => {
+      if (Array.from(value).length > maxLength) {
+        context.addIssue({
+          code: "custom",
+          message: `Text must contain at most ${maxLength} characters.`,
+        });
+      }
+    }));
+}
+
+export const messageBodySchema = normalizedPlainTextSchema(2000);
+export const messageNoteSchema = normalizedPlainTextSchema(500);
+export const reportDetailsSchema = normalizedPlainTextSchema(2000);
+export const moderationResolutionSchema = normalizedPlainTextSchema(2000);
+export const optionalMessageNoteSchema = z.preprocess(
+  (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
+  messageNoteSchema.optional(),
+);
+
+const cuidBackedIdSchema = z.string().trim().min(1).max(200);
+export const conversationIdSchema = z.string().trim().uuid();
+export const messageIdSchema = z.string().trim().uuid();
+export const messageReportIdSchema = z.string().trim().uuid();
+export const clientMessageIdSchema = z.string().trim().uuid();
+
+export const conversationRouteParamsSchema = z.object({
+  conversationId: conversationIdSchema,
+}).strict();
+
+export const messageRouteParamsSchema = z.object({
+  messageId: messageIdSchema,
+}).strict();
+
+export const messageReportRouteParamsSchema = z.object({
+  reportId: messageReportIdSchema,
+}).strict();
+
+const guidedMessageSchema = z.object({
+  clientMessageId: clientMessageIdSchema,
+  kind: z.literal("GUIDED"),
+  templateKey: guidedMessageTemplateKeySchema,
+  templateVersion: guidedMessageTemplateVersionSchema,
+}).strict();
+
+const freeTextMessageSchema = z.object({
+  body: messageBodySchema,
+  clientMessageId: clientMessageIdSchema,
+  kind: z.literal("FREE_TEXT"),
+}).strict();
+
+export const sendConversationMessageSchema = z.discriminatedUnion("kind", [
+  guidedMessageSchema,
+  freeTextMessageSchema,
+]);
+
+export const markConversationReadSchema = z.object({
+  lastReadMessageId: messageIdSchema,
+}).strict();
+
+export const muteConversationSchema = z.object({
+  muted: z.boolean(),
+}).strict();
+
+export const blockConversationSchema = z.object({
+  reason: messageNoteSchema.optional(),
+}).strict();
+
+export const reportMessageSchema = z.object({
+  block: z.boolean().default(false),
+  category: messageReportCategorySchema,
+  details: reportDetailsSchema.optional(),
+}).strict();
+
+export const resolveMessageReportSchema = z.discriminatedUnion("status", [
+  z.object({
+    redactMessage: z.literal(false).optional(),
+    resolution: z.undefined().optional(),
+    status: z.literal("IN_REVIEW"),
+  }).strict(),
+  z.object({
+    redactMessage: z.boolean().optional(),
+    resolution: moderationResolutionSchema,
+    status: z.literal("ACTIONED"),
+  }).strict(),
+  z.object({
+    redactMessage: z.literal(false).optional(),
+    resolution: moderationResolutionSchema,
+    status: z.literal("DISMISSED"),
+  }).strict(),
+]);
+
+export const conversationMessagesQuerySchema = z.object({
+  after: z.string().trim().min(1).max(2048).optional(),
+  cursor: z.string().trim().min(1).max(2048).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+}).strict().refine((input) => !(input.after && input.cursor), {
+  message: "Use either after or cursor, not both.",
+  path: ["after"],
+});
+
+export const conversationListQuerySchema = z.object({
+  cursor: z.string().trim().min(1).max(2048).optional(),
+  pageSize: z.coerce.number().int().min(1).max(50).default(25),
+}).strict();
+
 const optionalMoney = z.coerce.number().min(0).optional();
 const optionalInteger = z.coerce.number().int().min(0).optional();
 export const marketSlugSchema = z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/);
@@ -202,12 +380,13 @@ export const updateSellerPropertySchema = createSellerPropertySchema.partial().e
 });
 
 export const sendInviteSchema = z.object({
-  buyerProfileId: z.string().min(1),
-  propertyId: z.string().min(1),
-  title: z.string().trim().min(1).max(140),
-  message: z.string().trim().min(1).max(2000),
+  buyerProfileId: cuidBackedIdSchema,
+  propertyId: cuidBackedIdSchema,
+  templateKey: sellerGuidedMessageTemplateKeySchema,
+  templateVersion: guidedMessageTemplateVersionSchema,
+  note: optionalMessageNoteSchema,
   termsAccepted: z.literal(true),
-});
+}).strict();
 
 export const searchBuyersSchema = z.object({
   market: marketSlugSchema,
@@ -323,6 +502,12 @@ export type UpsertBuyerCriteriaInput = z.infer<typeof upsertBuyerCriteriaSchema>
 export type CreateSellerPropertyInput = z.infer<typeof createSellerPropertySchema>;
 export type UpdateSellerPropertyInput = z.infer<typeof updateSellerPropertySchema>;
 export type SendInviteInput = z.infer<typeof sendInviteSchema>;
+export type SendConversationMessageInput = z.infer<typeof sendConversationMessageSchema>;
+export type MarkConversationReadInput = z.infer<typeof markConversationReadSchema>;
+export type MuteConversationInput = z.infer<typeof muteConversationSchema>;
+export type BlockConversationInput = z.infer<typeof blockConversationSchema>;
+export type ReportMessageInput = z.infer<typeof reportMessageSchema>;
+export type ResolveMessageReportInput = z.infer<typeof resolveMessageReportSchema>;
 export type SearchBuyersInput = z.infer<typeof searchBuyersSchema>;
 export type SellerAccessReviewInput = z.infer<typeof sellerAccessReviewSchema>;
 export type CreateUploadSessionInput = z.infer<typeof createUploadSessionSchema>;

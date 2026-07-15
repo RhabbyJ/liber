@@ -2,7 +2,6 @@ import type { PropertySubtype } from "./property-types";
 
 export type SellerPropertyDTO = {
   id: string;
-  ownerUserId: string;
   title: string;
   location: string;
   price: number;
@@ -22,7 +21,6 @@ export type SellerPropertyDTO = {
 
 export type InviteDTO = {
   id: string;
-  sellerId: string;
   buyerProfileId: string;
   propertyId: string;
   buyer: string;
@@ -35,4 +33,6 @@ export type InviteDTO = {
   title: string;
   message: string;
   imageIds?: string[];
+  conversationAvailable?: boolean;
+  conversationId?: string;
 };

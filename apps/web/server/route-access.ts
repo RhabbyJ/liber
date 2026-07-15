@@ -1,7 +1,9 @@
 import type { AppRole } from "./authz";
 
 export function requiresAuthenticatedUser(pathname: string) {
-  return isPathSegment(pathname, "/buyers") || requiredRoleForPath(pathname) !== null;
+  return isPathSegment(pathname, "/buyers")
+    || isPathSegment(pathname, "/messages")
+    || requiredRoleForPath(pathname) !== null;
 }
 
 export function requiredRoleForPath(pathname: string): AppRole | null {

@@ -61,6 +61,12 @@ export default async function BuyerInvitesPage() {
                     {invite.status}
                   </span>
                   <div className="actions inline">
+                    {invite.conversationAvailable && invite.conversationId ? (
+                      <Link className="button secondary" href={`/messages/${invite.conversationId}`}>
+                        <Icon name="message" size={14} />
+                        Open conversation
+                      </Link>
+                    ) : null}
                     <form action={respondToBuyerInvite}>
                       <input name="inviteId" type="hidden" value={invite.id} />
                       <input name="response" type="hidden" value="DECLINED" />

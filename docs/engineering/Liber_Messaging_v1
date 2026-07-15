@@ -1,0 +1,502 @@
+# Liber Guided Messaging V1 — Decision Memo
+
+**Date:** July 14, 2026
+**Decision:** Build a native, invite-scoped guided conversation feature on Liber's existing Next.js, PostgreSQL/Prisma, Supabase Auth/Realtime, Vercel, and email-outbox stack. Do not purchase a standalone chat platform for this version.
+
+**Implementation approval:** Approved by the product-owner request on July 14,
+2026, subject to the controlled-preview and public-launch gates in the product
+definition and production decision matrix.
+
+**Resolved beta constants:** one curated seller follow-up after 24 hours; 20
+send attempts per user per minute; 120 successful messages per conversation per
+rolling hour; 500 successful messages per user per rolling 24 hours; and a
+10-minute content-free unread-email debounce. Blocking is permanent in V1, the
+buyer sees a generic property-seller label, and the “not a fit” quick reply does
+not silently decline an invite.
+
+## Executive recommendation
+
+Messaging should not become a separate social network inside Liber. It should be a controlled continuation of the existing manual property invite:
+
+1. An approved seller sends a valid invite tied to one privately held, currently ownership-approved property.
+2. That invite creates exactly one conversation between the seller and the invited buyer.
+3. Liber presents curated opening questions and quick replies, while also allowing plain-text free-form questions.
+4. The conversation remains bounded by the invite, property identity, account status, anti-spam limits, blocking, and reporting.
+5. Liber stores the canonical messages in PostgreSQL. Supabase Realtime only tells an authorized browser that something changed; the browser then fetches the canonical message through Liber's server.
+6. The first release excludes attachments, images in chat, group chat, calls, typing indicators, reactions, editing, deletion, message search, AI autopunishment, transaction terms, offers, escrow, and money movement.
+
+This is a medium-sized extension of the current workflow, not a new infrastructure company. The hard parts are authorization, lifecycle rules, moderation, and testing—not the text box or WebSocket.
+
+## Review boundary
+
+The packet includes application code, product documentation, mockups, tests, and architecture evidence. It intentionally excludes `packages/`, including the actual Prisma schema, migrations, and validator package. Therefore, this memo can define the correct model and implementation boundary, but an engineer must inspect the full repository before writing the exact migration or validator changes.
+
+## What the current product already provides
+
+The current invite is the correct security and product anchor. It already binds:
+
+- the approved seller,
+- the active buyer profile,
+- one seller-owned private property,
+- the property's current identity version,
+- invite status and expiration,
+- in-app notifications,
+- queued email,
+- audit events,
+- seller invite quotas and rate limits.
+
+The code also already has the relevant UI insertion points:
+
+- seller invite composer,
+- buyer invite inbox,
+- seller sent-invite log,
+- buyer and seller notifications,
+- admin invite review,
+- an empty admin Reports page.
+
+The existing product definition currently requires explicit product-owner approval for buyer/seller messaging beyond the invite workflow, and the roadmap currently places structured invite Q&A in V2. The CEO's new direction should therefore be captured in a written scope change before implementation.
+
+## Product definition to approve before coding
+
+Add a written “Guided Messaging V1” section to the controlled product definition with the following rules.
+
+### Entry condition
+
+A conversation may exist only when a server-authorized seller successfully creates a valid invite. A public visitor, unapproved seller, suspended user, or arbitrary user ID may never create or join a conversation.
+
+### Conversation participants
+
+Exactly two application users participate:
+
+- the invite's seller, and
+- the user who owns the invite's buyer profile.
+
+No group conversations and no adding participants in V1.
+
+### Permitted purpose
+
+Messages are for:
+
+- property questions,
+- private-viewing logistics,
+- property condition and feature questions,
+- timing and next-step coordination,
+- requests for additional information through approved Liber flows.
+
+Messages are not offers, counteroffers, contracts, legal acceptance, escrow instructions, payment directions, earnest-money custody, or automated transaction execution.
+
+### Lifecycle
+
+Recommended conversation states:
+
+- **AWAITING_BUYER:** Initial invite delivered. Buyer can respond. Seller may send no more than one curated follow-up after a cooling-off period.
+- **ACTIVE:** Buyer has replied or accepted. Both parties may send guided or free-text messages.
+- **READ_ONLY:** Invite was declined, expired, withdrawn, property identity changed, or an account lost eligibility. History remains visible to authorized participants, but sending is disabled.
+- **BLOCKED:** One participant blocked the other. Sending stops immediately, active invites between the parties are closed, and future invitations are prevented.
+
+An accepted invite should keep the conversation open. A declined, expired, or withdrawn invite should close it. A property identity change should freeze the thread, display a system notice, preserve the text history, and rely on the existing private-image rules to revoke stale property-image access.
+
+### Explicit V1 non-goals
+
+Do not include:
+
+- attachments or chat image uploads,
+- clickable external links,
+- phone/video calls,
+- voice messages,
+- group chat,
+- message editing or user hard-deletion,
+- reactions, threads, mentions, or typing indicators,
+- public profiles or unsolicited DMs,
+- full-text message search,
+- end-to-end encryption claims,
+- automatic AI punishment,
+- offers, contracts, payments, escrow, or funds custody.
+
+## Guided messaging experience
+
+The CEO's “dictated” messaging should be implemented as structured templates, not merely placeholder copy.
+
+Each guided message should store:
+
+- a stable `templateKey`,
+- a `templateVersion`,
+- the rendered text snapshot shown and sent to the recipient,
+- the sender and timestamp.
+
+That gives Liber controlled copy, analytics, auditability, and the ability to update future templates without changing old messages.
+
+### Seller opening choices
+
+Examples for legal/product review:
+
+- “Would you like to schedule a private viewing of this property?”
+- “Would you like more photos or property details?”
+- “Does this property appear to fit your timing and purchase plans?”
+- “Would you like to discuss the property and possible next steps?”
+
+The seller may choose a template, optionally add a short plain-text note, and send. The free-form invite title should be removed or automatically generated from the property; it adds little value and creates another moderation surface.
+
+### Buyer quick replies
+
+Examples:
+
+- “I would like to schedule a viewing.”
+- “Please send more property details.”
+- “What condition is the property in?”
+- “I am interested and have a few questions.”
+- “This property is not a fit for me.”
+
+### Free text
+
+Free text should remain available because a property discussion cannot be fully scripted. The composer should be plain text only, with a proposed 2,000-character server-enforced maximum. Do not support HTML or Markdown.
+
+### Persistent safety copy
+
+Display near the composer:
+
+> Keep messages about the property, viewing logistics, timing, and legitimate purchase-readiness questions. Do not ask about protected personal characteristics. This conversation is not an offer, contract, escrow instruction, or payment request.
+
+## Recommended data model
+
+Names are illustrative until the full Prisma package is available.
+
+### `Conversation`
+
+- `id` UUID
+- `inviteId` UUID, unique
+- `status` enum: `AWAITING_BUYER`, `ACTIVE`, `READ_ONLY`, `BLOCKED`
+- `closedReason` nullable enum
+- `lastMessageAt`
+- `createdAt`
+- `updatedAt`
+
+There must be a database-level unique constraint on `inviteId`, so concurrent retries cannot create two threads for one invite.
+
+### `ConversationParticipant`
+
+- `conversationId`
+- `userId`
+- `role` enum: `SELLER`, `BUYER`
+- `lastReadAt`
+- `mutedAt` nullable
+- `createdAt`
+
+Primary key: `(conversationId, userId)`.
+
+This table makes participant authorization and Supabase Realtime channel authorization simple and explicit.
+
+### `Message`
+
+- `id` UUID
+- `conversationId`
+- `senderUserId`
+- `kind` enum: `INVITE`, `GUIDED`, `FREE_TEXT`, `SYSTEM`
+- `templateKey` nullable
+- `templateVersion` nullable
+- `body` plain text
+- `clientMessageId` UUID supplied by the client for idempotency
+- `moderationStatus` enum: `ALLOWED`, `FLAGGED`, `REDACTED`
+- `createdAt`
+
+Constraints and indexes:
+
+- unique `(conversationId, clientMessageId)`,
+- check body length and non-empty normalized content,
+- index `(conversationId, createdAt DESC, id DESC)`,
+- index `(senderUserId, createdAt)` for abuse review and rate-limit support.
+
+Messages should be immutable to users in V1. An administrator may redact what is displayed after a documented decision, while retaining the original evidence in restricted moderation storage and recording an audit event.
+
+### `UserBlock`
+
+- `blockerUserId`
+- `blockedUserId`
+- `reason` nullable
+- `createdAt`
+
+Unique `(blockerUserId, blockedUserId)`.
+
+A block should:
+
+- stop both-direction messaging between the pair,
+- close active conversations and invites between the pair,
+- prevent the blocked seller from finding/inviting that buyer again where feasible,
+- return a generic “unavailable” result rather than disclose that a block exists.
+
+### `MessageReport`
+
+- `id`
+- `reporterUserId`
+- `reportedUserId`
+- `conversationId`
+- `messageId`
+- `category`
+- `details` nullable
+- immutable evidence snapshot or evidence reference
+- `status`: `OPEN`, `IN_REVIEW`, `ACTIONED`, `DISMISSED`
+- `reviewedByUserId` nullable
+- `resolution` nullable
+- timestamps
+
+Suggested categories:
+
+- harassment or threat,
+- discriminatory content,
+- fraud or scam,
+- spam,
+- inappropriate request for sensitive information,
+- off-platform payment request,
+- other.
+
+## Server/API design
+
+Keep the existing server-authoritative pattern. The browser should not insert messages directly into a public Supabase table.
+
+Suggested interfaces:
+
+- `GET /api/conversations`
+- `GET /api/conversations/:id/messages?cursor=...`
+- `POST /api/conversations/:id/messages`
+- `POST /api/conversations/:id/read`
+- `POST /api/conversations/:id/block`
+- `POST /api/messages/:id/report`
+- admin report-list and report-resolution actions
+
+A server-side `sendMessage` transaction should:
+
+1. Authenticate the current application user.
+2. Lock the conversation row for the transaction.
+3. Confirm the user is an active participant.
+4. Confirm neither party has blocked the other.
+5. Re-check the invite, property identity, account state, and conversation lifecycle.
+6. Enforce message-type, length, template, and rate-limit rules.
+7. Insert using `clientMessageId` idempotency.
+8. Update `lastMessageAt` and transition `AWAITING_BUYER` to `ACTIVE` when the buyer first replies.
+9. Create any notification/outbox jobs.
+10. Write security/audit metadata without copying the message body into general logs.
+11. Commit; only then publish the realtime event through a database trigger.
+
+Use keyset pagination—approximately 50 messages per page—rather than offset pagination.
+
+## Realtime architecture
+
+The PostgreSQL `Message` table is the source of truth. Supabase Realtime is a delivery hint, not the message database.
+
+Recommended flow:
+
+1. Client sends a message to Liber's authenticated server endpoint.
+2. The server validates and commits it to PostgreSQL.
+3. A PostgreSQL trigger broadcasts a tiny private event on `conversation:<uuid>`.
+4. The event contains only identifiers such as `{ conversationId, messageId, type }`, not the entire sensitive message body.
+5. The subscribed browser receives the event and fetches the canonical authorized message DTO from the Liber server.
+6. On reconnect, window focus, or periodic fallback, the client refetches from its last cursor so no message depends solely on WebSocket delivery.
+
+Supabase private-channel RLS should allow a user to subscribe only when the authenticated Supabase user UUID has a matching `ConversationParticipant` row for the requested topic. Disable public Realtime access for these channels. The browser receives events; it does not broadcast canonical messages directly.
+
+For the lowest-risk first internal milestone, polling every 3–5 seconds can be used before Realtime is added. The production beta should use private Broadcast plus refetch/fallback.
+
+## Rate limits and anti-spam controls
+
+Initial proposed limits, to tune from beta data:
+
+- 20 message-send attempts per user per minute,
+- 120 successful messages per conversation per hour,
+- 500 successful messages per user per rolling 24 hours,
+- one seller follow-up before the buyer replies,
+- no automated resend loops,
+- a short cooldown after repeated validation failures.
+
+Use the existing shared/distributed PostgreSQL rate-limit approach rather than process memory. The database transaction must make the eligibility check and insert atomic so block/send races and duplicate retries fail safely.
+
+## Security requirements
+
+### Authorization
+
+Every list, read, send, read-state, block, and report operation must verify participant membership server-side. Never trust a route UUID, buyer-profile ID, or client-supplied role.
+
+### Content rendering
+
+- Plain text only.
+- Escape/render as text; never use raw HTML.
+- Normalize Unicode and line endings.
+- Trim leading/trailing whitespace.
+- Apply a database check constraint and server validator.
+- Do not automatically make URLs clickable in V1.
+
+### Logging and privacy
+
+Log:
+
+- authentication and authorization failures,
+- rate-limit events,
+- invalid state transitions,
+- block/report/admin actions,
+- Realtime join failures and delivery health,
+- identifiers needed for investigation.
+
+Do not put ordinary message bodies into Vercel logs, Sentry breadcrumbs, PostHog events, general audit metadata, or email-provider logs. Message content should live in the protected message store and restricted moderation evidence only.
+
+### Encryption language
+
+Use TLS in transit and the hosting providers' storage encryption, but do not advertise end-to-end encryption. Liber needs report-driven administrative access for safety and legal operations, which is incompatible with a normal end-to-end-encrypted moderation workflow.
+
+### Retention
+
+Choose and publish a retention rule with counsel before public launch. A workable starting proposal is to retain closed conversation text for 24 months, then delete or de-identify it unless it is attached to an open report, dispute, security incident, or legal hold. This is a product/legal decision, not a technical default.
+
+## Blocking and reporting UX
+
+Each thread should have a clear menu with:
+
+- Report message,
+- Block user,
+- Mute notifications.
+
+Blocking requires confirmation and takes effect immediately on the server. The blocker sees confirmation. The other participant sees only that the conversation is closed or unavailable, not who initiated the block.
+
+Reporting should allow the user to report a specific message, select a reason, optionally add context, and separately choose whether to block. Reporting must not require the victim to continue receiving messages.
+
+The existing admin Reports page should become a queue showing severity, category, users, property/invite context, the reported message plus a small amount of surrounding context, prior report/block counts, and audited action controls. Admin access to conversation content should be report-driven and logged—not an unrestricted casual inbox browser.
+
+## Fair-housing safeguards
+
+Because Liber facilitates residential property outreach in California, every curated template and moderation policy should receive fair-housing counsel review before public launch.
+
+Templates and prompts should never ask about or steer based on protected personal characteristics. Avoid questions about children, religion, nationality, race, age, disability, marital status, sexual orientation, gender identity/expression, citizenship/immigration status, primary language, source of income, or similar protected traits.
+
+Do not rely on a crude keyword auto-block list as the only control. Some protected-class language can appear in legitimate accommodation or accessibility discussions. Use:
+
+- curated safe templates,
+- persistent warning copy,
+- user report/block tools,
+- targeted rule-based flags,
+- human review,
+- legal review of templates and enforcement policy.
+
+Do not launch AI auto-banning. If an automated classifier is added later, use it to prioritize human review and document the vendor's data handling, retention, and appeal process.
+
+## Notifications and email
+
+Use the current Notification and EmailOutbox patterns.
+
+Recommended behavior:
+
+- In-app unread count updates immediately.
+- Do not email for every message.
+- Queue at most one “you have an unread message” email after 10–15 minutes.
+- Cancel the queued email if the user reads the conversation first.
+- Do not include sensitive message content in the email; link the authenticated user back to Liber.
+- Reset the debounce only after the user has read the prior batch.
+
+This avoids spam, reduces email cost, and keeps private content out of inboxes.
+
+## Cost model
+
+### Infrastructure
+
+At private-beta volume, messaging should usually add **$0 in incremental monthly infrastructure cost** if Liber is already paying for production Supabase and Vercel plans and remains within included quotas.
+
+Current public plan baselines reviewed on July 14, 2026:
+
+- Supabase Pro starts at **$25/month** and includes 5 million Realtime messages and 500 peak Realtime connections; excess is billed per message/connection package.
+- Vercel Pro is **$20/month** and includes usage credit and substantial request/function allowances.
+- Resend Free includes **3,000 emails/month**; Pro is **$20/month for 50,000 emails**.
+
+A private 1:1 Broadcast event normally creates only a few billable Realtime messages—the sent event and delivery to subscribed clients. A small beta is far below the included 5 million messages when the payload is an event rather than duplicated chat content.
+
+A specialist managed-chat vendor is several hundred dollars per month before integration effort. It buys mature SDKs, moderation tools, attachments, typing indicators, and other features Liber does not need in this constrained V1. Native implementation is the better economic and architectural fit now.
+
+### Development effort
+
+Planning estimates—not fixed bids:
+
+- **Slim internal MVP:** guided templates, free text, inbox/thread, basic read state, polling, block/report foundations: **80–120 engineering hours**.
+- **Recommended production beta:** schema/backfill, server authorization, guided UX, private Realtime, notification debounce, block/report/admin queue, security/concurrency/accessibility tests, rollout instrumentation: **160–240 engineering hours**.
+
+For a contractor at **$100–$200/hour**, the recommended production beta is approximately **$16,000–$48,000**. One strong engineer familiar with this repository would typically plan roughly **4–6 focused development weeks**, followed by controlled beta hardening. Calendar time increases when the work is part-time or legal/product decisions remain open.
+
+The development cost—not the server bill—is the dominant cost.
+
+## Implementation sequence
+
+### 0. Credential incident cleanup
+
+Rotate/revoke exposed credentials, rebuild the packet, and add archive secret checks.
+
+### 1. Written product/security decision
+
+Update `V1_DEFINITION.md` and `CEO_ROADMAP.md` with the approved lifecycle, templates/free-text rule, non-goals, block/report behavior, retention owner, and fair-housing review requirement.
+
+### 2. Schema and migration
+
+Add conversation, participant, message, block, and report models plus database constraints, indexes, backfill logic, RLS, and property/invite lifecycle integration. Backfill each existing invite into one conversation with its original invite note as the first `INVITE` message.
+
+### 3. Server contracts
+
+Implement list/read/send/read-state/block/report/admin commands. Reuse existing auth, seller-access, active-user, property-identity, distributed-rate-limit, outbox, and audit patterns.
+
+### 4. Guided UI
+
+Create a role-neutral `/messages` inbox and `/messages/[conversationId]` thread. Add “Open conversation” to buyer invite cards and seller invite rows. Pin property, ownership status, invite status, and the manual-invite disclaimer above the thread.
+
+### 5. Moderation operations
+
+Finish user block/report flows and turn the placeholder admin Reports page into a real audited queue.
+
+### 6. Realtime and reliability
+
+Add private Supabase Broadcast, participant RLS, reconnect/refetch logic, focus refresh, and polling fallback. Realtime should never be the only copy of a message.
+
+### 7. Notifications
+
+Add unread counts and debounced email jobs through the existing outbox.
+
+### 8. Controlled release
+
+Ship behind a feature flag to staff/demo accounts, then a manually selected cohort of roughly 20–50 real users. Expand only after authorization tests, abuse handling, and operational review are proven.
+
+## Required acceptance tests
+
+At minimum:
+
+- Fresh migration, upgrade migration, rollback/recovery plan, and invite backfill.
+- Concurrent invite retries still create one conversation.
+- Buyer A cannot list, read, subscribe to, or send in Buyer B's conversation.
+- A seller who is pending, rejected, suspended, or no longer authorized cannot message.
+- Self-invite/self-message remains impossible.
+- Expired, declined, withdrawn, blocked, and identity-invalidated conversations reject sends.
+- Accepted invites continue messaging.
+- Block and send arriving concurrently cannot leak a post-block message.
+- A blocked seller cannot send another invite or infer the block from a special error.
+- Suspended users and stale JWTs lose access immediately.
+- Repeated `clientMessageId` retries create one message.
+- HTML/XSS, oversized, malformed Unicode, and empty payloads fail safely.
+- Unauthorized private Realtime channel joins fail.
+- Reconnect/focus fallback retrieves messages missed while offline.
+- Reports preserve evidence, restrict admin access, and audit every action.
+- No message body appears in general logs or analytics.
+- Mobile keyboard behavior, screen-reader announcements, focus order, and send-error recovery work.
+
+## Launch metrics
+
+Measure behavior without exporting message bodies:
+
+- invite-to-conversation-open rate,
+- buyer first-response rate and median time,
+- guided-template versus free-text usage,
+- viewing-request and more-information selections,
+- invite acceptance/decline after conversation,
+- block and report rates,
+- repeat seller follow-up attempts,
+- send latency and failure rate,
+- Realtime reconnect and fallback-refetch rate,
+- moderation response time.
+
+The success metric is relevant buyer response and property-fit progression—not maximum message volume.
+
+## Final decision
+
+Proceed with messaging, but ship it as **invite-scoped guided conversation**, not general-purpose chat.
+
+The current codebase already has the hardest domain boundaries: verified seller access, private property context, identity-version invalidation, active buyer checks, rate limits, notifications, outbox, and audit logs. Extend those boundaries to conversation participants and messages. Keep PostgreSQL authoritative, use Supabase private Broadcast only for low-latency updates, launch with plain text and strict non-goals, and put block/report/fair-housing controls in the first production release rather than treating them as later polish.

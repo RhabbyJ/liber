@@ -1,5 +1,6 @@
 import { prisma } from "@liber/db";
-import { sendInviteEmail, type InviteEmailInput } from "./email";
+import { sendInviteEmail, sendUnreadMessageEmail, type EmailResult } from "./email";
+import { messagingV1EnabledForPair } from "./messaging/feature";
 
 const MAX_ATTEMPTS = 5;
 const LEASE_MS = 2 * 60_000;
@@ -7,10 +8,11 @@ const LEASE_MS = 2 * 60_000;
 type ClaimedEmailJob = {
   id: string;
   type: string;
-  payload: InviteEmailInput;
   attempts: number;
   idempotencyKey: string;
   inviteId: string | null;
+  messageConversationId: string | null;
+  messageRecipientUserId: string | null;
 };
 
 export async function processEmailOutbox(limit = 10, workerId = `email_${crypto.randomUUID()}`) {
@@ -21,12 +23,12 @@ export async function processEmailOutbox(limit = 10, workerId = `email_${crypto.
 
   for (const job of jobs) {
     try {
-      if (job.type !== "INVITE") throw new Error(`Unsupported email job type: ${job.type}`);
-      if (!job.inviteId || !(await isInviteDeliverable(job.inviteId))) {
+      const delivery = await prepareEmailDelivery(job);
+      if (!delivery.deliverable) {
         await prisma.emailOutbox.updateMany({
           where: { id: job.id, status: "SENDING", workerId },
           data: {
-            lastError: "Invite became ineligible before delivery.",
+            lastError: delivery.reason,
             leaseUntil: null,
             lockedAt: null,
             nextAttemptAt: null,
@@ -37,7 +39,7 @@ export async function processEmailOutbox(limit = 10, workerId = `email_${crypto.
         cancelled += 1;
         continue;
       }
-      const result = await sendInviteEmail(job.payload, job.idempotencyKey);
+      const result = await delivery.send();
       if (result.provider === "mock" && process.env.NODE_ENV !== "development" && process.env.NODE_ENV !== "test") {
         throw new Error(result.reason || "Email provider is not configured.");
       }
@@ -109,16 +111,149 @@ export async function claimEmailJobs(limit: number, workerId: string): Promise<C
     RETURNING
       job.id,
       job.type,
-      job.payload,
       job.attempts,
       job."inviteId" AS "inviteId",
+      job."messageConversationId" AS "messageConversationId",
+      job."messageRecipientUserId" AS "messageRecipientUserId",
       job."idempotencyKey" AS "idempotencyKey"
   `;
 }
 
-async function isInviteDeliverable(inviteId: string) {
-  const [result] = await prisma.$queryRaw<Array<{ deliverable: boolean }>>`
-    SELECT app_private.is_invite_deliverable(${inviteId}) AS deliverable
+async function inviteDeliveryEmail(inviteId: string) {
+  const [result] = await prisma.$queryRaw<Array<{
+    current_email: string | null;
+    deliverable: boolean;
+  }>>`
+    SELECT
+      buyer_user.email AS current_email,
+      app_private.is_invite_deliverable(invite.id) AS deliverable
+    FROM public."Invite" invite
+    JOIN public."BuyerProfile" buyer ON buyer.id = invite."buyerProfileId"
+    JOIN public."User" buyer_user ON buyer_user.id = buyer."userId"
+    WHERE invite.id = ${inviteId}
   `;
-  return result?.deliverable === true;
+  return result?.deliverable ? result.current_email?.trim() || null : null;
+}
+
+async function prepareEmailDelivery(job: ClaimedEmailJob): Promise<
+  | { deliverable: false; reason: string }
+  | { deliverable: true; send: () => Promise<EmailResult> }
+> {
+  if (job.type === "INVITE") {
+    const currentEmail = job.inviteId ? await inviteDeliveryEmail(job.inviteId) : null;
+    if (!currentEmail) {
+      return { deliverable: false, reason: "Invite became ineligible before delivery." };
+    }
+    return {
+      deliverable: true,
+      send: () => sendInviteEmail({ to: currentEmail }, job.idempotencyKey),
+    };
+  }
+
+  if (job.type === "MESSAGE_UNREAD") {
+    const currentEmail = job.messageConversationId && job.messageRecipientUserId
+      ? await unreadMessageDeliveryEmail(job.messageConversationId, job.messageRecipientUserId)
+      : null;
+    if (!currentEmail) {
+      return { deliverable: false, reason: "Unread message notification became ineligible before delivery." };
+    }
+    return {
+      deliverable: true,
+      send: () => sendUnreadMessageEmail({
+        conversationId: job.messageConversationId!,
+        to: currentEmail,
+      }, job.idempotencyKey),
+    };
+  }
+
+  throw new Error(`Unsupported email job type: ${job.type}`);
+}
+
+async function unreadMessageDeliveryEmail(conversationId: string, recipientUserId: string) {
+  const [result] = await prisma.$queryRaw<Array<{
+    buyer_user_id: string;
+    deliverable: boolean;
+    recipient_email: string | null;
+    seller_user_id: string;
+  }>>`
+    SELECT
+      invite."sellerId" AS seller_user_id,
+      buyer."userId" AS buyer_user_id,
+      recipient_user.email AS recipient_email,
+      (
+        conversation.status IN ('AWAITING_BUYER', 'ACTIVE')
+        AND recipient_user.status = 'ACTIVE'::public."UserStatus"
+        AND other_user.status = 'ACTIVE'::public."UserStatus"
+        AND recipient."mutedAt" IS NULL
+        AND buyer."visibilityStatus" = 'ACTIVE'::public."BuyerVisibilityStatus"
+        AND 'BUYER'::public."UserRole" = ANY(buyer_user.roles)
+        AND (
+          'ADMIN'::public."UserRole" = ANY(seller.roles)
+          OR (
+            'SELLER'::public."UserRole" = ANY(seller.roles)
+            AND seller_access.status = 'APPROVED'::public."SellerAccessStatus"
+          )
+        )
+        AND property."ownerUserId" = invite."sellerId"
+        AND property.status = 'READY_FOR_INVITES'::public."PropertyStatus"
+        AND property."ownershipVerificationStatus" = 'APPROVED'::public."PropertyVerificationStatus"
+        AND property."flaggedForReviewAt" IS NULL
+        AND property."authorityAttestedIdentityVersion" = property."identityVersion"
+        AND invite."propertyIdentityVersion" = property."identityVersion"
+        AND (
+          invite.status = 'ACCEPTED'::public."InviteStatus"
+          OR (
+            invite.status IN ('SENT'::public."InviteStatus", 'VIEWED'::public."InviteStatus")
+            AND invite."expiresAt" > now()
+          )
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public."UserBlock" block
+          WHERE (
+            block."blockerUserId" = invite."sellerId"
+            AND block."blockedUserId" = buyer."userId"
+          ) OR (
+            block."blockerUserId" = buyer."userId"
+            AND block."blockedUserId" = invite."sellerId"
+          )
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM public."Message" message
+          WHERE message."conversationId" = conversation.id
+            AND message."senderUserId" IS NOT NULL
+            AND message."senderUserId" <> recipient."userId"
+            AND message.kind IN ('GUIDED'::public."MessageKind", 'FREE_TEXT'::public."MessageKind")
+            AND (
+              recipient."lastReadAt" IS NULL
+              OR message."createdAt" > recipient."lastReadAt"
+              OR (
+                message."createdAt" = recipient."lastReadAt"
+                AND (recipient."lastReadMessageId" IS NULL OR message.id > recipient."lastReadMessageId")
+              )
+            )
+        )
+      ) AS deliverable
+    FROM public."Conversation" conversation
+    JOIN public."ConversationParticipant" recipient
+      ON recipient."conversationId" = conversation.id
+      AND recipient."userId" = ${recipientUserId}::uuid
+    JOIN public."ConversationParticipant" other_participant
+      ON other_participant."conversationId" = conversation.id
+      AND other_participant."userId" <> recipient."userId"
+    JOIN public."User" recipient_user ON recipient_user.id = recipient."userId"
+    JOIN public."User" other_user ON other_user.id = other_participant."userId"
+    JOIN public."Invite" invite ON invite.id = conversation."inviteId"
+    JOIN public."BuyerProfile" buyer ON buyer.id = invite."buyerProfileId"
+    JOIN public."User" seller ON seller.id = invite."sellerId"
+    LEFT JOIN public."SellerAccess" seller_access ON seller_access."userId" = seller.id
+    JOIN public."SellerProperty" property ON property.id = invite."propertyId"
+    WHERE conversation.id = ${conversationId}::uuid
+  `;
+  if (
+    !result?.deliverable
+    || !messagingV1EnabledForPair(result.seller_user_id, result.buyer_user_id)
+  ) return null;
+  return result.recipient_email?.trim() || null;
 }

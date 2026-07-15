@@ -54,6 +54,7 @@ export default async function SellerInvitesPage() {
                 <th>Title</th>
                 <th>Status</th>
                 <th>Sent</th>
+                <th>Conversation</th>
               </tr>
             </thead>
             <tbody>
@@ -72,6 +73,14 @@ export default async function SellerInvitesPage() {
                     <td>{invite.title}</td>
                     <td><span className={`status-dot ${tone}`}>{invite.status}</span></td>
                     <td className="muted small">{invite.sentAt}</td>
+                    <td>
+                      {invite.conversationAvailable && invite.conversationId ? (
+                        <Link className="link-button" href={`/messages/${invite.conversationId}`}>
+                          <Icon name="message" size={14} />
+                          Open conversation
+                        </Link>
+                      ) : <span className="muted small">Unavailable</span>}
+                    </td>
                   </tr>
                 );
               })}

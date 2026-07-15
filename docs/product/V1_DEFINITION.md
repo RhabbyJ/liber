@@ -6,7 +6,7 @@ If a proposed feature conflicts with this file, do not implement it as productio
 
 ## One-sentence product
 
-Liber v1 is a private, searchable directory of verified real-estate buyer demand. Sellers search buyers, review fit, create private property records, and send manual invites.
+Liber v1 is a private, searchable directory of verified real-estate buyer demand. Sellers search buyers, review fit, create private property records, send manual invites, and continue eligible outreach in one invite-scoped guided conversation.
 
 ## V1 success loop
 
@@ -22,6 +22,7 @@ Buyer signs up
 -> Seller creates/selects a private property
 -> Seller sends a manual invite
 -> Buyer receives in-app notification and email
+-> Buyer and seller may continue in one invite-scoped guided conversation
 ```
 
 The loop is successful when a seller can find a relevant buyer and send a compliant manual invite without exposing private documents or creating a transaction.
@@ -119,6 +120,8 @@ A buyer can:
 - receive admin-reviewed badges,
 - view seller invites,
 - accept or decline interest in an invite,
+- exchange guided or plain-text messages inside an eligible invite conversation,
+- block the other participant and report a specific message,
 - view notifications.
 
 A buyer cannot:
@@ -139,6 +142,8 @@ A seller can:
 - search active buyer profiles only after seller access is approved,
 - review buyer profiles only after seller access is approved,
 - send manual invites from properties they own,
+- exchange guided or plain-text messages inside eligible invite conversations,
+- block the other participant and report a specific message,
 - view sent invites and seller notifications.
 
 A seller cannot:
@@ -158,6 +163,7 @@ An admin can:
 - review verification documents,
 - grant/revoke badges when evidence rules allow it,
 - review properties/invites,
+- review reported messages through an audited report queue,
 - hide buyer profiles,
 - suspend users,
 - view audit logs.
@@ -312,7 +318,7 @@ An invite is manual seller outreach.
 An invite can:
 
 - reference one seller-owned property,
-- include a seller-written message,
+- include a server-versioned guided opening and optional short seller note,
 - notify the buyer in-app,
 - enqueue a transactional email,
 - expire or be withdrawn,
@@ -332,6 +338,48 @@ An invite must not:
 Required invite disclaimer language should remain plain-English and close to the send/response actions:
 
 > This is a manual invite only. It is not an offer, escrow instruction, funds custody, or automated transaction.
+
+## Guided Messaging V1
+
+Guided Messaging V1 is a constrained continuation of a valid manual property invite. It is not a general direct-message system.
+
+### Entry and participants
+
+- A conversation is created only by the server when an approved seller successfully creates a valid invite for a currently ownership-approved private property.
+- Each invite has exactly one conversation with exactly two participants: the invite seller and the application user who owns the invited buyer profile.
+- Public visitors, arbitrary user IDs, unapproved sellers, suspended users, and non-participants cannot create, list, join, read, or send in a conversation.
+- Messaging availability is controlled by a server-side release flag and cohort. UI visibility is never the authorization boundary.
+
+### Permitted purpose and content
+
+Messages may cover property questions, condition and features, private-viewing logistics, timing, purchase-readiness questions tied to the property, and requests for more information through approved Liber flows.
+
+Liber provides versioned seller opening templates and buyer quick replies. The server owns the template catalog and stores the selected key, version, and rendered text snapshot. Participants may also send plain text up to 2,000 characters. Liber does not render HTML or Markdown and does not automatically make links clickable.
+
+Messages are not offers, counteroffers, contracts, legal acceptance, escrow instructions, payment directions, earnest-money custody, or automated transaction execution.
+
+### Lifecycle
+
+- `AWAITING_BUYER`: the invite has been delivered. The buyer may reply. The seller may send at most one curated follow-up after 24 hours.
+- `ACTIVE`: the buyer has replied or accepted the invite. Both participants may send guided or plain-text messages.
+- `READ_ONLY`: the invite was declined, expired, or withdrawn; the property identity changed; or an account or seller approval lost eligibility. Eligible active participants may read preserved history, but sending is disabled.
+- `BLOCKED`: either participant blocked the other. Sending stops immediately, affected active invites close, and future invitations between the pair are prevented.
+
+Accepted invites remain open for messaging even after their original response deadline. Effective expiry closes an unanswered invite even if scheduled maintenance has not yet persisted `EXPIRED`. A property identity change freezes the old conversation and must not expose the property's new identity or current-version images in that thread.
+
+Blocking is permanent in V1 and returns a generic unavailable result to the other participant. Reporting targets a specific message, preserves restricted evidence, supports a reason and optional context, and does not require the reporter to keep receiving messages. Admin access to content is report-driven and audited; there is no unrestricted admin conversation browser.
+
+The composer must display this safety reminder:
+
+> Keep messages about the property, viewing logistics, timing, and legitimate purchase-readiness questions. Do not ask about protected personal characteristics. This conversation is not an offer, contract, escrow instruction, or payment request.
+
+### Messaging non-goals and launch gates
+
+V1 does not include unsolicited or public DMs, additional participants, group chat, attachments, chat images, calls, voice messages, typing indicators, reactions, threads, mentions, editing, user hard-deletion, full-text search, link previews, end-to-end encryption claims, AI auto-punishment, offers, contracts, payments, escrow, or funds custody.
+
+The production implementation uses PostgreSQL as the source of truth. Private Supabase Realtime events contain identifiers only and are delivery hints; every browser refetches canonical authorized data through Liber's server and retains polling/focus recovery.
+
+Guided Messaging V1 remains controlled-preview only until counsel approves the template and fair-housing moderation policy, counsel/product publishes a retention rule, credential-rotation evidence and repository/archive secret scans are complete, private Realtime authorization is proven, block/report operations are staffed, and the scheduled outbox worker is restored. The current 24-month closed-conversation retention idea is a proposal, not an approved deletion rule, so no automatic message deletion runs in V1.
 
 ## V1 badge and verification rules
 
@@ -381,7 +429,8 @@ Do not build these as production behavior in v1:
 - public marketplace listings,
 - broad public buyer-profile pages,
 - customer-facing admin analytics,
-- fake reviews or fake production buyers outside approved CEO demo / private preview seeding.
+- fake reviews or fake production buyers outside approved CEO demo / private preview seeding,
+- general-purpose or unsolicited direct messaging outside a valid invite conversation.
 
 ## Product-owner approval required
 
@@ -390,7 +439,7 @@ These require explicit product-owner approval before implementation:
 - changing invite limits,
 - changing seller access approval rules,
 - making buyer profiles publicly crawlable,
-- adding buyer/seller messaging beyond invite workflow,
+- adding messaging beyond the approved invite-scoped Guided Messaging V1 workflow,
 - adding payments or escrow-adjacent claims,
 - adding lender integrations,
 - adding subscriptions or paid visibility,

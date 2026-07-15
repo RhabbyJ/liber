@@ -45,6 +45,11 @@ Primary models:
 - `PropertyImage`
 - `VerificationDocument`
 - `Invite`
+- `Conversation`
+- `ConversationParticipant`
+- `Message`
+- `UserBlock`
+- `MessageReport`
 - `Notification`
 - `AdminAuditLog`
 - `EmailOutbox`
@@ -86,7 +91,7 @@ Key concepts:
 - `SellerAccess.status` controls full buyer-directory search, profile, and invite access. `PENDING` and `REJECTED` sellers may receive only the signed-in privacy-safe preview projection; `SUSPENDED` sellers receive no seller-route preview.
 - A user self-selecting `SELLER` does not automatically gain full directory access, profile routes, contact actions, or invite authority.
 - Admin status is not self-service.
-- Auth POST routes preserve the incoming request host/protocol for same-origin checks and redirects so local `127.0.0.1` and `localhost` sessions do not cross origins under the CSP `form-action` rule.
+- Auth POST routes preserve the incoming request host/protocol for same-origin checks and redirects so local `127.0.0.1` and `localhost` sessions do not cross origins under the CSP `form-action` rule. State-changing HTTP routes require an exact matching `Origin`; when a browser omits `Origin`, only `Sec-Fetch-Site: same-origin` is accepted. Requests missing both signals fail closed.
 - Login and signed-in auth entry points resolve `next` through a role-aware intent helper. Stale auth-flow destinations and destinations requiring a role the account does not have fall back to the user's existing default workspace instead of entering another role picker or auth loop.
 - The Auth insert trigger creates a new application User only for the same Auth
   UUID and always starts with empty roles. It never resolves an email conflict
@@ -202,6 +207,116 @@ Invited-buyer image access is centralized in `app_private.can_read_property_imag
 
 Invite email should be queued through `EmailOutbox`, not sent inline as the source of truth.
 
+## Guided messaging architecture
+
+Guided Messaging V1 is server-authoritative and invite-scoped. A valid invite
+creates exactly one conversation, two invite-derived participants, and one
+immutable `INVITE` message in the same database transaction. The insert trigger
+is authoritative and the invite command performs one canonical-shape check for
+both role-bound participants and the initial message before commit. Public
+visitors, arbitrary IDs, and non-participants cannot create or join conversations.
+
+PostgreSQL is canonical. The browser reads and writes only through authenticated
+Liber route handlers. Every list, read, send, read-state, mute, block, report,
+and admin operation rechecks current application-user status and participant
+membership. Paths that touch both an invite and its conversation lock the
+canonical user pair, `Invite`, then `Conversation`, in that order. Sending then
+takes its per-sender quota lock, rechecks blocks, invite lifecycle/effective
+expiry, property identity, buyer eligibility, seller approval, and current
+ownership approval before an idempotent insert.
+New invite rows must begin in `SENT` with allowlisted v1 guided-opening metadata;
+the server composes the canonical template body and optional note. Role-loss
+closures lock the union of affected buyer- and seller-side conversations once
+in global conversation-ID order.
+
+Mutation routes require a JSON media type, stream at most 16 KiB, and validate
+the bounded result at the server boundary. Conversation inboxes use two
+set-based queries per bounded page: one authorization/lifecycle query and one
+latest-message/unread summary query. Inbox and admin-report queues use stable
+`(lastMessageAt, id)` and `(statusRank, createdAt, id)` keysets respectively,
+with a maximum page size of 50. Their HMAC-signed cursors reject tampering;
+inbox cursors are bound to the current viewer and neither cursor serializes an
+Auth UUID. Production cursor signing fails closed unless the existing
+`AUTH_RATE_LIMIT_PEPPER` contains at least 32 characters. Cohort filtering
+happens in the inbox SQL before the keyset limit.
+
+Conversation states are `AWAITING_BUYER`, `ACTIVE`, `READ_ONLY`, and `BLOCKED`.
+The buyer's first successfully inserted reply atomically records the invite as
+`ACCEPTED`, records its response time, and activates the conversation; a
+conflicting/idempotent no-op insert does not change lifecycle state. Before that,
+the seller may send one guided follow-up after 24 hours. Declined, effectively
+expired, withdrawn, property-identity-invalidated, or ineligible threads become
+read-only; accepted invites remain active. A permanent V1 block serializes with
+send, closes both directions, prevents reinvitation with a generic unavailable
+response, and cancels pending unread-message delivery.
+
+The server owns the versioned guided-template catalog. Clients may request an
+allowed key/version or submit normalized plain text up to 2,000 characters;
+they cannot create `INVITE` or `SYSTEM` messages. React renders bodies as text.
+Messages are not edited or user-deleted. Admin redaction changes only the
+ordinary display status, while report-scoped evidence remains restricted and
+admin access is audited. Invite-list projections use that same redacted display
+state. A conversation moderation revision causes a polling browser to replace
+potentially stale loaded history with the canonical latest page; older pages
+can then be loaded again through authorized reads. In-flight older-page reads
+are revision-bound and aborted when that revision changes, so a delayed response
+cannot restore pre-redaction content. Admin report reads and resolutions execute through
+authenticated server pages/actions; participant report creation is the only
+message-report API route.
+
+Message reads use an opaque conversation-bound `(createdAt, id)` keyset cursor.
+Participant read state records the last read message ID as well as its timestamp
+so equal timestamps cannot mark unseen messages read. DTOs contain no Auth UUIDs,
+email, documents, Storage paths, report evidence, blocker identity, or current
+property identity from a version-invalidated thread. Buyers see a generic
+property-seller label; sellers see the buyer's generated alias.
+
+Supabase Realtime is an optional delivery hint. Message-insert and
+moderation-status triggers call
+private `realtime.send` with only `{ conversationId, messageId, type }` on the
+exact `conversation:<uuid>` topic. Do not use `realtime.broadcast_changes`,
+because its standard row payload would include message content. A private
+`realtime.messages` SELECT policy delegates to a fixed-search-path membership
+helper that checks `auth.uid()`, active application status, and participant
+membership. A Realtime send failure is isolated to that optional call and emits
+only its SQLSTATE, so it cannot roll back the canonical message; polling recovers
+the missed hint. Browsers receive no Realtime INSERT policy. The Data API roles
+`anon`, `authenticated`, and `service_role` have zero privileges on raw messaging
+tables. Clients authenticate a private channel, then refetch canonical server
+DTOs after events, reconnect, focus, and a five-second polling fallback. Join
+authorization can remain cached on an existing socket, so canonical fetches and
+lifecycle closure remain the suspension boundary.
+The migration aborts if another permissive public/authenticated Realtime SELECT
+policy or any browser Realtime INSERT policy is present; PostgreSQL permissive
+policies combine, so existing policies must be reviewed before rollout. Inbox
+polling refreshes the first keyset page to recover ordering and unread counts.
+
+Initial messaging controls are 20 send attempts per user per minute, 120
+successful messages per conversation per rolling hour, and 500 successful
+messages per user per rolling 24 hours. Repeated `clientMessageId` retries return
+the existing message without duplicate notifications or email jobs.
+
+Unread-message email uses the leased `EmailOutbox`, waits 10 minutes, contains no
+message body, coalesces one job per unread batch, and revalidates active status,
+membership, unread state, mute/block, and conversation eligibility immediately
+before delivery. Reading or closing the conversation cancels queued work.
+
+Runtime rollout is controlled by `LIBER_MESSAGING_V1_ENABLED` plus
+`LIBER_MESSAGING_V1_COHORT_USER_IDS`; production fails closed when the feature
+or cohort is absent. Retention deletion is intentionally disabled until counsel
+publishes the rule. Fair-housing template review, credential cleanup, live
+private-Realtime proof, moderation staffing, and restored outbox scheduling are
+public-launch gates.
+
+Relevant files:
+
+- `apps/web/server/messaging/**`
+- `apps/web/app/api/conversations/**`
+- `apps/web/app/api/messages/**`
+- `apps/web/app/messages/**`
+- `packages/validators/src/index.ts`
+- `packages/db/prisma/schema.prisma`
+
 ## Search architecture
 
 Seller search queries persisted buyer profiles/criteria through canonical market and service-area relations. Free-form city/state and coordinate/radius inputs are not seller-search geography.
@@ -274,7 +389,7 @@ The retained three-argument limiter overload uses an explicitly named timestamp 
 
 `POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET` and expires stale invites/badges. `GET /api/maintenance/outbox` uses the same bearer secret for leased email delivery, Auth bans, and abandoned-upload cleanup. The endpoints remain available, but their Vercel schedules are temporarily disabled for the controlled Hobby-plan preview. Public launch is blocked until the outbox schedule is restored to every minute (`* * * * *`) and expiry is restored to daily at 09:00 UTC (`0 9 * * *`), with worker heartbeats verified.
 
-Email and Auth jobs use atomic `FOR UPDATE SKIP LOCKED` claims, expiring leases, worker IDs, bounded retry, idempotency keys, provider message IDs, and worker heartbeats. Missing Resend configuration outside development/test is a job failure and a production-readiness failure.
+Email and Auth jobs use atomic `FOR UPDATE SKIP LOCKED` claims, expiring leases, worker IDs, bounded retry, idempotency keys, provider message IDs, and worker heartbeats. Missing Resend configuration outside development/test is a job failure and a production-readiness failure. Production readiness also requires server-only `SITE_URL` to be a canonical HTTPS origin so every authenticated email link has a validated base.
 
 Invite email rows reference the invite they deliver. The worker revalidates deliverability immediately before provider submission, and terminal or identity-invalidated invites cancel unsent work instead of retrying it.
 

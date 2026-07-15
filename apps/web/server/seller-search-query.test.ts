@@ -11,6 +11,21 @@ beforeAll(async () => {
 });
 
 describe("SQL-native seller search", () => {
+  it("filters either-direction messaging blocks when a seller viewer is present", async () => {
+    const viewerUserId = "019f62c5-1c07-4a62-9f9a-8302778aa011";
+    const query = queryModule.buildSellerSearchQuery(
+      searchFilters(),
+      new Date("2026-07-09T20:00:00.000Z"),
+      null,
+      undefined,
+      viewerUserId,
+    );
+    expect(query.sql).toContain('FROM public."UserBlock" block');
+    expect(query.sql).toContain('block."blockerUserId"');
+    expect(query.sql).toContain('block."blockedUserId"');
+    expect(query.values.filter((value) => value === viewerUserId)).toHaveLength(2);
+  });
+
   it("builds canonical market geography and every supported SQL filter", async () => {
     const { searchBuyersSchema } = await import("@liber/validators");
     const filters = searchBuyersSchema.parse({
