@@ -283,6 +283,7 @@ async function runUpgradeProof() {
       const catalog = await assertMessagingCatalog(client);
       const backfill = await assertConversationRows(client, fixture.expected);
       const outboxPrivacy = await assertOutboxPrivacy(client, fixture);
+      await client.query("SET CONSTRAINTS ALL DEFERRED");
       const behavior = await assertSqlBehavior(client, fixture, { includeBlockBarrier: true });
       await client.query("ROLLBACK");
       const recovery = await assertRolledBackUpgrade(client, before, fixture);
@@ -481,7 +482,9 @@ async function seedFixture(db, { legacy }) {
   );
   await db.query(
     `UPDATE public."SellerProperty"
-     SET "ownerUserId" = $1, "updatedAt" = now()
+     SET "ownerUserId" = $1,
+         "authorityAttestedByUserId" = $1,
+         "updatedAt" = now()
      WHERE id = $2`,
     [buyerId, propertySixId],
   );
