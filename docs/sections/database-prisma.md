@@ -78,7 +78,7 @@ historical migration or the locked baseline to make a replay pass.
 
 Production migration readiness compares the complete checked-in migration directory set with successful, non-rolled-back `_prisma_migrations` rows. A hardcoded latest migration name is not a valid readiness check; database-only migration names are reported separately.
 
-`User.avatarVariant` is an allowlisted generated animal-avatar token for buyer profile display; it should stay nullable so existing accounts fall back to deterministic generated avatars. It is not an image URL or storage path.
+`User.avatarVariant` is a required allowlisted generated animal-avatar token for account and buyer profile display. Migration `20260715081708_persist_user_avatar` backfills older accounts and enforces the stored value for new accounts. It is not an image URL or storage path.
 
 `BuyerProfile.displayName` stores a generated neutral public alias, not a buyer-entered name. Application code must normalize old/stale values through the alias allowlist and fall back to a deterministic alias from the buyer id.
 

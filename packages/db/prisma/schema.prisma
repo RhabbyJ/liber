@@ -206,7 +206,7 @@ model User {
   id            String     @id @db.Uuid
   email         String     @unique
   name          String?
-  avatarVariant String?
+  avatarVariant String     @default(dbgenerated("'avatarka:animals:' || floor(random() * 32)::integer::text"))
   roles         UserRole[] @default([])
   status        UserStatus @default(ACTIVE)
   suspendedAt   DateTime?

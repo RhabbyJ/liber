@@ -55,7 +55,7 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - Buyer account names are private to the buyer portal. Seller/public surfaces must use the generated `BuyerProfile.displayName` alias, not `User.name`, and buyers must not be able to type arbitrary public names.
 - Buyer profile create/update input schemas must not expose `displayName`; alias changes go through the dedicated regenerate server action.
 - Alias/avatar customization is independent from the main criteria form and appears only on the saved profile summary so it cannot submit or discard unsaved criteria.
-- Buyer avatars are generated 2D animal avatars from allowlisted `User.avatarVariant` tokens. Only the token is stored; no avatar image file or URL is stored.
+- Buyer avatars are generated 2D animal avatars from required allowlisted `User.avatarVariant` tokens. Every surface reads the same persisted user token; no avatar image file or URL is stored.
 - `/buyer/criteria` redirects to the profile form for old links; there is no separate criteria onboarding flow.
 
 ## Agent notes
