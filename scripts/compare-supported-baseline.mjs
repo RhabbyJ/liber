@@ -54,7 +54,8 @@ async function capture(url, sentinel, label) {
          WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL) AS applied_migrations
     `);
     const rows = await client.query(catalogSql);
-    return { metadata: metadataResult.rows[0], rows: rows.rows };
+    const privileges = await client.query(privilegeSql);
+    return { metadata: metadataResult.rows[0], privileges: privileges.rows, rows: rows.rows };
   } finally {
     await client.end();
   }
@@ -76,7 +77,7 @@ WITH app_relations AS (
   SELECT 'relation'::text AS category,
          relation.schema_name || '.' || relation.relname AS identity,
          concat_ws('|', class.relkind, class.relpersistence, class.relrowsecurity,
-           class.relforcerowsecurity, coalesce(class.relacl::text, '')) AS definition
+           class.relforcerowsecurity) AS definition
   FROM app_relations relation JOIN pg_class class ON class.oid = relation.oid
 
   UNION ALL
@@ -148,7 +149,7 @@ WITH app_relations AS (
   WHERE namespace.nspname IN ('public', 'app_private', 'geography_admin')
 
   UNION ALL
-  SELECT 'schema', namespace.nspname, coalesce(namespace.nspacl::text, '')
+  SELECT 'schema', namespace.nspname, 'present'
   FROM pg_namespace namespace
   WHERE namespace.nspname IN ('public', 'app_private', 'geography_admin')
 
@@ -169,6 +170,39 @@ WITH app_relations AS (
 SELECT category, identity, definition
 FROM catalog
 ORDER BY category, identity, definition
+`;
+
+const privilegeSql = `
+WITH roles(role_name) AS (
+  VALUES ('anon'::text), ('authenticated'::text), ('service_role'::text)
+), privileges(privilege_name) AS (
+  VALUES ('SELECT'::text), ('INSERT'::text), ('UPDATE'::text), ('DELETE'::text),
+         ('TRUNCATE'::text), ('REFERENCES'::text), ('TRIGGER'::text)
+), app_tables AS (
+  SELECT namespace.nspname AS schema_name, class.relname
+  FROM pg_class class
+  JOIN pg_namespace namespace ON namespace.oid = class.relnamespace
+  WHERE namespace.nspname IN ('public', 'app_private', 'geography_admin')
+    AND class.relkind IN ('r', 'p', 'v', 'm', 'f')
+    AND class.relname NOT IN ('_prisma_migrations', 'messaging_migration_test_sentinel')
+)
+SELECT 'table'::text AS kind,
+       role.role_name || ':' || app_table.schema_name || '.' || app_table.relname || ':' || privilege.privilege_name AS identity
+FROM roles role
+CROSS JOIN privileges privilege
+CROSS JOIN app_tables app_table
+WHERE has_table_privilege(
+  role.role_name,
+  format('%I.%I', app_table.schema_name, app_table.relname),
+  privilege.privilege_name
+)
+UNION ALL
+SELECT 'schema', role.role_name || ':' || namespace.nspname || ':USAGE'
+FROM roles role
+CROSS JOIN pg_namespace namespace
+WHERE namespace.nspname IN ('public', 'app_private', 'geography_admin')
+  AND has_schema_privilege(role.role_name, namespace.oid, 'USAGE')
+ORDER BY kind, identity
 `;
 
 await assertTargets();
@@ -195,12 +229,23 @@ if (upgradeJson !== freshJson) {
   throw new Error(`Supported baseline catalog differs from the historical upgrade catalog: ${JSON.stringify(differences)}`);
 }
 
+const upgradePrivileges = new Set(upgrade.privileges.map((row) => `${row.kind}:${row.identity}`));
+const freshPrivileges = new Set(fresh.privileges.map((row) => `${row.kind}:${row.identity}`));
+const broaderFreshPrivileges = [...freshPrivileges].filter((privilege) => !upgradePrivileges.has(privilege));
+if (broaderFreshPrivileges.length > 0) {
+  throw new Error(`Supported baseline grants browser/server API roles broader access than the historical upgrade: ${JSON.stringify(broaderFreshPrivileges)}`);
+}
+const tightenedPrivileges = [...upgradePrivileges].filter((privilege) => !freshPrivileges.has(privilege));
+
 process.stdout.write(`${JSON.stringify({
   catalogRows: fresh.rows.length,
   fingerprint: sha256(freshJson),
   fresh: fresh.metadata,
+  freshRolePrivileges: freshPrivileges.size,
   status: "passed",
+  tightenedRolePrivileges: tightenedPrivileges.length,
   upgrade: upgrade.metadata,
+  upgradeRolePrivileges: upgradePrivileges.size,
 }, null, 2)}\n`);
 
 function sha256(value) {

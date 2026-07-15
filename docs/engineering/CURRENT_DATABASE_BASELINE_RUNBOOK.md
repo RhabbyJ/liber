@@ -17,6 +17,18 @@ two obsolete `spatial_ref_sys` access-control statements; the later guarded
 geography hardening migration retains the supported platform warning and every
 Liber-owned security boundary.
 
+Because Prisma sends the consolidated artifact as one query, the generator also
+adds explicit commit boundaries around the three historical enum-addition
+blocks. PostgreSQL requires those values to commit before later statements use
+them. These boundaries do not change the resulting schema or the locked source
+checksums.
+
+Prisma resets the application `public` schema but does not drop Supabase's
+platform-owned `storage` or `realtime` schemas. The generator therefore drops
+each reviewed Liber policy name in those schemas immediately before recreating
+it. This makes a disposable reset recoverable without broadening any policy
+role, command, or predicate.
+
 ## Locked artifact
 
 `20260714190000_current_supported_baseline` is a generated snapshot through
@@ -56,7 +68,9 @@ shared-project URLs in the harness deny list.
    separate 16+ character sentinels, `BASELINE_COMPARE_ALLOW_READS=true`, and
    the shared-target deny URLs. It compares normalized Liber relations,
    columns, constraints, indexes, triggers, functions, policies, enums, schema
-   ACLs, required extensions, and Storage bucket definitions.
+   presence, required extensions, and Storage bucket definitions. Browser/Data
+   API role privileges must be equal or stricter on the fresh path; any broader
+   fresh grant fails the comparison and tightened grants are counted.
 6. Record the catalog fingerprint and delete both disposable targets.
 
 The historical replay still fails at `00005`; the supported-baseline proof does

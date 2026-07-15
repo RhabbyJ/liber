@@ -2,6 +2,8 @@
 -- Supported only for a brand-new Liber schema on a current Supabase project.
 -- Existing databases must continue to use packages/db/prisma/migrations.
 -- Locked source cutoff: 20260714150654_add_guided_messaging_v1. Later migrations remain separate forward files.
+-- Enum additions gain explicit commit boundaries required by the consolidated query; schema semantics are unchanged.
+-- Liber Storage/Realtime policy names are dropped before recreation because Prisma reset does not drop platform schemas.
 -- The source ledger and SHA-256 checksums follow.
 -- 20260519000000_initial ae7ac77fa9096303a0d2e22e44d2f4b64f71680c4b553c2b872e868aa4ef2da4
 -- 20260520000001_tighten_property_image_storage_policy d285c1cb2d47f7d9a677840bac6c70d68dd1bdea6df7665c4fd26ff7fa597f62
@@ -620,12 +622,14 @@ SET
   allowed_mime_types = EXCLUDED.allowed_mime_types;
 
 -- Storage policies
+DROP POLICY IF EXISTS "Property images are publicly readable" ON storage.objects;
 CREATE POLICY "Property images are publicly readable"
 ON storage.objects
 FOR SELECT
 TO public
 USING (bucket_id = 'property-images');
 
+DROP POLICY IF EXISTS "Property owners can upload property images" ON storage.objects;
 CREATE POLICY "Property owners can upload property images"
 ON storage.objects
 FOR INSERT
@@ -640,6 +644,7 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "Property owners can update property images" ON storage.objects;
 CREATE POLICY "Property owners can update property images"
 ON storage.objects
 FOR UPDATE
@@ -663,6 +668,7 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "Property owners can delete property images" ON storage.objects;
 CREATE POLICY "Property owners can delete property images"
 ON storage.objects
 FOR DELETE
@@ -677,6 +683,7 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "Document owners can view own verification documents" ON storage.objects;
 CREATE POLICY "Document owners can view own verification documents"
 ON storage.objects
 FOR SELECT
@@ -686,6 +693,7 @@ USING (
   AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
 );
 
+DROP POLICY IF EXISTS "Admins can view all verification documents" ON storage.objects;
 CREATE POLICY "Admins can view all verification documents"
 ON storage.objects
 FOR SELECT
@@ -700,6 +708,7 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "Document owners can upload verification documents" ON storage.objects;
 CREATE POLICY "Document owners can upload verification documents"
 ON storage.objects
 FOR INSERT
@@ -709,6 +718,7 @@ WITH CHECK (
   AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
 );
 
+DROP POLICY IF EXISTS "Document owners can update verification documents" ON storage.objects;
 CREATE POLICY "Document owners can update verification documents"
 ON storage.objects
 FOR UPDATE
@@ -784,6 +794,7 @@ END $$;
 
 -- Owner-scoped profile photo writes let the app use user-scoped Supabase clients.
 DROP POLICY IF EXISTS "Profile photo owners can upload profile photos" ON storage.objects;
+DROP POLICY IF EXISTS "Profile photo owners can upload profile photos" ON storage.objects;
 CREATE POLICY "Profile photo owners can upload profile photos"
 ON storage.objects
 FOR INSERT
@@ -793,6 +804,7 @@ WITH CHECK (
   AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
 );
 
+DROP POLICY IF EXISTS "Profile photo owners can update profile photos" ON storage.objects;
 DROP POLICY IF EXISTS "Profile photo owners can update profile photos" ON storage.objects;
 CREATE POLICY "Profile photo owners can update profile photos"
 ON storage.objects
@@ -808,6 +820,7 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "Profile photo owners can delete profile photos" ON storage.objects;
+DROP POLICY IF EXISTS "Profile photo owners can delete profile photos" ON storage.objects;
 CREATE POLICY "Profile photo owners can delete profile photos"
 ON storage.objects
 FOR DELETE
@@ -817,6 +830,7 @@ USING (
   AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
 );
 
+DROP POLICY IF EXISTS "Document owners can delete verification documents" ON storage.objects;
 DROP POLICY IF EXISTS "Document owners can delete verification documents" ON storage.objects;
 CREATE POLICY "Document owners can delete verification documents"
 ON storage.objects
@@ -1026,6 +1040,7 @@ REVOKE ALL ON FUNCTION app_private.owns_property(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION app_private.owns_property(text) TO authenticated;
 
 DROP POLICY IF EXISTS "Property owners can upload property images" ON storage.objects;
+DROP POLICY IF EXISTS "Property owners can upload property images" ON storage.objects;
 CREATE POLICY "Property owners can upload property images"
 ON storage.objects
 FOR INSERT
@@ -1035,6 +1050,7 @@ WITH CHECK (
   AND app_private.owns_property((storage.foldername(name))[1])
 );
 
+DROP POLICY IF EXISTS "Property owners can update property images" ON storage.objects;
 DROP POLICY IF EXISTS "Property owners can update property images" ON storage.objects;
 CREATE POLICY "Property owners can update property images"
 ON storage.objects
@@ -1049,6 +1065,7 @@ WITH CHECK (
   AND app_private.owns_property((storage.foldername(name))[1])
 );
 
+DROP POLICY IF EXISTS "Property owners can delete property images" ON storage.objects;
 DROP POLICY IF EXISTS "Property owners can delete property images" ON storage.objects;
 CREATE POLICY "Property owners can delete property images"
 ON storage.objects
@@ -1433,10 +1450,12 @@ SET
 -- BEGIN SOURCE 20260708000012_add_property_subtypes_and_ownership_evidence (e7defa4850808bbc20f2a2c345f29941b75c39a6b10d6a562a8374c112016dff)
 -- Add CEO-requested v1 property subtype choices and typed seller ownership evidence.
 
+BEGIN;
 ALTER TYPE "PropertySubtype" ADD VALUE IF NOT EXISTS 'CONDO';
 ALTER TYPE "PropertySubtype" ADD VALUE IF NOT EXISTS 'TOWNHOUSE';
 ALTER TYPE "PropertySubtype" ADD VALUE IF NOT EXISTS 'MANUFACTURED';
 ALTER TYPE "PropertySubtype" ADD VALUE IF NOT EXISTS 'LAND';
+COMMIT;
 
 DO $$
 BEGIN
@@ -1691,7 +1710,9 @@ COMMIT;
 -- END SOURCE 20260709000013_add_markets_and_buyer_service_area_slugs
 
 -- BEGIN SOURCE 20260709000014_add_search_rollup_relation_type (77c7951dedf997456559a548e747c0af08ee141ca3eaeed49c67705d08151804)
+BEGIN;
 ALTER TYPE "ServiceAreaRelationType" ADD VALUE IF NOT EXISTS 'SEARCH_ROLLUP';
+COMMIT;
 -- END SOURCE 20260709000014_add_search_rollup_relation_type
 
 -- BEGIN SOURCE 20260709000015_canonical_service_area_cutover (066b524ee7a12be3ff040d4ac8b5b84d086caba9e07e53da136864cb31df099b)
@@ -3646,6 +3667,7 @@ DROP POLICY IF EXISTS "Document owners can upload verification documents" ON sto
 DROP POLICY IF EXISTS "Document owners can update verification documents" ON storage.objects;
 DROP POLICY IF EXISTS "Document owners can delete verification documents" ON storage.objects;
 
+DROP POLICY IF EXISTS "Authorized users can read private property images" ON storage.objects;
 CREATE POLICY "Authorized users can read private property images"
 ON storage.objects FOR SELECT TO authenticated
 USING (
@@ -3653,6 +3675,7 @@ USING (
   AND app_private.can_read_property_image(name, (SELECT auth.uid()))
 );
 
+DROP POLICY IF EXISTS "Active users can upload authorized session objects" ON storage.objects;
 CREATE POLICY "Active users can upload authorized session objects"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (
@@ -3706,8 +3729,10 @@ FOR EACH ROW EXECUTE FUNCTION app_private.revoke_badges_for_invalid_evidence();
 -- Close the remaining property-identity, invite-delivery, and upload-cleanup
 -- boundaries without changing the deferred malware-scanning decision.
 
+BEGIN;
 ALTER TYPE public."EmailOutboxStatus" ADD VALUE IF NOT EXISTS 'CANCELLED';
 ALTER TYPE public."UploadSessionStatus" ADD VALUE IF NOT EXISTS 'CLEANED';
+COMMIT;
 
 ALTER TABLE public."SellerProperty"
   ADD COLUMN "authorityAttestedIdentityVersion" integer;
@@ -8265,6 +8290,7 @@ $$;
 
 DROP POLICY IF EXISTS "Active participants can receive conversation broadcasts"
   ON realtime.messages;
+DROP POLICY IF EXISTS "Active participants can receive conversation broadcasts" ON realtime.messages;
 CREATE POLICY "Active participants can receive conversation broadcasts"
 ON realtime.messages
 FOR SELECT

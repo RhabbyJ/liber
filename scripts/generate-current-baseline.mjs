@@ -19,6 +19,11 @@ const omittedStatements = [
   "ALTER TABLE IF EXISTS public.spatial_ref_sys ENABLE ROW LEVEL SECURITY;",
   "REVOKE ALL ON TABLE public.spatial_ref_sys FROM anon, authenticated;",
 ];
+const enumCommitBoundaryMigrations = new Set([
+  "20260708000012_add_property_subtypes_and_ownership_evidence",
+  "20260709000014_add_search_rollup_relation_type",
+  "20260711082500_close_property_identity_lifecycle",
+]);
 
 const directories = (await readdir(sourceRoot, { withFileTypes: true }))
   .filter((entry) => entry.isDirectory())
@@ -45,6 +50,7 @@ if (snapshotSources.at(-1)?.migrationName !== baselineCutoff) {
 }
 
 const sections = [];
+let externalPolicyCount = 0;
 for (const { checksum, migrationName, original } of snapshotSources) {
   let body = original;
 
@@ -59,11 +65,30 @@ for (const { checksum, migrationName, original } of snapshotSources) {
     throw new Error(`An obsolete PostGIS ownership statement moved to ${migrationName}; review the baseline generator.`);
   }
 
+  if (enumCommitBoundaryMigrations.has(migrationName)) {
+    const enumBlockPattern = /(?:ALTER TYPE[^\n]+ ADD VALUE[^\n]+;\n)+/;
+    const matches = body.match(new RegExp(enumBlockPattern.source, "g")) ?? [];
+    if (matches.length !== 1) {
+      throw new Error(`${migrationName} must contain exactly one reviewed enum-addition block.`);
+    }
+    body = body.replace(enumBlockPattern, `BEGIN;\n${matches[0]}COMMIT;\n`);
+  }
+
+  const externalPolicyPattern = /CREATE POLICY ("[^"]+")\nON (storage\.objects|realtime\.messages)/g;
+  externalPolicyCount += [...body.matchAll(externalPolicyPattern)].length;
+  body = body.replace(
+    externalPolicyPattern,
+    "DROP POLICY IF EXISTS $1 ON $2;\nCREATE POLICY $1\nON $2",
+  );
+
   sections.push({
     body: body.trimEnd(),
     checksum,
     migrationName,
   });
+}
+if (externalPolicyCount !== 18) {
+  throw new Error(`The locked baseline must reconcile exactly 18 external-schema policies; found ${externalPolicyCount}.`);
 }
 
 const header = [
@@ -71,6 +96,8 @@ const header = [
   "-- Supported only for a brand-new Liber schema on a current Supabase project.",
   "-- Existing databases must continue to use packages/db/prisma/migrations.",
   `-- Locked source cutoff: ${baselineCutoff}. Later migrations remain separate forward files.`,
+  "-- Enum additions gain explicit commit boundaries required by the consolidated query; schema semantics are unchanged.",
+  "-- Liber Storage/Realtime policy names are dropped before recreation because Prisma reset does not drop platform schemas.",
   "-- The source ledger and SHA-256 checksums follow.",
   ...sections.map(({ checksum, migrationName }) => `-- ${migrationName} ${checksum}`),
   "",

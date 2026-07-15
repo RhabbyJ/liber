@@ -429,6 +429,7 @@ async function seedFixture(db, { legacy }) {
       `UPDATE public."Invite"
        SET status = CASE id WHEN $1 THEN 'ACCEPTED'::public."InviteStatus"
                             ELSE 'DECLINED'::public."InviteStatus" END,
+           "expiresAt" = CASE id WHEN $1 THEN now() - interval '1 hour' ELSE "expiresAt" END,
            "respondedAt" = now(),
            "updatedAt" = now()
        WHERE id IN ($1, $2)`,
