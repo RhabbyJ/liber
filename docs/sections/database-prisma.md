@@ -15,6 +15,13 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 ## Invariants
 
 - Schema changes require migrations.
+- Existing databases use `prisma.config.ts` and the immutable historical
+  migration root. Brand-new current Supabase databases use
+  `prisma.baseline.config.ts` and the locked current-baseline root; pointing the
+  fresh-only path at an existing Liber schema must fail closed.
+- The current baseline is locked through Guided Messaging V1. Later migrations
+  remain separate forward files in both roots and must be byte-identical; run
+  `npm run db:baseline:generate` and `npm run db:baseline:check` after adding one.
 - User IDs must remain Supabase Auth UUID-compatible.
 - `User.id` is immutable and validated against the `auth.users` primary key.
   Auth deletion and all ownership-key updates are restricted until the explicit
@@ -62,6 +69,11 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 ## Agent notes
 
 After schema changes, run `npm run db:validate` and regenerate Prisma client when needed.
+
+Before approving a schema release, prove both the existing-database upgrade and
+the supported fresh baseline on separate sentinel-marked disposable Supabase
+targets, then run `npm run db:test-baseline-equivalence`. Never edit an applied
+historical migration or the locked baseline to make a replay pass.
 
 Production migration readiness compares the complete checked-in migration directory set with successful, non-rolled-back `_prisma_migrations` rows. A hardcoded latest migration name is not a valid readiness check; database-only migration names are reported separately.
 

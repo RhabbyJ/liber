@@ -13,6 +13,10 @@ demo/private preview to a public Los Angeles beta. It does not override
 - Guided Messaging V1 is approved for implementation as invite-scoped guided
   conversation only. Its production flag remains off outside a server-managed
   cohort until the messaging launch gates below are closed.
+- The supported fresh-database path is the locked generated Prisma baseline
+  through Guided Messaging V1. Existing production retains its immutable
+  historical ledger and uses forward migrations only. Promotion still requires
+  exact-commit disposable upgrade, fresh-baseline, and catalog-equivalence proof.
 - Los Angeles County is the approved v1 geography boundary. The exact reviewed
   v2 release activates 88 incorporated cities and 304 approximate Census ZCTA
   service areas while preserving three reviewed neighborhoods.

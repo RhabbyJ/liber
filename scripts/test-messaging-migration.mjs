@@ -11,6 +11,7 @@ const mode = process.argv[2] ?? "static";
 const migrationName = "20260714150654_add_guided_messaging_v1";
 const migrationRoot = path.resolve("packages/db/prisma/migrations");
 const migrationPath = path.join(migrationRoot, migrationName, "migration.sql");
+const baselineMigrationRoot = path.resolve("packages/db/prisma/current-baseline/migrations");
 const schemaPath = path.resolve("packages/db/prisma/schema.prisma");
 
 if (mode === "static") {
@@ -210,8 +211,8 @@ async function runFreshProof() {
     "migrate",
     "reset",
     "--force",
-    "--schema",
-    "packages/db/prisma/schema.prisma",
+    "--config",
+    "prisma.baseline.config.ts",
   ], testEnv);
 
   const client = new pg.Client({ connectionString: testUrl });
@@ -1751,7 +1752,7 @@ async function assertUpgradeBaseline(db) {
 }
 
 async function assertExactMigrationLedger(db) {
-  await assertMigrationLedger(db, true, "fresh migration");
+  await assertMigrationLedgerFromRoot(db, baselineMigrationRoot, "fresh supported baseline");
 }
 
 async function assertMigrationLedger(db, includeMessagingMigration, label) {
@@ -1760,9 +1761,21 @@ async function assertMigrationLedger(db, includeMessagingMigration, label) {
     .map((entry) => entry.name)
     .filter((name) => includeMessagingMigration || name !== migrationName)
     .sort();
+  await assertExpectedMigrationLedger(db, migrationRoot, directories, label);
+}
+
+async function assertMigrationLedgerFromRoot(db, root, label) {
+  const directories = (await readdir(root, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+  await assertExpectedMigrationLedger(db, root, directories, label);
+}
+
+async function assertExpectedMigrationLedger(db, root, directories, label) {
   const expected = await Promise.all(directories.map(async (name) => ({
     checksum: createHash("sha256")
-      .update(await readFile(path.join(migrationRoot, name, "migration.sql")))
+      .update(await readFile(path.join(root, name, "migration.sql")))
       .digest("hex"),
     migration_name: name,
   })));

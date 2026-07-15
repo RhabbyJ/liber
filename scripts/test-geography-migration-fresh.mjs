@@ -6,6 +6,7 @@ import process from "node:process";
 import pg from "pg";
 import { sameDatabaseTarget } from "./database-target.mjs";
 
+const baselineMigrationRoot = path.resolve("packages/db/prisma/current-baseline/migrations");
 const testUrl = process.env.GEOGRAPHY_MIGRATION_TEST_DATABASE_URL;
 await assertDisposableDatabase(testUrl);
 
@@ -20,7 +21,14 @@ const testEnv = {
   ),
 };
 
-run(process.platform === "win32" ? "npx.cmd" : "npx", ["prisma", "migrate", "reset", "--force"], testEnv);
+run(process.platform === "win32" ? "npx.cmd" : "npx", [
+  "prisma",
+  "migrate",
+  "reset",
+  "--force",
+  "--config",
+  "prisma.baseline.config.ts",
+], testEnv);
 
 const client = new pg.Client({ connectionString: testUrl });
 await client.connect();
@@ -33,7 +41,7 @@ try {
   `);
   if (failed.rowCount !== 0) throw new Error(`Fresh migration ledger contains failures: ${JSON.stringify(failed.rows)}`);
 
-  const expectedMigrations = (await readdir(path.resolve("packages/db/prisma/migrations"), { withFileTypes: true }))
+  const expectedMigrations = (await readdir(baselineMigrationRoot, { withFileTypes: true }))
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort();

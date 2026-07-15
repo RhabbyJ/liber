@@ -53,6 +53,12 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - Browser auth QA failures or inconclusive results should include a screenshot or compact state dump with URL, relevant DOM attributes, visible text excerpt, and console errors.
 - Public and seller DTO tests must snapshot serialized responses and recursively reject forbidden identity, coordinate, criteria-ID, service-area-ID, badge, document, and Storage fields.
 - Release CI must execute real ESLint, exact fresh and representative upgrade migrations, typecheck, tests, production build, RLS/Storage security tests, readiness validation, and realistic seller-search query plans.
+- The supported exact-fresh gate uses `prisma.baseline.config.ts`, not the
+  unreplayable historical `00005` path. `npm run db:baseline:check` pins the
+  snapshot source digest and byte-identical post-cutoff forwards. The protected
+  proof must persist the normal upgrade on one disposable target, build the
+  baseline on another, and run `npm run db:test-baseline-equivalence` before
+  either target is deleted.
 - Production readiness must reject a missing or shorter-than-32-character `AUTH_RATE_LIMIT_PEPPER`; production Auth rate limiting fails closed without it.
 - Production readiness enumerates every local Prisma migration directory and requires a successful, non-rolled-back database record for each one. Missing, failed, rolled-back, and database-only migrations all fail the gate; production cannot run schema or security SQL absent from the reviewed repository.
 - Production readiness also compares each applied Prisma checksum to the local
