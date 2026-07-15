@@ -36,6 +36,7 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - `VerificationDocument.ownershipEvidenceKind` is nullable for legacy/non-ownership documents and typed for new seller ownership evidence.
 - `BuyerCriteria.buyerProfileId` is unique; an active buyer has exactly one criteria row and one active primary selected service area.
 - Property authority attestations, ownership decisions, documents, images, and invites are tied to `SellerProperty.identityVersion`.
+- Migration `20260715071054_retire_legacy_ownership_version` removes retired unnumbered-proposal `ownershipVersion`/`propertyOwnershipVersion` artifacts from drifted existing targets. Do not restore a parallel ownership-version lifecycle; `identityVersion` is authoritative.
 - `UploadSession.buyerProfileId` is a real foreign key. Abandoned sessions leave cleanup eligibility only after their object has been removed, then enter terminal `CLEANED` state.
 - Guided messaging tables enforce one conversation per invite, exactly two
   invite-derived participants, participant-only human senders, immutable

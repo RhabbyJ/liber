@@ -26,6 +26,8 @@ Owns private seller property records, property images, ownership evidence upload
 - Seller property type choices are the v1 buyer-demand choices: house (`HOME` legacy enum value), condo, townhouse, manufactured, and land.
 - Seller ownership verification requires two private evidence uploads before admin approval: government-issued photo ID and utility/tax/mortgage proof matching the property address.
 - Ownership approval is bound to a property identity/version. Editing address, ZIP, coordinates, or another ownership-relevant field increments the version and returns the property to `PENDING`; prior evidence remains audit history only.
+- Property evidence upload finalization binds documents only to `propertyIdentityVersion`; legacy parallel ownership-version fields and triggers are not part of the supported flow.
+- Saving edited property details returns the seller to the property list after the server commits the update; evidence uploads finalize independently when each file transfer completes.
 - Seller can invite only from owned properties.
 - Seller cannot invite their own buyer profile.
 - Invite is manual outreach only.

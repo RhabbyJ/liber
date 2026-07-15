@@ -148,7 +148,7 @@ async function assertForwardArtifacts() {
     throw new Error(`Current-baseline migration directories differ from the expected locked baseline plus forwards: ${JSON.stringify(actualDirectories)}`);
   }
   for (const { migrationName, original } of forwardSources) {
-    const committed = normalize(await readFile(path.join(baselineRoot, migrationName, "migration.sql")).catch(() => ""));
+    const committed = normalize(await readFile(path.join(baselineRoot, migrationName, "migration.sql"), "utf8").catch(() => ""));
     if (committed !== original) {
       throw new Error(`Current-baseline forward migration ${migrationName} differs from immutable migration history.`);
     }
