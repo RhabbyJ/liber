@@ -6,7 +6,8 @@ describe("conversation inbox rendering", () => {
     const inboxSource = readFileSync(new URL("./conversation-inbox.tsx", import.meta.url), "utf8");
     const threadSource = readFileSync(new URL("./message-thread.tsx", import.meta.url), "utf8");
 
-    expect(inboxSource).toContain("conversation.lastMessage?.body || statusDescription");
+    expect(inboxSource).toContain("{conversation.lastMessage.body}");
+    expect(inboxSource).toContain('conversation.lastMessage.isOwn ? "You: " : ""');
     expect(threadSource).toContain("{message.body}</p>");
     expect(`${inboxSource}\n${threadSource}`).not.toContain("dangerouslySetInnerHTML");
     expect(`${inboxSource}\n${threadSource}`).not.toContain("linkify");
@@ -35,8 +36,53 @@ describe("conversation inbox rendering", () => {
     expect(source).toMatch(/moderationChanged\s*\? canonical\s*:\s*mergeCanonicalConversationState/);
     expect(source).toContain("if (moderationChanged) olderMessagesAbortRef.current?.abort()");
     expect(source).toContain("current.moderationRevision !== moderationRevision");
-    expect(source).toContain("if (refreshInFlightRef.current) return");
+    expect(source).toContain("createRefreshCoordinator");
+    expect(source).toContain("refreshCoordinatorRef.current!.request(announceFailure)");
     expect(source).toContain("MESSAGING_REQUEST_TIMEOUT_MS");
     expect(source).not.toContain("refreshAbortRef.current?.abort();\n    refreshAbortRef.current = controller");
+  });
+
+  it("loads LOI enrichment independently from canonical messaging", () => {
+    const source = readFileSync(new URL("./message-thread.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain("`${conversationPath}/loi`");
+    expect(source).toContain("void refreshThread(false)");
+    expect(source).toContain("void refreshLoiSummary()");
+    expect(source).not.toContain("canonicalPayload as { loi");
+  });
+
+  it("keeps a successful reply independent from trailing reconciliation", () => {
+    const source = readFileSync(new URL("./message-thread.tsx", import.meta.url), "utf8");
+    const sendStart = source.indexOf("async function sendMessage");
+    const sendEnd = source.indexOf("async function loadOlderMessages", sendStart);
+    const sendSource = source.slice(sendStart, sendEnd);
+
+    expect(source).toContain("event.preventDefault();");
+    expect(sendSource).toContain("applySentMessageResponse(payload, threadRef.current)");
+    expect(sendSource).toContain("setThread((current) => mergeSentMessage(current, applied.message))");
+    expect(sendSource).toContain('setDraft("")');
+    expect(sendSource).toContain("void refreshThread(true)");
+    expect(sendSource).not.toContain("await refreshThread(true)");
+  });
+
+  it("keeps the latest messages visible without losing the older-page scroll anchor", () => {
+    const source = readFileSync(new URL("./message-thread.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain("useLayoutEffect");
+    expect(source).toContain("messageHistoryRef");
+    expect(source).toContain("olderScrollAnchorRef");
+    expect(source).toContain("history.scrollTop = olderAnchor.scrollTop + history.scrollHeight - olderAnchor.scrollHeight");
+    expect(source).toContain("newestChanged && viewport.nearBottom");
+  });
+
+  it("keeps offline drafts editable and surfaces conversation state in the inbox", () => {
+    const inboxSource = readFileSync(new URL("./conversation-inbox.tsx", import.meta.url), "utf8");
+    const threadSource = readFileSync(new URL("./message-thread.tsx", import.meta.url), "utf8");
+
+    expect(inboxSource).toContain('conversation.status !== "ACTIVE"');
+    expect(inboxSource).toContain('conversation.unreadCount > 0 ? " unread"');
+    expect(threadSource).toContain("disabled={sending}");
+    expect(threadSource).toContain("aria-invalid={draftLength > 2_000 || undefined}");
+    expect(threadSource).toContain('className="message-composer-error"');
   });
 });

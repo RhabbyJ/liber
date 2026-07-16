@@ -159,6 +159,52 @@ enum MessageReportStatus {
   DISMISSED
 }
 
+enum LoiNegotiationStatus {
+  AWAITING_BUYER_SUBMISSION
+  AWAITING_SELLER_RESPONSE
+  AWAITING_BUYER_RESPONSE
+  TERMS_ALIGNED
+  DECLINED
+  WITHDRAWN
+  EXPIRED
+  READ_ONLY
+}
+
+enum LoiClosedReason {
+  TERMS_ALIGNED
+  DECLINED
+  WITHDRAWN
+  RESPONSE_EXPIRED
+  PROPERTY_IDENTITY_CHANGED
+  PROPERTY_NO_LONGER_ELIGIBLE
+  SELLER_ACCESS_LOST
+  PARTICIPANT_INACTIVE
+  PARTICIPANTS_BLOCKED
+  INVITE_NO_LONGER_ELIGIBLE
+  ADMIN_RESTRICTED
+}
+
+enum LoiParticipantRole {
+  BUYER
+  SELLER
+}
+
+enum LoiRevisionKind {
+  INITIAL
+  COUNTER
+}
+
+enum LoiEventType {
+  NEGOTIATION_CREATED
+  INITIAL_SUBMITTED
+  COUNTER_SUBMITTED
+  TERMS_ALIGNED
+  DECLINED
+  WITHDRAWN
+  EXPIRED
+  FROZEN
+}
+
 enum EmailOutboxStatus {
   PENDING
   SENDING
@@ -233,6 +279,12 @@ model User {
   messageReportsReceived   MessageReport[]                @relation("MessageReportReportedUser")
   messageReportsReviewed   MessageReport[]                @relation("MessageReportReviewer")
   messageOutboxJobs        EmailOutbox[]                  @relation("MessageOutboxRecipient")
+  loiDrafts                LoiDraft[]
+  loiEvents                LoiEvent[]
+  loiRevisions             LoiRevision[]
+  loiNegotiationsAsBuyer   LoiNegotiation[]              @relation("LoiBuyer")
+  loiNegotiationsAsSeller  LoiNegotiation[]              @relation("LoiSeller")
+  loiOutboxJobs            EmailOutbox[]                  @relation("LoiOutboxRecipient")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -640,6 +692,7 @@ model SellerProperty {
   documents             VerificationDocument[]
   verificationDecisions PropertyVerificationDecision[]
   uploadSessions        UploadSession[]
+  loiNegotiations       LoiNegotiation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -736,8 +789,9 @@ model Invite {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  emailOutbox  EmailOutbox[]
-  conversation Conversation?
+  emailOutbox    EmailOutbox[]
+  conversation   Conversation?
+  loiNegotiation LoiNegotiation?
 
   @@index([sellerId])
   @@index([buyerProfileId])
@@ -756,10 +810,11 @@ model Conversation {
   lastMessageAt       DateTime
   moderationUpdatedAt DateTime?
 
-  participants ConversationParticipant[]
-  messages     Message[]
-  reports      MessageReport[]
-  emailOutbox  EmailOutbox[]
+  participants   ConversationParticipant[]
+  messages       Message[]
+  reports        MessageReport[]
+  emailOutbox    EmailOutbox[]
+  loiNegotiation LoiNegotiation?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -854,6 +909,111 @@ model MessageReport {
   @@index([status, createdAt])
 }
 
+model LoiNegotiation {
+  id                      String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  inviteId                String               @unique
+  invite                  Invite               @relation(fields: [inviteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversationId          String               @unique @db.Uuid
+  conversation            Conversation         @relation(fields: [conversationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  buyerUserId             String               @db.Uuid
+  buyer                   User                 @relation("LoiBuyer", fields: [buyerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sellerUserId            String               @db.Uuid
+  seller                  User                 @relation("LoiSeller", fields: [sellerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  propertyId              String
+  property                SellerProperty       @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  propertyIdentityVersion Int
+  status                  LoiNegotiationStatus @default(AWAITING_BUYER_SUBMISSION)
+  closedReason            LoiClosedReason?
+  currentRevisionId       String?              @unique @db.Uuid
+  currentSequence         Int                  @default(0)
+  propertySnapshot        Json
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  closedAt                DateTime?
+
+  currentRevision LoiRevision?  @relation("LoiCurrentRevision", fields: [currentRevisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  drafts          LoiDraft[]
+  events          LoiEvent[]
+  outboxJobs      EmailOutbox[]
+  revisions       LoiRevision[] @relation("LoiNegotiationRevisions")
+
+  @@index([buyerUserId, status, updatedAt])
+  @@index([sellerUserId, status, updatedAt])
+  @@index([propertyId, propertyIdentityVersion])
+}
+
+model LoiDraft {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  negotiationId      String             @db.Uuid
+  negotiation        LoiNegotiation     @relation(fields: [negotiationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  ownerUserId        String             @db.Uuid
+  owner              User               @relation(fields: [ownerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  ownerRole          LoiParticipantRole
+  basedOnRevisionId  String?            @db.Uuid
+  basedOnRevision    LoiRevision?       @relation(fields: [basedOnRevisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  basedOnSequence    Int
+  schemaVersion      Int
+  calculationVersion Int
+  terms              Json
+  draftVersion       Int                @default(1)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@unique([negotiationId, ownerUserId])
+  @@index([ownerUserId, updatedAt])
+  @@index([basedOnRevisionId])
+}
+
+model LoiRevision {
+  id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  negotiationId         String             @db.Uuid
+  negotiation           LoiNegotiation     @relation("LoiNegotiationRevisions", fields: [negotiationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  currentForNegotiation LoiNegotiation?    @relation("LoiCurrentRevision")
+  sequence              Int
+  parentRevisionId      String?            @db.Uuid
+  parentRevision        LoiRevision?       @relation("LoiRevisionParent", fields: [parentRevisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  childRevisions        LoiRevision[]      @relation("LoiRevisionParent")
+  draftBasis            LoiDraft[]
+  kind                  LoiRevisionKind
+  submittedByUserId     String             @db.Uuid
+  submittedBy           User               @relation(fields: [submittedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  submittedByRole       LoiParticipantRole
+  schemaVersion         Int
+  calculationVersion    Int
+  terms                 Json
+  computedSummary       Json
+  responseDeadline      DateTime
+  submittedAt           DateTime           @default(now())
+
+  events     LoiEvent[]
+  outboxJobs EmailOutbox[]
+
+  @@unique([negotiationId, sequence])
+  @@index([parentRevisionId])
+  @@index([negotiationId, submittedAt])
+  @@index([submittedByUserId, submittedAt])
+}
+
+model LoiEvent {
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  negotiationId  String              @db.Uuid
+  negotiation    LoiNegotiation      @relation(fields: [negotiationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  revisionId     String?             @db.Uuid
+  revision       LoiRevision?        @relation(fields: [revisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actorUserId    String?             @db.Uuid
+  actor          User?               @relation(fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actorRole      LoiParticipantRole?
+  type           LoiEventType
+  clientActionId String              @db.Uuid
+  metadata       Json
+  createdAt      DateTime            @default(now())
+
+  @@unique([negotiationId, clientActionId])
+  @@index([revisionId])
+  @@index([negotiationId, createdAt, id])
+  @@index([actorUserId, createdAt])
+}
+
 model Notification {
   id       String    @id @default(cuid())
   userId   String    @db.Uuid
@@ -907,6 +1067,12 @@ model EmailOutbox {
   messageConversation    Conversation?     @relation(fields: [messageConversationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   messageRecipientUserId String?           @db.Uuid
   messageRecipient       User?             @relation("MessageOutboxRecipient", fields: [messageRecipientUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  loiNegotiationId       String?           @db.Uuid
+  loiNegotiation         LoiNegotiation?   @relation(fields: [loiNegotiationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  loiRevisionId          String?           @db.Uuid
+  loiRevision            LoiRevision?      @relation(fields: [loiRevisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  loiRecipientUserId     String?           @db.Uuid
+  loiRecipient           User?             @relation("LoiOutboxRecipient", fields: [loiRecipientUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -918,6 +1084,9 @@ model EmailOutbox {
   @@index([messageConversationId])
   @@index([messageRecipientUserId])
   @@index([messageConversationId, messageRecipientUserId, status, nextAttemptAt])
+  @@index([loiNegotiationId, loiRecipientUserId, status, nextAttemptAt], map: "EmailOutbox_loi_delivery_idx")
+  @@index([loiRevisionId])
+  @@index([loiRecipientUserId])
 }
 
 model PropertyVerificationDecision {

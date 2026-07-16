@@ -12,6 +12,16 @@ test("matches the same direct database despite credential differences", () => {
   );
 });
 
+test("matches a custom Postgres target across database-role credentials", () => {
+  assert.equal(
+    sameDatabaseTarget(
+      "postgresql://migration_role:first@postgres.internal.example:5432/liber?sslmode=require",
+      "postgresql://runtime_role:second@postgres.internal.example:5432/liber",
+    ),
+    true,
+  );
+});
+
 test("matches direct and pooler URLs for the same Supabase project", () => {
   assert.equal(
     sameDatabaseTarget(

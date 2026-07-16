@@ -96,6 +96,23 @@ Do not turn this section into general chat, contact discovery, offer workflow,
 or a direct Supabase table-writing path. Live Supabase Realtime/RLS and
 two-connection block/send evidence are release gates, not assumptions.
 
+The cohort-gated LOI workspace may be linked from an accepted conversation, but
+LOI drafts, financial terms, revisions, and decisions never live in message
+bodies and free text cannot mutate negotiation state. Chat and LOI retain
+separate routes, models, authorization, events, Realtime topics, and retention
+rules. The optional sidecar derives deadline expiry and current eligibility
+with the same effective-status rule as the workspace; it must not expose a stale
+stored “waiting” status.
+
+Successful send responses require an own-message kind, non-empty canonical
+body, and valid timestamp before the draft is cleared. They are merged
+immediately while overlapping canonical refreshes are coalesced through one
+trailing refresh. The LOI card is an optional fail-closed sidecar loaded from
+`GET /api/conversations/:conversationId/loi` on its own timeout; neither the
+server page nor canonical conversation request awaits it. The sidecar exposes
+only allowlisted link/status fields, skips LOI-table access for disabled or
+invalid configuration, and cannot make authorized messaging unavailable.
+
 ## Migration release and recovery
 
 Run `npm run test:messaging-migration` on every change. Before release, run

@@ -76,6 +76,16 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - Messaging migration static proof runs in the normal test suite. Its guarded
   fresh and upgrade modes require a sentinel-marked disposable target, explicit
   reset/write opt-ins, and reject configured shared URLs/project refs.
+- LOI static migration proof runs in the normal test suite. The protected
+  `disposable-loi-proof` job stages the base LOI migration on the
+  immediate-pre-LOI target, seeds representative history, applies/proves the
+  forward repair, and runs the exact fresh chain on a separate sentinel-marked
+  target, then runs
+  `db:test-loi:behavior` on each. The behavior suite covers lifecycle,
+  same/different request retries, submit races, submit/block, submit/expiry,
+  participant/outsider topic access, outbox cancellation, and database
+  event-shape enforcement using real PostgreSQL connections. Workflow presence
+  is not a pass; retain the exact-SHA protected output before cohort enablement.
 - The protected `release-proof` workflow runs the messaging upgrade proof before
   the exact fresh-chain proof in the `disposable-messaging-proof` environment.
   That environment holds separate upgrade and fresh targets with separate 16+

@@ -138,6 +138,28 @@ export function messagePageMetadata(value: unknown) {
   };
 }
 
+export function applySentMessageResponse(
+  value: unknown,
+  current: ConversationThread,
+): { message: MessagingMessage; thread: ConversationThread } | null {
+  const payload = recordValue(value);
+  const source = recordValue(payload?.data);
+  const message = normalizeMessage(source, current.counterpartLabel);
+  if (!message
+    || !message.isOwn
+    || (message.kind !== "FREE_TEXT" && message.kind !== "GUIDED")
+    || !message.body.trim()
+    || !validDate(source?.createdAt)) return null;
+  return {
+    message,
+    thread: mergeSentMessage(current, message),
+  };
+}
+
+export function mergeSentMessage(current: ConversationThread, message: MessagingMessage): ConversationThread {
+  return { ...current, messages: mergeMessages(current.messages, [message]) };
+}
+
 export function mergeMessages(
   current: MessagingMessage[],
   incoming: MessagingMessage[],
@@ -345,4 +367,8 @@ function optionalDate(...values: unknown[]) {
   if (typeof value === "string") return value;
   if (value instanceof Date) return value.toISOString();
   return undefined;
+}
+
+function validDate(value: unknown) {
+  return typeof value === "string" && value.length > 0 && !Number.isNaN(Date.parse(value));
 }

@@ -59,6 +59,7 @@ checkRateLimitPepper(productionMode ? failures : warnings);
 checkMinimumSecret("CRON_SECRET", 32, productionMode ? failures : warnings);
 checkSupabaseKeyClasses(failures);
 checkMessagingRollout(productionMode ? failures : warnings);
+checkLoiRollout(productionMode ? failures : warnings);
 
 if (productionMode && failures.length === 0) {
   await checkProductionDependencies(failures);
@@ -258,6 +259,27 @@ function checkMessagingRollout(collection) {
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (members.some((member) => member !== "*" && !uuid.test(member))) {
     collection.push("LIBER_MESSAGING_V1_COHORT_USER_IDS must contain only UUIDs separated by commas.");
+  }
+}
+
+function checkLoiRollout(collection) {
+  if (env.LIBER_LOI_V1_ENABLED?.trim().toLowerCase() !== "true") return;
+
+  const cohort = env.LIBER_LOI_V1_COHORT_USER_IDS?.trim();
+  if (!cohort) {
+    collection.push("LIBER_LOI_V1_COHORT_USER_IDS is required when LOI V1 is enabled.");
+    return;
+  }
+  const members = cohort.split(",").map((value) => value.trim());
+  if (members.length !== 2
+    || members.some((member) => !member)
+    || new Set(members.map((member) => member.toLowerCase())).size !== 2) {
+    collection.push("LIBER_LOI_V1_COHORT_USER_IDS must contain exactly two unique reviewed participant UUIDs.");
+    return;
+  }
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (members.some((member) => !uuid.test(member))) {
+    collection.push("LOI V1 rollout must use only explicit reviewed UUIDs, never wildcards or aliases.");
   }
 }
 

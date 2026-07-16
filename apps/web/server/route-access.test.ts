@@ -11,4 +11,11 @@ describe("route access", () => {
   it("does not match paths that only share the messages prefix", () => {
     expect(requiresAuthenticatedUser("/messages-archive")).toBe(false);
   });
+
+  it("protects LOI negotiation pages without imposing one participant role", () => {
+    expect(requiresAuthenticatedUser("/negotiations")).toBe(true);
+    expect(requiresAuthenticatedUser("/negotiations/00000000-0000-4000-8000-000000000001")).toBe(true);
+    expect(requiresAuthenticatedUser("/negotiations-archive")).toBe(false);
+    expect(requiredRoleForPath("/negotiations/00000000-0000-4000-8000-000000000001")).toBeNull();
+  });
 });

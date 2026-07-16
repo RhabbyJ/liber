@@ -41,6 +41,21 @@ Owns shared visual language, navigation, layouts, reusable components, and globa
 - Do not use real-looking buyer imagery as a trust shortcut.
 - Buyer avatar UI uses generated 2D animal avatars from the app-approved `avatarka` animals theme. The SVG is generated locally from an allowlisted token and rendered as a data image.
 - Public preview cards pair the generated neutral buyer alias with that generated avatar, while profile links and invite actions remain exclusive to their existing server-authorized seller surfaces.
+- `/negotiations/[negotiationId]` uses a sectioned task form, sticky deal
+  snapshot, paginated immutable revision timeline, explicit current actor/state,
+  separate review/submission action, and a mobile sticky action bar. Its modes
+  are `CURRENT`, `HISTORICAL`, `EDITING`, and `REVIEWING`; historical mode shows
+  its own summary and hides current-version actions. Draft errors preserve local
+  input, visually mark/focus the exact field, and remain visible inside native
+  decision dialogs. Unsaved or stale edits disable submission; the exact saved
+  draft must be reviewed first. Every persisted term appears in review and
+  decision dialogs, immutable versions are selectable, live financial preview
+  is independent of unrelated text-field validity, and explicit term changes
+  are separated from recalculated-value changes. Changes and status remain
+  understandable without color.
+- LOI copy must say "Submit LOI", "Submit counter", "Agree to terms for
+  contract preparation", and "Terms aligned". Do not use sign, execute, accept
+  offer, open escrow, or deposit-received language.
 
 ## Agent notes
 

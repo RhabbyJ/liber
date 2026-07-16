@@ -21,6 +21,12 @@ Owns transactional email queueing, invite email delivery, expiry jobs, and maint
 - The worker revalidates recipient activity, membership, unread state, mute,
   block, buyer/seller role eligibility, approved seller access, and conversation
   eligibility immediately before unread-message send.
+- LOI email contains no proposed terms. Delivery revalidates the accepted
+  invite, active conversation, current revision, participants, seller access,
+  property identity, block state, exact two-user cohort, and the immutable event
+  encoded in the idempotency key. Event type/actor/status/recipient must match,
+  so a claimed stale submission job cannot be sent after a terminal action on
+  the same revision. The key uses the immutable LOI event plus recipient.
 - A cancelled unread job does not coalesce a later unread batch; a new message
   after read or unmute can queue fresh delivery.
 - Email jobs should retry safely and not duplicate invites.
@@ -41,6 +47,10 @@ Owns transactional email queueing, invite email delivery, expiry jobs, and maint
   `messageRecipientUserId`. The retired generic `recipientUserId` and UUID
   lease columns are incompatible and must not be restored.
 - Upload cleanup marks a session `CLEANED` only after Storage deletion succeeds, so completed cleanup is not selected again.
+- Expiry maintenance persists overdue LOIs as `EXPIRED`. Its eligibility sweep
+  persists other active ineligible LOIs as `READ_ONLY`, deletes private drafts,
+  appends an audit event, and cancels pending LOI email without changing already
+  terminal outcomes.
 
 ## Agent notes
 

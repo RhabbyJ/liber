@@ -210,6 +210,11 @@ export async function getConversationThread(conversationId: string) {
   } satisfies ConversationThreadDTO;
 }
 
+export async function authorizeConversationAccess(conversationId: string) {
+  const currentUser = await requireMessagingUser();
+  await requireConversationAccess(prisma, conversationId, currentUser.id);
+}
+
 export async function listConversationMessages(
   input: { after?: string; conversationId: string; cursor?: string; pageSize?: number },
 ): Promise<ConversationMessagePage> {
@@ -399,7 +404,7 @@ export async function sendConversationMessage(input: SendConversationMessageInpu
     }
 
     const [created] = await tx.$queryRaw<MessageRow[]>`
-      INSERT INTO public."Message" (
+      INSERT INTO public."Message" AS message (
         "conversationId", "senderUserId", kind, "templateKey", "templateVersion",
         body, "clientMessageId", "moderationStatus", "createdAt"
       ) VALUES (
@@ -1237,6 +1242,57 @@ async function blockPairInTransaction(
     VALUES (${blockerUserId}::uuid, ${blockedUserId}::uuid, ${normalizeOptionalText(reason, 500, "Block reason")}, now())
     ON CONFLICT ("blockerUserId", "blockedUserId") DO NOTHING
   `;
+  await tx.$executeRaw`
+    WITH frozen AS (
+      UPDATE public."LoiNegotiation"
+      SET status = 'READ_ONLY'::public."LoiNegotiationStatus",
+          "closedReason" = 'PARTICIPANTS_BLOCKED'::public."LoiClosedReason",
+          "closedAt" = now(),
+          "updatedAt" = now()
+      WHERE status NOT IN (
+        'TERMS_ALIGNED'::public."LoiNegotiationStatus",
+        'DECLINED'::public."LoiNegotiationStatus",
+        'WITHDRAWN'::public."LoiNegotiationStatus",
+        'EXPIRED'::public."LoiNegotiationStatus",
+        'READ_ONLY'::public."LoiNegotiationStatus"
+      )
+        AND (
+          ("buyerUserId" = ${blockerUserId}::uuid AND "sellerUserId" = ${blockedUserId}::uuid)
+          OR ("buyerUserId" = ${blockedUserId}::uuid AND "sellerUserId" = ${blockerUserId}::uuid)
+        )
+      RETURNING id, "currentRevisionId"
+    )
+    INSERT INTO public."LoiEvent" (
+      id, "negotiationId", "revisionId", type, "clientActionId", metadata, "createdAt"
+    )
+    SELECT gen_random_uuid(), frozen.id, frozen."currentRevisionId",
+      'FROZEN'::public."LoiEventType", gen_random_uuid(), '{}'::jsonb, now()
+    FROM frozen
+  `;
+  await tx.$executeRaw`
+    DELETE FROM public."LoiDraft" draft
+    USING public."LoiNegotiation" negotiation
+    WHERE draft."negotiationId" = negotiation.id
+      AND negotiation.status = 'READ_ONLY'::public."LoiNegotiationStatus"
+      AND negotiation."closedReason" = 'PARTICIPANTS_BLOCKED'::public."LoiClosedReason"
+      AND (
+        (negotiation."buyerUserId" = ${blockerUserId}::uuid AND negotiation."sellerUserId" = ${blockedUserId}::uuid)
+        OR (negotiation."buyerUserId" = ${blockedUserId}::uuid AND negotiation."sellerUserId" = ${blockerUserId}::uuid)
+      )
+  `;
+  await tx.emailOutbox.updateMany({
+    where: {
+      loiNegotiation: {
+        OR: [
+          { buyerUserId: blockerUserId, sellerUserId: blockedUserId },
+          { buyerUserId: blockedUserId, sellerUserId: blockerUserId },
+        ],
+      },
+      status: { in: ["PENDING", "FAILED"] },
+      type: "LOI_UPDATE",
+    },
+    data: { lastError: "The participants are no longer eligible.", nextAttemptAt: null, status: "CANCELLED" },
+  });
   return Number(result?.count ?? 0);
 }
 

@@ -40,6 +40,9 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `engineering/DEPENDENCY_AUDIT_2026-07-11.md` — current dependency findings, reachability triage, and compatible-upgrade policy.
 - `engineering/Liber_Messaging_v1` — approved Guided Messaging V1 decision,
   lifecycle, security model, implementation sequence, and launch gates.
+- `engineering/LIBER_LOI_V1.md` — the sole LOI completion/audit/release
+  artifact: implemented state machine, terms, security, migration checksums,
+  verification boundary, deployment gates, and rollback.
 - `engineering/CURRENT_DATABASE_BASELINE_RUNBOOK.md` — immutable existing-DB
   migration path, supported fresh Supabase baseline, schema-equivalence proof,
   and production selection rules.
@@ -63,6 +66,7 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `sections/database-prisma.md`
 - `sections/testing-smoke.md`
 - `sections/messaging.md`
+- `sections/loi-negotiation.md`
 
 These are intentionally short. They tell agents what a section is for, where the entry points are, and what not to break.
 

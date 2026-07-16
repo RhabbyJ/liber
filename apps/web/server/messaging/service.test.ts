@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
     $queryRaw: vi.fn(),
     $transaction: vi.fn(),
     adminAuditLog: { create: vi.fn() },
-    emailOutbox: { create: vi.fn() },
+    emailOutbox: { create: vi.fn(), updateMany: vi.fn() },
   },
 }));
 
@@ -150,6 +150,10 @@ describe("messaging service query shape", () => {
         type: "MESSAGE_UNREAD",
       },
     });
+    const insertQuery = mocks.prisma.$queryRaw.mock.calls.find((call) => (
+      Array.isArray(call[0]) && call[0].join(" ").includes('INSERT INTO public."Message"')
+    ));
+    expect(insertQuery?.[0].join(" ")).toContain('INSERT INTO public."Message" AS message');
   });
 });
 

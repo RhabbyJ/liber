@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type FormEvent,
@@ -13,13 +15,20 @@ import {
 import { Icon } from "../icon";
 import { PrivatePropertyImages } from "../private-property-images";
 import {
+  applySentMessageResponse,
   mergeCanonicalConversationState,
+  mergeSentMessage,
   messagePageMetadata,
   normalizeConversationThread,
   normalizedMessageLength,
   normalizeMessagePage,
 } from "./normalize";
 import { getMessagingBrowserClient, logMessagingRealtimeJoinStatus } from "./realtime";
+import { createRefreshCoordinator } from "./refresh-coordinator";
+import {
+  normalizeMessagingLoiSummary,
+  type MessagingLoiSummary,
+} from "../../lib/messaging-loi-summary";
 import {
   formatMessagingDateTime,
   MESSAGE_REPORT_CATEGORIES,
@@ -29,14 +38,19 @@ import {
 } from "./types";
 
 const MESSAGING_REQUEST_TIMEOUT_MS = 15_000;
+const LOI_SUMMARY_REQUEST_TIMEOUT_MS = 5_000;
 
 export function MessageThread({
+  initialLoi,
   initialThread,
   templates,
 }: {
+  initialLoi: MessagingLoiSummary;
   initialThread: ConversationThread;
   templates: MessagingTemplateOption[];
 }) {
+  const router = useRouter();
+  const [loi, setLoi] = useState(initialLoi);
   const [thread, setThread] = useState(initialThread);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -44,14 +58,24 @@ export function MessageThread({
   const [mutationPending, setMutationPending] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [composerError, setComposerError] = useState("");
   const [dialogError, setDialogError] = useState("");
   const [isOnline, setIsOnline] = useState(true);
   const [blockOpen, setBlockOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<MessagingMessage | null>(null);
   const [readRetry, setReadRetry] = useState(0);
+  const loiRefreshAbortRef = useRef<AbortController | null>(null);
+  const loiRefreshInFlightRef = useRef(false);
   const olderMessagesAbortRef = useRef<AbortController | null>(null);
   const refreshAbortRef = useRef<AbortController | null>(null);
-  const refreshInFlightRef = useRef(false);
+  const refreshEnabledRef = useRef(false);
+  const refreshExecutorRef = useRef<(announceFailure: boolean) => Promise<void>>(async () => undefined);
+  const refreshCoordinatorRef = useRef<ReturnType<typeof createRefreshCoordinator> | null>(null);
+  if (!refreshCoordinatorRef.current) {
+    refreshCoordinatorRef.current = createRefreshCoordinator(
+      (announceFailure) => refreshExecutorRef.current(announceFailure),
+    );
+  }
   const readRetryTimerRef = useRef<number | null>(null);
   const sendInFlightRef = useRef(false);
   const mutationInFlightRef = useRef(false);
@@ -59,6 +83,13 @@ export function MessageThread({
   const pendingMessageRef = useRef<{ id: string; signature: string } | null>(null);
   const readMessageIdRef = useRef<string | null>(null);
   const newestMessageIdRef = useRef(initialThread.messages.at(-1)?.id ?? null);
+  const messageHistoryRef = useRef<HTMLDivElement | null>(null);
+  const messageViewportRef = useRef({
+    initialized: false,
+    nearBottom: true,
+    newestMessageId: initialThread.messages.at(-1)?.id ?? null,
+  });
+  const olderScrollAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const fallbackFocusRef = useRef<HTMLAnchorElement | null>(null);
   const threadRef = useRef(initialThread);
@@ -66,9 +97,8 @@ export function MessageThread({
   const conversationId = thread.id;
   const conversationPath = `/api/conversations/${encodeURIComponent(conversationId)}`;
 
-  const refreshThread = useCallback(async (announceFailure = false) => {
-    if (refreshInFlightRef.current) return;
-    refreshInFlightRef.current = true;
+  const executeRefresh = useCallback(async (announceFailure = false) => {
+    if (!refreshEnabledRef.current) return;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), MESSAGING_REQUEST_TIMEOUT_MS);
     refreshAbortRef.current = controller;
@@ -84,6 +114,9 @@ export function MessageThread({
       if (canonical.id !== conversationId) throw new Error("Conversation response identity mismatch.");
       const moderationChanged = canonical.moderationRevision !== cachedThread.moderationRevision;
       if (moderationChanged) olderMessagesAbortRef.current?.abort();
+      threadRef.current = moderationChanged
+        ? canonical
+        : mergeCanonicalConversationState(cachedThread, canonical);
       setThread((current) => moderationChanged
         ? canonical
         : mergeCanonicalConversationState(current, canonical));
@@ -107,6 +140,11 @@ export function MessageThread({
           signal: controller.signal,
         });
         const metadata = messagePageMetadata(payload);
+        const currentRef = threadRef.current;
+        const refreshedRef = normalizeMessagePage(payload, currentRef);
+        threadRef.current = requestAfter
+          ? { ...refreshedRef, pageInfo: currentRef.pageInfo }
+          : refreshedRef;
         setThread((current) => {
           const refreshed = normalizeMessagePage(payload, current);
           return requestAfter ? { ...refreshed, pageInfo: current.pageInfo } : refreshed;
@@ -128,26 +166,60 @@ export function MessageThread({
     } finally {
       window.clearTimeout(timeout);
       if (refreshAbortRef.current === controller) refreshAbortRef.current = null;
-      refreshInFlightRef.current = false;
     }
   }, [conversationId, conversationPath]);
 
+  refreshExecutorRef.current = executeRefresh;
+  const refreshThread = useCallback(
+    (announceFailure = false) => refreshCoordinatorRef.current!.request(announceFailure),
+    [],
+  );
+
+  const refreshLoiSummary = useCallback(async () => {
+    if (!refreshEnabledRef.current || loiRefreshInFlightRef.current) return;
+    loiRefreshInFlightRef.current = true;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), LOI_SUMMARY_REQUEST_TIMEOUT_MS);
+    loiRefreshAbortRef.current = controller;
+    try {
+      const payload = await requestJson(`${conversationPath}/loi`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      if (refreshEnabledRef.current) setLoi(normalizeMessagingLoiSummary(payload));
+    } catch {
+      if (refreshEnabledRef.current) setLoi({ available: false });
+    } finally {
+      window.clearTimeout(timeout);
+      if (loiRefreshAbortRef.current === controller) loiRefreshAbortRef.current = null;
+      loiRefreshInFlightRef.current = false;
+    }
+  }, [conversationPath]);
+
   useEffect(() => {
+    refreshEnabledRef.current = true;
     void refreshThread(false);
+    void refreshLoiSummary();
     return () => {
+      refreshEnabledRef.current = false;
+      loiRefreshAbortRef.current?.abort();
       olderMessagesAbortRef.current?.abort();
       refreshAbortRef.current?.abort();
     };
-  }, [refreshThread]);
+  }, [refreshLoiSummary, refreshThread]);
 
   useEffect(() => {
     const poll = window.setInterval(() => {
-      if (document.visibilityState === "visible" && navigator.onLine) void refreshThread(false);
+      if (document.visibilityState === "visible" && navigator.onLine) {
+        void refreshThread(false);
+        void refreshLoiSummary();
+      }
     }, 5_000);
     const recover = () => {
       if (document.visibilityState !== "visible" || !navigator.onLine) return;
       setReadRetry((value) => value + 1);
       void refreshThread(false);
+      void refreshLoiSummary();
     };
     const handleFocus = () => {
       setIsOnline(navigator.onLine);
@@ -171,7 +243,7 @@ export function MessageThread({
       window.removeEventListener("offline", handleOffline);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [refreshThread]);
+  }, [refreshLoiSummary, refreshThread]);
 
   useEffect(() => () => {
     if (readRetryTimerRef.current !== null) window.clearTimeout(readRetryTimerRef.current);
@@ -190,9 +262,13 @@ export function MessageThread({
         .channel(`conversation:${thread.id}`, { config: { private: true } })
         .on("broadcast", { event: "message_changed" }, () => {
           void refreshThread(false);
+          void refreshLoiSummary();
         })
         .subscribe((status: string) => {
-          if (status === "SUBSCRIBED") void refreshThread(false);
+          if (status === "SUBSCRIBED") {
+            void refreshThread(false);
+            void refreshLoiSummary();
+          }
           else logMessagingRealtimeJoinStatus(status);
         });
     })().catch(() => {
@@ -203,9 +279,35 @@ export function MessageThread({
       cancelled = true;
       if (channel) void client.removeChannel(channel);
     };
-  }, [refreshThread, thread.id]);
+  }, [refreshLoiSummary, refreshThread, thread.id]);
 
   const newestMessage = thread.messages.at(-1);
+  const newestRenderedMessageId = newestMessage?.id ?? null;
+  const oldestRenderedMessageId = thread.messages[0]?.id ?? null;
+  const renderedMessageCount = thread.messages.length;
+
+  useLayoutEffect(() => {
+    const history = messageHistoryRef.current;
+    if (!history) return;
+    const viewport = messageViewportRef.current;
+    const olderAnchor = olderScrollAnchorRef.current;
+    if (olderAnchor) {
+      history.scrollTop = olderAnchor.scrollTop + history.scrollHeight - olderAnchor.scrollHeight;
+      olderScrollAnchorRef.current = null;
+      viewport.initialized = true;
+      viewport.newestMessageId = newestRenderedMessageId;
+      viewport.nearBottom = history.scrollHeight - history.scrollTop - history.clientHeight < 96;
+      return;
+    }
+    const newestChanged = viewport.newestMessageId !== newestRenderedMessageId;
+    if (!viewport.initialized || (newestChanged && viewport.nearBottom)) {
+      history.scrollTop = history.scrollHeight;
+    }
+    viewport.initialized = true;
+    viewport.newestMessageId = newestRenderedMessageId;
+    viewport.nearBottom = history.scrollHeight - history.scrollTop - history.clientHeight < 96;
+  }, [newestRenderedMessageId, oldestRenderedMessageId, renderedMessageCount]);
+
   useEffect(() => {
     if (!newestMessage) return;
     if (!isOnline) return;
@@ -229,6 +331,10 @@ export function MessageThread({
   const canSend = thread.canSend && (thread.status === "ACTIVE" || thread.status === "AWAITING_BUYER");
   const canSendFreeText = canSend && (thread.status === "ACTIVE" || thread.viewerRole === "BUYER");
   const draftLength = normalizedMessageLength(draft);
+  const draftLimitError = draftLength > 2_000
+    ? `Remove ${(draftLength - 2_000).toLocaleString()} character${draftLength - 2_000 === 1 ? "" : "s"} to send.`
+    : "";
+  const visibleComposerError = draftLimitError || composerError;
 
   async function sendMessage(input: {
     body?: string;
@@ -240,12 +346,12 @@ export function MessageThread({
     const body = input.body?.trim() ?? "";
     if (input.kind === "FREE_TEXT" && !body) return;
     if (input.kind === "FREE_TEXT" && normalizedMessageLength(body) > 2_000) {
-      setError("Messages can contain up to 2,000 characters.");
+      setComposerError("Messages can contain up to 2,000 characters.");
       return;
     }
     if (input.kind === "GUIDED" && (!input.templateKey || !input.templateVersion)) return;
     if (!isOnline) {
-      setError("You are offline. Your message is still here so you can send it after reconnecting.");
+      setComposerError("You are offline. Your message is still here so you can send it after reconnecting.");
       return;
     }
     const signature = input.kind === "GUIDED"
@@ -257,9 +363,10 @@ export function MessageThread({
     sendInFlightRef.current = true;
     setSending(true);
     setError("");
+    setComposerError("");
     setNotice("");
     try {
-      await requestJson(`${conversationPath}/messages`, {
+      const payload = await requestJson(`${conversationPath}/messages`, {
         body: JSON.stringify(input.kind === "GUIDED"
           ? {
               clientMessageId,
@@ -271,12 +378,18 @@ export function MessageThread({
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
+      const applied = applySentMessageResponse(payload, threadRef.current);
+      if (!applied) throw new Error("Message response is invalid.");
+      threadRef.current = applied.thread;
+      newestMessageIdRef.current = applied.thread.messages.at(-1)?.id ?? newestMessageIdRef.current;
+      messageViewportRef.current.nearBottom = true;
+      setThread((current) => mergeSentMessage(current, applied.message));
       pendingMessageRef.current = null;
       if (input.kind === "FREE_TEXT") setDraft("");
       setNotice("Message sent.");
-      await refreshThread(true);
+      void refreshThread(true);
     } catch (requestError) {
-      setError(errorMessage(requestError, "Your message was not sent. Your text is still here so you can try again."));
+      setComposerError(errorMessage(requestError, "Your message was not sent. Your text is still here so you can try again."));
     } finally {
       sendInFlightRef.current = false;
       setSending(false);
@@ -297,9 +410,19 @@ export function MessageThread({
         `${conversationPath}/messages?cursor=${encodeURIComponent(thread.pageInfo.nextCursor)}`,
         { cache: "no-store", signal: controller.signal },
       );
+      if (threadRef.current.moderationRevision !== moderationRevision) return;
+      const history = messageHistoryRef.current;
+      olderScrollAnchorRef.current = history
+        ? { scrollHeight: history.scrollHeight, scrollTop: history.scrollTop }
+        : null;
       setThread((current) => {
-        if (current.moderationRevision !== moderationRevision) return current;
-        return normalizeMessagePage(payload, current);
+        if (current.moderationRevision !== moderationRevision) {
+          olderScrollAnchorRef.current = null;
+          return current;
+        }
+        const next = normalizeMessagePage(payload, current);
+        if (next.messages.length === current.messages.length) olderScrollAnchorRef.current = null;
+        return next;
       });
     } catch (requestError) {
       if (!isAbortError(requestError)) {
@@ -329,6 +452,28 @@ export function MessageThread({
       setNotice(muted ? "Conversation muted." : "Conversation unmuted.");
     } catch (requestError) {
       setError(errorMessage(requestError, "Mute preference could not be changed."));
+    } finally {
+      mutationInFlightRef.current = false;
+      setMutationPending(false);
+    }
+  }
+
+  async function startLoi() {
+    if (!loi.available || !loi.canCreate || !loi.inviteId || mutationInFlightRef.current) return;
+    mutationInFlightRef.current = true;
+    setMutationPending(true);
+    setError("");
+    try {
+      const created = await requestJson("/api/loi/negotiations", {
+        body: JSON.stringify({ clientActionId: createClientMessageId(), inviteId: loi.inviteId }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      }) as { id?: string; status?: string };
+      if (!created.id) throw new Error("LOI response is invalid.");
+      setLoi({ available: true, id: created.id, status: created.status ?? "AWAITING_BUYER_SUBMISSION" });
+      router.push(`/negotiations/${encodeURIComponent(created.id)}`);
+    } catch (requestError) {
+      setError(errorMessage(requestError, "The LOI workspace could not be started."));
     } finally {
       mutationInFlightRef.current = false;
       setMutationPending(false);
@@ -413,23 +558,31 @@ export function MessageThread({
   return (
     <div className="page wide message-thread-page">
       <header className="message-thread-header">
-        <div className="stack tight">
+        <div className="stack tight message-thread-heading">
           <Link className="link-button" href="/messages" ref={fallbackFocusRef}>
             <Icon name="arrow-left" size={14} />
             All conversations
           </Link>
-          <div>
-            <p className="eyebrow">Invite conversation</p>
-            <h1>{thread.counterpartLabel}</h1>
+          <div className="message-thread-identity">
+            <span aria-hidden="true" className="message-counterpart-icon">
+              <Icon name="message" size={20} />
+            </span>
+            <div className="message-thread-title-copy">
+              <p className="eyebrow">Invite conversation</p>
+              <h1>{thread.counterpartLabel}</h1>
+              <p className="message-thread-property">{thread.propertySnapshot.title}</p>
+            </div>
+            <span className={`message-status-chip ${conversationStatusClassName(thread.status)}`}>
+              {conversationStatusLabel(thread.status)}
+            </span>
           </div>
-          <p className="muted">{thread.propertySnapshot.title}</p>
         </div>
         <div className="message-thread-actions">
           <button className="button secondary sm" disabled={mutationPending} onClick={updateMute} type="button">
             {thread.muted ? "Unmute" : "Mute"}
           </button>
           <button
-            className="button warning sm"
+            className="button secondary sm message-block-action"
             disabled={mutationPending || thread.status === "BLOCKED"}
             onClick={() => openDialog(() => setBlockOpen(true))}
             type="button"
@@ -451,46 +604,61 @@ export function MessageThread({
 
       <div className="message-thread-layout">
         <section aria-label="Conversation" className="message-thread-panel">
-          {thread.pageInfo.hasMore ? (
-            <div className="message-load-older">
-              <button className="button secondary sm" disabled={loadingOlder} onClick={loadOlderMessages} type="button">
-                {loadingOlder ? "Loading…" : "Load older messages"}
-              </button>
-            </div>
-          ) : null}
+          <div
+            aria-label="Message history"
+            className="message-history"
+            onScroll={(event) => {
+              const history = event.currentTarget;
+              messageViewportRef.current.nearBottom = history.scrollHeight - history.scrollTop - history.clientHeight < 96;
+            }}
+            ref={messageHistoryRef}
+            role="region"
+            tabIndex={0}
+          >
+            {thread.pageInfo.hasMore ? (
+              <div className="message-load-older">
+                <button className="button secondary sm" disabled={loadingOlder} onClick={loadOlderMessages} type="button">
+                  {loadingOlder ? "Loading…" : "Load older messages"}
+                </button>
+              </div>
+            ) : null}
 
-          <ol aria-live="polite" aria-relevant="additions text" className="message-list" role="log">
-            {thread.messages.length === 0 ? (
-              <li className="message-empty">No messages to show yet.</li>
-            ) : thread.messages.map((message) => (
-              <li className={`message-row${message.isOwn ? " own" : ""}${message.kind === "SYSTEM" ? " system" : ""}`} key={message.id}>
-                <article className="message-bubble">
-                  <div className="message-meta">
-                    <strong>{message.senderLabel}</strong>
-                    <time dateTime={message.createdAt || undefined} suppressHydrationWarning>
-                      {formatMessagingDateTime(message.createdAt)}
-                    </time>
-                  </div>
-                  <p className={message.redacted ? "muted" : undefined}>{message.body}</p>
-                  {!message.isOwn && message.kind !== "SYSTEM" && !message.redacted ? (
-                    <button
-                      className="message-report-button"
-                      onClick={() => openDialog(() => setReportTarget(message))}
-                      type="button"
-                    >
-                      Report message
-                    </button>
-                  ) : null}
-                </article>
-              </li>
-            ))}
-          </ol>
+            <ol aria-live="polite" aria-relevant="additions text" className="message-list" role="log">
+              {thread.messages.length === 0 ? (
+                <li className="message-empty">No messages to show yet.</li>
+              ) : thread.messages.map((message) => (
+                <li className={`message-row${message.isOwn ? " own" : ""}${message.kind === "SYSTEM" ? " system" : ""}`} key={message.id}>
+                  <article className="message-bubble">
+                    <div className="message-meta">
+                      <strong>{message.senderLabel}</strong>
+                      <time dateTime={message.createdAt || undefined} suppressHydrationWarning>
+                        {formatMessagingDateTime(message.createdAt)}
+                      </time>
+                    </div>
+                    <p className={message.redacted ? "muted" : undefined}>{message.body}</p>
+                    {!message.isOwn && message.kind !== "SYSTEM" && !message.redacted ? (
+                      <button
+                        className="message-report-button"
+                        onClick={() => openDialog(() => setReportTarget(message))}
+                        type="button"
+                      >
+                        Report message
+                      </button>
+                    ) : null}
+                  </article>
+                </li>
+              ))}
+            </ol>
+          </div>
 
           <section aria-label="Message composer" className="message-composer">
             {canSend ? (
               <>
                 <div className="message-guided-options">
-                  <h2>Quick messages</h2>
+                  <div className="message-guided-heading">
+                    <h2>Quick messages</h2>
+                    <span>Send instantly</span>
+                  </div>
                   <div className="message-template-list">
                     {templates.map((template) => (
                       <button
@@ -511,30 +679,42 @@ export function MessageThread({
                     ))}
                   </div>
                 </div>
+                {visibleComposerError ? (
+                  <p className="message-composer-error" id="message-composer-error" role="alert">
+                    {visibleComposerError}
+                  </p>
+                ) : null}
                 {canSendFreeText ? (
                   <form className="message-free-form" onSubmit={(event) => {
                     event.preventDefault();
                     void sendMessage({ body: draft, kind: "FREE_TEXT" });
                   }}>
-                    <label htmlFor="message-draft">Write a plain-text message</label>
+                    <label htmlFor="message-draft">Message {thread.counterpartLabel}</label>
                     <textarea
-                      aria-describedby="message-draft-count"
-                      disabled={sending || !isOnline}
+                      aria-describedby={visibleComposerError ? "message-draft-count message-composer-error" : "message-draft-count"}
+                      aria-invalid={draftLength > 2_000 || undefined}
+                      disabled={sending}
                       id="message-draft"
                       maxLength={4_000}
                       name="message"
-                      onChange={(event) => setDraft(event.target.value)}
+                      onChange={(event) => {
+                        setDraft(event.target.value);
+                        if (composerError) setComposerError("");
+                      }}
                       onKeyDown={(event) => submitOnEnter(event)}
                       placeholder="Ask about the property or viewing logistics"
                       rows={4}
                       value={draft}
                     />
                     <div className="message-composer-footer">
-                      <span
-                        className={`field-hint message-character-count${draftLength > 2_000 ? " invalid" : ""}`}
-                        id="message-draft-count"
-                      >
-                        {draftLength.toLocaleString()} / 2,000
+                      <span className="message-composer-help">
+                        <span
+                          className={`field-hint message-character-count${draftLength > 2_000 ? " invalid" : ""}`}
+                          id="message-draft-count"
+                        >
+                          {draftLength.toLocaleString()} / 2,000
+                        </span>
+                        <span aria-hidden="true" className="message-composer-shortcut">Enter to send · Shift+Enter for a new line</span>
                       </span>
                       <button
                         className="button primary"
@@ -567,6 +747,18 @@ export function MessageThread({
         </section>
 
         <aside className="message-context-panel" aria-label="Conversation context">
+          {loi.available ? (
+            <section className="card sage stack tight">
+              <p className="eyebrow">LOI workspace</p>
+              <h2>{loiStatusLabel(loi.status)}</h2>
+              <p className="muted small">Prepare and align proposed terms separately from chat. This is not a signature, contract, escrow instruction, or payment request.</p>
+              {loi.id ? (
+                <Link className="button primary" href={`/negotiations/${encodeURIComponent(loi.id)}`}>Open LOI</Link>
+              ) : loi.canCreate ? (
+                <button className="button primary" disabled={mutationPending} onClick={() => void startLoi()} type="button">Start LOI</button>
+              ) : <span className="status-dot info">Waiting for buyer</span>}
+            </section>
+          ) : null}
           <section className="card stack tight">
             <div className="section-head compact">
               <div>
@@ -661,6 +853,21 @@ export function MessageThread({
   );
 }
 
+function loiStatusLabel(status: string | null) {
+  const labels: Record<string, string> = {
+    AWAITING_BUYER_RESPONSE: "Waiting for buyer",
+    AWAITING_BUYER_SUBMISSION: "Buyer drafting",
+    AWAITING_SELLER_RESPONSE: "Waiting for seller",
+    DECLINED: "Declined",
+    EXPIRED: "Expired",
+    NOT_STARTED: "Not started",
+    READ_ONLY: "Read-only",
+    TERMS_ALIGNED: "Terms aligned",
+    WITHDRAWN: "Withdrawn",
+  };
+  return status ? labels[status] ?? "LOI" : "LOI";
+}
+
 function MessagingDialog({
   busy = false,
   children,
@@ -749,6 +956,20 @@ class MessagingRequestError extends Error {
   constructor(readonly status: number) {
     super("Messaging request failed.");
   }
+}
+
+function conversationStatusLabel(status: ConversationThread["status"]) {
+  if (status === "AWAITING_BUYER") return "Awaiting reply";
+  if (status === "BLOCKED") return "Unavailable";
+  if (status === "READ_ONLY") return "Closed";
+  return "Active";
+}
+
+function conversationStatusClassName(status: ConversationThread["status"]) {
+  if (status === "AWAITING_BUYER") return "waiting";
+  if (status === "BLOCKED") return "unavailable";
+  if (status === "READ_ONLY") return "closed";
+  return "active";
 }
 
 function composerUnavailableTitle(thread: ConversationThread) {

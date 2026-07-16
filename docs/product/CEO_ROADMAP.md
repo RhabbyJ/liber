@@ -92,6 +92,14 @@ Only after v1 has real marketplace usage:
 
 V2 may support offer-preparation coordination, but not automated acceptance or money custody without separate approval.
 
+The first controlled V2 initiative is now the cohort-gated LOI workspace. It
+uses owner-private drafts and immutable alternating revisions linked to one
+accepted invite. Its terminal success label is "Terms aligned for contract
+preparation," not accepted, executed, or signed. Expansion beyond an internal
+two-user cohort requires counsel-approved labels, disclaimer, supported fields,
+retention, and support-access policy plus database, concurrency, Realtime,
+responsive, and accessibility evidence.
+
 ## V3 roadmap: regulated workflows only through a legal path
 
 Escrow, earnest-money custody, payment rails, formal offer execution, lender integrations, and closing workflows are regulated and operationally heavy.

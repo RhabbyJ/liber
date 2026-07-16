@@ -19,6 +19,8 @@ test("protected release workflows validate messaging rollout and disposable migr
 
   assert.match(readinessWorkflow, /LIBER_MESSAGING_V1_ENABLED: \$\{\{ vars\.LIBER_MESSAGING_V1_ENABLED \}\}/);
   assert.match(readinessWorkflow, /LIBER_MESSAGING_V1_COHORT_USER_IDS: \$\{\{ vars\.LIBER_MESSAGING_V1_COHORT_USER_IDS \}\}/);
+  assert.match(readinessWorkflow, /LIBER_LOI_V1_COHORT_USER_IDS: \$\{\{ vars\.LIBER_LOI_V1_COHORT_USER_IDS \}\}/);
+  assert.match(readinessWorkflow, /LIBER_LOI_V1_ENABLED: \$\{\{ vars\.LIBER_LOI_V1_ENABLED \}\}/);
   assert.match(readinessWorkflow, /SITE_URL: \$\{\{ vars\.SITE_URL \}\}/);
   assert.match(readinessWorkflow, /run: npm ci/);
   assert.match(proofWorkflow, /environment: disposable-messaging-proof/);
@@ -261,6 +263,18 @@ test("messaging readiness rejects an empty parsed cohort", () => {
 
   assert.equal(result.status, 1);
   assert.match(result.stdout, /must include at least one reviewed UUID/);
+});
+
+test("production readiness requires exactly two explicit LOI participant UUIDs", () => {
+  for (const cohort of ["*", "019f62c5-1c07-4a62-9f9a-8302778aa011", "019f62c5-1c07-4a62-9f9a-8302778aa011,", "019f62c5-1c07-4a62-9f9a-8302778aa011,019f62c5-1c07-4a62-9f9a-8302778aa012,", "019f62c5-1c07-4a62-9f9a-8302778aa011,,019f62c5-1c07-4a62-9f9a-8302778aa012", "019f62c5-1c07-4a62-9f9a-8302778aa011,019f62c5-1c07-4a62-9f9a-8302778aa011", "019f62c5-1c07-4a62-9f9a-8302778aa011,019f62c5-1c07-4a62-9f9a-8302778aa012,019f62c5-1c07-4a62-9f9a-8302778aa012", "019f62c5-1c07-4a62-9f9a-8302778aa011,019f62c5-1c07-4a62-9f9a-8302778aa012,019f62c5-1c07-4a62-9f9a-8302778aa013"]) {
+    const result = spawnSync(process.execPath, [readinessScript, "--production"], {
+      cwd: path.dirname(readinessScript),
+      encoding: "utf8",
+      env: { ...process.env, LIBER_LOI_V1_COHORT_USER_IDS: cohort, LIBER_LOI_V1_ENABLED: "true" },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /LOI_V1_COHORT_USER_IDS|explicit reviewed UUIDs/);
+  }
 });
 
 test("production readiness requires a canonical HTTPS email-link origin", () => {

@@ -1,9 +1,11 @@
 import { prisma } from "@liber/db";
-import { sendInviteEmail, sendUnreadMessageEmail, type EmailResult } from "./email";
+import { sendInviteEmail, sendLoiUpdateEmail, sendUnreadMessageEmail, type EmailResult } from "./email";
+import { loiV1EnabledForPair } from "./loi/feature";
 import { messagingV1EnabledForPair } from "./messaging/feature";
 
 const MAX_ATTEMPTS = 5;
 const LEASE_MS = 2 * 60_000;
+const LOI_OUTBOX_KEY_PATTERN = /^loi-update:([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}):([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
 
 type ClaimedEmailJob = {
   id: string;
@@ -13,6 +15,9 @@ type ClaimedEmailJob = {
   inviteId: string | null;
   messageConversationId: string | null;
   messageRecipientUserId: string | null;
+  loiNegotiationId: string | null;
+  loiRevisionId: string | null;
+  loiRecipientUserId: string | null;
 };
 
 export async function processEmailOutbox(limit = 10, workerId = `email_${crypto.randomUUID()}`) {
@@ -115,6 +120,9 @@ export async function claimEmailJobs(limit: number, workerId: string): Promise<C
       job."inviteId" AS "inviteId",
       job."messageConversationId" AS "messageConversationId",
       job."messageRecipientUserId" AS "messageRecipientUserId",
+      job."loiNegotiationId" AS "loiNegotiationId",
+      job."loiRevisionId" AS "loiRevisionId",
+      job."loiRecipientUserId" AS "loiRecipientUserId",
       job."idempotencyKey" AS "idempotencyKey"
   `;
 }
@@ -166,7 +174,103 @@ async function prepareEmailDelivery(job: ClaimedEmailJob): Promise<
     };
   }
 
+  if (job.type === "LOI_UPDATE") {
+    const eventId = loiEventIdFromOutboxKey(job.idempotencyKey, job.loiRecipientUserId);
+    const currentEmail = job.loiNegotiationId && job.loiRevisionId && job.loiRecipientUserId && eventId
+      ? await loiUpdateDeliveryEmail(job.loiNegotiationId, job.loiRevisionId, job.loiRecipientUserId, eventId)
+      : null;
+    if (!currentEmail) return { deliverable: false, reason: "LOI update became ineligible before delivery." };
+    return {
+      deliverable: true,
+      send: () => sendLoiUpdateEmail({ negotiationId: job.loiNegotiationId!, to: currentEmail }, job.idempotencyKey),
+    };
+  }
+
   throw new Error(`Unsupported email job type: ${job.type}`);
+}
+
+function loiEventIdFromOutboxKey(idempotencyKey: string, recipientUserId: string | null) {
+  const match = LOI_OUTBOX_KEY_PATTERN.exec(idempotencyKey);
+  if (!match || !recipientUserId || match[2]?.toLowerCase() !== recipientUserId.toLowerCase()) return null;
+  return match[1]!.toLowerCase();
+}
+
+async function loiUpdateDeliveryEmail(negotiationId: string, revisionId: string, recipientUserId: string, eventId: string) {
+  const [result] = await prisma.$queryRaw<Array<{ buyer_user_id: string; deliverable: boolean; recipient_email: string | null; seller_user_id: string }>>`
+    SELECT negotiation."buyerUserId" AS buyer_user_id,
+      negotiation."sellerUserId" AS seller_user_id,
+      recipient.email AS recipient_email,
+      (
+        negotiation."currentRevisionId" = ${revisionId}::uuid
+        AND (
+          (
+            negotiation.status IN ('AWAITING_SELLER_RESPONSE', 'AWAITING_BUYER_RESPONSE')
+            AND delivery_event.type IN ('INITIAL_SUBMITTED', 'COUNTER_SUBMITTED')
+            AND delivery_event."actorUserId" = current_revision."submittedByUserId"
+            AND recipient.id <> current_revision."submittedByUserId"
+          )
+          OR (
+            negotiation.status = 'TERMS_ALIGNED'
+            AND delivery_event.type = 'TERMS_ALIGNED'
+            AND delivery_event."actorUserId" <> current_revision."submittedByUserId"
+            AND recipient.id = current_revision."submittedByUserId"
+          )
+          OR (
+            negotiation.status = 'DECLINED'
+            AND delivery_event.type = 'DECLINED'
+            AND delivery_event."actorUserId" <> current_revision."submittedByUserId"
+            AND recipient.id = current_revision."submittedByUserId"
+          )
+          OR (
+            negotiation.status = 'WITHDRAWN'
+            AND delivery_event.type = 'WITHDRAWN'
+            AND delivery_event."actorUserId" = current_revision."submittedByUserId"
+            AND recipient.id <> current_revision."submittedByUserId"
+          )
+        )
+        AND recipient.status = 'ACTIVE'::public."UserStatus"
+        AND counterparty.status = 'ACTIVE'::public."UserStatus"
+        AND property.status = 'READY_FOR_INVITES'::public."PropertyStatus"
+        AND property."ownershipVerificationStatus" = 'APPROVED'::public."PropertyVerificationStatus"
+        AND property."flaggedForReviewAt" IS NULL
+        AND property."ownerUserId" = negotiation."sellerUserId"
+        AND property."authorityAttestedIdentityVersion" = property."identityVersion"
+        AND property."identityVersion" = negotiation."propertyIdentityVersion"
+        AND EXISTS (
+          SELECT 1 FROM public."User" seller
+          JOIN public."SellerAccess" access ON access."userId" = seller.id AND access.status = 'APPROVED'
+          WHERE seller.id = negotiation."sellerUserId" AND seller.status = 'ACTIVE'
+            AND 'SELLER'::public."UserRole" = ANY(seller.roles)
+        )
+        AND EXISTS (
+          SELECT 1 FROM public."Invite" invite
+          JOIN public."BuyerProfile" buyer ON buyer.id = invite."buyerProfileId" AND buyer."visibilityStatus" = 'ACTIVE'
+          JOIN public."User" buyer_user ON buyer_user.id = buyer."userId" AND buyer_user.status = 'ACTIVE'
+          WHERE invite.id = negotiation."inviteId" AND buyer_user.id = negotiation."buyerUserId"
+            AND 'BUYER'::public."UserRole" = ANY(buyer_user.roles)
+        )
+        AND NOT EXISTS (SELECT 1 FROM public."UserBlock" block WHERE (block."blockerUserId" = negotiation."buyerUserId" AND block."blockedUserId" = negotiation."sellerUserId") OR (block."blockerUserId" = negotiation."sellerUserId" AND block."blockedUserId" = negotiation."buyerUserId"))
+      ) AS deliverable
+    FROM public."LoiNegotiation" negotiation
+    JOIN public."LoiRevision" current_revision ON current_revision.id = negotiation."currentRevisionId"
+      AND current_revision."negotiationId" = negotiation.id
+    JOIN public."LoiEvent" delivery_event ON delivery_event.id = ${eventId}::uuid
+      AND delivery_event."negotiationId" = negotiation.id
+      AND delivery_event."revisionId" = current_revision.id
+    JOIN public."Invite" current_invite ON current_invite.id = negotiation."inviteId"
+      AND current_invite.status = 'ACCEPTED'::public."InviteStatus"
+      AND current_invite."propertyIdentityVersion" = negotiation."propertyIdentityVersion"
+    JOIN public."Conversation" current_conversation ON current_conversation.id = negotiation."conversationId"
+      AND current_conversation."inviteId" = current_invite.id
+      AND current_conversation.status = 'ACTIVE'::public."ConversationStatus"
+    JOIN public."SellerProperty" property ON property.id = negotiation."propertyId"
+    JOIN public."User" recipient ON recipient.id = ${recipientUserId}::uuid
+      AND recipient.id IN (negotiation."buyerUserId", negotiation."sellerUserId")
+    JOIN public."User" counterparty ON counterparty.id = CASE WHEN recipient.id = negotiation."buyerUserId" THEN negotiation."sellerUserId" ELSE negotiation."buyerUserId" END
+    WHERE negotiation.id = ${negotiationId}::uuid
+  `;
+  if (!result?.deliverable || !loiV1EnabledForPair(result.buyer_user_id, result.seller_user_id)) return null;
+  return result.recipient_email?.trim() || null;
 }
 
 async function unreadMessageDeliveryEmail(conversationId: string, recipientUserId: string) {

@@ -138,7 +138,11 @@ export function ConversationInbox({
     <section aria-label="Conversations" className="stack tight">
       <div className="message-inbox-list">
         {conversations.map((conversation) => (
-          <Link className="message-inbox-item" href={`/messages/${conversation.id}`} key={conversation.id}>
+          <Link
+            className={`message-inbox-item${conversation.unreadCount > 0 ? " unread" : ""}`}
+            href={`/messages/${conversation.id}`}
+            key={conversation.id}
+          >
             <span className="message-inbox-icon" aria-hidden="true">
               <Icon name="message" size={19} />
             </span>
@@ -149,9 +153,18 @@ export function ConversationInbox({
                   {formatConversationTime(conversation.lastMessageAt)}
                 </time>
               </span>
-              <span className="message-inbox-property">{conversation.propertyTitle}</span>
+              <span className="message-inbox-context">
+                <span className="message-inbox-property">{conversation.propertyTitle}</span>
+                {conversation.status !== "ACTIVE" ? (
+                  <span className={`message-status-chip ${statusClassName(conversation.status)}`}>
+                    {statusLabel(conversation.status)}
+                  </span>
+                ) : null}
+              </span>
               <span className="message-inbox-preview">
-                {conversation.lastMessage?.body || statusDescription(conversation.status)}
+                {conversation.lastMessage ? (
+                  <>{conversation.lastMessage.isOwn ? "You: " : ""}{conversation.lastMessage.body}</>
+                ) : statusDescription(conversation.status)}
               </span>
             </span>
             <span className="message-inbox-meta">
@@ -198,4 +211,18 @@ function statusDescription(status: ConversationSummary["status"]) {
   if (status === "BLOCKED") return "Conversation unavailable";
   if (status === "READ_ONLY") return "Conversation closed";
   return "Open conversation";
+}
+
+function statusLabel(status: ConversationSummary["status"]) {
+  if (status === "AWAITING_BUYER") return "Awaiting reply";
+  if (status === "BLOCKED") return "Unavailable";
+  if (status === "READ_ONLY") return "Closed";
+  return "Active";
+}
+
+function statusClassName(status: ConversationSummary["status"]) {
+  if (status === "AWAITING_BUYER") return "waiting";
+  if (status === "BLOCKED") return "unavailable";
+  if (status === "READ_ONLY") return "closed";
+  return "active";
 }

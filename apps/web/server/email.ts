@@ -12,6 +12,11 @@ export type UnreadMessageEmailInput = {
   to?: string | null;
 };
 
+export type LoiUpdateEmailInput = {
+  negotiationId: string;
+  to?: string | null;
+};
+
 export type EmailResult = {
   id?: string;
   provider: "mock" | "outbox" | "resend";
@@ -66,6 +71,28 @@ export async function sendUnreadMessageEmail(
       "You have an unread message on Liber.",
       `Sign in to view the conversation: ${authenticatedUrl(path)}`,
       "For your privacy, message content is only available after you sign in.",
+    ].join("\n\n"),
+    to: input.to,
+  }, idempotency);
+}
+
+export async function sendLoiUpdateEmail(
+  input: LoiUpdateEmailInput,
+  idempotency?: string | { idempotencyKey?: string },
+): Promise<EmailResult> {
+  const path = `/negotiations/${encodeURIComponent(input.negotiationId)}`;
+  return sendResendEmail({
+    html: [
+      "<p>Your Liber LOI workspace has an update.</p>",
+      `<p><a href="${escapeHtml(authenticatedUrl(path))}">Sign in to review the current revision</a>.</p>`,
+      "<p>For your privacy, proposed terms are only available after you sign in. Liber is not recording a signature, opening escrow, or moving money.</p>",
+    ].join(""),
+    missingConfigurationMessage: "LOI update email delivery is not configured or recipient email is missing.",
+    subject: "Your Liber LOI has an update",
+    text: [
+      "Your Liber LOI workspace has an update.",
+      `Sign in to review the current revision: ${authenticatedUrl(path)}`,
+      "For your privacy, proposed terms are only available after you sign in. Liber is not recording a signature, opening escrow, or moving money.",
     ].join("\n\n"),
     to: input.to,
   }, idempotency);

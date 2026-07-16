@@ -43,12 +43,26 @@ Owns Next route handlers and external provider adapters for auth callbacks, geoc
   shared validation. They never return blocker identity, report evidence,
   Auth UUIDs, email, message bodies in logs, or current property details for an
   identity-invalidated invite.
+- `GET /api/conversations/:conversationId/loi` re-authorizes the conversation
+  and returns only the allowlisted LOI link/status sidecar. Canonical
+  conversation reads and message sends never await this optional endpoint.
 - The only message-report API mutation available to participants creates a
   report for one counterparty message. Admin review uses server-only pages and
   actions rather than duplicate list/detail/resolve API routes.
 - Property enrichment is for private seller property prep. It requires an authenticated seller/admin role and rate limits, but not approved seller-directory access.
 - Exact-address enrichment uses same-origin `POST` JSON with `private, no-store`; exact addresses must not appear in query strings.
 - Upload-session creation/finalization and private property-image signing are authenticated, same-origin, narrow-response endpoints.
+- `/api/loi/negotiations/**` is participant-only, cohort-gated, private/no-store,
+  strict JSON, bounded to 48 KiB, same-origin for mutations, and generic for
+  missing/unauthorized IDs. Deep term validation happens only after participant
+  authorization; an authenticated participant may receive a bounded allowlisted
+  field-error map that never echoes values. Draft reads return only the viewer's
+  row. Submit, decision, and withdrawal routes use client action UUIDs,
+  canonical request fingerprints, and expected sequence/version/revision
+  values; they never accept client-computed summaries. Save, discard, submit,
+  decision, and withdrawal deadline/eligibility checks run again under the
+  canonical transaction locks. Canonical reads cap recent history at 20 and the
+  revisions route pages older immutable rows by `beforeSequence`.
 
 ## Agent notes
 

@@ -8,7 +8,8 @@ export async function GET(
 ) {
   try {
     const { conversationId } = conversationRouteParamsSchema.parse(await params);
-    return privateMessagingJson(await getConversationThread(conversationId));
+    const thread = await getConversationThread(conversationId);
+    return privateMessagingJson(thread);
   } catch (error) {
     return messagingErrorResponse(error);
   }

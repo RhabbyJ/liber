@@ -3,6 +3,7 @@ import type { AppRole } from "./authz";
 export function requiresAuthenticatedUser(pathname: string) {
   return isPathSegment(pathname, "/buyers")
     || isPathSegment(pathname, "/messages")
+    || isPathSegment(pathname, "/negotiations")
     || requiredRoleForPath(pathname) !== null;
 }
 

@@ -29,5 +29,5 @@ export default async function ConversationPage({
       version: template.version,
     }));
 
-  return <MessageThread initialThread={thread} key={thread.id} templates={templates} />;
+  return <MessageThread initialLoi={{ available: false }} initialThread={thread} key={thread.id} templates={templates} />;
 }

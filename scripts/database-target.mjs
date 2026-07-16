@@ -8,6 +8,7 @@ export function sameDatabaseTarget(left, right) {
 
 function normalizeDatabaseUrl(value) {
   const url = new URL(value);
+  url.username = "";
   url.password = "";
   url.search = "";
   return url.toString();

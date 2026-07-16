@@ -22,6 +22,18 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - The current baseline is locked through Guided Messaging V1. Later migrations
   remain separate forward files in both roots and must be byte-identical; run
   `npm run db:baseline:generate` and `npm run db:baseline:check` after adding one.
+- Migration `20260716030741_add_loi_negotiations` adds one negotiation per
+  accepted invite, owner-private versioned drafts, immutable alternating
+  revisions, idempotent events, content-free outbox references, RLS/no-browser-
+  CRUD boundaries, and identifier-only private Realtime authorization.
+- Forward migration `20260716120000_harden_loi_event_semantics` makes event actor
+  retention explicit, replaces the closed-state mapping, and validates event
+  actor/role/current-revision shape against authoritative participants. Never
+  fold it back into or otherwise edit the base LOI migration.
+- LOI relational columns own authorization and lifecycle. Versioned strict JSON
+  owns proposed term snapshots only. Submitted revisions and events are
+  append-only. Each revision stores a calculation-version-matched summary;
+  historical display decodes that stored summary instead of recalculating it.
 - Migration `20260715215000_reconcile_email_outbox_lease` removes the retired
   unnumbered outbox recipient/UUID-lease artifacts from drifted targets and
   validates the canonical worker-lease and delivery-reference constraints.
@@ -78,6 +90,17 @@ Before approving a schema release, prove both the existing-database upgrade and
 the supported fresh baseline on separate sentinel-marked disposable Supabase
 targets, then run `npm run db:test-baseline-equivalence`. Never edit an applied
 historical migration or the locked baseline to make a replay pass.
+
+The LOI migration must precede the application deployment because messaging
+block and maintenance code reference LOI tables even with the feature flag off.
+Apply both the base and forward hardening migrations. Use the guarded
+`db:test-loi:upgrade` and `db:test-loi:fresh` commands only on separate
+sentinel-marked disposable targets, then run `db:test-loi:behavior` against each
+migrated target. Each harness compares the recorded ledger checksums with the
+reviewed bytes and rejects configured shared direct/pooler identities. The
+upgrade proof stages the base migration through `prisma.loi-stage.config.ts`,
+seeds representative valid LOI history, applies the forward repair through the
+normal migration root, and proves both data survival and repaired semantics.
 
 Production migration readiness compares the complete checked-in migration directory set with successful, non-rolled-back `_prisma_migrations` rows. A hardcoded latest migration name is not a valid readiness check; database-only migration names are reported separately.
 

@@ -56,6 +56,7 @@ Primary models:
 - `Notification`
 - `AdminAuditLog`
 - `EmailOutbox`
+- `LoiNegotiation`, `LoiDraft`, `LoiRevision`, `LoiEvent`
 - `UploadSession`
 - `PropertyVerificationDecision`
 - `AuthOperation`
@@ -285,6 +286,15 @@ response, and cancels pending unread-message delivery.
 The server owns the versioned guided-template catalog. Clients may request an
 allowed key/version or submit normalized plain text up to 2,000 characters;
 they cannot create `INVITE` or `SYSTEM` messages. React renders bodies as text.
+After a successful send, the browser validates and merges the returned message
+DTO immediately, then coalesces any overlapping canonical refresh instead of
+dropping it. The optional LOI status/link sidecar is fetched from the separately
+authorized `GET /api/conversations/:conversationId/loi` endpoint with its own
+request guard and timeout. The page render and canonical conversation refresh
+never await that lookup, so a slow or unavailable LOI query cannot hide, delay,
+or fail an otherwise authorized conversation read or successful send. The
+sidecar allowlists only link/status fields, rate-limits fixed safe failure
+telemetry, and skips LOI-table access when the LOI cohort is disabled or invalid.
 Messages are not edited or user-deleted. Admin redaction changes only the
 ordinary display status, while report-scoped evidence remains restricted and
 admin access is audited. Invite-list projections use that same redacted display
@@ -340,7 +350,78 @@ publishes the rule. Fair-housing template review, credential cleanup, live
 private-Realtime proof, moderation staffing, and restored outbox scheduling are
 public-launch gates.
 
+## LOI negotiation architecture
+
+The separately gated LOI V1 workspace is linked one-to-one with an accepted
+invite and its canonical conversation. PostgreSQL is authoritative. The
+negotiation stores immutable buyer/seller/property identity bindings and the
+invite-time property snapshot. Existing access is anchored to those immutable
+participant IDs, so a later buyer-profile reassignment cannot inherit terms.
+Every mutation rechecks active participants, approved seller access, the
+accepted invite, active conversation, property approval/current identity
+version, blocks, and the explicit two-user LOI cohort. Starter-only buyer name
+and price checks are separate from ongoing eligibility; starter price comes
+from the immutable snapshot.
+
+`LoiDraft` is owner-private and uses exact draft ID/version plus expected
+sequence for optimistic concurrency. `LoiRevision` is an append-only typed JSON
+snapshot; revision one is buyer-authored, later revisions alternate, and the
+server recomputes integer-cent/basis-point summaries with the versioned shared
+calculator. `LoiEvent` supplies per-negotiation `clientActionId` idempotency.
+Create, submit, agree, decline, and withdraw persist a versioned canonical
+request fingerprint; a changed request with the same key returns `409`.
+Submission also fingerprints the exact saved draft. Agreement records
+`TERMS_ALIGNED` against the exact current revision for later contract
+preparation; it is not a signature or binding acceptance.
+
+Workspace reads use one repeatable-read snapshot, resolve the current revision
+by foreign key, and return at most 20 recent revisions; older history uses a
+participant-authorized sequence cursor. Historical summaries are decoded from
+the immutable stored summary with a calculation-version schema, not
+recalculated with current code. Mutations share the messaging pair advisory
+lock, then lock invite, conversation, and negotiation rows in that fixed order.
+They lock a mutable draft when needed and re-read the immutable current
+revision. Serializable `P2034` conflicts retry up to three attempts before a
+safe `409`. Draft save, discard, submit, decision, and withdrawal recheck the
+current revision deadline under lock. Delivery idempotency keys use immutable
+LOI event IDs. Eligibility reconciliation persists `READ_ONLY`, removes private
+drafts, and cancels pending LOI delivery without overwriting a terminal outcome.
+
+LOI tables have RLS enabled and no raw `anon`, `authenticated`, or
+`service_role` CRUD. Browser access uses same-origin, strict, bounded Next.js
+server routes with private/no-store responses and generic IDOR-safe errors. The
+single private Realtime receive policy also accepts exact `loi:<uuid>` topics
+through an active-participant helper. Event triggers broadcast identifiers only;
+authorized server refetch plus focus and five-second polling remain canonical.
+
+`LOI_UPDATE` email jobs contain no term values, use the leased `EmailOutbox`,
+cancel superseded pending jobs, and revalidate the current revision,
+participants, seller access, invite/conversation, property identity, blocks,
+cohort, and the immutable event parsed from the delivery idempotency key
+immediately before delivery. This event binding prevents a claimed stale
+submission/counter job from becoming deliverable after a terminal action on the
+same revision. Runtime access requires
+`LIBER_LOI_V1_ENABLED=true` and an explicit
+`LIBER_LOI_V1_COHORT_USER_IDS` containing exactly two unique UUIDs; empty,
+malformed, partial, duplicate, wildcard, or larger cohorts fail closed. Apply
+both LOI migrations before deploying app code because messaging block and
+maintenance paths reference the tables even while the feature is disabled.
+
 Relevant files:
+
+- `packages/validators/src/loi.ts`
+- `apps/web/server/loi/**`
+- `apps/web/app/api/loi/**`
+- `apps/web/app/negotiations/**`
+- `apps/web/components/loi/**`
+- `packages/db/prisma/migrations/20260716030741_add_loi_negotiations/**`
+- `packages/db/prisma/migrations/20260716120000_harden_loi_event_semantics/**`
+- `scripts/test-loi-migration.mjs`
+- `scripts/test-loi-database.mjs`
+- `scripts/test-loi-behavior.mjs`
+- `docs/engineering/LIBER_LOI_V1.md`
+
+Guided messaging files:
 
 - `apps/web/server/messaging/**`
 - `apps/web/app/api/conversations/**`

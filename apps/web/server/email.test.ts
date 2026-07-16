@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { sendInviteEmail, sendUnreadMessageEmail } from "./email";
+import { sendInviteEmail, sendLoiUpdateEmail, sendUnreadMessageEmail } from "./email";
 
 describe("invite email adapter", () => {
   afterEach(() => {
@@ -90,6 +90,20 @@ describe("invite email adapter", () => {
     expect(requestBody).toContain("https://liber.example/messages/019f62c5-1c07-4a62-9f9a-8302778aa011");
     expect(requestBody).toContain("For your privacy");
     expect(requestBody).not.toContain("private message body");
+  });
+
+  it("sends an LOI update without financial terms", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test");
+    vi.stubEnv("RESEND_FROM_EMAIL", "Liber <noreply@example.test>");
+    vi.stubEnv("SITE_URL", "https://liber.example");
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "loi-email-id" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await sendLoiUpdateEmail({ negotiationId: "019f62c5-1c07-4a62-9f9a-8302778aa099", to: "recipient@example.test" }, "loi/idempotency");
+    const requestBody = String(fetchMock.mock.calls[0]?.[1]?.body ?? "");
+    expect(requestBody).toContain("/negotiations/019f62c5-1c07-4a62-9f9a-8302778aa099");
+    expect(requestBody).toContain("proposed terms are only available after you sign in");
+    expect(requestBody).not.toContain("$1,250,000");
+    expect(requestBody).not.toContain("lender");
   });
 
   it("fails closed instead of marking an unsent production job complete", async () => {

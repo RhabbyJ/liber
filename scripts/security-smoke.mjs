@@ -131,6 +131,8 @@ try {
   await expectStatus("/api/seller/buyers?service_area=northridge", 401);
   await expectStatus("/api/property-images/security-smoke", 401);
   await expectStatus("/api/conversations", 401);
+  await expectStatus("/api/conversations/00000000-0000-4000-8000-000000000001/loi", 401);
+  await expectStatus("/api/loi/negotiations/00000000-0000-4000-8000-000000000001", 401);
   await expectStatus("/api/messages/reports", 404);
   const uploadSession = await fetch(`${baseUrl}/api/uploads/sessions`, {
     body: "{}",
@@ -169,6 +171,17 @@ try {
     throw new Error(`Bad-origin messaging request returned ${badMessagingOrigin.status}, expected 403.`);
   }
   console.log("ok bad messaging origin rejected");
+
+  const badLoiOrigin = await fetch(`${baseUrl}/api/loi/negotiations`, {
+    body: JSON.stringify({ clientActionId: "00000000-0000-4000-8000-000000000002", inviteId: "security-smoke" }),
+    headers: { "content-type": "application/json", origin: "https://evil.example" },
+    method: "POST",
+    redirect: "manual",
+  });
+  if (badLoiOrigin.status !== 403) {
+    throw new Error(`Bad-origin LOI request returned ${badLoiOrigin.status}, expected 403.`);
+  }
+  console.log("ok bad LOI origin rejected");
 
   const missingOrigin = await fetch(
     `${baseUrl}/api/conversations/00000000-0000-4000-8000-000000000001/messages`,

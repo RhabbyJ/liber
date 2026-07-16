@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applySentMessageResponse,
   conversationPageSignature,
   mergeCanonicalConversationState,
   mergeConversationSummaries,
@@ -210,6 +211,53 @@ describe("messaging DTO normalization", () => {
     expect(updated.messages[1].body).toBe('<a href="https://example.com">not a rendered link</a>');
     expect(messagePageMetadata({ items: updated.messages.slice(1), pageInfo: { hasMore: false } }))
       .toEqual({ hasMore: false, newestMessageId: "message-2" });
+  });
+
+  it("renders a successful send response immediately and preserves it across a stale refresh", () => {
+    const current = normalizeConversationThread({
+      canSend: true,
+      id: "conversation-1",
+      invite: { status: "Sent" },
+      items: [{
+        body: "Opening",
+        createdAt: "2026-07-14T10:00:00.000Z",
+        id: "message-1",
+        kind: "INVITE",
+        sender: "COUNTERPARTY",
+      }],
+      participantRole: "BUYER",
+      property: { identityCurrent: true, title: "Valley property" },
+      safetyNotice,
+      status: "AWAITING_BUYER",
+    });
+    expect(current).not.toBeNull();
+
+    const applied = applySentMessageResponse({
+      data: {
+        body: "Buyer reply",
+        createdAt: "2026-07-14T10:01:00.000Z",
+        id: "message-2",
+        kind: "FREE_TEXT",
+        sender: "YOU",
+      },
+      idempotent: false,
+    }, current!);
+
+    expect(applied?.message).toMatchObject({ body: "Buyer reply", id: "message-2", isOwn: true });
+    expect(applied?.thread.messages.map((message) => message.id)).toEqual(["message-1", "message-2"]);
+    expect(mergeCanonicalConversationState(applied!.thread, current!).messages.map((message) => message.id))
+      .toEqual(["message-1", "message-2"]);
+    expect(applySentMessageResponse({ data: { id: "invalid", kind: "SYSTEM", sender: "YOU" } }, current!))
+      .toBeNull();
+    for (const data of [
+      { createdAt: "2026-07-14T10:01:00.000Z", id: "missing-body", kind: "FREE_TEXT", sender: "YOU" },
+      { body: "   ", createdAt: "2026-07-14T10:01:00.000Z", id: "blank-body", kind: "FREE_TEXT", sender: "YOU" },
+      { body: "Missing timestamp", id: "missing-created-at", kind: "FREE_TEXT", sender: "YOU" },
+      { body: "Invalid timestamp", createdAt: "not-a-date", id: "invalid-created-at", kind: "FREE_TEXT", sender: "YOU" },
+      { createdAt: "2026-07-14T10:01:00.000Z", id: "guided-missing-body", kind: "GUIDED", sender: "YOU" },
+    ]) {
+      expect(applySentMessageResponse({ data }, current!)).toBeNull();
+    }
   });
 
   it("replaces redacted content with the reviewed-removal notice", () => {

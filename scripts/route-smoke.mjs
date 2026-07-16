@@ -167,6 +167,8 @@ try {
   await expectProtectedRedirect("/seller/search");
   await expectProtectedRedirect("/seller/properties");
   await expectProtectedRedirect("/seller/properties/new");
+  await expectProtectedRedirect("/messages");
+  await expectProtectedRedirect("/negotiations/00000000-0000-4000-8000-000000000001");
   await expectProtectedRedirect("/admin");
   await expectProtectedRedirect("/admin/reports");
   await expectProtectedRedirect("/admin/users");

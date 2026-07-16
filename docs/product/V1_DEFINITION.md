@@ -377,6 +377,51 @@ The composer must display this safety reminder:
 
 V1 does not include unsolicited or public DMs, additional participants, group chat, attachments, chat images, calls, voice messages, typing indicators, reactions, threads, mentions, editing, user hard-deletion, full-text search, link previews, end-to-end encryption claims, AI auto-punishment, offers, contracts, payments, escrow, or funds custody.
 
+## Separately gated LOI V1 expansion
+
+The LOI workspace is an explicitly approved V2 offer-preparation initiative and
+does not change the core V1 marketplace boundary. It may run only behind
+`LIBER_LOI_V1_ENABLED` and an explicit cohort of exactly two unique UUIDs. It is a
+non-binding, invite-linked term-alignment workspace for contract preparation,
+not an offer-execution, signature, escrow, payment, or funds-custody product.
+
+One accepted invite may have one LOI negotiation. The buyer alone creates and
+submits revision one. The negotiation's buyer and seller bindings are immutable;
+a later buyer-profile reassignment does not transfer LOI access. Private drafts
+are visible only to their owner; submitted revisions are immutable; counters
+alternate strictly; and only the counterparty to the current unexpired revision
+may align, decline, or counter. "Terms aligned" records alignment on one exact
+revision for later formal document preparation. It does not create legal
+acceptance, open escrow, appoint a provider, verify a deposit, or move money.
+
+Every submitted term must first be saved server-side and reviewed as the exact
+saved draft. Unsaved or stale edits disable submission. The workspace has
+explicit current, historical, editing, and reviewing modes; historical views
+hide current-version mutations. The editor, submission review, decision dialog,
+and immutable revision view expose every persisted term and keep explicit term
+changes separate from recalculated values. Funding V1 is limited to cash,
+financed, and structured seller financing; unstructured `OTHER` funding is
+excluded.
+
+The buyer may withdraw before the first submission. After submission, only the
+author of the current revision may withdraw before the counterparty responds.
+Withdrawal is terminal and preserves the immutable revision history.
+
+Deadlines are exact absolute timestamps selected from one hour through 30 days.
+An expired revision cannot be drafted, submitted, aligned, declined, or
+withdrawn. Loss of invite, participant, seller-access, property-identity,
+property-approval, conversation, or block eligibility makes the read model
+immediately read-only and is later persisted without overwriting a prior
+terminal outcome.
+
+The LOI expansion excludes electronic signatures, purchase-agreement or PDF
+generation, payment/wire links, escrow instructions, lender integrations,
+third-party participants, attachments, simultaneous editing, AI-written legal
+clauses, and automatic legal/business-day deadline interpretation. Commission
+terms remain disabled until product and counsel approve their schema and copy.
+Messages may link to the workspace but cannot contain authoritative LOI terms or
+mutate LOI state.
+
 The production implementation uses PostgreSQL as the source of truth. Private Supabase Realtime events contain identifiers only and are delivery hints; every browser refetches canonical authorized data through Liber's server and retains polling/focus recovery.
 
 Guided Messaging V1 remains controlled-preview only until counsel approves the template and fair-housing moderation policy, counsel/product publishes a retention rule, credential-rotation evidence and repository/archive secret scans are complete, private Realtime authorization is proven, block/report operations are staffed, and the scheduled outbox worker is restored. The current 24-month closed-conversation retention idea is a proposal, not an approved deletion rule, so no automatic message deletion runs in V1.
