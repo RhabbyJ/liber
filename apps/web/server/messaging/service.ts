@@ -1267,21 +1267,20 @@ async function queueUnreadMessageEmail(
     LIMIT 1
   `;
   if (existing) return;
-  await tx.$executeRaw`
-    INSERT INTO public."EmailOutbox" (
-      type, "to", subject, "templateName", payload, status, attempts,
-      "nextAttemptAt", "idempotencyKey", "messageConversationId", "messageRecipientUserId",
-      "createdAt", "updatedAt"
-    ) VALUES (
-      'MESSAGE_UNREAD', ${recipientEmail}, 'You have an unread Liber message', 'message-unread',
-      '{}'::jsonb,
-      'PENDING'::public."EmailOutboxStatus", 0,
-      ${new Date(now.getTime() + UNREAD_MESSAGE_EMAIL_DELAY_MS)},
-      ${`message-unread:${access.conversation_id}:${recipientUserId}:${messageId}`},
-      ${access.conversation_id}::uuid, ${recipientUserId}::uuid,
-      ${now}, ${now}
-    )
-  `;
+  await tx.emailOutbox.create({
+    data: {
+      idempotencyKey: `message-unread:${access.conversation_id}:${recipientUserId}:${messageId}`,
+      messageConversationId: access.conversation_id,
+      messageRecipientUserId: recipientUserId,
+      nextAttemptAt: new Date(now.getTime() + UNREAD_MESSAGE_EMAIL_DELAY_MS),
+      payload: {},
+      status: "PENDING",
+      subject: "You have an unread Liber message",
+      templateName: "message-unread",
+      to: recipientEmail,
+      type: "MESSAGE_UNREAD",
+    },
+  });
 }
 
 async function cancelUnreadMessageEmail(

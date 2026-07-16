@@ -80,7 +80,8 @@ and report-driven admin moderation.
 - Identity-invalidated threads use their stored property snapshot and never the
   property's new identity or current-version images.
 - Unread email is content-free, debounced for 10 minutes, coalesced by unread
-  batch, and revalidated/cancelled through the leased outbox.
+  batch, and revalidated/cancelled through the leased outbox. Enqueue through
+  Prisma so the required client-generated `EmailOutbox.id` is always present.
 - Participant report creation has one narrow POST route. Admin queue reads and
   resolutions stay in authenticated server pages/actions; there is no parallel
   public admin-report API surface.
