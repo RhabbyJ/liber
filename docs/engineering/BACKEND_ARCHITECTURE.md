@@ -230,7 +230,9 @@ Invited-buyer image access is centralized in `app_private.can_read_property_imag
 
 Invite email should be queued through `EmailOutbox`, not sent inline as the source of truth.
 Invite outbox jobs are bound to `inviteId`; unread-message jobs are bound to
-their conversation and recipient UUID. Migration
+their conversation and recipient UUID. Create unread-message jobs through the
+Prisma client because `EmailOutbox.id` uses Prisma's client-generated `cuid()`;
+a raw SQL insert must otherwise supply that required primary key explicitly. Migration
 `20260715215000_reconcile_email_outbox_lease` removes incompatible
 `recipientUserId`/UUID-lease artifacts left by a retired unnumbered proposal,
 then validates the canonical `lockedAt`/`leaseUntil`/`workerId` lease and
