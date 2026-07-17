@@ -149,13 +149,75 @@ describe("messaging service query shape", () => {
         to: "seller@example.test",
         type: "MESSAGE_UNREAD",
       },
+      select: { id: true },
     });
     const insertQuery = mocks.prisma.$queryRaw.mock.calls.find((call) => (
-      Array.isArray(call[0]) && call[0].join(" ").includes('INSERT INTO public."Message"')
+      queryStrings(call[0]).includes('INSERT INTO public."Message"')
     ));
-    expect(insertQuery?.[0].join(" ")).toContain('INSERT INTO public."Message" AS message');
+    expect(insertQuery).toHaveLength(1);
+    expect(queryStrings(insertQuery?.[0])).toContain('INSERT INTO public."Message" AS message');
+    expect(queryFragments(insertQuery?.[0])).toContain("message.id");
+  });
+
+  it("returns an existing message for an idempotent retry without duplicate side effects", async () => {
+    const access = {
+      ...conversationAccessRow(),
+      other_user_id: sellerId,
+      participant_role: "BUYER",
+    };
+    const message = {
+      body: "Please send more property details.",
+      client_message_id: clientMessageId,
+      conversation_id: conversationId,
+      created_at: new Date("2026-07-16T06:00:00.000Z"),
+      id: messageId,
+      kind: "GUIDED",
+      moderation_status: "ALLOWED",
+      sender_user_id: buyerId,
+      template_key: "BUYER_MORE_DETAILS",
+      template_version: 1,
+    };
+    mocks.getSessionUser.mockResolvedValue({ id: buyerId, roles: ["BUYER"] });
+    mocks.prisma.$queryRaw
+      .mockResolvedValueOnce([access])
+      .mockResolvedValueOnce([{ locked: true }])
+      .mockResolvedValueOnce([{ id: access.invite_id }])
+      .mockResolvedValueOnce([{ id: conversationId }])
+      .mockResolvedValueOnce([access])
+      .mockResolvedValueOnce([message]);
+
+    await expect(sendConversationMessage({
+      clientMessageId,
+      conversationId,
+      kind: "GUIDED",
+      templateKey: "BUYER_MORE_DETAILS",
+      templateVersion: 1,
+    })).resolves.toMatchObject({
+      data: { body: message.body, id: messageId, sender: "YOU" },
+      idempotent: true,
+    });
+
+    expect(mocks.prisma.emailOutbox.create).not.toHaveBeenCalled();
+    expect(mocks.prisma.adminAuditLog.create).not.toHaveBeenCalled();
+    const retryQuery = mocks.prisma.$queryRaw.mock.calls[5];
+    expect(retryQuery).toHaveLength(1);
+    expect(queryStrings(retryQuery?.[0])).toContain('FROM public."Message" message');
+    expect(queryFragments(retryQuery?.[0])).toContain("message.id");
   });
 });
+
+function queryStrings(query: unknown) {
+  if (Array.isArray(query)) return query.join(" ");
+  if (query && typeof query === "object" && "strings" in query && Array.isArray(query.strings)) {
+    return query.strings.join(" ");
+  }
+  return "";
+}
+
+function queryFragments(query: unknown): string {
+  if (!query || typeof query !== "object" || !("values" in query) || !Array.isArray(query.values)) return "";
+  return query.values.map((value) => `${queryStrings(value)} ${queryFragments(value)}`).join(" ");
+}
 
 function conversationAccessRow() {
   const now = new Date("2026-07-14T12:00:00.000Z");

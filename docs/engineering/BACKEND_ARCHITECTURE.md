@@ -286,6 +286,11 @@ response, and cancels pending unread-message delivery.
 The server owns the versioned guided-template catalog. Clients may request an
 allowed key/version or submit normalized plain text up to 2,000 characters;
 they cannot create `INVITE` or `SYSTEM` messages. React renders bodies as text.
+Raw message reads and inserts compose the reusable projection inside one
+`Prisma.sql` value; the insert aliases `Message` before its qualified
+`RETURNING` projection. This keeps the Pg adapter from binding that projection
+as one anonymous value and preserves the created message ID for audit/outbox
+writes in the same transaction.
 After a successful send, the browser validates and merges the returned message
 DTO immediately, then coalesces any overlapping canonical refresh instead of
 dropping it. The optional LOI status/link sidecar is fetched from the separately
@@ -341,7 +346,9 @@ the existing message without duplicate notifications or email jobs.
 Unread-message email uses the leased `EmailOutbox`, waits 10 minutes, contains no
 message body, coalesces one job per unread batch, and revalidates active status,
 membership, unread state, mute/block, and conversation eligibility immediately
-before delivery. Reading or closing the conversation cancels queued work.
+before delivery. Enqueue returns only the generated outbox ID so unrelated
+additive outbox columns do not widen the write's rollout dependency. Reading or
+closing the conversation cancels queued work.
 
 Runtime rollout is controlled by `LIBER_MESSAGING_V1_ENABLED` plus
 `LIBER_MESSAGING_V1_COHORT_USER_IDS`; production fails closed when the feature

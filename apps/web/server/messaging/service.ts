@@ -331,12 +331,12 @@ export async function sendConversationMessage(input: SendConversationMessageInpu
     await lockConversation(tx, input.conversationId);
     const access = await requireConversationAccess(tx, input.conversationId, currentUser.id);
 
-    const [existing] = await tx.$queryRaw<MessageRow[]>`
+    const [existing] = await tx.$queryRaw<MessageRow[]>(Prisma.sql`
       SELECT ${messageColumns()}
       FROM public."Message" message
       WHERE message."conversationId" = ${input.conversationId}::uuid
         AND message."clientMessageId" = ${input.clientMessageId}::uuid
-    `;
+    `);
     if (existing) {
       if (existing.sender_user_id !== currentUser.id) throw messagingUnavailable();
       return { data: messageDto(existing, currentUser.id), idempotent: true };
@@ -403,7 +403,7 @@ export async function sendConversationMessage(input: SendConversationMessageInpu
       throw new MessagingError("RATE_LIMITED", "Message limit reached. Try again later.", 429);
     }
 
-    const [created] = await tx.$queryRaw<MessageRow[]>`
+    const [created] = await tx.$queryRaw<MessageRow[]>(Prisma.sql`
       INSERT INTO public."Message" AS message (
         "conversationId", "senderUserId", kind, "templateKey", "templateVersion",
         body, "clientMessageId", "moderationStatus", "createdAt"
@@ -419,7 +419,7 @@ export async function sendConversationMessage(input: SendConversationMessageInpu
         ${now}
       )
       RETURNING ${messageColumns()}
-    `;
+    `);
     if (!created) throw new Error("Message insert returned no row.");
 
     await queueUnreadMessageEmail(tx, access, currentUser.id, created.id, now);
@@ -531,21 +531,21 @@ export async function reportMessage(input: MessageReportInput) {
   const currentUser = await requireMessagingUser();
   if (!UUID_PATTERN.test(input.messageId)) throw messagingNotFound();
   return prisma.$transaction(async (tx) => {
-    const [initialMessage] = await tx.$queryRaw<MessageRow[]>`
+    const [initialMessage] = await tx.$queryRaw<MessageRow[]>(Prisma.sql`
       SELECT ${messageColumns()}
       FROM public."Message" message
       WHERE message.id = ${input.messageId}::uuid
-    `;
+    `);
     if (!initialMessage) throw messagingNotFound();
     const initialAccess = await requireConversationAccess(tx, initialMessage.conversation_id, currentUser.id);
     await lockPair(tx, initialAccess.seller_user_id, initialAccess.buyer_user_id);
     const access = await requireConversationAccess(tx, initialMessage.conversation_id, currentUser.id);
-    const [message] = await tx.$queryRaw<MessageRow[]>`
+    const [message] = await tx.$queryRaw<MessageRow[]>(Prisma.sql`
       SELECT ${messageColumns()}
       FROM public."Message" message
       WHERE message.id = ${input.messageId}::uuid
         AND message."conversationId" = ${initialMessage.conversation_id}::uuid
-    `;
+    `);
     if (!message) throw messagingNotFound();
     if (!message.sender_user_id || message.sender_user_id === currentUser.id || message.kind === "SYSTEM") {
       throw messagingUnavailable();
@@ -1336,6 +1336,7 @@ async function queueUnreadMessageEmail(
       to: recipientEmail,
       type: "MESSAGE_UNREAD",
     },
+    select: { id: true },
   });
 }
 

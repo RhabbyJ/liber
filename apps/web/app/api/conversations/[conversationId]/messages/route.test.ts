@@ -58,6 +58,24 @@ describe("conversation message route", () => {
     });
   });
 
+  it("passes a validated buyer quick reply to the messaging service", async () => {
+    const response = await POST(request({
+      clientMessageId,
+      kind: "GUIDED",
+      templateKey: "BUYER_MORE_DETAILS",
+      templateVersion: 1,
+    }), context());
+
+    expect(response.status).toBe(201);
+    expect(mocks.send).toHaveBeenCalledWith({
+      clientMessageId,
+      conversationId,
+      kind: "GUIDED",
+      templateKey: "BUYER_MORE_DETAILS",
+      templateVersion: 1,
+    });
+  });
+
   it("rejects unknown or malformed body fields without echoing them", async () => {
     const response = await POST(request({
       body: "secret body",

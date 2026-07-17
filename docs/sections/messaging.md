@@ -40,6 +40,10 @@ and report-driven admin moderation.
   invites remain messageable. Declined, expired, withdrawn,
   identity-invalidated, ineligible, and blocked conversations reject sends but
   preserve authorized history.
+- Message queries that reuse the qualified message projection must pass one
+  composed `Prisma.sql` value to the Pg adapter. The insert also aliases the
+  target table before `RETURNING`; direct tagged interpolation can otherwise
+  return one anonymous column and roll back the send during audit creation.
 - Guided copy is selected from the server's versioned catalog. Free text is
   normalized plain text with a 2,000-character maximum. Do not render HTML,
   Markdown, clickable links, or message bodies in logs/analytics/email.
@@ -81,7 +85,8 @@ and report-driven admin moderation.
   property's new identity or current-version images.
 - Unread email is content-free, debounced for 10 minutes, coalesced by unread
   batch, and revalidated/cancelled through the leased outbox. Enqueue through
-  Prisma so the required client-generated `EmailOutbox.id` is always present.
+  Prisma so the required client-generated `EmailOutbox.id` is always present,
+  and select only that ID from the create operation.
 - Participant report creation has one narrow POST route. Admin queue reads and
   resolutions stay in authenticated server pages/actions; there is no parallel
   public admin-report API surface.
