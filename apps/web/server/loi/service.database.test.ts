@@ -477,6 +477,7 @@ suite("LOI service PostgreSQL lifecycle and races", () => {
     const client = await pool!.connect();
     try {
       await client.query("BEGIN");
+      await client.query("SET LOCAL ROLE authenticated");
       await setJwtSubject(client, fixture.buyerId);
       const participant = await client.query(
         "SELECT app_private.can_join_loi_topic($1) AS allowed",
@@ -493,8 +494,8 @@ suite("LOI service PostgreSQL lifecycle and races", () => {
       expect(participant.rows[0].allowed).toBe(true);
       expect(outsider.rows[0].allowed).toBe(false);
       expect(malformed.rows[0].allowed).toBe(false);
-      await client.query("ROLLBACK");
     } finally {
+      await client.query("ROLLBACK").catch(() => undefined);
       client.release();
     }
   }, 30_000);

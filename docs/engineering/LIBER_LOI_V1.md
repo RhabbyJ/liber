@@ -1,6 +1,8 @@
 # Liber LOI V1 — Final Implementation, Audit, and Release Record
 
-**Finalized:** 2026-07-16
+**Finalized:** 2026-07-17
+
+**Last reviewed:** 2026-07-17
 
 **Implementation disposition:** complete in source; exact two-user cohort must remain disabled until the release gates in this document are recorded
 
@@ -28,11 +30,14 @@ reconcile the conflict before changing production behavior.
 
 The source implementation closes the identified state-machine, transaction,
 idempotency, authorization, presentation, migration, and test-harness defects.
-It is suitable for continued local and protected disposable-environment proof.
-It is **not yet authorized for a real-user cohort** because protected database
-proof, authenticated Realtime/browser evidence, scheduled-worker evidence, and
-counsel approval remain open. The retained production migration ledger has now
-been reviewed and its one comment-only historical checksum variant is preserved
+The four reviewed migrations in the LOI/release chain are applied in production,
+and an isolated disposable Supabase branch proof recorded authenticated Realtime
+and raw Data API evidence for the exact buyer/seller boundary. It is **not yet
+authorized for a real-user cohort** because protected exact-SHA fresh/upgrade
+database proof,
+authenticated UI/browser evidence, scheduled-worker/provider evidence, and
+counsel approval remain open. The retained production migration ledger has been
+reviewed and its one comment-only historical checksum variant remains preserved
 as exact, project-scoped evidence.
 
 Merely wiring a protected workflow is not evidence that the workflow ran. Keep
@@ -369,6 +374,21 @@ All four LOI tables have RLS enabled. Raw CRUD privileges are absent for
 the Data API to read or write terms. Application access goes through reviewed
 server routes and the server database role.
 
+`authenticated` has `USAGE` but not `CREATE` on the private `app_private`
+schema. That traversal privilege grants no relation or function access by
+itself: raw private relations remain closed, and direct function execution is
+limited to the four helpers that current RLS policies actually depend on:
+`can_join_conversation_topic(text)`, `can_join_loi_topic(text)`,
+`can_read_property_image(text, uuid)`, and
+`can_upload_session_object(text, text, uuid)`. `PUBLIC`, `anon`, and
+`service_role` receive no private-schema traversal or helper execution. The
+schema is not exposed through the Data API, so selecting an `app_private`
+profile remains denied even for an authenticated participant.
+
+PostgreSQL's global and `app_private`-scoped default function privileges grant
+no non-owner `EXECUTE`. Future `postgres`-owned private functions are therefore
+owner-only unless a reviewed migration opts them in explicitly.
+
 The single private Realtime receive policy accepts an exact `loi:<uuid>` topic
 only through `app_private.can_join_loi_topic(text)` for an authenticated active
 participant. Browser insert/broadcast policies remain absent. Database triggers
@@ -504,23 +524,31 @@ must deploy before application code even when the feature flag remains off.
 
 ## Migrations and checksum policy
 
-Two additive migrations are authoritative in both the normal migration root and
-the locked current-baseline forward root. The copies are byte-identical.
+Four additive migrations are authoritative in the LOI/release chain in both the
+normal migration root and the locked current-baseline forward root. The last two
+are cross-cutting Realtime/Storage ACL hardening, and every corresponding copy is
+byte-identical.
 
 | Migration | Purpose | SHA-256 |
 | --- | --- | --- |
 | `20260716030741_add_loi_negotiations` | Base models, constraints, triggers, RLS/grants, Realtime helper/broadcast, outbox integration | `27ece835990b92f9e035af019a615ae8196260244e8b0214d3828d6f22d31245` |
 | `20260716120000_harden_loi_event_semantics` | Forward closed-state mapping, retained actor FK, event shape, and authoritative actor/revision validation | `bdc6e7b88c02b71b27b907de14601b0dfacdde937f11ff56ad7262dbc614ba86` |
+| `20260717023000_grant_authenticated_app_private_usage` | Authenticated private-schema traversal with no create/relation access and an exact four-helper RLS execution allowlist | `1b1f6afbc6a233eea9e10e5c24a5a7998a1cbdbbe4805dcc7c4b0b79a82bcc84` |
+| `20260717033000_harden_app_private_function_defaults` | Owner-only global and `app_private`-scoped PostgreSQL default function execution | `d1495a84e4f547da535ace05211fe4956624696995da777b83f8cec34cf3615f` |
 
-The base migration bytes above are now immutable. The semantic cleanup is a
-separate forward migration specifically so retained environments never require
-an in-place history edit.
+The base migration bytes above are now immutable. The semantic and both
+private-ACL repairs are separate forward migrations specifically so retained
+environments never require an in-place history edit.
 
-A read-only inspection during this implementation session found the configured
-database latest at `20260715215000_reconcile_email_outbox_lease` with neither LOI
-migration recorded. The workspace release archive contained the same base bytes
-shown above. This evidence applies only to that inspected target and archive; it
-does **not** prove every retained, shared, staging, or production database.
+An earlier read-only inspection found the configured database latest at
+`20260715215000_reconcile_email_outbox_lease`, before any LOI migration was
+recorded. With explicit production approval, all four reviewed migrations were
+later deployed through the normal Prisma migration path to the retained Liber
+project. Its ledger now contains 33 successful migrations and matches the four
+checksums above. A post-deploy catalog proof confirms the intended
+private-schema, relation, function, and default-function ACLs. This
+project-specific evidence does **not** prove every other retained or shared
+environment.
 
 Before any deploy, compare every retained environment's successful,
 non-rolled-back `_prisma_migrations` rows and checksums with the reviewed local
@@ -540,30 +568,31 @@ pinned checksums, and comment-stripped SQL remains identical. Every other
 target and migration still requires the canonical checksum. No ledger row is
 rewritten and `prisma migrate resolve` is not used.
 
-Migration SQL line endings are explicit in `.gitattributes`. Both LOI forward
-copies are forced to LF so byte-identity checks pass on Windows and Linux. The
-one older migration that production originally recorded with CRLF remains
-explicitly CRLF; the locked baseline generator normalizes pre-cutoff source
-line endings before enforcing its source digest.
+Migration SQL line endings are explicit in `.gitattributes`. All four
+release-chain migration copies are forced to LF so byte-identity checks pass on
+Windows and Linux. The one older migration that production originally recorded
+with CRLF remains explicitly CRLF; the locked baseline generator normalizes
+pre-cutoff source line endings before enforcing its source digest.
 
 The guarded upgrade harness requires the immediate pre-LOI state whose latest
 migration is `20260715215000_reconcile_email_outbox_lease`. A proof-only Prisma
 config stages the reviewed chain through the base LOI migration, verifies its
 checksum and pre-repair catalog, seeds a valid two-revision/four-event aligned
-negotiation, and then applies the forward repair through the normal migration
-root. It proves the exact terms, summary, revision chain, events, actors, and
-terminal outcome survive before testing the repaired constraints. The guarded
-fresh harness resets through `prisma.baseline.config.ts`. Both final states
-assert the two exact ledger checksums plus tables, RLS, raw grants, immutable
-triggers, terminal sequence rules, deadline and event-shape checks,
-closed-reason mapping, retained actor FK, outbox index, and the single bounded
-private Realtime policy.
+negotiation, and then applies all three forward repairs through the normal
+migration root. It proves the exact terms, summary, revision chain, events,
+actors, and terminal outcome survive before testing the repaired constraints and
+ACLs. The guarded fresh harness resets through `prisma.baseline.config.ts`. Both
+final states assert all four exact ledger checksums plus tables, RLS, raw grants,
+immutable triggers, terminal sequence rules, deadline and event-shape checks,
+closed-reason mapping, retained actor FK, outbox index, the single bounded
+private Realtime policy, the exact `app_private` schema/function allowlist, and
+closed global and schema-specific default function privileges.
 
 ## Audit closure
 
 | Finding | Final treatment |
 | --- | --- |
-| No real PostgreSQL LOI workflow/race proof | Added sentinel-guarded fresh, upgrade, and service behavior harnesses; wired both targets into the protected exact-SHA workflow. Execution remains a release gate. |
+| No protected exact-SHA PostgreSQL LOI lifecycle/race proof | Added sentinel-guarded fresh, upgrade, and service behavior harnesses and wired both targets into the protected exact-SHA workflow. The isolated application-equivalent SQL lifecycle completed; protected fresh/upgrade and two-connection race execution remain release gates. |
 | Root test failed because secret-scan test was absent | Restored the secret-scan test and retained it in the root test chain. |
 | Terminal sequence-zero state could reopen an editor | Starter terms require exact active initial status, buyer role, eligibility, and `EDIT`; terminal reads expose neither starter nor draft. |
 | Initial discard trapped the buyer | Added distinct reset-in-place, counter discard, and start/resume flows. |
@@ -583,6 +612,8 @@ private Realtime policy.
 | Draft deletion was not rate limited | Added the shared 30/hour discard/reset limit. |
 | Visible mojibake | Replaced corrupt source strings and added a regression check. |
 | Event FK/shape semantics were incomplete | Added `ON DELETE RESTRICT`, exact closed-state mapping, event-shape constraint, and authoritative actor/current-revision trigger in the forward migration. |
+| Authenticated private Realtime joins denied both real participants | The policy helpers had `EXECUTE`, but `authenticated` lacked `USAGE` on their `app_private` schema. A forward migration now grants traversal without `CREATE` or relation access, derives the exact four current policy-helper dependencies from the catalog, grants only that execution allowlist, and keeps all other browser/service roles closed. |
+| Schema-specific defaults could reopen future private helper execution | A separate forward migration revokes and asserts owner-only PostgreSQL default function privileges both globally and for `app_private`; existing function execution remains the exact four-helper allowlist. |
 
 Independent review also fixed issues not explicitly isolated in the dated audit:
 
@@ -670,12 +701,77 @@ Independent review also fixed issues not explicitly isolated in the dated audit:
   five-second virtual-time budget. This is not authenticated LOI UI evidence.
 - Readiness verifies exact-project retained-lineage acceptance and rejection on
   every other project.
-- A read-only production preflight confirmed PostgreSQL 17.6, the immediate
-  pre-LOI ledger boundary, absent LOI relations/types, compatible Realtime
-  policy shape, and no blocking `EmailOutbox` data.
-- The production migrations were not applied in this pass. A direct migration
-  attempt was stopped before execution because explicit production-database
-  approval is required; the LOI flag and real-user cohort must remain disabled.
+- An earlier read-only production preflight confirmed PostgreSQL 17.6, the
+  immediate pre-LOI ledger boundary, absent LOI relations/types, compatible
+  Realtime policy shape, and no blocking `EmailOutbox` data.
+- At that point the production migrations had not yet been applied. The
+  authorized deployment and post-deploy evidence below supersede that earlier
+  migration state; the LOI flag and real-user cohort remain disabled.
+
+### Production deployment and disposable authenticated proof on 2026-07-17
+
+- The retained Liber project `qfjcrhkjlczvzakxives` has all four authoritative
+  migrations in this release chain applied through the normal Prisma migration
+  ledger. The ledger has 33 successful migrations, and each of the four release
+  checksums matches the reviewed bytes in this document.
+- Post-deploy catalog checks proved that `authenticated` has `USAGE` but not
+  `CREATE` on `app_private`, has no raw private-relation access, and can execute
+  only the four current policy helpers. `PUBLIC`, `anon`, and `service_role`
+  remain closed. Global and `app_private`-scoped PostgreSQL default function
+  privileges expose no non-owner `EXECUTE`. An actual `SET ROLE authenticated`
+  call reached all four helpers and failed closed on invalid identifiers instead
+  of failing schema resolution.
+- An isolated disposable Supabase branch used exactly two marked real Auth
+  accounts with reserved `.invalid` email addresses, one buyer and one seller.
+  No credentials, passwords, or tokens are retained in this artifact.
+- The branch persisted the opening invite, a buyer guided quick reply that
+  accepted the invite and activated the canonical conversation, seller guided
+  replies, content-free unread outbox rows, and matching audit evidence. It also
+  persisted the complete LOI path: buyer initial submission, seller counter,
+  and buyer terms alignment, with two immutable revisions, the exact event
+  chain, cleared drafts, notifications, and content-free outbox state.
+- Both real participants subscribed successfully. Each received exactly two
+  messaging hints containing only `id`, `type`, `messageId`, and
+  `conversationId`, and exactly three LOI hints containing only `id`, `type`,
+  `eventId`, `revisionId`, and `negotiationId`. An unrelated private topic and
+  an anonymous subscription were denied.
+- With both buyer and seller JWTs, raw Data API reads of `Message` and
+  `LoiNegotiation` returned `403`; requesting the `app_private` profile returned
+  `406`, confirming that the private helper schema remains outside the exposed
+  Data API.
+- The primary persisted buyer/seller and LOI lifecycle was executed as
+  application-equivalent SQL because a safely scoped preview application
+  database connection was unavailable. The exact HTTP routes remain covered by
+  route, authorization, and service tests; this run is not represented as an
+  authenticated browser or Next.js HTTP journey. For LOI, trigger-created hint
+  persistence and live Realtime transport were proved separately after the
+  initial subscriber expired, not as one uninterrupted timing run.
+- `scripts/realtime-branch-proof-subscriber.mjs` is the secret-free subscriber
+  harness for repeating the two-participant, unrelated-topic, anonymous, and
+  identifier-only payload checks on an explicitly disposable target. Run it
+  separately once for a conversation topic and once for an LOI topic.
+- After the proof completed, deleting the paid branch removed the two temporary
+  Auth identities, fixtures, and scoped database role. Local proof artifacts
+  were deleted separately. Only the production `main` Supabase branch remains.
+
+### Final exact-tree verification on 2026-07-17
+
+- `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`,
+  `npm run db:generate`, `npm run db:validate`, and
+  `npm run db:baseline:check` passed. The full test run included database-target
+  5/5, readiness 19/19, demo-buyer 4/4, secret-scan 9/9, both static migration
+  audits, web 349 passed with 16 protected tests skipped, and validators 30/30.
+  The locked baseline matched 26 sources plus seven forward migrations with
+  digest `e1adcdc2370a7dd66127fc8c1c30f139afd0f4b63c6e7580e6f8db3041b56eb3`.
+- Route, security, forbidden-auth-bypass, repository-secret, and public visual
+  smoke checks passed. The visual harness captured all seven desktop/mobile
+  surfaces after being launched outside the process sandbox; two sandboxed
+  Edge attempts had failed on the Windows GPU/profile cache before rendering.
+- Local readiness passed while correctly warning that
+  `AUTH_RATE_LIMIT_PEPPER`, `CRON_SECRET`, `RESEND_API_KEY`,
+  `RESEND_FROM_EMAIL`, and `SITE_URL` remain production-only configuration
+  prerequisites. These results do not substitute for the protected database or
+  authenticated LOI UI gates below.
 
 ### Implemented and wired, but not executed here
 
@@ -694,14 +790,14 @@ configured shared database was reset or written to provide substitute evidence.
   exact reviewed commit, including the lifecycle/race suite on each target.
 - Prove two independent database connections for submit/submit, submit/block,
   submit/expiry, exact retry, and same-key/different-request cases.
-- Record participant versus outsider HTTP, raw Data API, and private Realtime
-  behavior using real authenticated sessions.
-- Record identifier-only Realtime payloads and reconnect/focus/poll recovery.
+- Record the exact buyer quick reply and seller response plus LOI participant
+  versus outsider application behavior through real authenticated Next.js HTTP
+  and browser sessions.
+- Record authenticated reconnect/focus/poll recovery against canonical server
+  reads; the identifier-only private Realtime transport boundary is proved.
 - Record in-app/outbox exactly-once, supersession, cancellation, delivery-time
   revalidation, and configured provider delivery.
 - Verify every retained environment's migration names and checksums.
-- Apply both LOI migrations to the retained Liber project through the normal
-  Prisma migration path after explicit production-database approval.
 - Repeat and record root lint, typecheck, tests, production build, database
   validation, route/security/no-auth-bypass smoke, and readiness checks if the
   exact release commit differs from the verified implementation tree.
@@ -728,11 +824,18 @@ configured shared database was reset or written to provide substitute evidence.
    identify shared targets only for deny matching, never as proof targets.
 6. Dispatch the protected release proof with the reviewed SHA and exact
    `DISPOSABLE_ONLY` confirmation. Retain both migration and behavior outputs.
-7. Deploy `20260716030741_add_loi_negotiations` followed by
-   `20260716120000_harden_loi_event_semantics` before any application version
-   that references LOI tables.
-8. Run production readiness and verify both exact checksums in the deployed
-   ledger.
+   On an explicitly disposable authenticated target, also run
+   `scripts/realtime-branch-proof-subscriber.mjs` once for
+   `conversation:<uuid>` and once for `loi:<uuid>`; each invocation uses both
+   participants. Retain the content-free results without credentials or tokens.
+7. For any retained environment that is not current, deploy
+   `20260716030741_add_loi_negotiations`,
+   `20260716120000_harden_loi_event_semantics`,
+   `20260717023000_grant_authenticated_app_private_usage`, and
+   `20260717033000_harden_app_private_function_defaults` in order before any
+   application version that references LOI tables or private Realtime helpers.
+8. Run production readiness and verify all four exact checksums in the deployed
+   ledger, plus the `app_private` schema, relation, function, and default ACLs.
 9. Deploy the reviewed application with the flag still off. Confirm messaging,
    maintenance, outbox, and ordinary marketplace paths remain healthy.
 10. After every open gate is approved, set
@@ -782,10 +885,13 @@ publish an approved LOI retention and support-access rule.
 - Email and maintenance: `apps/web/server/email.ts`,
   `apps/web/server/email-outbox.ts`, and `apps/web/server/maintenance.ts`
 - Schema and migrations: `packages/db/prisma/schema.prisma`,
-  `packages/db/prisma/migrations/20260716030741_add_loi_negotiations/**`, and
-  `packages/db/prisma/migrations/20260716120000_harden_loi_event_semantics/**`
+  `packages/db/prisma/migrations/20260716030741_add_loi_negotiations/**`,
+  `packages/db/prisma/migrations/20260716120000_harden_loi_event_semantics/**`,
+  `packages/db/prisma/migrations/20260717023000_grant_authenticated_app_private_usage/**`, and
+  `packages/db/prisma/migrations/20260717033000_harden_app_private_function_defaults/**`
 - Static/disposable proof: `prisma.loi-stage.config.ts`,
   `scripts/test-loi-migration.mjs`, `scripts/test-loi-database.mjs`,
-  `scripts/test-loi-behavior.mjs`, and
+  `scripts/test-loi-behavior.mjs`,
+  `scripts/realtime-branch-proof-subscriber.mjs`, and
   `apps/web/server/loi/service.database.test.ts`
 - Protected proof workflow: `.github/workflows/release-proof.yml`

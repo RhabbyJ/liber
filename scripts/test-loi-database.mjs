@@ -14,6 +14,8 @@ const url = process.env.LOI_MIGRATION_TEST_DATABASE_URL;
 const sentinel = process.env.LOI_MIGRATION_TEST_SENTINEL;
 const loiMigration = "20260716030741_add_loi_negotiations";
 const repairMigration = "20260716120000_harden_loi_event_semantics";
+const accessMigration = "20260717023000_grant_authenticated_app_private_usage";
+const defaultAclMigration = "20260717033000_harden_app_private_function_defaults";
 const preLoiMigration = "20260715215000_reconcile_email_outbox_lease";
 const migrationRoot = path.resolve("packages/db/prisma/migrations");
 const optIn = mode === "fresh" ? "LOI_MIGRATION_TEST_ALLOW_RESET" : "LOI_MIGRATION_TEST_ALLOW_WRITES";
@@ -21,8 +23,10 @@ await assertDisposable(url, sentinel, optIn);
 const expectedChecksums = {
   [loiMigration]: "27ece835990b92f9e035af019a615ae8196260244e8b0214d3828d6f22d31245",
   [repairMigration]: "bdc6e7b88c02b71b27b907de14601b0dfacdde937f11ff56ad7262dbc614ba86",
+  [accessMigration]: "1b1f6afbc6a233eea9e10e5c24a5a7998a1cbdbbe4805dcc7c4b0b79a82bcc84",
+  [defaultAclMigration]: "d1495a84e4f547da535ace05211fe4956624696995da777b83f8cec34cf3615f",
 };
-await Promise.all([loiMigration, repairMigration].map(async (migrationName) => {
+await Promise.all([loiMigration, repairMigration, accessMigration, defaultAclMigration].map(async (migrationName) => {
   const bytes = await readFile(path.join(migrationRoot, migrationName, "migration.sql"));
   const checksum = createHash("sha256").update(bytes).digest("hex");
   if (checksum !== expectedChecksums[migrationName]) {
@@ -121,23 +125,102 @@ try {
           AND cmd IN ('INSERT', 'ALL')
           AND roles && ARRAY['public', 'anon', 'authenticated']::name[]
       ) AS no_browser_broadcast_insert_policy,
+      has_schema_privilege('authenticated', 'app_private', 'USAGE')
+        AND NOT has_schema_privilege('authenticated', 'app_private', 'CREATE')
+        AND NOT has_schema_privilege('anon', 'app_private', 'USAGE')
+        AND NOT has_schema_privilege('anon', 'app_private', 'CREATE')
+        AND NOT has_schema_privilege('service_role', 'app_private', 'USAGE')
+        AND NOT has_schema_privilege('service_role', 'app_private', 'CREATE')
+        AND NOT EXISTS (
+          SELECT 1
+          FROM pg_namespace namespace
+          CROSS JOIN LATERAL aclexplode(
+            coalesce(namespace.nspacl, acldefault('n', namespace.nspowner))
+          ) privilege
+          WHERE namespace.nspname = 'app_private'
+            AND privilege.grantee = 0
+            AND privilege.privilege_type IN ('USAGE', 'CREATE')
+        )
+        AND ARRAY(
+          SELECT procedure.oid::regprocedure::text
+          FROM pg_proc procedure
+          JOIN pg_namespace namespace ON namespace.oid = procedure.pronamespace
+          WHERE namespace.nspname = 'app_private'
+            AND has_function_privilege('authenticated', procedure.oid, 'EXECUTE')
+          ORDER BY procedure.oid::regprocedure::text
+        ) = ARRAY[
+          'app_private.can_join_conversation_topic(text)',
+          'app_private.can_join_loi_topic(text)',
+          'app_private.can_read_property_image(text,uuid)',
+          'app_private.can_upload_session_object(text,text,uuid)'
+        ]::text[]
+        AND NOT EXISTS (
+          SELECT 1
+          FROM pg_proc procedure
+          JOIN pg_namespace namespace ON namespace.oid = procedure.pronamespace
+          WHERE namespace.nspname = 'app_private'
+            AND (
+              has_function_privilege('anon', procedure.oid, 'EXECUTE')
+              OR has_function_privilege('service_role', procedure.oid, 'EXECUTE')
+            )
+        ) AS app_private_acl_bounded,
+      NOT EXISTS (
+        SELECT 1
+        FROM pg_default_acl default_acl
+        CROSS JOIN LATERAL aclexplode(default_acl.defaclacl) privilege
+        WHERE default_acl.defaclrole = (SELECT oid FROM pg_roles WHERE rolname = 'postgres')
+          AND default_acl.defaclnamespace IN (
+            0,
+            (SELECT oid FROM pg_namespace WHERE nspname = 'app_private')
+          )
+          AND default_acl.defaclobjtype = 'f'
+          AND privilege.grantee <> default_acl.defaclrole
+      ) AS app_private_default_function_acl_bounded,
       has_function_privilege('authenticated', 'app_private.can_join_loi_topic(text)', 'EXECUTE')
         AND NOT has_function_privilege('anon', 'app_private.can_join_loi_topic(text)', 'EXECUTE')
         AND NOT has_function_privilege('service_role', 'app_private.can_join_loi_topic(text)', 'EXECUTE')
         AS topic_helper_bounded
   `);
   assertAllTrue(result.rows[0], `LOI ${mode} catalog proof`);
-  await assertMigrationLedger(proof, [loiMigration, repairMigration]);
+  await assertMigrationLedger(proof, [loiMigration, repairMigration, accessMigration, defaultAclMigration]);
+  const futureFunctionDefaults = await assertFuturePrivateFunctionDefaults(proof);
   if (retainedFixture) await verifyRetainedBaseFixture(proof, retainedFixture);
   await restoreSentinel(proof, sentinel);
   process.stdout.write(`${JSON.stringify({
     mode,
     status: "passed",
-    migrations: [loiMigration, repairMigration],
+    migrations: [loiMigration, repairMigration, accessMigration, defaultAclMigration],
+    futureFunctionDefaults,
     retainedBaseData: Boolean(retainedFixture),
   }, null, 2)}\n`);
 } finally {
   await proof.end();
+}
+
+async function assertFuturePrivateFunctionDefaults(client) {
+  const functionName = `loi_default_acl_probe_${randomUUID().replaceAll("-", "_")}`;
+  await client.query("BEGIN");
+  try {
+    await client.query(`CREATE FUNCTION app_private.${functionName}()
+      RETURNS boolean
+      LANGUAGE sql
+      AS 'SELECT true'`);
+    const result = await client.query(`SELECT
+        pg_get_userbyid(procedure.proowner) = 'postgres' AS postgres_owned,
+        NOT EXISTS (
+          SELECT 1
+          FROM aclexplode(coalesce(procedure.proacl, acldefault('f', procedure.proowner))) privilege
+          WHERE privilege.grantee <> procedure.proowner
+        ) AS owner_only
+      FROM pg_proc procedure
+      WHERE procedure.oid = $1::regprocedure`, [`app_private.${functionName}()`]);
+    assertAllTrue(result.rows[0], "future app_private function default ACL proof");
+    await client.query("ROLLBACK");
+    return { ownerOnly: true, postgresOwned: true };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  }
 }
 
 async function assertImmediatePreLoiState(client) {
@@ -156,7 +239,7 @@ async function assertImmediatePreLoiState(client) {
         WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
         ORDER BY migration_name DESC
         LIMIT 1
-      ) = $2 AS latest_is_pre_loi`, [[loiMigration, repairMigration], preLoiMigration]);
+      ) = $2 AS latest_is_pre_loi`, [[loiMigration, repairMigration, accessMigration, defaultAclMigration], preLoiMigration]);
   assertAllTrue(result.rows[0], "LOI upgrade target immediate pre-LOI proof");
 }
 
@@ -168,7 +251,10 @@ async function stageUpgradeThroughBase(connectionString) {
       .filter((entry) => entry.isDirectory() && entry.name <= loiMigration)
       .map((entry) => entry.name)
       .sort();
-    if (migrationNames.at(-1) !== loiMigration || migrationNames.includes(repairMigration)) {
+    if (migrationNames.at(-1) !== loiMigration
+      || migrationNames.includes(repairMigration)
+      || migrationNames.includes(accessMigration)
+      || migrationNames.includes(defaultAclMigration)) {
       throw new Error("LOI base-stage migration inventory is not bounded at the reviewed base migration.");
     }
     for (const migrationName of migrationNames) {
@@ -199,7 +285,7 @@ async function assertRetainedBaseState(client) {
     FROM public._prisma_migrations
     WHERE migration_name = ANY($1::text[])
       AND finished_at IS NOT NULL
-      AND rolled_back_at IS NULL`, [[loiMigration, repairMigration]]);
+      AND rolled_back_at IS NULL`, [[loiMigration, repairMigration, accessMigration, defaultAclMigration]]);
   if (ledger.rowCount !== 1
     || ledger.rows[0]?.migration_name !== loiMigration
     || ledger.rows[0]?.checksum !== expectedChecksums[loiMigration]) {

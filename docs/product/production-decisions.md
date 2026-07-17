@@ -1,10 +1,12 @@
 # Production Decisions
 
-Last reviewed: 2026-07-14
+Last reviewed: 2026-07-17
 
 This is the living launch-gate matrix for moving Liber from a controlled CEO
 demo/private preview to a public Los Angeles beta. It does not override
 `V1_DEFINITION.md`, `CEO_ROADMAP.md`, or the backend architecture.
+This update records deployment and authorization proof only; it does not expand
+the approved product scope.
 
 ## Current release state
 
@@ -13,6 +15,19 @@ demo/private preview to a public Los Angeles beta. It does not override
 - Guided Messaging V1 is approved for implementation as invite-scoped guided
   conversation only. Its production flag remains off outside a server-managed
   cohort until the messaging launch gates below are closed.
+- All four authoritative migrations in the LOI/release chain are applied in
+  production; the Prisma ledger now contains 33 successful migrations. The last
+  two are cross-cutting private-ACL hardening:
+  `20260717023000_grant_authenticated_app_private_usage` grants
+  `authenticated` schema `USAGE` only, never `CREATE`, with no private-relation
+  privileges and only the four reviewed Realtime/Storage policy helpers
+  executable, while `20260717033000_harden_app_private_function_defaults`
+  closes global and `app_private`-scoped non-owner PostgreSQL default function
+  `EXECUTE` grants. `PUBLIC`, `anon`, and `service_role` remain closed, and
+  `app_private` is not exposed through the Data API.
+- `LIBER_MESSAGING_V1_ENABLED` and `LIBER_LOI_V1_ENABLED` remain disabled by
+  default. No broader production cohort is authorized while the remaining
+  release gates are open.
 - The supported fresh-database path is the locked generated Prisma baseline
   through Guided Messaging V1. Existing production retains its immutable
   historical ledger and uses forward migrations only. Promotion still requires
@@ -21,9 +36,8 @@ demo/private preview to a public Los Angeles beta. It does not override
   v2 release activates 88 incorporated cities and 304 approximate Census ZCTA
   service areas while preserving three reviewed neighborhoods.
 - The guarded v2 stage and activation completed in production on 2026-07-12;
-  the release and 2026-07-13 security hardening migrations are applied with all
-  24 checked-in migrations accounted for, zero unresolved Prisma rows, and zero
-  invalid active buyers.
+  the release and 2026-07-13 security hardening migrations are applied with zero
+  unresolved Prisma rows and zero invalid active buyers.
 - Canonical geography browser grants are closed, all four affected tables have
   RLS enabled, and the server-mediated search path remains operational. This
   hardening does not clear the remaining Supabase-owned PostGIS or Auth gates.
@@ -143,15 +157,39 @@ change or weaken the existing invite quota.
   participants, message-sender constraints, immutable evidence, keyset reads,
   idempotent sends, and block/send linearization on a guarded disposable
   database.
-- Prove private `conversation:<uuid>` Realtime joins on Supabase with public
-  channels disabled. Events may contain only conversation/message/type IDs;
-  canonical reads must reject outsiders and suspended users even if a stale
-  socket remains connected.
+- Preserve the completed 2026-07-17 disposable-branch Realtime regression: two
+  real Supabase Auth participants joined the private
+  `conversation:<uuid>` topic and each received the identifier-only events,
+  while unrelated and anonymous joins were denied. The application supplied
+  only conversation/message/type business identifiers and Supabase added the
+  transport-level wire `id`.
+- The same branch persisted the buyer quick reply and seller response through
+  application-equivalent SQL. Record the still-open exact authenticated
+  browser/Next.js HTTP journey for that buyer/seller path before enabling a
+  production cohort; the database and Realtime evidence does not substitute for
+  it.
 - Staff the report queue and audit report-content reads, status changes, and
   redactions. There is no unrestricted admin inbox.
 - Keep `LIBER_MESSAGING_V1_ENABLED` disabled by default in production and use
   `LIBER_MESSAGING_V1_COHORT_USER_IDS` for the reviewed cohort. Both
   participants must be eligible before interactive messaging is exposed.
+
+### LOI controlled-cohort release
+
+- The 2026-07-17 disposable-branch proof used exactly two real Supabase Auth
+  accounts and completed the application-equivalent buyer/seller database
+  lifecycle. Trigger persistence and live transport were verified separately:
+  both participants received private `loi:<uuid>` identifier-only events, while
+  unrelated and anonymous joins were denied. The application supplied
+  negotiation/event/revision/type business identifiers and Supabase added the
+  transport-level wire `id`.
+- Authenticated raw Data API reads of `Message` and `LoiNegotiation` failed
+  closed, and `app_private` remained unavailable as a Data API schema. This
+  closes the real-session private-Realtime and raw-Data-API proof gate; it does
+  not authorize a production cohort.
+- Keep LOI disabled pending the protected exact-SHA fresh/representative-upgrade
+  jobs, two-connection race proof, authenticated browser/UI verification,
+  scheduled worker/provider proof, and required product/counsel approvals.
 
 ### Release infrastructure
 
@@ -189,6 +227,10 @@ change or weaken the existing invite quota.
   advisor finding also remains. Do not hot-move or take ownership of platform
   extension objects in an application migration.
 - Keep app tables protected by server-mediated access. Current RLS-with-no-policy advisor findings are deny-by-default for direct Data API access; add explicit policies only if browser/Data API access is intentionally introduced.
+- Keep `app_private` outside the Data API. Do not widen the authenticated
+  `USAGE`-only schema ACL, add `CREATE`, grant relation privileges, or expand
+  function execution beyond the four reviewed policy helpers. Keep both global
+  and `app_private`-scoped PostgreSQL default function privileges owner-only.
 - Re-run Supabase security and performance advisors before launch and after every schema migration.
 - Re-run `EXPLAIN` on seller buyer-search queries against realistic data volume before public launch.
 - Keep current buyer/search/property indexes until realistic traffic proves they are unnecessary; early unused-index advisor findings in a demo database are not enough to drop them.

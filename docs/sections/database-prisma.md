@@ -8,6 +8,10 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 
 - `packages/db/prisma/schema.prisma`
 - `packages/db/prisma/migrations/**`
+- `packages/db/prisma/migrations/20260717023000_grant_authenticated_app_private_usage/migration.sql`
+- `packages/db/prisma/current-baseline/migrations/20260717023000_grant_authenticated_app_private_usage/migration.sql`
+- `packages/db/prisma/migrations/20260717033000_harden_app_private_function_defaults/migration.sql`
+- `packages/db/prisma/current-baseline/migrations/20260717033000_harden_app_private_function_defaults/migration.sql`
 - `packages/db/src/**`
 - `prisma.config.ts`
 - `apps/web/public/geo/service-areas/**`
@@ -35,6 +39,25 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
   retention explicit, replaces the closed-state mapping, and validates event
   actor/role/current-revision shape against authoritative participants. Never
   fold it back into or otherwise edit the base LOI migration.
+- Forward migration
+  `20260717023000_grant_authenticated_app_private_usage` restores authenticated
+  private-policy evaluation without opening `app_private`. `authenticated` has
+  schema `USAGE` but not `CREATE`, no relation privileges, and `EXECUTE` on
+  exactly the four current policy dependencies:
+  `can_join_conversation_topic(text)`, `can_join_loi_topic(text)`,
+  `can_read_property_image(text, uuid)`, and
+  `can_upload_session_object(text, text, uuid)`. `PUBLIC`, `anon`, and
+  `service_role` retain no schema access; all other direct function execution
+  remains closed, and `app_private` is not exposed through the Data API. The
+  byte-identical file in each migration root has SHA-256
+  `1b1f6afbc6a233eea9e10e5c24a5a7998a1cbdbbe4805dcc7c4b0b79a82bcc84`.
+- Forward migration
+  `20260717033000_harden_app_private_function_defaults` removes non-owner
+  PostgreSQL default function `EXECUTE` grants both globally and specifically
+  within `app_private`. Future `postgres`-owned private functions therefore
+  remain owner-only unless a reviewed migration opts them in. Its byte-identical
+  copies have SHA-256
+  `d1495a84e4f547da535ace05211fe4956624696995da777b83f8cec34cf3615f`.
 - LOI relational columns own authorization and lifecycle. Versioned strict JSON
   owns proposed term snapshots only. Submitted revisions and events are
   append-only. Each revision stores a calculation-version-matched summary;
@@ -98,14 +121,19 @@ historical migration or the locked baseline to make a replay pass.
 
 The LOI migration must precede the application deployment because messaging
 block and maintenance code reference LOI tables even with the feature flag off.
-Apply both the base and forward hardening migrations. Use the guarded
+Apply all four authoritative migrations in the LOI/release chain: the base,
+semantic hardening, authenticated policy-helper access, and private-function
+default hardening migrations. The last two are cross-cutting Realtime/Storage
+security changes. Use the guarded
 `db:test-loi:upgrade` and `db:test-loi:fresh` commands only on separate
 sentinel-marked disposable targets, then run `db:test-loi:behavior` against each
 migrated target. Each harness compares the recorded ledger checksums with the
 reviewed bytes and rejects configured shared direct/pooler identities. The
 upgrade proof stages the base migration through `prisma.loi-stage.config.ts`,
-seeds representative valid LOI history, applies the forward repair through the
-normal migration root, and proves both data survival and repaired semantics.
+seeds representative valid LOI history, applies all three forward migrations
+through the normal migration root, and proves data survival, repaired semantics,
+the exact authenticated-only `app_private` ACL contract, and closed global and
+schema-specific default function privileges.
 
 Production migration readiness compares the complete checked-in migration directory set with successful, non-rolled-back `_prisma_migrations` rows. A hardcoded latest migration name is not a valid readiness check; database-only migration names are reported separately.
 

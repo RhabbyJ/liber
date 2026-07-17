@@ -16,6 +16,11 @@ and report-driven admin moderation.
 - `apps/web/app/admin/reports/page.tsx`
 - `packages/validators/src/index.ts`
 - `packages/db/prisma/schema.prisma`
+- `packages/db/prisma/migrations/20260717023000_grant_authenticated_app_private_usage/migration.sql`
+- `packages/db/prisma/current-baseline/migrations/20260717023000_grant_authenticated_app_private_usage/migration.sql`
+- `packages/db/prisma/migrations/20260717033000_harden_app_private_function_defaults/migration.sql`
+- `packages/db/prisma/current-baseline/migrations/20260717033000_harden_app_private_function_defaults/migration.sql`
+- `scripts/realtime-branch-proof-subscriber.mjs`
 
 ## Invariants
 
@@ -73,14 +78,25 @@ and report-driven admin moderation.
   and never discloses the blocker to the other participant, including through
   buyer-profile error shapes.
 - Realtime uses an exact private `conversation:<uuid>` topic and an
-  identifier-only event. PostgreSQL and canonical server reads remain the
-  source of truth. Failure of the optional Realtime send logs only SQLSTATE and
-  cannot roll back the canonical message or moderation update; focus/reconnect
-  and five-second polling recover missed hints. Inbox polling also refreshes its
-  canonical first page so ordering and unread counts do not remain stale.
+  identifier-only event. The application supplies only
+  `{ conversationId, messageId, type }`; Supabase adds the wire event `id`.
+  PostgreSQL and canonical server reads remain the source of truth. Failure of
+  the optional Realtime send logs only SQLSTATE and cannot roll back the
+  canonical message or moderation update; focus/reconnect and five-second
+  polling recover missed hints. Inbox polling also refreshes its canonical
+  first page so ordering and unread counts do not remain stale.
 - `anon`, `authenticated`, and `service_role` have no raw table privileges on
   conversations, participants, messages, blocks, or reports. All browser reads
   and writes use authenticated Liber server paths.
+- Private-policy evaluation grants `authenticated` `USAGE`, but never `CREATE`,
+  on `app_private` and no privileges on its relations. Its `EXECUTE` allowlist
+  is exactly `can_join_conversation_topic(text)`, `can_join_loi_topic(text)`,
+  `can_read_property_image(text, uuid)`, and
+  `can_upload_session_object(text, text, uuid)`. `PUBLIC`, `anon`, and
+  `service_role` have no schema access, all other functions remain closed, and
+  the private schema is unavailable through the Data API. PostgreSQL's global
+  and `app_private`-scoped default function privileges expose no non-owner
+  `EXECUTE` grant, so future helpers are opt-in.
 - The migration fails closed if another permissive public/authenticated
   Realtime SELECT policy or any browser Realtime INSERT policy could combine
   with the conversation policy. Existing policies require explicit review.
@@ -143,20 +159,33 @@ Role-loss closures acquire one global conversation-id-ordered lock set so
 dual-role users cannot create reciprocal lock-order deadlocks.
 
 The SQL topic-helper assertion does not substitute for a real private-channel
-join. A staging-only release gate must use participant and outsider Supabase
-JWTs against live Realtime, verify identifier-only payloads, and prove reconnect
-refetch. Run the two-connection database test and live Realtime test with the
-production cohort still disabled; never put staging credentials in logs.
+join. Run `scripts/realtime-branch-proof-subscriber.mjs` on an isolated
+disposable Supabase branch with two real Auth accounts. Both conversation
+participants must subscribe and receive the same identifier-only wire payload,
+including the Supabase-generated `id`; an unrelated topic and an anonymous join
+must fail. Companion requests with both authenticated sessions must show that
+each participant is denied raw Data API reads and that the `app_private` profile
+remains unexposed. Run the two-connection database test and live Realtime test
+with the production cohort still disabled; never put staging credentials or
+tokens in logs.
+
+The 2026-07-17 disposable-branch run completed that two-account Realtime and
+Data API regression and persisted the buyer/seller messaging lifecycle through
+application-equivalent SQL. It did not exercise the authenticated Next.js HTTP
+or browser journey. The exact buyer quick reply followed by a seller response
+through those application boundaries remains required release evidence.
 
 There is intentionally no destructive down migration. Keep the production
-feature flag off until both proofs, readiness, and a pre-migration backup are
-recorded. For a failed uncommitted migration, let PostgreSQL roll back the
-transaction and investigate before retrying. For a committed problem, turn the
-flag off, stop messaging API and outbox writes, preserve message/report evidence,
-and deploy a reviewed forward fix. Restore the pre-migration backup only as an
-incident-level last resort while all writes are stopped and only after evidence
-created after the backup has been preserved under the retention/legal process;
-otherwise a restore would silently discard conversations and reports.
+feature flag off until the still-open protected database, readiness, and
+authenticated HTTP/browser gates are recorded. Before migrating any retained
+environment that is not current, record a pre-migration backup. For a failed
+uncommitted migration, let PostgreSQL roll back the transaction and investigate
+before retrying. For a committed problem, turn the flag off, stop messaging API
+and outbox writes, preserve message/report evidence, and deploy a reviewed
+forward fix. Restore a pre-migration backup only as an incident-level last
+resort while all writes are stopped and only after evidence created after the
+backup has been preserved under the retention/legal process; otherwise a
+restore would silently discard conversations and reports.
 
 The schema and invite-trigger contract are not safe across an app/database
 rolling overlap: the new app requires the new schema, while the migrated trigger

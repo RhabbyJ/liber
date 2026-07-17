@@ -12,7 +12,28 @@ const migrationName = "20260714150654_add_guided_messaging_v1";
 const migrationRoot = path.resolve("packages/db/prisma/migrations");
 const migrationPath = path.join(migrationRoot, migrationName, "migration.sql");
 const baselineMigrationRoot = path.resolve("packages/db/prisma/current-baseline/migrations");
+const policyAccessMigrationName = "20260717023000_grant_authenticated_app_private_usage";
+const policyAccessMigrationPath = path.join(
+  migrationRoot,
+  policyAccessMigrationName,
+  "migration.sql",
+);
+const baselinePolicyAccessMigrationPath = path.join(
+  baselineMigrationRoot,
+  policyAccessMigrationName,
+  "migration.sql",
+);
+const policyAccessMigrationChecksum = "1b1f6afbc6a233eea9e10e5c24a5a7998a1cbdbbe4805dcc7c4b0b79a82bcc84";
+const defaultAclMigrationName = "20260717033000_harden_app_private_function_defaults";
+const defaultAclMigrationPath = path.join(migrationRoot, defaultAclMigrationName, "migration.sql");
+const baselineDefaultAclMigrationPath = path.join(
+  baselineMigrationRoot,
+  defaultAclMigrationName,
+  "migration.sql",
+);
+const defaultAclMigrationChecksum = "d1495a84e4f547da535ace05211fe4956624696995da777b83f8cec34cf3615f";
 const schemaPath = path.resolve("packages/db/prisma/schema.prisma");
+const realtimeProofPath = path.resolve("scripts/realtime-branch-proof-subscriber.mjs");
 
 if (mode === "static") {
   await runStaticProof();
@@ -25,9 +46,22 @@ if (mode === "static") {
 }
 
 async function runStaticProof() {
-  const [migration, schema] = await Promise.all([
+  const [
+    migration,
+    policyAccessMigration,
+    baselinePolicyAccessMigration,
+    defaultAclMigration,
+    baselineDefaultAclMigration,
+    schema,
+    realtimeProof,
+  ] = await Promise.all([
     readFile(migrationPath, "utf8"),
+    readFile(policyAccessMigrationPath, "utf8"),
+    readFile(baselinePolicyAccessMigrationPath, "utf8"),
+    readFile(defaultAclMigrationPath, "utf8"),
+    readFile(baselineDefaultAclMigrationPath, "utf8"),
     readFile(schemaPath, "utf8"),
+    readFile(realtimeProofPath, "utf8"),
   ]);
   const requiredMigrationFragments = [
     'CREATE TABLE public."Conversation"',
@@ -73,6 +107,67 @@ async function runStaticProof() {
     "browser Realtime Broadcast INSERT policies must be removed",
   ];
   for (const fragment of requiredMigrationFragments) requireFragment(migration, fragment, "migration");
+
+  if (!Buffer.from(policyAccessMigration).equals(Buffer.from(baselinePolicyAccessMigration))) {
+    throw new Error("Policy access migration differs between the authoritative and supported-baseline roots.");
+  }
+  const actualPolicyAccessChecksum = createHash("sha256")
+    .update(Buffer.from(policyAccessMigration))
+    .digest("hex");
+  if (actualPolicyAccessChecksum !== policyAccessMigrationChecksum) {
+    throw new Error(
+      `Policy access migration checksum changed: expected ${policyAccessMigrationChecksum}, received ${actualPolicyAccessChecksum}.`,
+    );
+  }
+  for (const fragment of [
+    "REVOKE ALL ON SCHEMA app_private FROM PUBLIC, anon, authenticated, service_role;",
+    "GRANT USAGE ON SCHEMA app_private TO authenticated;",
+    "app_private.can_join_conversation_topic(text),",
+    "app_private.can_join_loi_topic(text),",
+    "app_private.can_read_property_image(text, uuid),",
+    "app_private.can_upload_session_object(text, text, uuid)",
+    "app_private schema privileges are outside the authenticated-USAGE-only contract.",
+    "app_private relations expose a non-owner privilege.",
+  ]) {
+    requireFragment(policyAccessMigration, fragment, "policy access migration");
+  }
+  if (count(policyAccessMigration, "GRANT USAGE ON SCHEMA app_private TO authenticated;") !== 1
+    || count(policyAccessMigration, "\nBEGIN;\n") !== 1
+    || !policyAccessMigration.trimEnd().endsWith("COMMIT;")) {
+    throw new Error("Policy access migration must grant only the reviewed schema traversal in one transaction.");
+  }
+  if (/GRANT\s+(?:CREATE|SELECT|INSERT|UPDATE|DELETE|TRUNCATE|REFERENCES|TRIGGER)\b/i.test(policyAccessMigration)) {
+    throw new Error("Policy access migration must not grant schema creation or raw relation privileges.");
+  }
+  if (!Buffer.from(defaultAclMigration).equals(Buffer.from(baselineDefaultAclMigration))) {
+    throw new Error("Default ACL migration differs between the authoritative and supported-baseline roots.");
+  }
+  const actualDefaultAclChecksum = createHash("sha256")
+    .update(Buffer.from(defaultAclMigration))
+    .digest("hex");
+  if (actualDefaultAclChecksum !== defaultAclMigrationChecksum) {
+    throw new Error(
+      `Default ACL migration checksum changed: expected ${defaultAclMigrationChecksum}, received ${actualDefaultAclChecksum}.`,
+    );
+  }
+  for (const fragment of [
+    "ALTER DEFAULT PRIVILEGES FOR ROLE postgres\n  REVOKE EXECUTE ON FUNCTIONS",
+    "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA app_private",
+    "default_acl.defaclnamespace IN (0, app_private_oid)",
+    "postgres function defaults can expose future app_private helpers",
+  ]) {
+    requireFragment(defaultAclMigration, fragment, "default ACL migration");
+  }
+  for (const fragment of [
+    "a.auth.getUser(process.env.PROOF_ACCESS_TOKEN_A)",
+    "subjectA === subjectB",
+    'result.status === "CHANNEL_ERROR" && /unauthori[sz]ed/i.test(reason)',
+    "expectedCountsReached && quiescent",
+    "sameDeliveries",
+    "subjectsDistinct: true",
+  ]) {
+    requireFragment(realtimeProof, fragment, "Realtime two-account proof");
+  }
 
   for (const model of ["Conversation", "ConversationParticipant", "Message", "UserBlock", "MessageReport"]) {
     requireFragment(schema, `model ${model} {`, "Prisma schema");
@@ -193,6 +288,10 @@ async function runStaticProof() {
   process.stdout.write(`${JSON.stringify({
     mode,
     migration: migrationName,
+    policyAccessMigration: policyAccessMigrationName,
+    policyAccessMigrationChecksum,
+    defaultAclMigration: defaultAclMigrationName,
+    defaultAclMigrationChecksum,
     inviteEligibilityLockOrder: "users-by-UUID, buyer-profile, seller-access, property, pair",
     pairLockSites: count(migration, "'messaging-pair:'"),
     realtime: "identifier-only private Broadcast receive policy",
@@ -1471,6 +1570,7 @@ async function assertRealtimeSqlAuthorization(db, fixture) {
   const topic = `conversation:${conversation.rows[0]?.id}`;
   await db.query("BEGIN");
   try {
+    await db.query("SET LOCAL ROLE authenticated");
     await setJwtSubject(db, fixture.buyerId);
     const participant = await db.query(
       `SELECT app_private.can_join_conversation_topic($1) AS allowed`,

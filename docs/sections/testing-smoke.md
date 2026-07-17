@@ -12,6 +12,10 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - `scripts/test-geography-migration-upgrade.mjs`
 - `scripts/test-identity-migration.mjs`
 - `scripts/test-messaging-migration.mjs`
+- `scripts/test-loi-migration.mjs`
+- `scripts/test-loi-database.mjs`
+- `scripts/test-loi-behavior.mjs`
+- `scripts/realtime-branch-proof-subscriber.mjs`
 - `scripts/database-target.mjs`
 - `scripts/route-smoke.mjs`
 - `scripts/security-smoke.mjs`
@@ -79,13 +83,32 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - LOI static migration proof runs in the normal test suite. The protected
   `disposable-loi-proof` job stages the base LOI migration on the
   immediate-pre-LOI target, seeds representative history, applies/proves the
-  forward repair, and runs the exact fresh chain on a separate sentinel-marked
-  target, then runs
+  semantic repair plus both cross-cutting private-ACL migrations, and runs the
+  exact four-migration fresh chain on a separate sentinel-marked target, then runs
   `db:test-loi:behavior` on each. The behavior suite covers lifecycle,
   same/different request retries, submit races, submit/block, submit/expiry,
   participant/outsider topic access, outbox cancellation, and database
-  event-shape enforcement using real PostgreSQL connections. Workflow presence
-  is not a pass; retain the exact-SHA protected output before cohort enablement.
+  event-shape enforcement using real PostgreSQL connections. Both targets must
+  match all four reviewed migration checksums. Actual-role catalog proof must
+  show that `authenticated` has `USAGE` but not `CREATE`, has no private
+  relation privileges, and can execute only
+  `can_join_conversation_topic(text)`, `can_join_loi_topic(text)`,
+  `can_read_property_image(text, uuid)`, and
+  `can_upload_session_object(text, text, uuid)`; `PUBLIC`, `anon`, and
+  `service_role` remain closed. PostgreSQL's global and `app_private`-scoped
+  default function privileges must expose no non-owner `EXECUTE` grant.
+  Workflow presence is not a pass; retain the exact-SHA protected output before
+  cohort enablement.
+- The live private-channel gate runs
+  `scripts/realtime-branch-proof-subscriber.mjs` with two distinct real Auth
+  accounts on an isolated disposable branch, once for `conversation:<uuid>` and
+  once for `loi:<uuid>`. In each run both participants must subscribe and
+  independently receive identical identifier-only deliveries; the
+  application-supplied identifiers plus Supabase-generated `id` are the only
+  payload keys. An unrelated topic and anonymous join must be explicitly denied
+  as unauthorized. Both users must also be used for companion raw message/LOI
+  Data API requests that are denied, and the `app_private` profile must remain
+  unavailable through the Data API.
 - The protected `release-proof` workflow runs the messaging upgrade proof before
   the exact fresh-chain proof in the `disposable-messaging-proof` environment.
   That environment holds separate upgrade and fresh targets with separate 16+

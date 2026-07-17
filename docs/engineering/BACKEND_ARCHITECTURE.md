@@ -108,6 +108,28 @@ a migration root, or used to rewrite `_prisma_migrations`. SQL line endings are
 pinned in `.gitattributes`, including the one pre-cutoff migration originally
 recorded with CRLF and LF for both copies of every LOI forward migration.
 
+Migration `20260717023000_grant_authenticated_app_private_usage` establishes
+the minimum private-schema traversal required for Supabase Realtime policy
+evaluation. `authenticated` has `USAGE`, never `CREATE`, on `app_private`, no
+relation privileges there, and `EXECUTE` only on these four current policy
+dependencies:
+
+- `app_private.can_join_conversation_topic(text)`
+- `app_private.can_join_loi_topic(text)`
+- `app_private.can_read_property_image(text, uuid)`
+- `app_private.can_upload_session_object(text, text, uuid)`
+
+`PUBLIC`, `anon`, and `service_role` remain closed for this schema/function
+surface. `app_private` is not exposed as a Data API schema. These narrow grants
+let PostgreSQL evaluate private Realtime and Storage policies; they do not grant
+browser CRUD or raw private-relation access.
+
+Forward migration `20260717033000_harden_app_private_function_defaults`
+closes both global and `app_private`-scoped PostgreSQL default function
+`EXECUTE` grants for browser and service roles. Current functions remain on the
+exact four-helper allowlist above, while future `postgres`-owned private
+functions are owner-only unless a reviewed migration grants them explicitly.
+
 ## Auth and access
 
 Runtime authorization must read server-controlled state from the database, not browser metadata.
@@ -336,9 +358,11 @@ property-seller label; sellers see the buyer's generated alias.
 
 Supabase Realtime is an optional delivery hint. Message-insert and
 moderation-status triggers call
-private `realtime.send` with only `{ conversationId, messageId, type }` on the
-exact `conversation:<uuid>` topic. Do not use `realtime.broadcast_changes`,
-because its standard row payload would include message content. A private
+private `realtime.send` with only the business identifiers
+`{ conversationId, messageId, type }` on the exact `conversation:<uuid>` topic;
+Supabase adds its transport-level `id` to the delivered wire payload. Do not use
+`realtime.broadcast_changes`, because its standard row payload would include
+message content. A private
 `realtime.messages` SELECT policy delegates to a fixed-search-path membership
 helper that checks `auth.uid()`, active application status, and participant
 membership. A Realtime send failure is isolated to that optional call and emits
@@ -369,9 +393,8 @@ closing the conversation cancels queued work.
 Runtime rollout is controlled by `LIBER_MESSAGING_V1_ENABLED` plus
 `LIBER_MESSAGING_V1_COHORT_USER_IDS`; production fails closed when the feature
 or cohort is absent. Retention deletion is intentionally disabled until counsel
-publishes the rule. Fair-housing template review, credential cleanup, live
-private-Realtime proof, moderation staffing, and restored outbox scheduling are
-public-launch gates.
+publishes the rule. Fair-housing template review, credential cleanup,
+moderation staffing, and restored outbox scheduling are public-launch gates.
 
 ## LOI negotiation architecture
 
@@ -414,8 +437,11 @@ LOI tables have RLS enabled and no raw `anon`, `authenticated`, or
 `service_role` CRUD. Browser access uses same-origin, strict, bounded Next.js
 server routes with private/no-store responses and generic IDOR-safe errors. The
 single private Realtime receive policy also accepts exact `loi:<uuid>` topics
-through an active-participant helper. Event triggers broadcast identifiers only;
-authorized server refetch plus focus and five-second polling remain canonical.
+through an active-participant helper. Event triggers call `realtime.send` with
+only the business identifiers
+`{ negotiationId, eventId, revisionId, type }`; Supabase adds its
+transport-level `id` to the delivered wire payload. Authorized server refetch
+plus focus and five-second polling remain canonical.
 
 `LOI_UPDATE` email jobs contain no term values, use the leased `EmailOutbox`,
 cancel superseded pending jobs, and revalidate the current revision,
@@ -427,8 +453,10 @@ same revision. Runtime access requires
 `LIBER_LOI_V1_ENABLED=true` and an explicit
 `LIBER_LOI_V1_COHORT_USER_IDS` containing exactly two unique UUIDs; empty,
 malformed, partial, duplicate, wildcard, or larger cohorts fail closed. Apply
-both LOI migrations before deploying app code because messaging block and
-maintenance paths reference the tables even while the feature is disabled.
+all four authoritative migrations in the LOI/release chain before deploying app
+code because messaging block and maintenance paths reference the tables even
+while the feature is disabled. The two private-ACL migrations are cross-cutting
+Realtime and Storage hardening, not an expansion of LOI product scope.
 
 Relevant files:
 
@@ -439,9 +467,12 @@ Relevant files:
 - `apps/web/components/loi/**`
 - `packages/db/prisma/migrations/20260716030741_add_loi_negotiations/**`
 - `packages/db/prisma/migrations/20260716120000_harden_loi_event_semantics/**`
+- `packages/db/prisma/migrations/20260717023000_grant_authenticated_app_private_usage/**`
+- `packages/db/prisma/migrations/20260717033000_harden_app_private_function_defaults/**`
 - `scripts/test-loi-migration.mjs`
 - `scripts/test-loi-database.mjs`
 - `scripts/test-loi-behavior.mjs`
+- `scripts/realtime-branch-proof-subscriber.mjs`
 - `docs/engineering/LIBER_LOI_V1.md`
 
 Guided messaging files:
@@ -547,6 +578,16 @@ Do not create unauthenticated maintenance endpoints.
 - No app authorization from user-editable auth metadata. In customer runtime, only the validated signup form may initialize BUYER/SELLER roles; the guarded CEO-preview seed command may create exact BUYER-only test identities. Admin roles and seller-directory approval must come from server-controlled database state.
 - No public buyer profile exposure.
 - No raw browser/Data API access to canonical geography tables; public geography metadata must pass through the narrow server routes.
+- No raw browser/Data API access to `app_private`; `authenticated` has schema
+  `USAGE` only for the exact four policy helpers listed above, with no `CREATE`
+  or relation privileges. PostgreSQL's global and `app_private`-scoped default
+  function privileges expose no non-owner `EXECUTE` grant.
 - No weakening RLS/storage policy to satisfy UI behavior.
-- Sensitive Storage policies call `app_private.is_active_app_user(auth.uid())`, so suspension blocks a still-valid JWT. Suspension also disables seller access/properties/invites and enqueues a retryable Supabase Auth ban.
+- Sensitive Storage policies call
+  `app_private.can_read_property_image(...)` or
+  `app_private.can_upload_session_object(...)`; those helpers invoke
+  `app_private.is_active_app_user(auth.uid())` internally, so suspension blocks
+  a still-valid JWT. `authenticated` is not granted direct `EXECUTE` on
+  `is_active_app_user`. Suspension also disables seller
+  access/properties/invites and enqueues a retryable Supabase Auth ban.
 - No production claims for escrow, money movement, or lender approval.

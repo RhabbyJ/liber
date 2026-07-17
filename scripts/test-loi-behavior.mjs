@@ -11,6 +11,8 @@ const sentinel = process.env.LOI_BEHAVIOR_TEST_SENTINEL;
 const migrationNames = [
   "20260716030741_add_loi_negotiations",
   "20260716120000_harden_loi_event_semantics",
+  "20260717023000_grant_authenticated_app_private_usage",
+  "20260717033000_harden_app_private_function_defaults",
 ];
 const expectedChecksums = Object.fromEntries(await Promise.all(migrationNames.map(async (migrationName) => {
   const bytes = await readFile(`packages/db/prisma/migrations/${migrationName}/migration.sql`);
@@ -80,7 +82,7 @@ async function assertDisposableTarget(connectionString, token) {
     }
     if (migrations.rowCount !== migrationNames.length
       || migrations.rows.some((row) => row.checksum !== expectedChecksums[row.migration_name])) {
-      throw new Error("LOI behavior target does not contain both reviewed LOI migration checksums.");
+      throw new Error("LOI behavior target does not contain all reviewed LOI migration checksums.");
     }
   } finally {
     await client.end();
