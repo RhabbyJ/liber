@@ -1,7 +1,12 @@
 import { readFile } from "node:fs/promises";
 import pg from "pg";
 
-import { assessMigrationReadiness, readLocalMigrations } from "./migration-readiness.mjs";
+import {
+  assessMigrationReadiness,
+  readLocalMigrations,
+  readReviewedRetainedMigrationChecksums,
+  reviewedRetainedProjectRef,
+} from "./migration-readiness.mjs";
 
 const envFile = await loadEnvFile(".env");
 const env = { ...envFile, ...process.env };
@@ -290,6 +295,24 @@ async function checkProductionDependencies(collection) {
     const localMigrations = await readLocalMigrations(
       new URL("../packages/db/prisma/migrations/", import.meta.url),
     );
+    const localChecksums = new Map(localMigrations.map((migration) => [
+      migration.migrationName,
+      migration.checksum,
+    ]));
+    const retainedProjectRef = reviewedRetainedProjectRef(
+      env.NEXT_PUBLIC_SUPABASE_URL,
+      env.DIRECT_URL,
+    );
+    const retainedChecksums = await readReviewedRetainedMigrationChecksums({
+      migrationsDirectory: new URL("../packages/db/prisma/migrations/", import.meta.url),
+      projectRef: retainedProjectRef,
+    });
+    for (const [migrationName, reviewedChecksums] of retainedChecksums) {
+      localChecksums.set(
+        migrationName,
+        new Set([localChecksums.get(migrationName), ...reviewedChecksums]),
+      );
+    }
     const migrations = await client.query(`
       SELECT migration_name, checksum, finished_at, rolled_back_at
       FROM public._prisma_migrations
@@ -298,8 +321,16 @@ async function checkProductionDependencies(collection) {
     const migrationReadiness = assessMigrationReadiness(
       localMigrations.map((migration) => migration.migrationName),
       migrations.rows,
-      new Map(localMigrations.map((migration) => [migration.migrationName, migration.checksum])),
+      localChecksums,
     );
+    const acceptedRetainedLineage = migrations.rows
+      .filter((migration) => migration.finished_at != null && migration.rolled_back_at == null)
+      .filter((migration) => retainedChecksums.get(migration.migration_name)?.has(migration.checksum))
+      .map((migration) => migration.migration_name)
+      .sort();
+    if (acceptedRetainedLineage.length > 0) {
+      console.log(`Reviewed retained migration lineage accepted for ${retainedProjectRef}: ${acceptedRetainedLineage.join(", ")}.`);
+    }
     if (migrationReadiness.missing.length > 0) {
       collection.push(`Local migrations missing from the database: ${migrationReadiness.missing.join(", ")}.`);
     }

@@ -1,4 +1,5 @@
 import { Prisma, prisma } from "@liber/db";
+import { resolveAvatarVariant } from "../../lib/avatar-variant";
 import { buyerAliasForDisplay } from "../../lib/buyer-alias";
 import { hasRole } from "../authz";
 import { INVITE_EXPIRATION_DAYS } from "../maintenance";
@@ -68,6 +69,7 @@ type ConversationAccessRow = {
   last_read_message_id: string | null;
   last_read_at: Date | null;
   muted_at: Date | null;
+  other_avatar_variant: string | null;
   other_user_id: string;
   participant_count: number;
   participant_created_at: Date;
@@ -787,6 +789,11 @@ async function loadConversationAccessRows(
       current_participant."lastReadAt" AS last_read_at,
       current_participant."mutedAt" AS muted_at,
       current_participant."createdAt" AS participant_created_at,
+      CASE
+        WHEN current_participant.role = 'SELLER'::public."ConversationParticipantRole"
+          THEN other_user."avatarVariant"
+        ELSE NULL
+      END AS other_avatar_variant,
       other_participant."userId" AS other_user_id,
       participant_count.count::integer AS participant_count,
       EXISTS (
@@ -844,6 +851,7 @@ async function loadConversationAccessRows(
       ORDER BY participant."userId"
       LIMIT 1
     ) other_participant ON true
+    JOIN public."User" other_user ON other_user.id = other_participant."userId"
     JOIN LATERAL (
       SELECT count(*) AS count
       FROM public."ConversationParticipant" participant
@@ -944,6 +952,9 @@ function conversationSummaryDto(
   const snapshot = propertySnapshot(access.property_snapshot);
   return {
     closedReason: effective.closedReason,
+    counterpartyAvatarVariant: access.participant_role === "SELLER"
+      ? resolveAvatarVariant(access.other_avatar_variant, access.other_user_id).value
+      : null,
     counterpartyLabel: access.participant_role === "SELLER"
       ? buyerAliasForDisplay(access.buyer_display_name, access.buyer_user_id)
       : "Property seller",
@@ -1244,21 +1255,28 @@ async function blockPairInTransaction(
   `;
   await tx.$executeRaw`
     WITH frozen AS (
-      UPDATE public."LoiNegotiation"
+      UPDATE public."LoiNegotiation" negotiation
       SET status = 'READ_ONLY'::public."LoiNegotiationStatus",
           "closedReason" = 'PARTICIPANTS_BLOCKED'::public."LoiClosedReason",
           "closedAt" = now(),
           "updatedAt" = now()
-      WHERE status NOT IN (
+      WHERE negotiation.status NOT IN (
         'TERMS_ALIGNED'::public."LoiNegotiationStatus",
         'DECLINED'::public."LoiNegotiationStatus",
         'WITHDRAWN'::public."LoiNegotiationStatus",
         'EXPIRED'::public."LoiNegotiationStatus",
         'READ_ONLY'::public."LoiNegotiationStatus"
       )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public."LoiRevision" current_revision
+          WHERE current_revision.id = negotiation."currentRevisionId"
+            AND current_revision."negotiationId" = negotiation.id
+            AND current_revision."responseDeadline" <= statement_timestamp()
+        )
         AND (
-          ("buyerUserId" = ${blockerUserId}::uuid AND "sellerUserId" = ${blockedUserId}::uuid)
-          OR ("buyerUserId" = ${blockedUserId}::uuid AND "sellerUserId" = ${blockerUserId}::uuid)
+          (negotiation."buyerUserId" = ${blockerUserId}::uuid AND negotiation."sellerUserId" = ${blockedUserId}::uuid)
+          OR (negotiation."buyerUserId" = ${blockedUserId}::uuid AND negotiation."sellerUserId" = ${blockerUserId}::uuid)
         )
       RETURNING id, "currentRevisionId"
     )
@@ -1273,8 +1291,19 @@ async function blockPairInTransaction(
     DELETE FROM public."LoiDraft" draft
     USING public."LoiNegotiation" negotiation
     WHERE draft."negotiationId" = negotiation.id
-      AND negotiation.status = 'READ_ONLY'::public."LoiNegotiationStatus"
-      AND negotiation."closedReason" = 'PARTICIPANTS_BLOCKED'::public."LoiClosedReason"
+      AND (
+        (
+          negotiation.status = 'READ_ONLY'::public."LoiNegotiationStatus"
+          AND negotiation."closedReason" = 'PARTICIPANTS_BLOCKED'::public."LoiClosedReason"
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM public."LoiRevision" current_revision
+          WHERE current_revision.id = negotiation."currentRevisionId"
+            AND current_revision."negotiationId" = negotiation.id
+            AND current_revision."responseDeadline" <= statement_timestamp()
+        )
+      )
       AND (
         (negotiation."buyerUserId" = ${blockerUserId}::uuid AND negotiation."sellerUserId" = ${blockedUserId}::uuid)
         OR (negotiation."buyerUserId" = ${blockedUserId}::uuid AND negotiation."sellerUserId" = ${blockerUserId}::uuid)

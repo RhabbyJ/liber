@@ -63,6 +63,7 @@ export function conversationPageSignature(
 ) {
   return JSON.stringify({
     conversations: conversations.map((conversation) => ({
+      counterpartAvatarVariant: conversation.counterpartAvatarVariant,
       counterpartLabel: conversation.counterpartLabel,
       id: conversation.id,
       lastMessage: conversation.lastMessage,
@@ -209,6 +210,9 @@ function normalizeConversationSummary(value: unknown): ConversationSummary | nul
   return {
     id,
     status: normalizeConversationStatus(source.status),
+    counterpartAvatarVariant: role === "SELLER"
+      ? optionalText(source.counterpartyAvatarVariant) ?? null
+      : null,
     counterpartLabel,
     lastMessage,
     lastMessageAt: optionalDate(source.lastMessageAt) ?? lastMessage?.createdAt ?? "",

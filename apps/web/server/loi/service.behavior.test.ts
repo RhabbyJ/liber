@@ -164,6 +164,26 @@ describe("LOI service behavior", () => {
     expect(mocks.prisma.loiDraft.findUnique).not.toHaveBeenCalled();
   });
 
+  it("does not replace effective expiry with a read-only eligibility outcome", async () => {
+    const row = {
+      ...access(1, "AWAITING_BUYER_RESPONSE"),
+      current_response_deadline: new Date(Date.now() - 1),
+      property_ready: false,
+    };
+    mocks.prisma.$queryRaw
+      .mockResolvedValueOnce([row])
+      .mockResolvedValueOnce([{ locked: true }])
+      .mockResolvedValueOnce([{ id: row.invite_id }])
+      .mockResolvedValueOnce([{ id: row.conversation_id }])
+      .mockResolvedValueOnce([{ id: negotiationId }])
+      .mockResolvedValueOnce([row]);
+
+    await expect(saveLoiDraft({ expectedDraftVersion: 0, expectedSequence: 1, negotiationId, terms })).rejects.toMatchObject({ code: "UNAVAILABLE" });
+    expect(mocks.prisma.loiNegotiation.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.loiEvent.create).not.toHaveBeenCalled();
+    expect(mocks.prisma.loiDraft.deleteMany).not.toHaveBeenCalled();
+  });
+
   it("returns the persisted versioned historical summary without recalculation", async () => {
     const row = access(1, "AWAITING_SELLER_RESPONSE");
     mocks.prisma.$queryRaw.mockResolvedValueOnce([row]);

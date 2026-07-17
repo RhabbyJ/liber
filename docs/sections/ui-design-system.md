@@ -40,6 +40,8 @@ Owns shared visual language, navigation, layouts, reusable components, and globa
 - On narrow screens the homepage may stack and scroll, but the map, preview cards, and mobile navigation actions must all remain reachable.
 - Do not use real-looking buyer imagery as a trust shortcut.
 - Buyer avatar UI uses generated 2D animal avatars from the app-approved `avatarka` animals theme. The SVG is generated locally from an allowlisted token and rendered as a data image.
+- Seller message-inbox rows use the authorized buyer's generated animal avatar; buyer-facing rows retain the generic message icon and receive no persisted seller avatar token.
+- `npm run smoke:visual` covers public home/login/signup screenshots only. `VISUAL_SMOKE_BROWSER` accepts `chromium` or `firefox`; Windows defaults to Chromium then Firefox, while other platforms default to Firefox then Chromium. SwiftShader and the five-second virtual-time budget apply only to the Chromium path.
 - Public preview cards pair the generated neutral buyer alias with that generated avatar, while profile links and invite actions remain exclusive to their existing server-authorized seller surfaces.
 - `/negotiations/[negotiationId]` uses a sectioned task form, sticky deal
   snapshot, paginated immutable revision timeline, explicit current actor/state,

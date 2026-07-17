@@ -23,6 +23,7 @@ export type ConversationMessageDTO = {
 
 export type ConversationSummaryDTO = {
   closedReason: string | null;
+  counterpartyAvatarVariant: string | null;
   counterpartyLabel: string;
   id: string;
   invite: {

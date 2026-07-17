@@ -341,7 +341,7 @@ async function withNegotiation<T>(
       ? await tx.loiEvent.findUnique({ where: { negotiationId_clientActionId: { negotiationId, clientActionId } } })
       : null;
     if (!existingEvent && !isNegotiationEligible(access)) {
-      await freezeLoiNegotiation(tx, access);
+      if (effectiveLoiStatus(access) !== "EXPIRED") await freezeLoiNegotiation(tx, access);
       return { unavailable: true as const };
     }
     return { unavailable: false as const, value: await mutation(tx, access, userId === access.buyer_user_id ? "BUYER" : "SELLER", existingEvent) };

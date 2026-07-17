@@ -13,6 +13,15 @@ describe("conversation inbox rendering", () => {
     expect(`${inboxSource}\n${threadSource}`).not.toContain("linkify");
   });
 
+  it("renders only the authorized buyer avatar and keeps a generic fallback", () => {
+    const source = readFileSync(new URL("./conversation-inbox.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain("<GeneratedAvatar");
+    expect(source).toContain("conversation.counterpartAvatarVariant ? (");
+    expect(source).toContain("variant={conversation.counterpartAvatarVariant}");
+    expect(source).toContain('className="message-inbox-icon"');
+  });
+
   it("refreshes the canonical first page for unread counts and ordering", () => {
     const source = readFileSync(new URL("./conversation-inbox.tsx", import.meta.url), "utf8");
 

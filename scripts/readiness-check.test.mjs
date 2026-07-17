@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
@@ -8,6 +17,9 @@ import {
   assessMigrationReadiness,
   readLocalMigrations,
   readLocalMigrationNames,
+  readReviewedRetainedMigrationChecksums,
+  reviewedRetainedProjectRef,
+  supabaseProjectRefFromUrl,
 } from "./migration-readiness.mjs";
 
 const readinessScript = path.resolve("scripts/readiness-check.mjs");
@@ -174,6 +186,122 @@ test("migration readiness rejects edited-in-place applied migration SQL", async 
       databaseOnly: [],
     },
   );
+});
+
+test("production readiness accepts only the reviewed target-scoped retained checksum", async () => {
+  const migrationName = "20260707000009_add_avatar_variant";
+  const localMigrations = await readLocalMigrations(migrationsDirectory);
+  const local = localMigrations.find((migration) => migration.migrationName === migrationName);
+  const reviewed = await readReviewedRetainedMigrationChecksums({
+    migrationsDirectory,
+    projectRef: "qfjcrhkjlczvzakxives",
+  });
+  const expected = new Map([[
+    migrationName,
+    new Set([local.checksum, ...reviewed.get(migrationName)]),
+  ]]);
+  const retainedApplied = {
+    ...appliedMigration(migrationName),
+    checksum: "14b7876154c7f480d2d4d481edfed2ce0a74f70cc99065b58c7e585af7a38004",
+  };
+
+  assert.deepEqual(
+    assessMigrationReadiness([migrationName], [retainedApplied], expected),
+    { missing: [], failed: [], rolledBack: [], checksumDrift: [], databaseOnly: [] },
+  );
+  assert.deepEqual(
+    assessMigrationReadiness(
+      [migrationName],
+      [retainedApplied],
+      new Map([[migrationName, local.checksum]]),
+    ).checksumDrift,
+    [migrationName],
+  );
+  assert.deepEqual(
+    await readReviewedRetainedMigrationChecksums({
+      migrationsDirectory,
+      projectRef: "another-project",
+    }),
+    new Map(),
+  );
+});
+
+test("retained lineage scope is derived only from a standard Supabase API URL", () => {
+  assert.equal(
+    supabaseProjectRefFromUrl("https://qfjcrhkjlczvzakxives.supabase.co"),
+    "qfjcrhkjlczvzakxives",
+  );
+  assert.equal(
+    supabaseProjectRefFromUrl("postgresql://postgres:secret@db.qfjcrhkjlczvzakxives.supabase.co:5432/postgres"),
+    "qfjcrhkjlczvzakxives",
+  );
+  assert.equal(
+    supabaseProjectRefFromUrl("postgresql://postgres.qfjcrhkjlczvzakxives:secret@aws-0-us-east-2.pooler.supabase.com:6543/postgres"),
+    "qfjcrhkjlczvzakxives",
+  );
+  assert.equal(supabaseProjectRefFromUrl("https://liber.example"), null);
+  assert.equal(supabaseProjectRefFromUrl("not-a-url"), null);
+  assert.equal(
+    reviewedRetainedProjectRef(
+      "https://qfjcrhkjlczvzakxives.supabase.co",
+      "postgresql://postgres:secret@db.anotherprojectref.supabase.co:5432/postgres",
+    ),
+    null,
+  );
+});
+
+test("retained production CRLF migration bytes stay pinned", () => {
+  const contents = readFileSync(path.join(
+    migrationsDirectory,
+    "20260708000012_add_property_subtypes_and_ownership_evidence",
+    "migration.sql",
+  ));
+
+  assert.equal(
+    createHash("sha256").update(contents).digest("hex"),
+    "41f3fb3ddea7b9f50be276efaa4a56249d5f2e8a699062827b48659f875e3dd2",
+  );
+});
+
+test("retained lineage rejects tampered evidence bytes", async () => {
+  const temporaryRoot = mkdtempSync(path.join(tmpdir(), "liber-retained-lineage-"));
+  const migrationName = "20260707000009_add_avatar_variant";
+  const canonicalDirectory = path.join(temporaryRoot, "migrations", migrationName);
+  const retainedDirectory = path.join(
+    temporaryRoot,
+    "retained",
+    "qfjcrhkjlczvzakxives",
+    migrationName,
+  );
+  mkdirSync(canonicalDirectory, { recursive: true });
+  mkdirSync(retainedDirectory, { recursive: true });
+  copyFileSync(
+    path.join(migrationsDirectory, migrationName, "migration.sql"),
+    path.join(canonicalDirectory, "migration.sql"),
+  );
+  const retainedPath = path.join(retainedDirectory, "migration.sql");
+  copyFileSync(
+    path.resolve(
+      "packages/db/prisma/retained-lineage/qfjcrhkjlczvzakxives",
+      migrationName,
+      "migration.sql",
+    ),
+    retainedPath,
+  );
+  writeFileSync(retainedPath, `${readFileSync(retainedPath, "utf8")}\n-- tampered\n`);
+
+  try {
+    await assert.rejects(
+      readReviewedRetainedMigrationChecksums({
+        migrationsDirectory: path.join(temporaryRoot, "migrations"),
+        projectRef: "qfjcrhkjlczvzakxives",
+        retainedLineageDirectory: path.join(temporaryRoot, "retained"),
+      }),
+      /Reviewed retained migration bytes changed/,
+    );
+  } finally {
+    rmSync(temporaryRoot, { force: true, recursive: true });
+  }
 });
 
 test("production readiness requires a sufficiently long Auth rate-limit pepper", () => {

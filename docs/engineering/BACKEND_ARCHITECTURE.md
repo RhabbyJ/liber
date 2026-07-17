@@ -98,6 +98,16 @@ schema-equivalent on separate sentinel-marked disposable databases before a
 release that changes the schema. Operational details live in
 `CURRENT_DATABASE_BASELINE_RUNBOOK.md`.
 
+The retained Liber project has one reviewed historical checksum variant for
+`20260707000009_add_avatar_variant`; its exact applied bytes live under
+`packages/db/prisma/retained-lineage`. Production readiness accepts it only
+when both API and direct-database URLs resolve to that exact project and the
+archived and canonical executable SQL remain comment-only equivalent. This is
+not a second migration path and must never be generalized, passed to Prisma as
+a migration root, or used to rewrite `_prisma_migrations`. SQL line endings are
+pinned in `.gitattributes`, including the one pre-cutoff migration originally
+recorded with CRLF and LF for both copies of every LOI forward migration.
+
 ## Auth and access
 
 Runtime authorization must read server-controlled state from the database, not browser metadata.
@@ -272,6 +282,12 @@ inbox cursors are bound to the current viewer and neither cursor serializes an
 Auth UUID. Production cursor signing fails closed unless the existing
 `AUTH_RATE_LIMIT_PEPPER` contains at least 32 characters. Cohort filtering
 happens in the inbox SQL before the keyset limit.
+
+For a seller viewing a buyer conversation, the authorized inbox query may select
+the buyer's persisted, allowlisted `User.avatarVariant`; the DTO returns that
+token for local avatar rendering without exposing the buyer's Auth UUID or
+private account name. Buyer-facing summaries return no seller avatar token and
+retain the generic seller presentation.
 
 Conversation states are `AWAITING_BUYER`, `ACTIVE`, `READ_ONLY`, and `BLOCKED`.
 The buyer's first successfully inserted reply atomically records the invite as

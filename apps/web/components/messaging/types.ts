@@ -23,6 +23,7 @@ export type MessagingPropertySnapshot = {
 export type ConversationSummary = {
   id: string;
   status: ConversationStatus;
+  counterpartAvatarVariant: string | null;
   counterpartLabel: string;
   lastMessage: MessagingMessage | null;
   lastMessageAt: string;

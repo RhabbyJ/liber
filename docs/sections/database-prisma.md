@@ -22,6 +22,11 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - The current baseline is locked through Guided Messaging V1. Later migrations
   remain separate forward files in both roots and must be byte-identical; run
   `npm run db:baseline:generate` and `npm run db:baseline:check` after adding one.
+- `.gitattributes` pins both forward roots to LF so byte-identity checks are
+  stable across Windows and Linux. The older
+  `20260708000012_add_property_subtypes_and_ownership_evidence` file remains an
+  explicit CRLF exception because that is the checksum production recorded;
+  the locked baseline normalizes pre-cutoff line endings.
 - Migration `20260716030741_add_loi_negotiations` adds one negotiation per
   accepted invite, owner-private versioned drafts, immutable alternating
   revisions, idempotent events, content-free outbox references, RLS/no-browser-
@@ -103,6 +108,14 @@ seeds representative valid LOI history, applies the forward repair through the
 normal migration root, and proves both data survival and repaired semantics.
 
 Production migration readiness compares the complete checked-in migration directory set with successful, non-rolled-back `_prisma_migrations` rows. A hardcoded latest migration name is not a valid readiness check; database-only migration names are reported separately.
+
+The only retained-lineage exception is the exact comment-only applied artifact
+for `20260707000009_add_avatar_variant` under
+`packages/db/prisma/retained-lineage/qfjcrhkjlczvzakxives`. Readiness requires
+matching Supabase API/direct project refs, pinned canonical and retained
+checksums, and identical comment-stripped SQL. Never make the checksum global,
+point Prisma at the evidence directory, edit the historical migration, update
+the ledger manually, or use `migrate resolve` to silence drift.
 
 `User.avatarVariant` is a required allowlisted generated animal-avatar token for account and buyer profile display. Migration `20260715081708_persist_user_avatar` backfills older accounts and enforces the stored value for new accounts. It is not an image URL or storage path.
 

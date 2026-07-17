@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState } from "../empty-state";
+import { GeneratedAvatar } from "../generated-avatar";
 import { Icon } from "../icon";
 import {
   conversationPageSignature,
@@ -143,9 +144,18 @@ export function ConversationInbox({
             href={`/messages/${conversation.id}`}
             key={conversation.id}
           >
-            <span className="message-inbox-icon" aria-hidden="true">
-              <Icon name="message" size={19} />
-            </span>
+            {conversation.counterpartAvatarVariant ? (
+              <GeneratedAvatar
+                alt={`${conversation.counterpartLabel} avatar`}
+                className="message-inbox-avatar"
+                seed={conversation.id}
+                variant={conversation.counterpartAvatarVariant}
+              />
+            ) : (
+              <span className="message-inbox-icon" aria-hidden="true">
+                <Icon name="message" size={19} />
+              </span>
+            )}
             <span className="message-inbox-main">
               <span className="message-inbox-heading">
                 <strong>{conversation.counterpartLabel}</strong>

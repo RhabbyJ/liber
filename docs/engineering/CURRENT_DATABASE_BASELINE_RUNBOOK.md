@@ -82,7 +82,14 @@ commit.
 
 Production is an existing Liber database. Use only `prisma.config.ts` and the
 normal migration history. Reconcile names, successful status, and checksums
-before and after deployment. Guided Messaging V1 requires a maintenance cutover:
+before and after deployment. The retained project `qfjcrhkjlczvzakxives` has
+one reviewed, comment-only historical checksum variant for
+`20260707000009_add_avatar_variant`; readiness accepts its exact archived bytes
+only when the API and direct-database URLs both resolve to that project. The
+evidence under `packages/db/prisma/retained-lineage` is never a Prisma migration
+root and does not authorize a ledger rewrite or `migrate resolve`.
+
+Guided Messaging V1 requires a maintenance cutover:
 stop invite writes and drain old serverless instances, apply the database
 migration, deploy the exact approved application SHA, smoke-test invite creation
 and messaging with the feature cohort disabled, then reopen traffic.

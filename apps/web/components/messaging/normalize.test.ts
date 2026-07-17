@@ -25,6 +25,7 @@ describe("messaging DTO normalization", () => {
   it("keeps the seller generic in buyer-facing summaries", () => {
     const [summary] = normalizeConversationSummaries({
       items: [{
+        counterpartyAvatarVariant: "avatarka:animals:3",
         counterpartyLabel: "Seller account name",
         id: "conversation-1",
         lastMessage: null,
@@ -37,7 +38,26 @@ describe("messaging DTO normalization", () => {
     });
 
     expect(summary.counterpartLabel).toBe("Property seller");
+    expect(summary.counterpartAvatarVariant).toBeNull();
     expect(summary.propertyTitle).toBe("Valley property");
+  });
+
+  it("keeps the authorized buyer avatar in seller-facing summaries", () => {
+    const [summary] = normalizeConversationSummaries({
+      items: [{
+        counterpartyAvatarVariant: "avatarka:animals:3",
+        counterpartyLabel: "Buyer Pine",
+        id: "conversation-1",
+        lastMessage: null,
+        muted: false,
+        participantRole: "SELLER",
+        property: { title: "Valley property" },
+        status: "ACTIVE",
+        unreadCount: 0,
+      }],
+    });
+
+    expect(summary.counterpartAvatarVariant).toBe("avatarka:animals:3");
   });
 
   it("normalizes list cursors and deduplicates overlapping inbox pages", () => {

@@ -5,6 +5,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const externalBaseUrl = process.env.VISUAL_SMOKE_BASE_URL;
+const requestedBrowser = process.env.VISUAL_SMOKE_BROWSER?.trim().toLowerCase();
 const port = externalBaseUrl ? null : process.env.VISUAL_SMOKE_PORT ? Number(process.env.VISUAL_SMOKE_PORT) : await availablePort(3200);
 const baseUrl = externalBaseUrl ?? `http://127.0.0.1:${port}`;
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
@@ -45,11 +46,19 @@ async function executablePath(candidates) {
 }
 
 async function browserInfo() {
-  const firefox = await executablePath(firefoxCandidates);
-  if (firefox) return { kind: "firefox", path: firefox };
+  if (requestedBrowser && !["chromium", "firefox"].includes(requestedBrowser)) {
+    throw new Error("VISUAL_SMOKE_BROWSER must be chromium or firefox.");
+  }
 
-  const chromium = await executablePath(chromeCandidates);
-  if (chromium) return { kind: "chromium", path: chromium };
+  const order = requestedBrowser
+    ? [requestedBrowser]
+    : process.platform === "win32"
+      ? ["chromium", "firefox"]
+      : ["firefox", "chromium"];
+  for (const kind of order) {
+    const executable = await executablePath(kind === "firefox" ? firefoxCandidates : chromeCandidates);
+    if (executable) return { kind, path: executable };
+  }
 
   throw new Error("No Firefox, Chrome, or Edge executable was found for visual smoke screenshots.");
 }
@@ -198,18 +207,16 @@ function screenshotArgs(browser, target, filePath) {
   }
 
   return [
-    "--headless",
-    "--disable-software-rasterizer",
-    "--disable-gpu",
-    "--disable-gpu-compositing",
-    "--disable-gpu-sandbox",
+    "--headless=new",
     "--disable-dev-shm-usage",
-    "--in-process-gpu",
-    "--single-process",
+    "--enable-unsafe-swiftshader",
     "--hide-scrollbars",
     "--no-first-run",
     "--no-default-browser-check",
+    "--use-angle=swiftshader",
+    "--use-gl=angle",
     `--user-data-dir=${profileDir}`,
+    "--virtual-time-budget=5000",
     `--window-size=${target.width},${target.height}`,
     `--screenshot=${filePath}`,
     target.resolvedUrl,

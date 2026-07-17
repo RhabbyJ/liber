@@ -30,8 +30,10 @@ The source implementation closes the identified state-machine, transaction,
 idempotency, authorization, presentation, migration, and test-harness defects.
 It is suitable for continued local and protected disposable-environment proof.
 It is **not yet authorized for a real-user cohort** because protected database
-proof, authenticated Realtime/browser evidence, retained-environment checksum
-review, and counsel approval were not performed as part of this local work.
+proof, authenticated Realtime/browser evidence, scheduled-worker evidence, and
+counsel approval remain open. The retained production migration ledger has now
+been reviewed and its one comment-only historical checksum variant is preserved
+as exact, project-scoped evidence.
 
 Merely wiring a protected workflow is not evidence that the workflow ran. Keep
 `LIBER_LOI_V1_ENABLED=false` until every open gate in this document has an
@@ -527,6 +529,23 @@ the local history again and do not use `prisma migrate resolve` merely to silenc
 the mismatch. Preserve the real lineage and prepare a reviewed reconciliation or
 forward repair.
 
+The retained Liber Supabase project `qfjcrhkjlczvzakxives` records checksum
+`14b7876154c7f480d2d4d481edfed2ce0a74f70cc99065b58c7e585af7a38004`
+for `20260707000009_add_avatar_variant`. The exact applied bytes are archived
+under `packages/db/prisma/retained-lineage`; their executable SQL is identical
+to the canonical migration and only full-line comments differ. Production
+readiness accepts that checksum only when the API and direct database URLs both
+resolve to that exact project, both archived and canonical bytes retain their
+pinned checksums, and comment-stripped SQL remains identical. Every other
+target and migration still requires the canonical checksum. No ledger row is
+rewritten and `prisma migrate resolve` is not used.
+
+Migration SQL line endings are explicit in `.gitattributes`. Both LOI forward
+copies are forced to LF so byte-identity checks pass on Windows and Linux. The
+one older migration that production originally recorded with CRLF remains
+explicitly CRLF; the locked baseline generator normalizes pre-cutoff source
+line endings before enforcing its source digest.
+
 The guarded upgrade harness requires the immediate pre-LOI state whose latest
 migration is `20260715215000_reconcile_email_outbox_lease`. A proof-only Prisma
 config stages the reviewed chain through the base LOI migration, verifies its
@@ -552,6 +571,9 @@ private Realtime policy.
 | Review was mechanically formatted/incomplete as a decision surface | Added the versioned presentation registry, exact property/deadline metadata, complete semantic old-to-new diffs, separate recalculations, exact-version dialogs, and cents/basis-point formatting. |
 | Idempotent keys did not prove request equality | Added canonical versioned request fingerprints for create/submit/agree/decline/withdraw and exact saved-draft fingerprints for submit. |
 | Migration had an unsafe edit-history question | Froze the base checksum, added a separate forward hardening migration, and made all retained-environment checksums a deployment gate. |
+| Retained production checksum differed from canonical history | Preserved the exact applied bytes, proved the executable SQL differs only by comments, and added an exact-project readiness exception that fails closed for every other checksum or target. |
+| Windows checkout broke byte-identical LOI migration proof | Pinned both normal and current-baseline LOI SQL paths to LF and retained the historically applied CRLF exception explicitly. |
+| Expiry and eligibility loss could persist different terminal outcomes depending on timing | Mutation and block paths now preserve expiry precedence; blocking still deletes private drafts and cancels queued delivery without rewriting an effectively expired terminal state. |
 | Money preview updated too late or vanished on unrelated validation | Added controlled raw money input and a validated financial-only live preview. |
 | Conversation card could show stale stored status | Reused canonical effective expiry/eligibility status. |
 | Long-form validation did not guide users | Added participant-authorized bounded field maps, exact conditional focus routing, visual field/section errors, and schema-matched controls. |
@@ -592,7 +614,9 @@ Independent review also fixed issues not explicitly isolated in the dated audit:
   and optional LOI enrichment uses a separately authorized request that cannot
   delay, hide, or fail the underlying conversation; and
 - runtime and production-readiness LOI cohort parsers reject empty comma
-  segments, including doubled or trailing separators.
+  segments, including doubled or trailing separators; and
+- expired current revisions cannot be overwritten with `READ_ONLY` when an
+  eligibility loss or participant block happens at the same time.
 
 ## Verification record
 
@@ -629,6 +653,30 @@ Independent review also fixed issues not explicitly isolated in the dated audit:
   disposable URL, 16+ character sentinel, write opt-in, exact migration
   checksums, and shared-target deny list are all present.
 
+### Additional release-preparation verification on 2026-07-16
+
+- `npm run lint`, `npm run typecheck`, `npm run db:validate`, and
+  `npm run db:generate` passed.
+- `npm test` passed: database-target 5/5, readiness 19/19, demo-buyer 4/4,
+  secret-scan 9/9, web 349 passed with 16 protected tests skipped, and
+  validators 30/30. The LOI migration audit and locked-baseline check passed on
+  Windows after the cross-platform line-ending rules were added.
+- Focused LOI and messaging expiry-precedence tests passed 21/21.
+- `npm run build`, `npm run smoke:routes`, `npm run smoke:security`,
+  `npm run smoke:no-auth-bypass`, `npm run smoke:secrets`, and the default
+  `npm run smoke:visual` desktop/mobile capture passed for its public
+  home/login/signup surfaces. On the Chromium path, the harness selects
+  Chromium first on Windows, uses explicit SwiftShader rendering, and applies a
+  five-second virtual-time budget. This is not authenticated LOI UI evidence.
+- Readiness verifies exact-project retained-lineage acceptance and rejection on
+  every other project.
+- A read-only production preflight confirmed PostgreSQL 17.6, the immediate
+  pre-LOI ledger boundary, absent LOI relations/types, compatible Realtime
+  policy shape, and no blocking `EmailOutbox` data.
+- The production migrations were not applied in this pass. A direct migration
+  attempt was stopped before execution because explicit production-database
+  approval is required; the LOI flag and real-user cohort must remain disabled.
+
 ### Implemented and wired, but not executed here
 
 - `npm run db:test-loi:upgrade`
@@ -652,6 +700,8 @@ configured shared database was reset or written to provide substitute evidence.
 - Record in-app/outbox exactly-once, supersession, cancellation, delivery-time
   revalidation, and configured provider delivery.
 - Verify every retained environment's migration names and checksums.
+- Apply both LOI migrations to the retained Liber project through the normal
+  Prisma migration path after explicit production-database approval.
 - Repeat and record root lint, typecheck, tests, production build, database
   validation, route/security/no-auth-bypass smoke, and readiness checks if the
   exact release commit differs from the verified implementation tree.
@@ -668,7 +718,9 @@ configured shared database was reset or written to provide substitute evidence.
 1. Keep `LIBER_LOI_V1_ENABLED=false` and the cohort empty in all retained
    environments.
 2. Select and review one exact 40-character commit SHA.
-3. Audit migration ledgers/checksums for every retained environment.
+3. Audit migration ledgers/checksums for every retained environment. A reviewed
+   retained-lineage checksum is valid only through the exact-project verifier;
+   never turn it into a global alternate or edit `_prisma_migrations`.
 4. Run the normal non-database CI and resolve every lint, type, test, build,
    security, baseline, and readiness failure.
 5. Configure the protected `disposable-loi-proof` environment with separate

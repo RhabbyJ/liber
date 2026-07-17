@@ -1,3 +1,7 @@
 data/geography/**/*.json text eol=lf
 data/geography/**/CHECKSUMS.sha256 text eol=lf
 packages/db/prisma/migrations/**/*.sql text eol=lf
+# This retained production migration was originally applied with CRLF bytes.
+packages/db/prisma/migrations/20260708000012_add_property_subtypes_and_ownership_evidence/migration.sql text eol=crlf
+packages/db/prisma/current-baseline/migrations/**/*.sql text eol=lf
+packages/db/prisma/retained-lineage/**/*.sql text eol=lf

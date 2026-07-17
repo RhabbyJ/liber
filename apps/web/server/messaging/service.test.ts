@@ -53,10 +53,38 @@ describe("messaging service query shape", () => {
       .mockResolvedValueOnce([conversationSummaryRow()]);
 
     await expect(listConversations()).resolves.toMatchObject({
-      items: [{ id: conversationId, lastMessage: null, unreadCount: 0 }],
+      items: [{
+        counterpartyAvatarVariant: "avatarka:animals:3",
+        id: conversationId,
+        lastMessage: null,
+        unreadCount: 0,
+      }],
       pageInfo: { moderationRevision: "inbox-revision-1" },
     });
     expect(mocks.prisma.$queryRaw).toHaveBeenCalledTimes(2);
+    const accessQuery = queryStrings(mocks.prisma.$queryRaw.mock.calls[0]?.[0]);
+    expect(accessQuery).toContain("WHEN current_participant.role = 'SELLER'");
+    expect(accessQuery).toContain('THEN other_user."avatarVariant"');
+  });
+
+  it("does not serialize a persisted seller avatar to a buyer", async () => {
+    mocks.getSessionUser.mockResolvedValue({ id: buyerId, roles: ["BUYER"] });
+    mocks.prisma.$queryRaw
+      .mockResolvedValueOnce([{
+        ...conversationAccessRow(),
+        other_avatar_variant: "avatarka:animals:9",
+        other_user_id: sellerId,
+        participant_role: "BUYER",
+      }])
+      .mockResolvedValueOnce([conversationSummaryRow()]);
+
+    await expect(listConversations()).resolves.toMatchObject({
+      items: [{
+        counterpartyAvatarVariant: null,
+        counterpartyLabel: "Property seller",
+        id: conversationId,
+      }],
+    });
   });
 
   it("records zero newly closed conversations when a block is repeated", async () => {
@@ -83,6 +111,34 @@ describe("messaging service query shape", () => {
     expect(countQuery.join(" ")).toContain("conversation.status <> 'BLOCKED'");
     expect(mocks.prisma.$queryRaw.mock.invocationCallOrder[3])
       .toBeLessThan(mocks.prisma.$executeRaw.mock.invocationCallOrder[0]);
+  });
+
+  it("preserves effective LOI expiry while blocking and still removes private drafts", async () => {
+    const blockedAccess = {
+      ...conversationAccessRow(),
+      closed_reason: "USER_BLOCKED",
+      conversation_status: "BLOCKED",
+      pair_blocked: true,
+    };
+    mocks.prisma.$queryRaw
+      .mockResolvedValueOnce([conversationAccessRow()])
+      .mockResolvedValueOnce([{ locked: true }])
+      .mockResolvedValueOnce([blockedAccess])
+      .mockResolvedValueOnce([{ count: 1 }]);
+    mocks.prisma.$executeRaw.mockResolvedValue(0);
+    mocks.prisma.emailOutbox.updateMany.mockResolvedValue({ count: 1 });
+    mocks.prisma.adminAuditLog.create.mockResolvedValue({ id: "audit-1" });
+
+    await blockConversationUser({ conversationId });
+
+    const freezeQuery = queryStrings(mocks.prisma.$executeRaw.mock.calls[1]?.[0]);
+    expect(freezeQuery).toContain('current_revision."responseDeadline" <= statement_timestamp()');
+    expect(freezeQuery).toContain("AND NOT EXISTS");
+    const draftCleanupQuery = queryStrings(mocks.prisma.$executeRaw.mock.calls[2]?.[0]);
+    expect(draftCleanupQuery).toContain('current_revision."responseDeadline" <= statement_timestamp()');
+    expect(mocks.prisma.emailOutbox.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: "CANCELLED" }),
+    }));
   });
 
   it("queues unread email through Prisma after the buyer's first reply", async () => {
@@ -240,6 +296,7 @@ function conversationAccessRow() {
     last_read_message_id: null,
     last_read_at: null,
     muted_at: null,
+    other_avatar_variant: "avatarka:animals:3",
     other_user_id: buyerId,
     participant_count: 2,
     participant_created_at: now,

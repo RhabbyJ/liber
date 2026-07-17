@@ -55,7 +55,10 @@ and report-driven admin moderation.
   least 32 characters.
 - Inbox access and summaries are loaded with two set-based queries per page,
   not a per-conversation query loop. Cohort scope is applied in SQL before the
-  keyset limit so disabled counterparties cannot create skipped pages.
+  keyset limit so disabled counterparties cannot create skipped pages. A
+  seller-facing summary may include only the buyer's allowlisted generated
+  avatar token for inbox presentation, never private account identity. A
+  buyer-facing summary receives no persisted seller avatar token.
 - Message bodies are immutable. Ordinary redaction changes display state while
   report evidence remains restricted and every admin content access is audited.
   The same removal notice replaces a redacted opening in invite lists. A

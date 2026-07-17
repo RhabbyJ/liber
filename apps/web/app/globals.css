@@ -2001,6 +2001,10 @@ main {
   outline-offset: -3px;
 }
 
+.message-inbox-avatar {
+  --generated-avatar-size: 46px;
+}
+
 .message-inbox-icon {
   align-items: center;
   background: var(--sage-tint);
@@ -2723,6 +2727,10 @@ main {
     gap: 11px;
     grid-template-columns: 38px minmax(0, 1fr) auto;
     padding: 15px 13px;
+  }
+
+  .message-inbox-avatar {
+    --generated-avatar-size: 38px;
   }
 
   .message-inbox-icon {
