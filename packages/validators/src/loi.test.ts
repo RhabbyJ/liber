@@ -12,7 +12,7 @@ import {
 
 const terms: LoiTermsV1 = {
   additionalTerms: { exclusions: "", proposedTerms: "" },
-  costsAndCredits: { alternateClosingCostAllocation: "", customaryClosingCosts: true, homeWarranty: { company: "", included: false, maximumCents: 0, payer: "SELLER", payerNote: "" }, sellerCreditCents: 500_000, sellerCreditNote: "" },
+  costsAndCredits: { alternateClosingCostAllocation: "", customaryClosingCosts: true, homeWarranty: { company: "", included: false, maximumCents: 0, payer: "SELLER", payerNote: "", specialInclusions: "" }, sellerCreditCents: 500_000, sellerCreditNote: "" },
   deposit: { basis: "PERCENT", percentageBps: 300 },
   funding: { downPaymentCents: 25_000_000, lender: { company: "Liber Test Bank", email: "", name: "", phone: "" }, loanType: "CONVENTIONAL", note: "", type: "FINANCED" },
   hoa: { certificateFeePayer: "NOT_APPLICABLE", documentFeePayer: "NOT_APPLICABLE", transferFeePayer: "NOT_APPLICABLE" },
@@ -21,7 +21,7 @@ const terms: LoiTermsV1 = {
   possession: { type: "AT_CLOSING" },
   providers: { escrow: { choice: "LIBER_PREFERRED" }, title: { choice: "LIBER_PREFERRED" } },
   purchasePriceCents: 100_000_000,
-  representation: { agent: { company: "", email: "", name: "", phone: "" }, buyerRepresented: false },
+  representation: { agent: { company: "", email: "", license: "", name: "", phone: "" }, buyerRepresented: false },
   schemaVersion: 1,
   timing: { appraisalContingencyDays: 17, closingDays: 30, inspectionContingencyDays: 10, loanContingencyDays: 21, sellerDisclosureReviewDays: 7, titleReviewDays: 7 },
 };
@@ -77,10 +77,10 @@ describe("LOI terms", () => {
       ...terms,
       costsAndCredits: {
         ...terms.costsAndCredits,
-        homeWarranty: { company: "Warranty Co", included: true, maximumCents: 50_000, payer: "OTHER", payerNote: "" },
+        homeWarranty: { company: "Warranty Co", included: true, maximumCents: 50_000, payer: "OTHER", payerNote: "", specialInclusions: "" },
       },
     }).success).toBe(false);
-    expect(loiTermsV1Schema.safeParse({ ...terms, representation: { agent: { company: "Hidden", email: "", name: "", phone: "" }, buyerRepresented: false } }).success).toBe(false);
+    expect(loiTermsV1Schema.safeParse({ ...terms, representation: { agent: { company: "Hidden", email: "", license: "", name: "", phone: "" }, buyerRepresented: false } }).success).toBe(false);
   });
 
   it("returns precise paths for material aggregate validation failures", () => {
@@ -88,14 +88,14 @@ describe("LOI terms", () => {
       ...terms,
       costsAndCredits: {
         ...terms.costsAndCredits,
-        homeWarranty: { company: "Warranty Co", included: true, maximumCents: 0, payer: "SELLER", payerNote: "" },
+        homeWarranty: { company: "Warranty Co", included: true, maximumCents: 0, payer: "SELLER", payerNote: "", specialInclusions: "" },
       },
     });
     expect(warranty.success ? [] : warranty.error.issues.map((issue) => issue.path.join("."))).toContain("costsAndCredits.homeWarranty.maximumCents");
 
     const agent = loiTermsV1Schema.safeParse({
       ...terms,
-      representation: { agent: { company: "Brokerage", email: "", name: "Agent Name", phone: "" }, buyerRepresented: true },
+      representation: { agent: { company: "Brokerage", email: "", license: "", name: "Agent Name", phone: "" }, buyerRepresented: true },
     });
     expect(agent.success ? [] : agent.error.issues.map((issue) => issue.path.join("."))).toContain("representation.agent.email");
 

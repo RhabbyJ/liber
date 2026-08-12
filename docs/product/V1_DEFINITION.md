@@ -94,6 +94,24 @@ Demo/test buyer data must not:
 
 When the product moves from CEO demo / private preview to true production launch, fake buyers and fake trust signals are no longer allowed.
 
+The controlled CEO demo / private preview may also enable an authenticated
+`/preview-tools` surface for trusted workflow testing. It requires both
+server-only values `LIBER_CEO_PREVIEW_TARGET=ceo-preview` and
+`LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL=true`. While those flags are on, every
+active signed-in session automatically receives `ADMIN`, and every active
+seller automatically receives non-suspended `SellerAccess.status = APPROVED`
+(suspended access is never restored). `/preview-tools` remains available as a
+manual fallback and status page for those same current-user-only elevations.
+Both transitions are rate-limited when triggered manually, write distinct audit
+events and notifications, act only on the signed-in account, and cannot restore
+`SUSPENDED` seller access. They cannot act on another user, grant badges,
+review documents, or moderate profiles without going through the real admin
+pages after the role is present. True-production readiness rejects this
+capability, any still-approved seller-access row that relies on its preview
+audit marker, and any account that still carries a preview admin self-grant
+audit marker with `ADMIN` present. The flag must be disabled and those rows
+must receive a real admin review / role cleanup before public launch.
+
 ## V1 roles
 
 Signup asks for the account's buyer/seller intent exactly once. The user may
@@ -169,6 +187,10 @@ An admin can:
 - view audit logs.
 
 Admin role assignment is not self-service.
+
+The private-preview self-approval exception above changes only the current
+tester's seller-directory status while the explicit preview flags are active;
+it does not make the tester an admin or relax any other admin-only action.
 
 ## V1 account identity and deletion rules
 
@@ -348,7 +370,10 @@ Guided Messaging V1 is a constrained continuation of a valid manual property inv
 - A conversation is created only by the server when an approved seller successfully creates a valid invite for a currently ownership-approved private property.
 - Each invite has exactly one conversation with exactly two participants: the invite seller and the application user who owns the invited buyer profile.
 - Public visitors, arbitrary user IDs, unapproved sellers, suspended users, and non-participants cannot create, list, join, read, or send in a conversation.
-- Messaging availability is controlled by a server-side release flag and cohort. UI visibility is never the authorization boundary.
+- Messaging availability is controlled by a server-side release flag and cohort. In
+CEO demo / private preview and local development the cohort may be `*`, which
+opens messaging for every eligible invite conversation. True production readiness
+rejects `*`. UI visibility is never the authorization boundary.
 
 ### Permitted purpose and content
 
@@ -381,7 +406,10 @@ V1 does not include unsolicited or public DMs, additional participants, group ch
 
 The LOI workspace is an explicitly approved V2 offer-preparation initiative and
 does not change the core V1 marketplace boundary. It may run only behind
-`LIBER_LOI_V1_ENABLED` and an explicit cohort of exactly two unique UUIDs. It is a
+`LIBER_LOI_V1_ENABLED` and an explicit cohort. In CEO demo / private preview and
+local development the cohort may be `*`, which means any eligible accepted-invite
+participant pair can open the workspace. True production readiness still requires
+exactly two unique reviewed UUIDs. It is a
 non-binding, invite-linked term-alignment workspace for contract preparation,
 not an offer-execution, signature, escrow, payment, or funds-custody product.
 
@@ -401,7 +429,9 @@ hide current-version mutations. The editor, submission review, decision dialog,
 and immutable revision view expose every persisted term and keep explicit term
 changes separate from recalculated values. Funding V1 is limited to cash,
 financed, and structured seller financing; unstructured `OTHER` funding is
-excluded.
+excluded. Agent license number and home-warranty special inclusions are part of
+the persisted term set. Commission payer/amount remain disabled until product and
+counsel approve their schema and copy.
 
 The buyer may withdraw before the first submission. After submission, only the
 author of the current revision may withdraw before the counterparty responds.

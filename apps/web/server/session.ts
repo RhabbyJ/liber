@@ -31,12 +31,24 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   ) {
     return null;
   }
+
+  let roles = dbUser.roles;
+  // CEO-demo: elevate every active session to ADMIN + approve seller directory access.
+  if (
+    process.env.LIBER_CEO_PREVIEW_TARGET === "ceo-preview"
+    && process.env.LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL === "true"
+  ) {
+    const { ensureCeoPreviewDemoPrivileges } = await import("./ceo-preview");
+    const elevated = await ensureCeoPreviewDemoPrivileges(userId);
+    if (elevated?.roles) roles = elevated.roles;
+  }
+
   return {
     avatarVariant: dbUser.avatarVariant,
     email: dbUser.email,
     id: userId,
     name: dbUser.name,
-    roles: dbUser.roles,
+    roles,
   };
 });
 

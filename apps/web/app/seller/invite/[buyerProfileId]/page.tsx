@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BadgePill } from "../../../../components/badge-pill";
+import { EmptyState } from "../../../../components/empty-state";
 import { GeneratedAvatar } from "../../../../components/generated-avatar";
 import { Icon } from "../../../../components/icon";
 import { PropertyTypeArtwork } from "../../../../components/property-type-artwork";
@@ -32,23 +33,23 @@ const blockedPropertyCopy: Record<SellerInvitePropertyBlockReason, {
 }> = {
   archived: {
     actionLabel: "Review property",
-    guidance: "This property is archived and cannot be used in an invite. Review it or add an active property.",
+    guidance: "This property is archived. Use an active ownership-approved property to invite.",
     title: "Choose an active property",
   },
   "needs-evidence": {
     actionLabel: "Finish property verification",
-    guidance: "Upload your government-issued photo ID and a utility, tax, or mortgage document matching this property. An admin must approve both before invitations are available.",
+    guidance: "Upload ID and a matching property bill, then wait for admin approval.",
     title: "Finish verifying your property",
   },
   rejected: {
     actionLabel: "Update verification",
-    guidance: "This property needs corrected ownership evidence. Open it to review and replace the required documents.",
+    guidance: "Update the ownership documents for this property, then resubmit for review.",
     title: "Finish verifying your property",
   },
   "review-pending": {
     actionLabel: "View review status",
-    guidance: "Your ownership evidence is awaiting admin review. Invitations stay locked until the property is approved.",
-    title: "Ownership review is in progress",
+    guidance: "Ownership evidence is in review. Invites unlock after approval.",
+    title: "Ownership review in progress",
   },
 };
 
@@ -64,38 +65,26 @@ export default async function InviteBuyerPage({
   if (!canInvite) {
     return (
       <div className="page stack loose">
-        <PageTitle
-          eyebrow="Manual outreach"
-          title="Seller access pending"
-          tone="seller"
-        >
-          A Liber admin must approve seller directory access before buyer profile viewing or invites are available.
+        <PageTitle eyebrow="Manual outreach" title="Seller access pending" tone="seller">
+          Directory access is still under review.
         </PageTitle>
-        <section className="card cream stack">
-          <div className="section-head compact">
-            <div className="stack tight">
-              <p className="eyebrow amber">Access review</p>
-              <h2 style={{ fontSize: 22 }}>Buyer invites are locked for now</h2>
-            </div>
-            <span className="status-dot warning">
-              <Icon name="lock" size={12} />
-              Awaiting approval
-            </span>
-          </div>
-          <p>
-            You can keep preparing private property records while seller-directory access is reviewed.
-          </p>
-          <div className="actions">
-            <Link className="button primary" href="/seller/properties">
-              <Icon name="home" size={14} />
-              Manage properties
-            </Link>
-            <Link className="button secondary" href="/seller/search">
-              <Icon name="arrow-right" size={14} />
-              View access status
-            </Link>
-          </div>
-        </section>
+        <EmptyState
+          icon="shield"
+          title="Invites are locked for now"
+          description="You can keep preparing properties while access is reviewed."
+          actions={
+            <>
+              <Link className="button primary" href="/seller/properties">
+                <Icon name="home" size={14} />
+                Manage properties
+              </Link>
+              <Link className="button secondary" href="/seller/search">
+                <Icon name="arrow-right" size={14} />
+                View access status
+              </Link>
+            </>
+          }
+        />
       </div>
     );
   }
@@ -105,28 +94,26 @@ export default async function InviteBuyerPage({
   if (!buyer.canInvite) {
     return (
       <div className="page stack loose">
-        <PageTitle
-          eyebrow="Manual outreach"
-          title="This is your buyer profile"
-          tone="seller"
-        >
-          You can view your buyer demand in seller search, but invites are only for outreach to other buyers.
+        <PageTitle eyebrow="Manual outreach" title="This is your buyer profile" tone="seller">
+          Invites are only for outreach to other buyers.
         </PageTitle>
-        <section className="card cream stack">
-          <p>
-            Use the buyer profile preview to see what approved sellers can see, or return to buyer search.
-          </p>
-          <div className="actions">
-            <Link className="button primary" href={`/buyers/${buyer.id}`}>
-              <Icon name="user" size={14} />
-              View profile
-            </Link>
-            <Link className="button secondary" href="/seller/search">
-              <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
-              Back to buyers
-            </Link>
-          </div>
-        </section>
+        <EmptyState
+          icon="people"
+          title="Choose a different buyer"
+          description="Preview your own profile, or return to buyer search."
+          actions={
+            <>
+              <Link className="button primary" href={`/buyers/${buyer.id}`}>
+                <Icon name="user" size={14} />
+                View profile
+              </Link>
+              <Link className="button secondary" href="/seller/search">
+                <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
+                Back to buyers
+              </Link>
+            </>
+          }
+        />
       </div>
     );
   }
@@ -140,42 +127,29 @@ export default async function InviteBuyerPage({
   if (propertyState.kind === "missing") {
     return (
       <div className="page stack loose">
-        <PageTitle
-          eyebrow={`Invite ${buyer.name}`}
-          title="Add a property first"
-          tone="seller"
-        >
-          Add and verify a private property record before sending an invite. Your property is only shown to buyers you choose.
+        <PageTitle eyebrow={`Invite ${buyer.name}`} title="Add a property first" tone="seller">
+          You need an ownership-approved property before inviting {buyer.name}.
         </PageTitle>
-        <section className="card cream stack">
-          <div className="section-head compact">
-            <div className="stack tight">
-              <p className="eyebrow amber">Private property required</p>
-              <h2 style={{ fontSize: 22 }}>You haven&apos;t added a property yet</h2>
-            </div>
-            <span className="status-dot warning">
-              <Icon name="info" size={12} />
-              Required to invite
-            </span>
-          </div>
-          <p>
-            Liber needs a currently ownership-approved property so {buyer.name} knows what you&apos;re inviting them to review.
-            Your property is not listed publicly.
-          </p>
-          <div className="actions">
-            <Link
-              className="button primary"
-              href={`/seller/properties/new?next=${encodeURIComponent(`/seller/invite/${buyer.id}`)}`}
-            >
-              <Icon name="plus" size={14} />
-              Add private property
-            </Link>
-            <Link className="button secondary" href="/seller/search">
-              <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
-              Back to buyers
-            </Link>
-          </div>
-        </section>
+        <EmptyState
+          icon="home"
+          title="No property ready yet"
+          description="Add and verify a property, then return to send the invite."
+          actions={
+            <>
+              <Link
+                className="button primary"
+                href={`/seller/properties/new?next=${encodeURIComponent(`/seller/invite/${buyer.id}`)}`}
+              >
+                <Icon name="plus" size={14} />
+                Add property
+              </Link>
+              <Link className="button secondary" href="/seller/search">
+                <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
+                Back to buyers
+              </Link>
+            </>
+          }
+        />
       </div>
     );
   }
@@ -186,52 +160,35 @@ export default async function InviteBuyerPage({
 
     return (
       <div className="page stack loose">
-        <PageTitle
-          eyebrow={`Invite ${buyer.name}`}
-          title={copy.title}
-          tone="seller"
-        >
-          Your property is saved, but only a current ownership-approved property can be used in an invite.
+        <PageTitle eyebrow={`Invite ${buyer.name}`} title={copy.title} tone="seller">
+          {property.title} · {property.location}
         </PageTitle>
-        <section className="card cream stack">
-          <div className="section-head compact">
-            <div className="stack tight">
-              <p className="eyebrow amber">Property found</p>
-              <h2 style={{ fontSize: 22 }}>{property.title}</h2>
-            </div>
-            <span className="status-dot warning">
-              <Icon name="info" size={12} />
-              {reason === "archived" ? "Archived" : property.status}
-            </span>
-          </div>
-          <p className="muted small" style={{ margin: 0 }}>
-            <Icon name="map-pin" size={12} /> {property.location}
-          </p>
-          <p>{copy.guidance}</p>
-          <div className="auth-alert info">
-            This verification gate protects buyers and remains enforced by the server when an invite is submitted.
-          </div>
-          <div className="actions">
-            <Link className="button primary" href={`/seller/properties/${property.id}/edit`}>
-              <Icon name="pencil" size={14} />
-              {copy.actionLabel}
-            </Link>
-            <Link className="button secondary" href="/seller/properties">
-              <Icon name="home" size={14} />
-              Manage properties
-            </Link>
-            <Link className="button ghost" href="/seller/search">
-              <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
-              Back to buyers
-            </Link>
-          </div>
-        </section>
+        <EmptyState
+          icon="doc"
+          title={copy.title}
+          description={copy.guidance}
+          actions={
+            <>
+              <Link className="button primary" href={`/seller/properties/${property.id}/edit`}>
+                <Icon name="pencil" size={14} />
+                {copy.actionLabel}
+              </Link>
+              <Link className="button secondary" href="/seller/properties">
+                <Icon name="home" size={14} />
+                Manage properties
+              </Link>
+              <Link className="button ghost" href="/seller/search">
+                <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
+                Back to buyers
+              </Link>
+            </>
+          }
+        />
       </div>
     );
   }
 
   const { property, readyProperties } = propertyState;
-
   const verified = property.status.toLowerCase().includes("verified");
 
   return (
@@ -247,7 +204,7 @@ export default async function InviteBuyerPage({
           </Link>
         }
       >
-        Manual invites only. Liber never sends offers, creates contracts, or moves money on your behalf.
+        Choose a property and opening, then send.
       </PageTitle>
 
       <section className="invite-compose-grid">
@@ -268,6 +225,7 @@ export default async function InviteBuyerPage({
                 </option>
               ))}
             </select>
+            <span className="field-hint">Uses the approved property version. Edit the property first if details changed.</span>
           </div>
           <fieldset className="invite-template-fieldset">
             <legend>Guided opening</legend>
@@ -292,11 +250,7 @@ export default async function InviteBuyerPage({
               name="note"
               placeholder={`Add brief property context for ${buyer.name}`}
             />
-            <span className="field-hint">Plain text only, up to 500 characters. The guided opening is stored separately.</span>
-          </div>
-
-          <div className="auth-alert info">
-            Property identity and images are locked to the currently approved property version. Edit the property first if anything changed; identity changes require new ownership review.
+            <span className="field-hint">Plain text only, up to 500 characters.</span>
           </div>
 
           <div className="divider" />
@@ -304,8 +258,8 @@ export default async function InviteBuyerPage({
           <label className="checkbox-row">
             <input name="termsAccepted" required type="checkbox" value="true" />
             <span>
-              I confirm this is a manual invite and does not create an offer, escrow, or funds custody. I own this property
-              or am authorized to invite buyers on the owner&apos;s behalf.
+              I confirm this is a manual invite only — not an offer, escrow, or funds transfer — and I am authorized
+              to invite buyers for this property.
             </span>
           </label>
 
@@ -372,16 +326,6 @@ export default async function InviteBuyerPage({
               <strong style={{ fontSize: 20 }}>{formatMoney(property.price)}</strong>
               {property.description ? <p className="muted small">{property.description}</p> : null}
             </div>
-          </article>
-
-          <article className="card flat stack tight" style={{ background: "var(--surface-cream)", borderColor: "var(--amber-line)" }}>
-            <span className="status-dot amber">
-              <Icon name="lock" size={12} />
-              Private outreach
-            </span>
-            <p className="muted small" style={{ margin: 0 }}>
-              {buyer.name} can accept or decline. No offer or escrow is created.
-            </p>
           </article>
         </aside>
       </section>

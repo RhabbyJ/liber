@@ -118,6 +118,13 @@ try {
   }
   console.log("ok messages robots header");
 
+  const previewTools = await expectStatus("/preview-tools", 307);
+  const previewToolsRobots = expectHeader(previewTools, "x-robots-tag");
+  if (!previewToolsRobots.includes("noindex") || !previewToolsRobots.includes("noarchive")) {
+    throw new Error(`/preview-tools route X-Robots-Tag was ${previewToolsRobots}.`);
+  }
+  console.log("ok preview tools robots header");
+
   const propertyEnrichment = await fetch(`${baseUrl}/api/property/enrich`, {
     body: JSON.stringify({ addressLine1: "1 Main", market: "los-angeles", zip: "91423" }),
     headers: { "content-type": "application/json", origin: new URL(baseUrl).origin },

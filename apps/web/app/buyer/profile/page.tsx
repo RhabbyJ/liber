@@ -124,23 +124,17 @@ export default async function BuyerProfileBuilderPage({
       </div>
       <p className="muted small">
         {hasPreApproval
-          ? "Your pre-approval badge is active. Upload refreshed evidence before it expires."
+          ? "Badge is active. Upload refreshed evidence before it expires."
           : hasPendingPreApproval
-            ? "Your pre-approval evidence is under review. You can upload updated proof of funds if anything changed."
-            : "Upload a pre-approval letter or proof of funds. Liber reviews it; sellers only see the approved badge."}
+            ? "Evidence is in review. You can upload an updated file if needed."
+            : "Upload a pre-approval letter or proof of funds. Sellers only see an approved badge."}
       </p>
       <div className="form-grid">
         {verification === "missing" ? (
-          <div className="auth-alert info field full">
-            <strong>Add a file first</strong>
-            <span>Choose your pre-approval letter or proof of funds before submitting for review.</span>
-          </div>
+          <p className="field-hint field full" role="status">Choose a file before submitting for review.</p>
         ) : null}
         {verification === "submitted" ? (
-          <div className="auth-alert success field full">
-            <strong>Submitted for review</strong>
-            <span>Your document is private. Sellers will only see an approved badge.</span>
-          </div>
+          <p className="field-hint field full" role="status">Submitted for review. Sellers only see an approved badge.</p>
         ) : null}
         <DirectUploadField
           accept="application/pdf,image/png,image/jpeg,image/webp"
@@ -200,14 +194,14 @@ export default async function BuyerProfileBuilderPage({
       <div className="buyer-profile-shell">
         {isAdminControlled ? (
           <div className="auth-alert warning" role="status">
-            <strong>Profile editing is unavailable</strong>
-            <span>This profile is {buyer.visibility}. Contact an admin before trying to publish changes.</span>
+            <strong>Editing unavailable</strong>
+            <span>This profile is {buyer.visibility}. Contact an admin to continue.</span>
           </div>
         ) : null}
         {status === "published" || status === "saved" ? (
           <div className="auth-alert success" role="status">
-            <strong>{status === "published" ? "Buyer profile published" : "Changes saved"}</strong>
-            <span>Your profile is live to approved sellers. Your private account details remain hidden.</span>
+            <strong>{status === "published" ? "Profile published" : "Changes saved"}</strong>
+            <span>Live to approved sellers.</span>
           </div>
         ) : null}
         <article className="card buyer-profile-account-card">

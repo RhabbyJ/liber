@@ -33,6 +33,7 @@ test("protected release workflows validate messaging rollout and disposable migr
   assert.match(readinessWorkflow, /LIBER_MESSAGING_V1_COHORT_USER_IDS: \$\{\{ vars\.LIBER_MESSAGING_V1_COHORT_USER_IDS \}\}/);
   assert.match(readinessWorkflow, /LIBER_LOI_V1_COHORT_USER_IDS: \$\{\{ vars\.LIBER_LOI_V1_COHORT_USER_IDS \}\}/);
   assert.match(readinessWorkflow, /LIBER_LOI_V1_ENABLED: \$\{\{ vars\.LIBER_LOI_V1_ENABLED \}\}/);
+  assert.match(readinessWorkflow, /LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL: "false"/);
   assert.match(readinessWorkflow, /SITE_URL: \$\{\{ vars\.SITE_URL \}\}/);
   assert.match(readinessWorkflow, /run: npm ci/);
   assert.match(proofWorkflow, /environment: disposable-messaging-proof/);
@@ -319,6 +320,35 @@ test("production readiness requires a sufficiently long Auth rate-limit pepper",
   assert.match(result.stdout, /AUTH_RATE_LIMIT_PEPPER must contain at least 32 characters/);
 });
 
+test("production readiness rejects private-preview seller self-approval", () => {
+  const result = spawnSync(process.execPath, [readinessScript, "--production"], {
+    cwd: path.dirname(readinessScript),
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL: "true",
+      LIBER_CEO_PREVIEW_TARGET: "ceo-preview",
+    },
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /must be unset or false for true production readiness/);
+});
+
+test("production dependency readiness detects persisted preview seller approvals", () => {
+  const readinessSource = readFileSync(readinessScript, "utf8");
+  assert.match(readinessSource, /seller_access_preview_self_approval/);
+  assert.match(readinessSource, /still rely on private-preview self-approval/);
+  assert.match(readinessSource, /access\."reviewedByUserId" IS NULL/);
+  assert.match(readinessSource, /access\."reviewedAt" IS NULL/);
+});
+
+test("production dependency readiness detects persisted preview admin self-grants", () => {
+  const readinessSource = readFileSync(readinessScript, "utf8");
+  assert.match(readinessSource, /admin_role_preview_self_grant/);
+  assert.match(readinessSource, /still rely on private-preview admin self-grant/);
+});
+
 test("production readiness requires a sufficiently strong maintenance secret", () => {
   const result = spawnSync(process.execPath, [readinessScript, "--production"], {
     cwd: path.dirname(readinessScript),
@@ -401,7 +431,7 @@ test("production readiness requires exactly two explicit LOI participant UUIDs",
       env: { ...process.env, LIBER_LOI_V1_COHORT_USER_IDS: cohort, LIBER_LOI_V1_ENABLED: "true" },
     });
     assert.equal(result.status, 1);
-    assert.match(result.stdout, /LOI_V1_COHORT_USER_IDS|explicit reviewed UUIDs/);
+    assert.match(result.stdout, /LOI_V1_COHORT_USER_IDS|explicit reviewed/);
   }
 });
 

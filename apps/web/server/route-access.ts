@@ -4,6 +4,7 @@ export function requiresAuthenticatedUser(pathname: string) {
   return isPathSegment(pathname, "/buyers")
     || isPathSegment(pathname, "/messages")
     || isPathSegment(pathname, "/negotiations")
+    || isPathSegment(pathname, "/preview-tools")
     || requiredRoleForPath(pathname) !== null;
 }
 

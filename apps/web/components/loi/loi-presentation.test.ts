@@ -82,7 +82,7 @@ describe("LOI presentation registry v1", () => {
       ...cashTerms,
       costsAndCredits: {
         ...cashTerms.costsAndCredits,
-        homeWarranty: { company: "Warranty Co", included: true as const, maximumCents: 0, payer: "SELLER" as const, payerNote: "" },
+        homeWarranty: { company: "Warranty Co", included: true as const, maximumCents: 0, payer: "SELLER" as const, payerNote: "", specialInclusions: "" },
       },
     };
     expect(normalizeLoiFieldErrors({ "costsAndCredits.homeWarranty": "Add the warranty maximum." }, warrantyTerms)).toEqual({
@@ -91,7 +91,7 @@ describe("LOI presentation registry v1", () => {
 
     const representedTerms = {
       ...cashTerms,
-      representation: { agent: { company: "Brokerage", email: "", name: "Agent Name", phone: "" }, buyerRepresented: true as const },
+      representation: { agent: { company: "Brokerage", email: "", license: "", name: "Agent Name", phone: "" }, buyerRepresented: true as const },
     };
     expect(normalizeLoiFieldErrors({ "representation.agent": "Add agent contact details." }, representedTerms)).toEqual({
       "representation.agent.email": "Add agent contact details.",

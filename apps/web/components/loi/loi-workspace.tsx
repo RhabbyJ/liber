@@ -540,10 +540,7 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
           <section className="card sage stack tight">
             <p className="eyebrow">{historical ? `Version ${displayedRevision.sequence} snapshot` : view.mode === "EDITING" || view.mode === "REVIEWING" ? "Draft deal snapshot" : "Current deal snapshot"}</p>
             <Summary summary={sidebarSummary} terms={sidebarTerms} />
-          </section>
-          <section className="card stack tight">
-            <strong>Important</strong>
-            <p className="muted small">Submitting or aligning records proposed terms for contract preparation. It does not sign a contract, open escrow, transfer money, or confirm a deposit.</p>
+            <p className="muted small">Non-binding term alignment for contract preparation only.</p>
           </section>
         </aside>
       </div>
@@ -716,8 +713,8 @@ function TermsReview({ computedSummary, heading, previousRevision = null, proper
       </section>
 
       <div className="auth-alert info loi-nonbinding-notice">
-        <strong>Non-binding contract-preparation notice</strong>
-        <span>These proposed terms record alignment for preparing formal documents. They are not a signature, binding acceptance, escrow instruction, payment request, deposit confirmation, or transfer of money.</span>
+        <strong>Non-binding</strong>
+        <span>Proposed terms for contract preparation — not a signature, escrow instruction, or payment.</span>
       </div>
     </section>
   );

@@ -15,7 +15,20 @@ describe("LOI cohort", () => {
     expect(loiV1EnabledForPair(buyer, "33333333-3333-4333-8333-333333333333")).toBe(false);
   });
 
-  it("fails closed for empty, malformed, disabled, and wildcard cohorts", () => {
+  it("allows an open cohort outside true production or during CEO preview", () => {
+    vi.stubEnv("LIBER_LOI_V1_ENABLED", "true");
+    vi.stubEnv("LIBER_LOI_V1_COHORT_USER_IDS", "*");
+    vi.stubEnv("NODE_ENV", "development");
+    expect(loiV1Configured()).toBe(true);
+    expect(loiV1EnabledForPair(buyer, seller)).toBe(true);
+
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("LIBER_CEO_PREVIEW_TARGET", "ceo-preview");
+    expect(loiV1Configured()).toBe(true);
+    expect(loiV1EnabledForPair(buyer, seller)).toBe(true);
+  });
+
+  it("fails closed for empty, malformed, disabled, and production wildcards", () => {
     for (const values of [
       "",
       buyer,
@@ -24,13 +37,20 @@ describe("LOI cohort", () => {
       `${buyer},,${seller}`,
       `${buyer},${buyer}`,
       `${buyer},bad`,
-      "*",
     ]) {
       vi.stubEnv("LIBER_LOI_V1_ENABLED", "true");
       vi.stubEnv("LIBER_LOI_V1_COHORT_USER_IDS", values);
       expect(loiV1EnabledForPair(buyer, seller)).toBe(false);
       expect(loiV1Configured()).toBe(false);
     }
+
+    vi.stubEnv("LIBER_LOI_V1_ENABLED", "true");
+    vi.stubEnv("LIBER_LOI_V1_COHORT_USER_IDS", "*");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("LIBER_CEO_PREVIEW_TARGET", "");
+    expect(loiV1Configured()).toBe(false);
+    expect(loiV1EnabledForPair(buyer, seller)).toBe(false);
+
     vi.stubEnv("LIBER_LOI_V1_ENABLED", "false");
     vi.stubEnv("LIBER_LOI_V1_COHORT_USER_IDS", `${buyer},${seller}`);
     expect(loiV1EnabledForPair(buyer, seller)).toBe(false);

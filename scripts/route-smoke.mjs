@@ -172,6 +172,7 @@ try {
   await expectProtectedRedirect("/admin");
   await expectProtectedRedirect("/admin/reports");
   await expectProtectedRedirect("/admin/users");
+  await expectProtectedRedirect("/preview-tools");
 
   console.log("route smoke passed");
 } catch (error) {

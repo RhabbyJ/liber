@@ -66,6 +66,13 @@ const nextConfig = {
           { key: "X-Robots-Tag", value: "noindex, noarchive" },
         ],
       },
+      {
+        source: "/preview-tools/:path*",
+        headers: [
+          ...securityHeaders,
+          { key: "X-Robots-Tag", value: "noindex, noarchive" },
+        ],
+      },
     ];
   },
   turbopack: {

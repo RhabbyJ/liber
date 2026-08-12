@@ -58,15 +58,17 @@ const PRIMARY_NAV_FALLBACK = `
 export function PrimaryNav({
   isAuthenticated,
   messagingEnabled,
+  previewToolsEnabled,
   roles,
 }: {
   isAuthenticated: boolean;
   messagingEnabled: boolean;
+  previewToolsEnabled: boolean;
   roles: AppRole[];
 }) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const items = primaryNavItems(isAuthenticated, roles, messagingEnabled);
+  const items = primaryNavItems(isAuthenticated, roles, messagingEnabled, previewToolsEnabled);
 
   function close() {
     setIsOpen(false);

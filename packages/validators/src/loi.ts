@@ -17,6 +17,9 @@ const contact = z.object({
   name: optionalText(160),
   phone: optionalText(40),
 }).strict();
+const agentContact = contact.extend({
+  license: optionalText(40),
+}).strict();
 
 const cashFunding = z.object({ type: z.literal("CASH") }).strict();
 const standardFinancing = z.object({
@@ -59,7 +62,14 @@ export const loiTermsV1Schema = z.object({
   costsAndCredits: z.object({
     alternateClosingCostAllocation: optionalText(1000),
     customaryClosingCosts: z.boolean(),
-    homeWarranty: z.object({ company: optionalText(160), included: z.boolean(), maximumCents: cents, payer: z.enum(["BUYER", "SELLER", "EACH_OWN", "OTHER"]), payerNote: optionalText(500) }).strict(),
+    homeWarranty: z.object({
+      company: optionalText(160),
+      included: z.boolean(),
+      maximumCents: cents,
+      payer: z.enum(["BUYER", "SELLER", "EACH_OWN", "OTHER"]),
+      payerNote: optionalText(500),
+      specialInclusions: optionalText(1000),
+    }).strict(),
     sellerCreditCents: cents,
     sellerCreditNote: optionalText(500),
   }).strict(),
@@ -71,7 +81,7 @@ export const loiTermsV1Schema = z.object({
   possession,
   providers: z.object({ escrow: provider, title: provider }).strict(),
   purchasePriceCents: cents.min(1),
-  representation: z.object({ agent: contact, buyerRepresented: z.boolean() }).strict(),
+  representation: z.object({ agent: agentContact, buyerRepresented: z.boolean() }).strict(),
   schemaVersion: z.literal(LOI_SCHEMA_VERSION),
   timing: z.object({
     appraisalContingencyDays: days.nullable(),
@@ -117,7 +127,13 @@ export const loiTermsV1Schema = z.object({
   if (terms.costsAndCredits.homeWarranty.included && terms.costsAndCredits.homeWarranty.payer !== "OTHER" && terms.costsAndCredits.homeWarranty.payerNote) {
     context.addIssue({ code: "custom", message: "A warranty payer note is allowed only when the payer is Other.", path: ["costsAndCredits", "homeWarranty", "payerNote"] });
   }
-  if (!terms.costsAndCredits.homeWarranty.included && (terms.costsAndCredits.homeWarranty.company || terms.costsAndCredits.homeWarranty.maximumCents !== 0 || terms.costsAndCredits.homeWarranty.payer !== "SELLER" || terms.costsAndCredits.homeWarranty.payerNote)) {
+  if (!terms.costsAndCredits.homeWarranty.included && (
+    terms.costsAndCredits.homeWarranty.company
+    || terms.costsAndCredits.homeWarranty.maximumCents !== 0
+    || terms.costsAndCredits.homeWarranty.payer !== "SELLER"
+    || terms.costsAndCredits.homeWarranty.payerNote
+    || terms.costsAndCredits.homeWarranty.specialInclusions
+  )) {
     context.addIssue({ code: "custom", message: "Clear warranty details when no warranty is proposed.", path: ["costsAndCredits", "homeWarranty", "included"] });
   }
   if (!terms.costsAndCredits.customaryClosingCosts && !terms.costsAndCredits.alternateClosingCostAllocation) {

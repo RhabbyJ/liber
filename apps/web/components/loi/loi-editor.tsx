@@ -30,6 +30,7 @@ export function LoiEditor({
           required
           value={terms.parties.buyerLegalName}
         />
+        <p className="small">Final vesting can be changed in escrow.</p>
         <TextField
           error={fieldErrors["parties.vestingNote"]}
           id="loi-vesting"
@@ -54,7 +55,7 @@ export function LoiEditor({
           cents={terms.purchasePriceCents}
           error={fieldErrors.purchasePriceCents}
           id="loi-price"
-          label="Purchase price"
+          label="Offer price"
           minCents={1}
           onChange={(purchasePriceCents) => update("purchasePriceCents", (value) => {
             const funding = value.funding.type === "SELLER_FINANCING"
@@ -207,10 +208,11 @@ export function LoiEditor({
 
       <section className="card stack" aria-labelledby="loi-section-deposit">
         <h2 id="loi-section-deposit">3. Earnest-money deposit</h2>
+        <p className="small">Defaults to 3% of the offer price. You can switch to a fixed amount.</p>
         <SelectField
           error={fieldErrors["deposit.basis"]}
           id="loi-deposit-basis"
-          label="Deposit basis"
+          label="Earnest-money basis"
           onChange={(basis) => update("deposit.basis", (value) => ({ ...value, deposit: basis === "FIXED" ? { amountCents: 0, basis: "FIXED" } : { basis: "PERCENT", percentageBps: 300 } }))}
           options={[["PERCENT", "Percentage"], ["FIXED", "Fixed amount"]]}
           value={terms.deposit.basis}
@@ -220,7 +222,7 @@ export function LoiEditor({
             basisPoints={terms.deposit.percentageBps}
             error={fieldErrors["deposit.percentageBps"]}
             id="loi-deposit-percent"
-            label="Deposit percentage"
+            label="Earnest-money percentage"
             maxBasisPoints={10_000}
             onChange={(percentageBps) => update("deposit.percentageBps", (value) => ({ ...value, deposit: { basis: "PERCENT", percentageBps } }))}
           />
@@ -229,7 +231,7 @@ export function LoiEditor({
             cents={terms.deposit.amountCents}
             error={fieldErrors["deposit.amountCents"]}
             id="loi-deposit-fixed"
-            label="Fixed deposit"
+            label="Earnest-money amount"
             onChange={(amountCents) => update("deposit.amountCents", (value) => ({ ...value, deposit: { amountCents, basis: "FIXED" } }))}
           />
         )}
@@ -238,10 +240,10 @@ export function LoiEditor({
       <section className="card stack" aria-labelledby="loi-section-timing">
         <h2 id="loi-section-timing">4. Timing and contingencies</h2>
         <div className="grid two">
-          <NumberField error={fieldErrors["timing.closingDays"]} id="loi-closing" label="Closing duration (days)" min={1} onChange={(closingDays) => update("timing.closingDays", (value) => ({ ...value, timing: { ...value.timing, closingDays } }))} value={terms.timing.closingDays} />
-          <NumberField error={fieldErrors["timing.inspectionContingencyDays"]} id="loi-inspection" label="Inspection contingency" min={0} onChange={(inspectionContingencyDays) => update("timing.inspectionContingencyDays", (value) => ({ ...value, timing: { ...value.timing, inspectionContingencyDays } }))} value={terms.timing.inspectionContingencyDays} />
-          <NumberField error={fieldErrors["timing.sellerDisclosureReviewDays"]} id="loi-disclosure" label="Disclosure review" min={0} onChange={(sellerDisclosureReviewDays) => update("timing.sellerDisclosureReviewDays", (value) => ({ ...value, timing: { ...value.timing, sellerDisclosureReviewDays } }))} value={terms.timing.sellerDisclosureReviewDays} />
-          <NumberField error={fieldErrors["timing.titleReviewDays"]} id="loi-title-review" label="Title review" min={0} onChange={(titleReviewDays) => update("timing.titleReviewDays", (value) => ({ ...value, timing: { ...value.timing, titleReviewDays } }))} value={terms.timing.titleReviewDays} />
+          <NumberField error={fieldErrors["timing.closingDays"]} id="loi-closing" label="Escrow / closing days" min={1} onChange={(closingDays) => update("timing.closingDays", (value) => ({ ...value, timing: { ...value.timing, closingDays } }))} value={terms.timing.closingDays} />
+          <NumberField error={fieldErrors["timing.inspectionContingencyDays"]} id="loi-inspection" label="Physical inspection days" min={0} onChange={(inspectionContingencyDays) => update("timing.inspectionContingencyDays", (value) => ({ ...value, timing: { ...value.timing, inspectionContingencyDays } }))} value={terms.timing.inspectionContingencyDays} />
+          <NumberField error={fieldErrors["timing.sellerDisclosureReviewDays"]} id="loi-disclosure" label="Disclosure review days" min={0} onChange={(sellerDisclosureReviewDays) => update("timing.sellerDisclosureReviewDays", (value) => ({ ...value, timing: { ...value.timing, sellerDisclosureReviewDays } }))} value={terms.timing.sellerDisclosureReviewDays} />
+          <NumberField error={fieldErrors["timing.titleReviewDays"]} id="loi-title-review" label="Title review days" min={0} onChange={(titleReviewDays) => update("timing.titleReviewDays", (value) => ({ ...value, timing: { ...value.timing, titleReviewDays } }))} value={terms.timing.titleReviewDays} />
           <NullableNumberField error={fieldErrors["timing.appraisalContingencyDays"]} id="loi-appraisal" label="Appraisal contingency days" max={365} min={0} onChange={(appraisalContingencyDays) => update("timing.appraisalContingencyDays", (value) => ({ ...value, timing: { ...value.timing, appraisalContingencyDays } }))} value={terms.timing.appraisalContingencyDays} />
           <NullableNumberField error={fieldErrors["timing.loanContingencyDays"]} id="loi-loan-contingency" label="Loan contingency days" max={365} min={0} onChange={(loanContingencyDays) => update("timing.loanContingencyDays", (value) => ({ ...value, timing: { ...value.timing, loanContingencyDays } }))} value={terms.timing.loanContingencyDays} />
         </div>
@@ -277,10 +279,36 @@ export function LoiEditor({
           checked={terms.representation.buyerRepresented}
           error={fieldErrors["representation.buyerRepresented"]}
           id="loi-buyer-represented"
-          label="Buyer is represented by an agent"
-          onChange={(buyerRepresented) => update("representation.buyerRepresented", (value) => ({ ...value, representation: { agent: buyerRepresented ? value.representation.agent : emptyContact(), buyerRepresented } }))}
+          label="Will you be using an agent?"
+          onChange={(buyerRepresented) => update("representation.buyerRepresented", (value) => ({ ...value, representation: { agent: buyerRepresented ? value.representation.agent : emptyAgent(), buyerRepresented } }))}
         />
-        {terms.representation.buyerRepresented ? <ContactFields errors={fieldErrors} id="loi-agent" label="Buyer agent" onChange={(agent) => update("representation.agent", (value) => ({ ...value, representation: { ...value.representation, agent } }))} path="representation.agent" value={terms.representation.agent} /> : null}
+        {terms.representation.buyerRepresented ? (
+          <>
+            <ContactFields
+              errors={fieldErrors}
+              id="loi-agent"
+              label="Buyer agent"
+              onChange={(agent) => update("representation.agent", (value) => ({
+                ...value,
+                representation: {
+                  ...value.representation,
+                  agent: { ...agent, license: value.representation.agent.license },
+                },
+              }))}
+              path="representation.agent"
+              value={terms.representation.agent}
+            />
+            <TextField
+              error={fieldErrors["representation.agent.license"]}
+              id="loi-agent-license"
+              label="Agent license #"
+              maxLength={40}
+              onChange={(license) => update("representation.agent.license", (value) => ({ ...value, representation: { ...value.representation, agent: { ...value.representation.agent, license } } }))}
+              value={terms.representation.agent.license}
+            />
+            <p className="small">Agent commission amount and payer are not collected in this LOI version. Those terms stay for the formal purchase agreement.</p>
+          </>
+        ) : null}
       </section>
 
       <section className="card stack" aria-labelledby="loi-section-costs">
@@ -317,7 +345,7 @@ export function LoiEditor({
               ...value.costsAndCredits,
               homeWarranty: included
                 ? { ...value.costsAndCredits.homeWarranty, included: true }
-                : { company: "", included: false, maximumCents: 0, payer: "SELLER", payerNote: "" },
+                : { company: "", included: false, maximumCents: 0, payer: "SELLER", payerNote: "", specialInclusions: "" },
             },
           }))}
         />
@@ -329,12 +357,20 @@ export function LoiEditor({
               <SelectField
                 error={fieldErrors["costsAndCredits.homeWarranty.payer"]}
                 id="loi-warranty-payer"
-                label="Warranty payer"
+                label="Who pays home warranty?"
                 onChange={(payer) => update("costsAndCredits.homeWarranty.payer", (value) => ({ ...value, costsAndCredits: { ...value.costsAndCredits, homeWarranty: { ...value.costsAndCredits.homeWarranty, payer: payer as "BUYER" | "SELLER" | "EACH_OWN" | "OTHER", payerNote: payer === "OTHER" ? value.costsAndCredits.homeWarranty.payerNote : "" } } }))}
                 options={[["BUYER", "Buyer"], ["SELLER", "Seller"], ["EACH_OWN", "Each pays own"], ["OTHER", "Other"]]}
                 value={terms.costsAndCredits.homeWarranty.payer}
               />
             </div>
+            <TextField
+              error={fieldErrors["costsAndCredits.homeWarranty.specialInclusions"]}
+              id="loi-warranty-inclusions"
+              label="Special inclusions (pool, spa, extra AC, etc.)"
+              maxLength={1000}
+              onChange={(specialInclusions) => update("costsAndCredits.homeWarranty.specialInclusions", (value) => ({ ...value, costsAndCredits: { ...value.costsAndCredits, homeWarranty: { ...value.costsAndCredits.homeWarranty, specialInclusions } } }))}
+              value={terms.costsAndCredits.homeWarranty.specialInclusions}
+            />
             {terms.costsAndCredits.homeWarranty.payer === "OTHER" ? <TextField error={fieldErrors["costsAndCredits.homeWarranty.payerNote"]} id="loi-warranty-payer-note" label="Warranty cost-allocation note" maxLength={500} onChange={(payerNote) => update("costsAndCredits.homeWarranty.payerNote", (value) => ({ ...value, costsAndCredits: { ...value.costsAndCredits, homeWarranty: { ...value.costsAndCredits.homeWarranty, payerNote } } }))} required value={terms.costsAndCredits.homeWarranty.payerNote} /> : null}
           </div>
         ) : null}
@@ -347,8 +383,9 @@ export function LoiEditor({
           <PayerField error={fieldErrors["hoa.certificateFeePayer"]} id="hoa-certificate-fee-payer" label="HOA certificate fee" onChange={(certificateFeePayer) => update("hoa.certificateFeePayer", (value) => ({ ...value, hoa: { ...value.hoa, certificateFeePayer } }))} value={terms.hoa.certificateFeePayer} />
           <PayerField error={fieldErrors["hoa.transferFeePayer"]} id="hoa-transfer-fee-payer" label="HOA transfer fee" onChange={(transferFeePayer) => update("hoa.transferFeePayer", (value) => ({ ...value, hoa: { ...value.hoa, transferFeePayer } }))} value={terms.hoa.transferFeePayer} />
         </div>
-        <CheckboxField checked={terms.personalProperty.included} error={fieldErrors["personalProperty.included"]} id="loi-personal-property" label="Include proposed personal property" onChange={(included) => update("personalProperty.included", (value) => ({ ...value, personalProperty: { ...value.personalProperty, included, includedItems: included ? value.personalProperty.includedItems : [] } }))} />
-        {terms.personalProperty.included ? <TextField error={fieldErrors["personalProperty.includedItems"]} id="loi-items" label="Included items (comma separated)" maxLength={6_098} onChange={(input) => update("personalProperty.includedItems", (value) => ({ ...value, personalProperty: { ...value.personalProperty, includedItems: input.split(",").map((item) => item.trim()).filter(Boolean).slice(0, 50) } }))} required value={terms.personalProperty.includedItems.join(", ")} /> : null}
+        <CheckboxField checked={terms.personalProperty.included} error={fieldErrors["personalProperty.included"]} id="loi-personal-property" label="Sale to include personal property?" onChange={(included) => update("personalProperty.included", (value) => ({ ...value, personalProperty: { ...value.personalProperty, included, includedItems: included ? value.personalProperty.includedItems : [] } }))} />
+        <p className="small">Attached furniture belongs with the property. TVs are excluded by default unless listed.</p>
+        {terms.personalProperty.included ? <TextField error={fieldErrors["personalProperty.includedItems"]} id="loi-items" label="Requested items (comma separated)" maxLength={6_098} onChange={(input) => update("personalProperty.includedItems", (value) => ({ ...value, personalProperty: { ...value.personalProperty, includedItems: input.split(",").map((item) => item.trim()).filter(Boolean).slice(0, 50) } }))} required value={terms.personalProperty.includedItems.join(", ")} /> : null}
         <TextField error={fieldErrors["personalProperty.excludedItems"]} id="loi-excluded-items" label="Excluded personal-property items" maxLength={2000} onChange={(excludedItems) => update("personalProperty.excludedItems", (value) => ({ ...value, personalProperty: { ...value.personalProperty, excludedItems } }))} value={terms.personalProperty.excludedItems} />
       </section>
 
@@ -379,17 +416,22 @@ function emptyContact() {
   return { company: "", email: "", name: "", phone: "" };
 }
 
-type Contact = ReturnType<typeof emptyContact>;
+function emptyAgent() {
+  return { ...emptyContact(), license: "" };
+}
 
-function ContactFields({ errors, id, label, onChange, path, value }: { errors: Record<string, string>; id: string; label: string; onChange: (value: Contact) => void; path: string; value: Contact }) {
+type Contact = ReturnType<typeof emptyContact>;
+type AgentContact = ReturnType<typeof emptyAgent>;
+
+function ContactFields({ errors, id, label, onChange, path, value }: { errors: Record<string, string>; id: string; label: string; onChange: (value: Contact) => void; path: string; value: Contact | AgentContact }) {
   return (
     <fieldset className="loi-fieldset stack tight">
       <legend>{label}</legend>
       <div className="grid two">
-        <TextField error={errors[`${path}.name`]} id={`${id}-name`} label="Contact name" maxLength={160} onChange={(name) => onChange({ ...value, name })} value={value.name} />
-        <TextField error={errors[`${path}.company`]} id={`${id}-company`} label="Company" maxLength={160} onChange={(company) => onChange({ ...value, company })} value={value.company} />
-        <TextField error={errors[`${path}.email`]} id={`${id}-email`} label="Email" maxLength={254} onChange={(email) => onChange({ ...value, email })} type="email" value={value.email} />
-        <TextField error={errors[`${path}.phone`]} id={`${id}-phone`} label="Phone" maxLength={40} onChange={(phone) => onChange({ ...value, phone })} type="tel" value={value.phone} />
+        <TextField error={errors[`${path}.name`]} id={`${id}-name`} label="Contact name" maxLength={160} onChange={(name) => onChange({ company: value.company, email: value.email, name, phone: value.phone })} value={value.name} />
+        <TextField error={errors[`${path}.company`]} id={`${id}-company`} label="Company" maxLength={160} onChange={(company) => onChange({ company, email: value.email, name: value.name, phone: value.phone })} value={value.company} />
+        <TextField error={errors[`${path}.email`]} id={`${id}-email`} label="Email" maxLength={254} onChange={(email) => onChange({ company: value.company, email, name: value.name, phone: value.phone })} type="email" value={value.email} />
+        <TextField error={errors[`${path}.phone`]} id={`${id}-phone`} label="Phone" maxLength={40} onChange={(phone) => onChange({ company: value.company, email: value.email, name: value.name, phone })} type="tel" value={value.phone} />
       </div>
     </fieldset>
   );

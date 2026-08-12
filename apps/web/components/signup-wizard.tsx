@@ -21,10 +21,10 @@ type Props = {
 
 const SIGNUP_DRAFT_KEY = "liber.signup.draft";
 
-const ROLE_CARDS: Array<{ value: Role; label: string }> = [
-  { value: "buyer", label: "Buy a home" },
-  { value: "seller", label: "Sell a home" },
-  { value: "both", label: "Buy and sell" },
+const ROLE_CARDS: Array<{ value: Role; label: string; detail: string }> = [
+  { value: "buyer", label: "Buy a home", detail: "Publish demand sellers can find and invite." },
+  { value: "seller", label: "Sell a home", detail: "Search buyers and invite them privately." },
+  { value: "both", label: "Buy and sell", detail: "Use buyer and seller tools in one account." },
 ];
 
 type ValidationError = { field: "role" | "name" | "email" | "password"; message: string };
@@ -46,7 +46,6 @@ export function SignupWizard({ initialRole, initialEmail, initialFocus, initialS
   const initialFocusAppliedRef = useRef(false);
 
   const total = 2;
-  const progress = ((step + 1) / total) * 100;
 
   useEffect(() => {
     if (!initialFocusAppliedRef.current && initialFocus) {
@@ -130,22 +129,20 @@ export function SignupWizard({ initialRole, initialEmail, initialFocus, initialS
 
   return (
     <div className="signup-flow" data-signup-has-notice={notice ? "true" : undefined} data-signup-wizard>
-      <div
-        aria-label={`Step ${step + 1} of ${total}`}
-        aria-valuemax={total}
-        aria-valuemin={1}
-        aria-valuenow={step + 1}
-        className="signup-progress"
-        role="progressbar"
-      >
-        <div className="signup-progress-fill" data-signup-progress style={{ width: `${progress}%` }} />
-      </div>
+      <ol className="signup-steps" aria-label={`Step ${step + 1} of ${total}`}>
+        <li className={step === 0 ? "current" : "done"}>
+          {step > 0 ? <Icon name="check" size={12} /> : <span>1</span>}
+          <strong>Role</strong>
+        </li>
+        <li aria-current={step === 1 ? "step" : undefined} className={step === 1 ? "current" : undefined}>
+          <span>2</span>
+          <strong>Account</strong>
+        </li>
+      </ol>
 
       <form action={signupWithPassword} className="signup-form" data-signup-form onSubmit={handleSubmit}>
         <input name="next" type="hidden" value={next} />
         <input name="role" type="hidden" value={role} />
-
-        <SignupHeroIllustration />
 
         {notice ? (
           <div className={`auth-alert ${notice.tone}`} ref={noticeRef} role="alert" tabIndex={-1}>
@@ -155,9 +152,8 @@ export function SignupWizard({ initialRole, initialEmail, initialFocus, initialS
         ) : null}
 
         <section className="signup-pane" data-signup-pane hidden={step !== 0} aria-hidden={step !== 0}>
-          <p className="signup-eyebrow">Step 1 of {total}</p>
           <h1 className="signup-question">How will you use Liber?</h1>
-          <p className="signup-helper">Choose your path.</p>
+          <p className="signup-helper">Pick a starting role. This routes your first workspace.</p>
           <div className="signup-role-cards">
             {ROLE_CARDS.map((card) => {
               const selected = role === card.value;
@@ -171,9 +167,10 @@ export function SignupWizard({ initialRole, initialEmail, initialFocus, initialS
                   ref={(node) => { roleCardRefs.current[card.value] = node; }}
                   type="button"
                 >
-                  <SignupRoleIllustration role={card.value} />
+                  <SignupRoleIllustration motion="none" role={card.value} />
                   <span className="signup-role-text">
                     <strong>{card.label}</strong>
+                    <small>{card.detail}</small>
                   </span>
                   {selected ? (
                     <span className="signup-role-check">
@@ -187,9 +184,11 @@ export function SignupWizard({ initialRole, initialEmail, initialFocus, initialS
         </section>
 
         <section className="signup-pane" data-signup-pane hidden={step !== 1} aria-hidden={step !== 1}>
-          <p className="signup-eyebrow">Step 2 of {total}</p>
+          <SignupHeroIllustration motion="none" />
           <h1 className="signup-question">Create your account</h1>
-          <p className="signup-helper">Your name stays private. We&rsquo;ll verify your email.</p>
+          <p className="signup-helper">
+            Continuing as {roleLabel(role)}. Your name stays private; we&rsquo;ll verify your email.
+          </p>
           <div className="signup-account-fields">
             <label className="signup-field" htmlFor="name">
               <span className="signup-field-label">Name <small>Private</small></span>
@@ -278,6 +277,12 @@ function continueLabel(role: Role) {
   if (role === "seller") return "Continue as seller";
   if (role === "both") return "Continue with both";
   return "Continue as buyer";
+}
+
+function roleLabel(role: Role) {
+  if (role === "seller") return "a seller";
+  if (role === "both") return "buyer and seller";
+  return "a buyer";
 }
 
 function saveSignupDraft(draft: { email: string; name: string; role: Role }) {

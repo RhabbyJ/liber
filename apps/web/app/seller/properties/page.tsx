@@ -23,31 +23,14 @@ export default async function SellerPropertiesPage() {
           </Link>
         }
       >
-        Property records are required before sending an invite. They stay private and are only shared with the buyers you invite.
+        Add a property before inviting buyers. Records stay private until you invite.
       </PageTitle>
-
-      <section className="card cream stack">
-        <div className="section-head compact">
-          <div className="stack tight">
-            <p className="eyebrow amber">Privacy</p>
-            <h2 style={{ fontSize: 20 }}>Not a public listing</h2>
-          </div>
-          <span className="status-dot amber">
-            <Icon name="lock" size={12} />
-            Invite-only
-          </span>
-        </div>
-        <p>
-          Your property is not listed publicly anywhere on Liber. Address, asking price, photos, and ownership documents are
-          only shown to the buyer profiles you choose to invite — and ownership documents stay admin-private regardless.
-        </p>
-      </section>
 
       {properties.length === 0 ? (
         <EmptyState
           icon="home"
-          title="No private properties yet"
-          description="Add a property to send invites to matching buyers. Ownership documents are stored privately and reviewed by Liber admins."
+          title="No properties yet"
+          description="Add a property to invite matching buyers."
           actions={
             <Link className="button primary" href="/seller/properties/new">
               <Icon name="plus" size={14} />

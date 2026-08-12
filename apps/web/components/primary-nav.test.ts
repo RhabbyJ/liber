@@ -33,4 +33,10 @@ describe("primary navigation", () => {
     expect(dualRoleItems.filter((item) => item.href === "/messages")).toHaveLength(1);
     expect(primaryNavItems(true, ["ADMIN"], true).some((item) => item.href === "/messages")).toBe(false);
   });
+
+  it("shows private-preview test controls only when the server enables them", () => {
+    expect(primaryNavItems(true, ["BUYER"], false, true).map((item) => item.label)).toContain("Test controls");
+    expect(primaryNavItems(true, ["BUYER"], false, false).map((item) => item.label)).not.toContain("Test controls");
+    expect(primaryNavItems(false, [], false, true).map((item) => item.label)).not.toContain("Test controls");
+  });
 });

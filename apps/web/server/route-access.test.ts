@@ -18,4 +18,10 @@ describe("route access", () => {
     expect(requiresAuthenticatedUser("/negotiations-archive")).toBe(false);
     expect(requiredRoleForPath("/negotiations/00000000-0000-4000-8000-000000000001")).toBeNull();
   });
+
+  it("requires authentication for private-preview test controls without granting a role", () => {
+    expect(requiresAuthenticatedUser("/preview-tools")).toBe(true);
+    expect(requiredRoleForPath("/preview-tools")).toBeNull();
+    expect(requiresAuthenticatedUser("/preview-tools-archive")).toBe(false);
+  });
 });

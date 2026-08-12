@@ -50,6 +50,12 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - After auth, nav, or protected-route changes, run a focused browser auth pass covering signed-out CTAs, buyer signup/login/logout, buyer-to-seller intent, seller signup/access gating, both-role signup when supported, and mobile nav/logout.
 - Role-prefilled `For buyers` and `For sellers` acceptance must verify that Step 1 remains visible with the intended role preselected, and that Step 2 submits the unchanged name/email/password fields. Account-menu acceptance covers the stored avatar, `Your profile`, POST-only sign out, Escape/outside-close behavior, and the mobile equivalents.
 - Seller access acceptance covers approved full search, pending/rejected/missing-review privacy-safe lists, suspended seller blocking, absence of buyer IDs/profile/contact/invite links in preview cards, and continued 403 responses from the full seller API before approval.
+- CEO-preview test-control acceptance covers two-flag fail-closed visibility,
+  automatic session elevation to ADMIN plus seller-directory APPROVED,
+  current-user-only manual `/preview-tools` fallback, audit/notification
+  creation, idempotent repeat elevation, refusal of suspended seller access and
+  inactive accounts, and true-production readiness rejection of the flag plus
+  leftover preview admin/seller markers.
 - Homepage preview acceptance must cover a four-card guest maximum, a scoped
   sign-in return to the homepage, all eligible signed-in previews except the
   viewer's own profile, identical forbidden-field/privacy assertions for both

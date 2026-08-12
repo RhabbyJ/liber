@@ -43,7 +43,7 @@ describe("LOI editor and presentation registry", () => {
         costsAndCredits: {
           alternateClosingCostAllocation: "Buyer pays title; seller pays escrow.",
           customaryClosingCosts: false,
-          homeWarranty: { company: "Warranty Test", included: true, maximumCents: 75_00, payer: "OTHER", payerNote: "Split evenly." },
+          homeWarranty: { company: "Warranty Test", included: true, maximumCents: 75_00, payer: "OTHER", payerNote: "Split evenly.", specialInclusions: "" },
           sellerCreditCents: 50_00,
           sellerCreditNote: "Applied at closing.",
         },
@@ -55,7 +55,7 @@ describe("LOI editor and presentation registry", () => {
           escrow: { choice: "CUSTOM", company: { company: "Escrow Test", email: "escrow@example.test", name: "Agent One", phone: "555-0100" } },
           title: { choice: "CUSTOM", company: { company: "Title Test", email: "title@example.test", name: "Agent Two", phone: "555-0200" } },
         },
-        representation: { agent: { company: "Broker Test", email: "agent@example.test", name: "Agent Test", phone: "555-0300" }, buyerRepresented: true },
+        representation: { agent: { company: "Broker Test", email: "agent@example.test", license: "", name: "Agent Test", phone: "555-0300" }, buyerRepresented: true },
       },
       { ...cashTerms, possession: { daysAfterClosing: 3, type: "DAYS_AFTER_CLOSING" } },
       { ...cashTerms, possession: { estoppelRequired: true, note: "Tenant lease remains in place.", type: "TENANT_REMAINS" } },

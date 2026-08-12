@@ -60,6 +60,7 @@ checkPostgresUrl("DATABASE_URL", failures);
 checkPostgresUrl("DIRECT_URL", failures);
 checkEmailPair(warnings, failures);
 checkAutoConfirm(failures);
+checkPreviewSellerSelfApproval(failures);
 checkRateLimitPepper(productionMode ? failures : warnings);
 checkMinimumSecret("CRON_SECRET", 32, productionMode ? failures : warnings);
 checkSupabaseKeyClasses(failures);
@@ -180,6 +181,22 @@ function checkAutoConfirm(collection) {
   }
 }
 
+function checkPreviewSellerSelfApproval(collection) {
+  const value = env.LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL?.trim();
+  if (value && value !== "true" && value !== "false") {
+    collection.push("LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL must equal true or false when configured.");
+    return;
+  }
+  if (value !== "true") return;
+
+  if (env.LIBER_CEO_PREVIEW_TARGET !== "ceo-preview") {
+    collection.push("LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL requires LIBER_CEO_PREVIEW_TARGET=ceo-preview.");
+  }
+  if (productionMode) {
+    collection.push("LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL must be unset or false for true production readiness.");
+  }
+}
+
 function checkCanonicalSiteUrl(collection) {
   if (!hasValue("SITE_URL")) return;
 
@@ -275,6 +292,12 @@ function checkLoiRollout(collection) {
     collection.push("LIBER_LOI_V1_COHORT_USER_IDS is required when LOI V1 is enabled.");
     return;
   }
+  if (cohort === "*") {
+    if (productionMode) {
+      collection.push("LOI V1 production rollout must use exactly two explicit reviewed participant UUIDs, not '*'.");
+    }
+    return;
+  }
   const members = cohort.split(",").map((value) => value.trim());
   if (members.length !== 2
     || members.some((member) => !member)
@@ -346,6 +369,44 @@ async function checkProductionDependencies(collection) {
     if (migrationReadiness.databaseOnly.length > 0) {
       collection.push(
         `Database-only migrations are not present locally: ${migrationReadiness.databaseOnly.join(", ")}.`,
+      );
+    }
+    const previewSellerApprovals = await client.query(`
+      SELECT count(*)::int AS count
+      FROM public."SellerAccess" access
+      WHERE access.status = 'APPROVED'
+        AND access."reviewedByUserId" IS NULL
+        AND access."reviewedAt" IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM public."AdminAuditLog" audit
+          WHERE audit.action = 'seller_access_preview_self_approval'
+            AND audit."targetType" = 'user'
+            AND audit."targetId" = access."userId"::text
+        )
+    `);
+    const previewSellerApprovalCount = Number(previewSellerApprovals.rows[0]?.count ?? 0);
+    if (previewSellerApprovalCount > 0) {
+      collection.push(
+        `${previewSellerApprovalCount} seller access record(s) still rely on private-preview self-approval; complete a real admin review before production.`,
+      );
+    }
+    const previewAdminGrants = await client.query(`
+      SELECT count(*)::int AS count
+      FROM public."User" app_user
+      WHERE 'ADMIN'::public."UserRole" = ANY(app_user.roles)
+        AND EXISTS (
+          SELECT 1
+          FROM public."AdminAuditLog" audit
+          WHERE audit.action = 'admin_role_preview_self_grant'
+            AND audit."targetType" = 'user'
+            AND audit."targetId" = app_user.id::text
+        )
+    `);
+    const previewAdminGrantCount = Number(previewAdminGrants.rows[0]?.count ?? 0);
+    if (previewAdminGrantCount > 0) {
+      collection.push(
+        `${previewAdminGrantCount} user(s) still rely on private-preview admin self-grant; remove ADMIN or replace the preview marker before production.`,
       );
     }
     const geography = await client.query(`

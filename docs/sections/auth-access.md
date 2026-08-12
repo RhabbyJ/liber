@@ -10,6 +10,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - `apps/web/server/authz.ts`
 - `apps/web/server/access.ts`
 - `apps/web/server/auth-actions.ts`
+- `apps/web/server/ceo-preview.ts`
 - `apps/web/server/auth-identity.ts`
 - `apps/web/server/auth-rate-limit.ts`
 - `apps/web/server/shared-rate-limit.ts`
@@ -20,6 +21,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - `apps/web/app/auth/callback/route.ts`
 - `apps/web/app/login/page.tsx`
 - `apps/web/app/profile/page.tsx`
+- `apps/web/app/preview-tools/**`
 - `apps/web/app/signup/page.tsx`
 - `apps/web/app/messages/**`
 
@@ -28,7 +30,15 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Roles are not enough for full seller-directory access; `SellerAccess.status = APPROVED` is required for search, buyer-profile reads, and invites.
 - Active sellers with `PENDING` or `REJECTED` access may see only the signed-in privacy-safe preview DTO on `/seller/search`. Missing-review state uses the same fail-limited projection; `SUSPENDED` access receives no seller-route preview. This never relaxes the approved search/profile/invite gates.
 - Verified callbacks and successful password logins idempotently ensure a SELLER has an access row. A new row starts `PENDING`; an existing review status is preserved, and neither path can approve access.
-- Admin cannot be self-assigned through customer UI.
+- Admin cannot be self-assigned through ordinary customer signup or profile UI.
+- The only self-service exceptions are the server-gated CEO-preview elevations.
+  They require exact `ceo-preview` target and enablement values. While enabled,
+  every active signed-in session auto-receives `ADMIN`, and sellers
+  auto-receive non-suspended `APPROVED` directory access via
+  `ensureCeoPreviewDemoPrivileges` on session load. `/preview-tools` remains a
+  current-user-only manual fallback that writes the same distinct audit events.
+  True-production readiness rejects these markers. Neither path mutates another
+  user or restores `SUSPENDED` seller access.
 - Suspended users must not continue into protected workflows.
 - `/messages` and every conversation API require an active authenticated
   application user. Participant membership is checked server-side on every
@@ -42,7 +52,11 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Signup name is private account identity; do not treat it as seller/public buyer profile display.
 - Signup role selection may initialize only BUYER/SELLER roles from the validated server form after Supabase creates the Auth UUID and before the email-verification redirect; admin remains server-controlled.
 - Signup asks for buyer, seller, or both exactly once. The verified callback reads the persisted database roles and never displays a second role-selection page.
-- Signup uses two presentation steps: confirm buyer/seller intent, then enter the private name, email, and password fields. Role-prefilled entry still opens on Step 1 with the role visibly selected; field-level server-error recovery reopens Step 2.
+- Signup uses two presentation steps: confirm buyer/seller intent with outcome
+  microcopy on each role card, then enter the private name, email, and password
+  fields. A labeled Role → Account stepper replaces anonymous progress-only chrome.
+  Role-prefilled entry still opens on Step 1 with the role visibly selected;
+  field-level server-error recovery reopens Step 2.
 - Signed-in users should continue only when they already have the role needed for the requested path; a role mismatch returns them to their existing default workspace.
 - Auth routes must not use `/login`, `/signup`, `/signup/*`, `/auth/callback`, or the removed legacy `/onboarding/role` path as post-login destinations; resolve stale auth-flow `next` values to the user's role-aware default.
 - Auth POST redirects and same-origin checks must use `request-origin.ts` to keep the incoming request host/protocol and avoid local `127.0.0.1`/`localhost` CSP and cookie mismatches. Mutations accept an exact matching `Origin`, or `Sec-Fetch-Site: same-origin` only when `Origin` is absent; missing both signals fails closed.

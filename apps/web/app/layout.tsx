@@ -5,6 +5,7 @@ import { AccountMenu } from "../components/account-menu";
 import { Icon } from "../components/icon";
 import { PrimaryNav } from "../components/primary-nav";
 import { messagingV1NavigationEnabledForUser } from "../server/messaging/feature";
+import { ceoPreviewToolsEnabled } from "../server/ceo-preview";
 import { getSessionUser } from "../server/session";
 import "./globals.css";
 
@@ -19,6 +20,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const isAuthenticated = Boolean(user);
   const roles = user?.roles ?? [];
   const messagingEnabled = user ? messagingV1NavigationEnabledForUser(user.id) : false;
+  const previewToolsEnabled = ceoPreviewToolsEnabled();
 
   return (
     <html lang="en">
@@ -33,7 +35,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 <span className="brand-subtitle">Buyer Directory</span>
               </span>
             </Link>
-            <PrimaryNav isAuthenticated={isAuthenticated} messagingEnabled={messagingEnabled} roles={roles} />
+            <PrimaryNav
+              isAuthenticated={isAuthenticated}
+              messagingEnabled={messagingEnabled}
+              previewToolsEnabled={previewToolsEnabled}
+              roles={roles}
+            />
             <div className="top-actions">
               {isAuthenticated ? (
                 <>

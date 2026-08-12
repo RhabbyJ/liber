@@ -585,7 +585,7 @@ function representativeTerms() {
     costsAndCredits: {
       alternateClosingCostAllocation: "",
       customaryClosingCosts: true,
-      homeWarranty: { company: "", included: false, maximumCents: 0, payer: "SELLER", payerNote: "" },
+      homeWarranty: { company: "", included: false, maximumCents: 0, payer: "SELLER", payerNote: "", specialInclusions: "" },
       sellerCreditCents: 0,
       sellerCreditNote: "",
     },
@@ -605,7 +605,7 @@ function representativeTerms() {
     possession: { type: "AT_CLOSING" },
     providers: { escrow: { choice: "LIBER_PREFERRED" }, title: { choice: "LIBER_PREFERRED" } },
     purchasePriceCents: 100_000_000,
-    representation: { agent: { company: "", email: "", name: "", phone: "" }, buyerRepresented: false },
+    representation: { agent: { company: "", email: "", license: "", name: "", phone: "" }, buyerRepresented: false },
     schemaVersion: 1,
     timing: {
       appraisalContingencyDays: 17,

@@ -39,7 +39,7 @@ import { createLoiNegotiation, decideLoiRevision, discardLoiDraft, getLoiForConv
 
 const terms: LoiTermsV1 = {
   additionalTerms: { exclusions: "", proposedTerms: "" },
-  costsAndCredits: { alternateClosingCostAllocation: "", customaryClosingCosts: true, homeWarranty: { company: "", included: false, maximumCents: 0, payer: "SELLER", payerNote: "" }, sellerCreditCents: 0, sellerCreditNote: "" },
+  costsAndCredits: { alternateClosingCostAllocation: "", customaryClosingCosts: true, homeWarranty: { company: "", included: false, maximumCents: 0, payer: "SELLER", payerNote: "", specialInclusions: "" }, sellerCreditCents: 0, sellerCreditNote: "" },
   deposit: { basis: "PERCENT", percentageBps: 300 },
   funding: { type: "CASH" },
   hoa: { certificateFeePayer: "NOT_APPLICABLE", documentFeePayer: "NOT_APPLICABLE", transferFeePayer: "NOT_APPLICABLE" },
@@ -48,7 +48,7 @@ const terms: LoiTermsV1 = {
   possession: { type: "AT_CLOSING" },
   providers: { escrow: { choice: "LIBER_PREFERRED" }, title: { choice: "LIBER_PREFERRED" } },
   purchasePriceCents: 100_000_000,
-  representation: { agent: { company: "", email: "", name: "", phone: "" }, buyerRepresented: false },
+  representation: { agent: { company: "", email: "", license: "", name: "", phone: "" }, buyerRepresented: false },
   schemaVersion: 1,
   timing: { appraisalContingencyDays: 17, closingDays: 30, inspectionContingencyDays: 10, loanContingencyDays: null, sellerDisclosureReviewDays: 7, titleReviewDays: 7 },
 };

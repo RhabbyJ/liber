@@ -44,6 +44,8 @@ describe("signup wizard interaction ownership", () => {
 
     expect(wizard).toContain("SignupHeroIllustration");
     expect(wizard).toContain("SignupRoleIllustration");
+    expect(wizard).toContain("Publish demand sellers can find");
+    expect(wizard).toContain("signup-steps");
     expect(illustration).toContain('src="/images/flows/signup-hero-2d.webp"');
     expect(illustration).toContain("roleArtwork[role]");
     expect(illustration).not.toContain("<svg");

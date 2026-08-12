@@ -1592,17 +1592,69 @@ main {
   max-width: 760px;
 }
 
-.signup-progress {
-  background: var(--surface-muted);
-  border-radius: var(--r-pill);
-  height: 6px;
-  overflow: hidden;
+.signup-steps {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-.signup-progress-fill {
-  background: linear-gradient(90deg, var(--sage) 0%, var(--sage-strong) 100%);
-  height: 100%;
-  transition: width 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+.signup-steps li {
+  align-items: center;
+  color: var(--ink-soft);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 650;
+  gap: 8px;
+}
+
+.signup-steps li span,
+.signup-steps li .icon {
+  align-items: center;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink-muted);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  height: 24px;
+  justify-content: center;
+  min-width: 24px;
+  width: 24px;
+}
+
+.signup-steps li.current {
+  color: var(--ink-strong);
+}
+
+.signup-steps li.current span {
+  background: var(--sage-strong);
+  border-color: var(--sage-strong);
+  color: #fff;
+}
+
+.signup-steps li.done {
+  color: var(--sage-deep);
+}
+
+.signup-steps li.done .icon,
+.signup-steps li.done span {
+  background: var(--sage-tint);
+  border-color: var(--sage-line);
+  color: var(--sage-deep);
+}
+
+.signup-steps li + li::before {
+  background: var(--line);
+  content: "";
+  display: block;
+  height: 1px;
+  margin-right: 2px;
+  width: 28px;
 }
 
 .signup-form {
@@ -1615,7 +1667,7 @@ main {
   filter: drop-shadow(0 12px 18px rgba(36, 35, 38, 0.08));
   height: auto;
   margin: 0 auto 2px;
-  width: 190px;
+  width: 154px;
 }
 
 .signup-pane {
@@ -1626,16 +1678,6 @@ main {
 
 .signup-pane[hidden] {
   display: none !important;
-}
-
-.signup-eyebrow {
-  color: var(--sage-strong);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  margin: 0;
-  text-align: center;
-  text-transform: uppercase;
 }
 
 .signup-question {
@@ -1652,6 +1694,7 @@ main {
   font-size: 15px;
   line-height: 1.55;
   margin: 0;
+  max-width: 34rem;
   text-align: center;
 }
 
@@ -1678,21 +1721,19 @@ main {
 }
 
 .signup-field-label small {
-  color: var(--ink-muted);
+  color: var(--ink-soft);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 650;
 }
 
 .signup-input {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  color: var(--ink);
-  font-family: inherit;
-  font-size: 17px;
-  font-weight: 500;
-  padding: 16px 18px;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  border: 1.5px solid rgba(36, 35, 38, 0.12);
+  border-radius: 14px;
+  color: var(--ink-strong);
+  font: inherit;
+  min-height: 48px;
+  padding: 12px 14px;
   width: 100%;
 }
 
@@ -1704,7 +1745,7 @@ main {
 
 .signup-role-cards {
   display: grid;
-  gap: 16px;
+  gap: 14px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 7px;
   width: 100%;
@@ -1712,112 +1753,104 @@ main {
 
 .signup-role-card {
   align-items: center;
-  background:
-    radial-gradient(circle at 50% 10%, rgba(93, 194, 68, 0.09), transparent 42%),
-    var(--surface);
+  background: var(--surface);
   border: 1.5px solid rgba(36, 35, 38, 0.1);
-  border-radius: 20px;
-  box-shadow: 0 10px 26px rgba(36, 35, 38, 0.08);
+  border-radius: 18px;
+  box-shadow: var(--shadow-1);
   color: var(--ink-strong);
   cursor: pointer;
   display: grid;
   font-family: inherit;
-  gap: 12px;
-  grid-template-rows: 112px auto;
+  gap: 10px;
+  grid-template-rows: 96px auto;
   justify-items: center;
-  min-height: 196px;
-  padding: 22px 18px;
+  min-height: 188px;
+  padding: 18px 16px;
   position: relative;
   text-align: center;
-  transition: border-color 0.22s ease, transform 0.22s ease, background 0.22s ease, box-shadow 0.22s ease;
+  transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
   width: 100%;
 }
 
 .signup-role-card:hover {
   border-color: var(--sage-line);
-  box-shadow: 0 18px 38px rgba(36, 35, 38, 0.12);
-  transform: translateY(-5px);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
 }
 
 .signup-role-card:focus-visible {
   border-color: var(--sage-strong);
-  box-shadow: var(--focus-ring), 0 18px 38px rgba(36, 35, 38, 0.12);
+  box-shadow: var(--focus-ring), var(--shadow-2);
   outline: none;
-  transform: translateY(-2px);
 }
 
 .signup-role-card.selected {
-  background:
-    radial-gradient(circle at 50% 8%, rgba(93, 194, 68, 0.18), transparent 46%),
-    var(--sage-tint);
+  background: var(--sage-tint);
   border-color: var(--sage-strong);
-  box-shadow: 0 18px 38px rgba(69, 159, 48, 0.18);
+  box-shadow: var(--shadow-2);
 }
 
 .signup-role-art {
   align-items: center;
   color: var(--sage-strong);
   display: flex;
-  height: 112px;
+  height: 96px;
   justify-content: center;
-  width: 140px;
+  width: 120px;
 }
 
 .signup-role-illustration {
   border-radius: var(--r-sm);
-  filter: drop-shadow(0 7px 10px rgba(36, 35, 38, 0.08));
-  height: 104px;
+  height: 88px;
   object-fit: cover;
-  transition: filter 0.24s ease, transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
-  width: 104px;
+  width: 88px;
 }
 
 .signup-role-card:is(:hover, :focus-visible, .selected) .signup-role-illustration {
-  filter: saturate(1.04) drop-shadow(0 9px 12px rgba(36, 35, 38, 0.1));
-  transform: translateY(-2px) rotate(-1deg) scale(1.06);
-}
-
-.signup-role-card.selected .signup-role-art {
-  animation-duration: 4.4s;
+  transform: translateY(-1px) scale(1.03);
+  transition: transform 0.18s ease;
 }
 
 .signup-role-text {
   display: grid;
+  gap: 4px;
 }
 
 .signup-role-text strong {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
 }
 
+.signup-role-text small {
+  color: var(--ink-muted);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
 .signup-role-card[data-signup-role="both"] {
-  background:
-    radial-gradient(circle at 18% 50%, rgba(93, 194, 68, 0.1), transparent 30%),
-    var(--surface);
-  gap: 24px;
+  gap: 18px;
   grid-column: 1 / -1;
-  grid-template-columns: 132px 1fr;
+  grid-template-columns: 112px 1fr;
   grid-template-rows: 1fr;
   justify-items: start;
-  min-height: 132px;
-  padding: 16px 56px;
+  min-height: 112px;
+  padding: 16px 52px 16px 18px;
   text-align: left;
 }
 
-.signup-role-card[data-signup-role="both"].selected {
-  background:
-    radial-gradient(circle at 18% 50%, rgba(93, 194, 68, 0.2), transparent 34%),
-    var(--sage-tint);
-}
-
 .signup-role-card[data-signup-role="both"] .signup-role-art {
-  height: 96px;
-  width: 112px;
+  height: 88px;
+  width: 104px;
 }
 
 .signup-role-card[data-signup-role="both"] .signup-role-illustration {
-  height: 86px;
-  width: 86px;
+  height: 80px;
+  width: 80px;
+}
+
+.signup-role-card[data-signup-role="both"] .signup-role-text {
+  align-content: center;
 }
 
 .signup-role-check {
@@ -1827,12 +1860,12 @@ main {
   color: #fff;
   display: inline-flex;
   flex-shrink: 0;
-  height: 24px;
+  height: 28px;
   justify-content: center;
   position: absolute;
-  right: 10px;
-  top: 10px;
-  width: 24px;
+  right: 12px;
+  top: 12px;
+  width: 28px;
 }
 
 .signup-error {
@@ -1916,10 +1949,6 @@ main {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .signup-progress-fill {
-    transition: none !important;
-  }
-
   .signup-role-card {
     transition: none !important;
   }

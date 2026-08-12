@@ -205,8 +205,8 @@ durations use bounded integer days or months. The maximum monetary value is
 | Deposit | Percentage basis in basis points or a fixed amount in cents |
 | Timing | Closing, inspection, disclosure, title, optional appraisal, and optional loan-contingency durations |
 | Possession | At closing, positive days after closing, seller rent-back, tenant remains, or described other terms |
-| Representation | Buyer-represented flag and conditional agent contact |
-| Providers and costs | Proposed escrow/title choices, seller credit/note, customary or alternate cost allocation, and optional warranty |
+| Representation | Buyer-represented flag and conditional agent contact, including optional license number |
+| Providers and costs | Proposed escrow/title choices, seller credit/note, customary or alternate cost allocation, and optional warranty with special inclusions |
 | HOA and personal property | HOA fee-payer choices, conditional included-item list, and excluded items |
 | Additional terms | Proposed terms and explicit exclusions |
 

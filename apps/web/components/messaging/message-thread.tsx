@@ -751,7 +751,6 @@ export function MessageThread({
             <section className="card sage stack tight">
               <p className="eyebrow">LOI workspace</p>
               <h2>{loiStatusLabel(loi.status)}</h2>
-              <p className="muted small">Prepare and align proposed terms separately from chat. This is not a signature, contract, escrow instruction, or payment request.</p>
               {loi.id ? (
                 <Link className="button primary" href={`/negotiations/${encodeURIComponent(loi.id)}`}>Open LOI</Link>
               ) : loi.canCreate ? (
@@ -775,16 +774,8 @@ export function MessageThread({
             ) : null}
             <PrivatePropertyImages imageIds={thread.propertySnapshot.imageIds} />
             {!thread.propertySnapshot.identityCurrent ? (
-              <div className="auth-alert info">
-                This thread preserves the property identity shared with the invite. A newer property version is not shown here.
-              </div>
+              <p className="muted small">Showing the property version shared with this invite.</p>
             ) : null}
-          </section>
-          <section className="card flat stack tight">
-            <p className="eyebrow">Manual invite</p>
-            <p className="muted small">
-              This conversation does not create an offer, contract, escrow instruction, or payment request.
-            </p>
           </section>
         </aside>
       </div>
