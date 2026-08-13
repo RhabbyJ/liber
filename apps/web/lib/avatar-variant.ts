@@ -49,6 +49,10 @@ export function resolveAvatarVariant(value: string | null | undefined, seed: str
   };
 }
 
+export function avatarVariantOptions() {
+  return avatarSalts.map((salt) => `${avatarProvider}:${avatarTheme}:${salt}`);
+}
+
 export function randomAvatarVariant(exclude?: string | null) {
   const normalizedExclude = normalizeAvatarVariant(exclude);
   const options = avatarSalts.map((salt) => `${avatarProvider}:${avatarTheme}:${salt}`);

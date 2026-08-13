@@ -54,7 +54,7 @@ export default async function HomePage({
     <div className="map-landing">
       <section className="map-search-rail" aria-label="Buyer demand preview controls">
         <div className="map-search-intro">
-          <span>Buyer demand map</span>
+          <span>MAP</span>
           <strong>See where buyers are looking</strong>
         </div>
         <PublicMapLocationSearch defaultArea={selectedAreaLabel} marketSlug={market.slug} />

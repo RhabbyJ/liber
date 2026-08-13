@@ -4,8 +4,10 @@ import {
   calculateLoiSummary,
   LOI_CALCULATION_VERSION,
   LOI_SCHEMA_VERSION,
+  LOI_STANDARD_DEPOSIT_BPS,
   loiComputedSummaryV1Schema,
   loiNegotiationIdSchema,
+  parseLoiEditableTerms,
   loiTermsV1Schema,
   type LoiTermsV1,
 } from "@liber/validators";
@@ -186,7 +188,8 @@ export async function saveLoiDraft(input: { expectedDraftVersion: number; expect
   await rateLimit(user.id, "loi-draft", 120, 3600);
   const saved = await withNegotiation(input.negotiationId, user.id, async (tx, access, role) => {
     await assertCanDraft(tx, access, role, input.expectedSequence);
-    const normalized = loiTermsV1Schema.parse(input.terms);
+    const incoming = parseLoiEditableTerms(input.terms);
+    const normalized = access.current_sequence === 0 ? incoming : mergeLoiCounterTerms(await loadCurrentTerms(tx, access), incoming);
     const summary = calculateLoiSummary(normalized);
     const [existing] = await tx.$queryRaw<Array<{ draftVersion: number }>>`
       SELECT "draftVersion" FROM public."LoiDraft"
@@ -243,7 +246,8 @@ export async function submitLoiRevision(input: { clientActionId: string; expecte
     if (deadline.getTime() < now + 60 * 60 * 1000 || deadline.getTime() > now + 30 * 86_400_000) throw new LoiError("INVALID_INPUT", "Response deadline is outside the allowed range.", 400);
     const draft = await tx.loiDraft.findUnique({ where: { negotiationId_ownerUserId: { negotiationId: input.negotiationId, ownerUserId: user.id } } });
     if (!draft || draft.id !== input.expectedDraftId || draft.draftVersion !== input.expectedDraftVersion || draft.basedOnSequence !== input.expectedSequence) throw loiConflict("Draft changed before submission.");
-    const terms = loiTermsV1Schema.parse(draft.terms);
+    const terms = parseLoiEditableTerms(draft.terms);
+    if (terms.funding.type === "FINANCED") await assertBuyerFinancingEvidence(tx, access.buyer_user_id);
     const summary = calculateLoiSummary(terms);
     const draftFingerprint = fingerprint({
       draftId: draft.id,
@@ -361,6 +365,32 @@ async function assertCanDraft(tx: Tx, access: Access, role: Role, expectedSequen
 
 function assertCanStart(access: Access) {
   if (!canStartNegotiation(access)) throw loiUnavailable();
+}
+
+async function assertBuyerFinancingEvidence(tx: Tx, buyerUserId: string) {
+  const [row] = await tx.$queryRaw<Array<{ ok: boolean }>>`
+    SELECT (
+      EXISTS (
+        SELECT 1
+        FROM public."BuyerProfile" profile
+        JOIN public."BuyerBadge" badge ON badge."buyerProfileId" = profile.id
+        WHERE profile."userId" = ${buyerUserId}::uuid
+          AND badge."badgeType" = 'PRE_APPROVED'::public."BadgeType"
+          AND badge.status = 'ACTIVE'::public."BadgeStatus"
+          AND (badge."expiresAt" IS NULL OR badge."expiresAt" > now())
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public."VerificationDocument" document
+        WHERE document."userId" = ${buyerUserId}::uuid
+          AND document."documentType" = 'PRE_APPROVAL'::public."DocumentType"
+          AND document."reviewStatus" IN ('PENDING'::public."DocumentStatus", 'APPROVED'::public."DocumentStatus")
+      )
+    ) AS ok
+  `;
+  if (!row?.ok) {
+    throw new LoiError("INVALID_INPUT", "Financed terms need a pre-approval badge or an uploaded pre-approval letter.", 400);
+  }
 }
 
 async function freezeLoiNegotiation(tx: Tx, access: Access) {
@@ -585,18 +615,19 @@ function starterTerms(access: Access): LoiTermsV1 | null {
   const purchasePriceCents = snapshotPriceCents(access.property_snapshot);
   const buyerLegalName = access.buyer_name?.trim();
   if (!buyerLegalName || purchasePriceCents === null) return null;
-  const parsed = loiTermsV1Schema.safeParse({
+    const parsed = loiTermsV1Schema.safeParse({
     additionalTerms: { exclusions: "", proposedTerms: "" },
     costsAndCredits: { alternateClosingCostAllocation: "", customaryClosingCosts: true, homeWarranty: { company: "", included: false, maximumCents: 0, payer: "SELLER", payerNote: "", specialInclusions: "" }, sellerCreditCents: 0, sellerCreditNote: "" },
-    deposit: { basis: "PERCENT", percentageBps: 300 },
+    deposit: { basis: "PERCENT", percentageBps: LOI_STANDARD_DEPOSIT_BPS },
+    disclosures: { condition: "", conditionsOfSale: "", deathOnProperty: "UNKNOWN" },
     funding: { type: "CASH" },
     hoa: { certificateFeePayer: "NOT_APPLICABLE", documentFeePayer: "NOT_APPLICABLE", transferFeePayer: "NOT_APPLICABLE" },
     parties: { buyerContact: { company: "", email: access.buyer_email, name: buyerLegalName, phone: "" }, buyerLegalName, vestingNote: "" },
-    personalProperty: { excludedItems: "", included: false, includedItems: [] },
+    personalProperty: { excludedItems: "", included: false, includedItems: [], payer: "SELLER" },
     possession: { type: "AT_CLOSING" },
-    providers: { escrow: { choice: "LIBER_PREFERRED" }, title: { choice: "LIBER_PREFERRED" } },
+    providers: { escrow: { choice: "LIBER_PREFERRED", feePayer: "SELLER" }, title: { choice: "LIBER_PREFERRED" } },
     purchasePriceCents,
-    representation: { agent: { company: "", email: "", license: "", name: "", phone: "" }, buyerRepresented: false },
+    representation: { agent: { company: "", email: "", license: "", name: "", phone: "" }, buyerRepresented: false, commissionAmount: "", commissionPayer: null },
     schemaVersion: LOI_SCHEMA_VERSION,
     timing: { appraisalContingencyDays: 17, closingDays: 30, inspectionContingencyDays: 10, loanContingencyDays: null, sellerDisclosureReviewDays: 7, titleReviewDays: 7 },
   });
@@ -619,4 +650,45 @@ function decodeTerms(version: number, value: unknown) {
 function decodeSummary(version: number, value: unknown) {
   if (version !== LOI_CALCULATION_VERSION) throw loiUnavailable();
   return loiComputedSummaryV1Schema.parse(value);
+}
+
+async function loadCurrentTerms(tx: Tx, access: Access) {
+  if (!access.current_revision_id) throw loiUnavailable();
+  const revision = await tx.loiRevision.findUnique({
+    where: { id: access.current_revision_id },
+    select: { schemaVersion: true, terms: true },
+  });
+  if (!revision) throw loiUnavailable();
+  return decodeTerms(revision.schemaVersion, revision.terms);
+}
+
+function mergeLoiCounterTerms(base: LoiTermsV1, next: LoiTermsV1): LoiTermsV1 {
+  return parseLoiEditableTerms({
+    ...base,
+    costsAndCredits: {
+      ...base.costsAndCredits,
+      alternateClosingCostAllocation: next.costsAndCredits.alternateClosingCostAllocation,
+      customaryClosingCosts: next.costsAndCredits.customaryClosingCosts,
+      homeWarranty: {
+        ...base.costsAndCredits.homeWarranty,
+        maximumCents: next.costsAndCredits.homeWarranty.maximumCents,
+        payer: next.costsAndCredits.homeWarranty.payer,
+        payerNote: next.costsAndCredits.homeWarranty.payerNote,
+      },
+      sellerCreditCents: next.costsAndCredits.sellerCreditCents,
+      sellerCreditNote: next.costsAndCredits.sellerCreditNote,
+    },
+    deposit: { basis: "PERCENT", percentageBps: LOI_STANDARD_DEPOSIT_BPS },
+    disclosures: next.disclosures,
+    personalProperty: next.personalProperty,
+    possession: next.possession,
+    providers: { escrow: next.providers.escrow, title: base.providers.title },
+    purchasePriceCents: next.purchasePriceCents,
+    representation: {
+      ...base.representation,
+      commissionAmount: next.representation.commissionAmount,
+      commissionPayer: next.representation.commissionPayer,
+    },
+    timing: next.timing,
+  });
 }

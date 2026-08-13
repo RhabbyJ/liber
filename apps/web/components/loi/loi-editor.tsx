@@ -1,26 +1,44 @@
 "use client";
 
-import { LOI_MAX_PRICE_CENTS, type LoiTermsV1 } from "@liber/validators";
+import { LOI_MAX_ESCROW_DAYS, LOI_MAX_PRICE_CENTS, LOI_STANDARD_DEPOSIT_BPS, calculateLoiPreview, type LoiTermsV1 } from "@liber/validators";
 import { useEffect, useRef, useState } from "react";
 
 export type LoiTermsUpdater = (fieldPath: string, next: (terms: LoiTermsV1) => LoiTermsV1) => void;
 
 export function LoiEditor({
   fieldErrors,
+  mode = "INITIAL",
   terms,
   update,
 }: {
   fieldErrors: Record<string, string>;
+  mode?: "COUNTER" | "INITIAL";
   terms: LoiTermsV1;
   update: LoiTermsUpdater;
 }) {
+  const counter = mode === "COUNTER";
   const financed = terms.funding.type === "FINANCED" ? terms.funding : null;
   const sellerFinanced = terms.funding.type === "SELLER_FINANCING" ? terms.funding : null;
+
+  useEffect(() => {
+    if (terms.deposit.basis === "PERCENT" && terms.deposit.percentageBps === LOI_STANDARD_DEPOSIT_BPS) return;
+    update("deposit", (value) => ({ ...value, deposit: { basis: "PERCENT", percentageBps: LOI_STANDARD_DEPOSIT_BPS } }));
+  }, [terms.deposit, update]);
+
+  useEffect(() => {
+    if (terms.possession.type !== "SELLER_RENT_BACK") return;
+    if (terms.possession.frequency === "THROUGH_ESCROW" || terms.possession.frequency === "MONTHLY") return;
+    update("possession.frequency", (value) => value.possession.type === "SELLER_RENT_BACK"
+      ? { ...value, possession: { ...value.possession, frequency: "THROUGH_ESCROW" } }
+      : value);
+  }, [terms.possession, update]);
 
   return (
     <form className="stack" id="loi-editor" onSubmit={(event) => event.preventDefault()}>
       <section className="card stack" aria-labelledby="loi-section-parties">
         <h2 id="loi-section-parties">1. Parties</h2>
+        {counter ? <p className="small">Counters keep party details from the current version.</p> : null}
+        <fieldset className="loi-lock stack" disabled={counter}>
         <TextField
           error={fieldErrors["parties.buyerLegalName"]}
           id="loi-legal-name"
@@ -47,6 +65,7 @@ export function LoiEditor({
           path="parties.buyerContact"
           value={terms.parties.buyerContact}
         />
+        </fieldset>
       </section>
 
       <section className="card stack" aria-labelledby="loi-section-funding">
@@ -67,6 +86,7 @@ export function LoiEditor({
             return { ...value, funding, purchasePriceCents };
           })}
         />
+        <fieldset className="loi-lock stack" disabled={counter}>
         <SelectField
           error={fieldErrors["funding.type"]}
           id="loi-funding"
@@ -111,6 +131,7 @@ export function LoiEditor({
               path="funding.lender"
               value={financed.lender}
             />
+            <p className="small">Financed terms need a pre-approval badge or an uploaded pre-approval letter before submit.</p>
             <TextField
               error={fieldErrors["funding.note"]}
               id="loi-loan-note"
@@ -204,43 +225,22 @@ export function LoiEditor({
             />
           </div>
         ) : null}
+        </fieldset>
       </section>
 
       <section className="card stack" aria-labelledby="loi-section-deposit">
         <h2 id="loi-section-deposit">3. Earnest-money deposit</h2>
-        <p className="small">Defaults to 3% of the offer price. You can switch to a fixed amount.</p>
-        <SelectField
-          error={fieldErrors["deposit.basis"]}
-          id="loi-deposit-basis"
-          label="Earnest-money basis"
-          onChange={(basis) => update("deposit.basis", (value) => ({ ...value, deposit: basis === "FIXED" ? { amountCents: 0, basis: "FIXED" } : { basis: "PERCENT", percentageBps: 300 } }))}
-          options={[["PERCENT", "Percentage"], ["FIXED", "Fixed amount"]]}
-          value={terms.deposit.basis}
-        />
-        {terms.deposit.basis === "PERCENT" ? (
-          <PercentageField
-            basisPoints={terms.deposit.percentageBps}
-            error={fieldErrors["deposit.percentageBps"]}
-            id="loi-deposit-percent"
-            label="Earnest-money percentage"
-            maxBasisPoints={10_000}
-            onChange={(percentageBps) => update("deposit.percentageBps", (value) => ({ ...value, deposit: { basis: "PERCENT", percentageBps } }))}
-          />
-        ) : (
-          <MoneyField
-            cents={terms.deposit.amountCents}
-            error={fieldErrors["deposit.amountCents"]}
-            id="loi-deposit-fixed"
-            label="Earnest-money amount"
-            onChange={(amountCents) => update("deposit.amountCents", (value) => ({ ...value, deposit: { amountCents, basis: "FIXED" } }))}
-          />
-        )}
+        <p className="small">Set at 3% of the offer price and calculated automatically.</p>
+        <p id="loi-deposit-percent">
+          <strong>{formatDepositPreview(terms)}</strong>
+          <span className="small"> {LOI_STANDARD_DEPOSIT_BPS / 100}% of {formatDepositPrice(terms.purchasePriceCents)}</span>
+        </p>
       </section>
 
       <section className="card stack" aria-labelledby="loi-section-timing">
         <h2 id="loi-section-timing">4. Timing and contingencies</h2>
         <div className="grid two">
-          <NumberField error={fieldErrors["timing.closingDays"]} id="loi-closing" label="Escrow / closing days" min={1} onChange={(closingDays) => update("timing.closingDays", (value) => ({ ...value, timing: { ...value.timing, closingDays } }))} value={terms.timing.closingDays} />
+          <NumberField error={fieldErrors["timing.closingDays"]} id="loi-closing" label="Escrow / closing days" max={LOI_MAX_ESCROW_DAYS} min={1} onChange={(closingDays) => update("timing.closingDays", (value) => ({ ...value, timing: { ...value.timing, closingDays: Math.min(Math.max(closingDays, 1), LOI_MAX_ESCROW_DAYS) } }))} value={terms.timing.closingDays} />
           <NumberField error={fieldErrors["timing.inspectionContingencyDays"]} id="loi-inspection" label="Physical inspection days" min={0} onChange={(inspectionContingencyDays) => update("timing.inspectionContingencyDays", (value) => ({ ...value, timing: { ...value.timing, inspectionContingencyDays } }))} value={terms.timing.inspectionContingencyDays} />
           <NumberField error={fieldErrors["timing.sellerDisclosureReviewDays"]} id="loi-disclosure" label="Disclosure review days" min={0} onChange={(sellerDisclosureReviewDays) => update("timing.sellerDisclosureReviewDays", (value) => ({ ...value, timing: { ...value.timing, sellerDisclosureReviewDays } }))} value={terms.timing.sellerDisclosureReviewDays} />
           <NumberField error={fieldErrors["timing.titleReviewDays"]} id="loi-title-review" label="Title review days" min={0} onChange={(titleReviewDays) => update("timing.titleReviewDays", (value) => ({ ...value, timing: { ...value.timing, titleReviewDays } }))} value={terms.timing.titleReviewDays} />
@@ -264,7 +264,7 @@ export function LoiEditor({
           <div className="grid three">
             <NumberField error={fieldErrors["possession.days"]} id="loi-rentback-days" label="Rent-back days" min={1} onChange={(days) => update("possession.days", (value) => value.possession.type === "SELLER_RENT_BACK" ? { ...value, possession: { ...value.possession, days } } : value)} value={terms.possession.days} />
             <MoneyField cents={terms.possession.amountCents} error={fieldErrors["possession.amountCents"]} id="loi-rentback-amount" label="Rent-back amount" onChange={(amountCents) => update("possession.amountCents", (value) => value.possession.type === "SELLER_RENT_BACK" ? { ...value, possession: { ...value.possession, amountCents } } : value)} />
-            <SelectField error={fieldErrors["possession.frequency"]} id="loi-rentback-frequency" label="Payment frequency" onChange={(frequency) => update("possession.frequency", (value) => value.possession.type === "SELLER_RENT_BACK" ? { ...value, possession: { ...value.possession, frequency: frequency as "DAILY" | "WEEKLY" | "MONTHLY" } } : value)} options={[["DAILY", "Daily"], ["WEEKLY", "Weekly"], ["MONTHLY", "Monthly"]]} value={terms.possession.frequency} />
+            <SelectField error={fieldErrors["possession.frequency"]} id="loi-rentback-frequency" label="Payment frequency" onChange={(frequency) => update("possession.frequency", (value) => value.possession.type === "SELLER_RENT_BACK" ? { ...value, possession: { ...value.possession, frequency: frequency as "THROUGH_ESCROW" | "MONTHLY" | "DAILY" | "WEEKLY" } } : value)} options={rentbackFrequencyOptions(terms.possession.frequency)} value={terms.possession.frequency} />
           </div>
         ) : null}
         {terms.possession.type === "TENANT_REMAINS" ? (
@@ -275,47 +275,85 @@ export function LoiEditor({
         ) : null}
         {terms.possession.type === "OTHER" ? <TextField error={fieldErrors["possession.note"]} id="loi-possession-note" label="Other possession terms" maxLength={1000} onChange={(note) => update("possession.note", (value) => ({ ...value, possession: { note, type: "OTHER" } }))} required value={terms.possession.note} /> : null}
 
-        <CheckboxField
-          checked={terms.representation.buyerRepresented}
-          error={fieldErrors["representation.buyerRepresented"]}
-          id="loi-buyer-represented"
-          label="Will you be using an agent?"
-          onChange={(buyerRepresented) => update("representation.buyerRepresented", (value) => ({ ...value, representation: { agent: buyerRepresented ? value.representation.agent : emptyAgent(), buyerRepresented } }))}
-        />
+        <fieldset className="loi-lock stack" disabled={counter}>
+          <CheckboxField
+            checked={terms.representation.buyerRepresented}
+            error={fieldErrors["representation.buyerRepresented"]}
+            id="loi-buyer-represented"
+            label="Will you be using an agent?"
+            onChange={(buyerRepresented) => update("representation.buyerRepresented", (value) => ({
+              ...value,
+              representation: {
+                agent: buyerRepresented ? value.representation.agent : emptyAgent(),
+                buyerRepresented,
+                commissionAmount: buyerRepresented ? value.representation.commissionAmount : "",
+                commissionPayer: buyerRepresented ? value.representation.commissionPayer : null,
+              },
+            }))}
+          />
+          {terms.representation.buyerRepresented ? (
+            <>
+              <ContactFields
+                errors={fieldErrors}
+                id="loi-agent"
+                label="Buyer agent"
+                onChange={(agent) => update("representation.agent", (value) => ({
+                  ...value,
+                  representation: {
+                    ...value.representation,
+                    agent: { ...agent, license: value.representation.agent.license },
+                  },
+                }))}
+                path="representation.agent"
+                value={terms.representation.agent}
+              />
+              <TextField
+                error={fieldErrors["representation.agent.license"]}
+                id="loi-agent-license"
+                label="Agent license #"
+                maxLength={40}
+                onChange={(license) => update("representation.agent.license", (value) => ({ ...value, representation: { ...value.representation, agent: { ...value.representation.agent, license } } }))}
+                value={terms.representation.agent.license}
+              />
+            </>
+          ) : null}
+        </fieldset>
         {terms.representation.buyerRepresented ? (
-          <>
-            <ContactFields
-              errors={fieldErrors}
-              id="loi-agent"
-              label="Buyer agent"
-              onChange={(agent) => update("representation.agent", (value) => ({
+          <div className="grid two">
+            <TextField
+              error={fieldErrors["representation.commissionAmount"]}
+              id="loi-agent-commission"
+              label="Commission amount ($ or % of sales price)"
+              maxLength={80}
+              onChange={(commissionAmount) => update("representation.commissionAmount", (value) => ({ ...value, representation: { ...value.representation, commissionAmount } }))}
+              required
+              value={terms.representation.commissionAmount}
+            />
+            <SelectField
+              error={fieldErrors["representation.commissionPayer"]}
+              id="loi-agent-commission-payer"
+              label="Who pays agent commission"
+              onChange={(commissionPayer) => update("representation.commissionPayer", (value) => ({
                 ...value,
                 representation: {
                   ...value.representation,
-                  agent: { ...agent, license: value.representation.agent.license },
+                  commissionPayer: commissionPayer === "BUYER" || commissionPayer === "SELLER" ? commissionPayer : null,
                 },
               }))}
-              path="representation.agent"
-              value={terms.representation.agent}
+              options={[["", "Select who pays"], ["SELLER", "Seller"], ["BUYER", "Buyer"]]}
+              value={terms.representation.commissionPayer ?? ""}
             />
-            <TextField
-              error={fieldErrors["representation.agent.license"]}
-              id="loi-agent-license"
-              label="Agent license #"
-              maxLength={40}
-              onChange={(license) => update("representation.agent.license", (value) => ({ ...value, representation: { ...value.representation, agent: { ...value.representation.agent, license } } }))}
-              value={terms.representation.agent.license}
-            />
-            <p className="small">Agent commission amount and payer are not collected in this LOI version. Those terms stay for the formal purchase agreement.</p>
-          </>
+          </div>
         ) : null}
       </section>
 
       <section className="card stack" aria-labelledby="loi-section-costs">
         <h2 id="loi-section-costs">6. Escrow, title, warranty, and costs</h2>
         <div className="grid two">
-          <ProviderField errors={fieldErrors} kind="escrow" label="Proposed escrow provider" onChange={(escrow) => update("providers.escrow", (value) => ({ ...value, providers: { ...value.providers, escrow } }))} value={terms.providers.escrow} />
-          <ProviderField errors={fieldErrors} kind="title" label="Proposed title provider" onChange={(title) => update("providers.title", (value) => ({ ...value, providers: { ...value.providers, title } }))} value={terms.providers.title} />
+          <ProviderField errors={fieldErrors} kind="escrow" label="Proposed escrow provider" onChange={(escrow) => update("providers.escrow", (value) => ({ ...value, providers: { ...value.providers, escrow: escrow as LoiTermsV1["providers"]["escrow"] } }))} value={terms.providers.escrow} />
+          <fieldset className="loi-lock" disabled={counter}>
+            <ProviderField errors={fieldErrors} kind="title" label="Proposed title provider" onChange={(title) => update("providers.title", (value) => ({ ...value, providers: { ...value.providers, title: title as LoiTermsV1["providers"]["title"] } }))} value={terms.providers.title} />
+          </fieldset>
         </div>
         <MoneyField cents={terms.costsAndCredits.sellerCreditCents} error={fieldErrors["costsAndCredits.sellerCreditCents"]} id="loi-credit" label="Seller credit" onChange={(sellerCreditCents) => update("costsAndCredits.sellerCreditCents", (value) => ({ ...value, costsAndCredits: { ...value.costsAndCredits, sellerCreditCents } }))} />
         <TextField error={fieldErrors["costsAndCredits.sellerCreditNote"]} id="loi-credit-note" label="Seller credit note" maxLength={500} onChange={(sellerCreditNote) => update("costsAndCredits.sellerCreditNote", (value) => ({ ...value, costsAndCredits: { ...value.costsAndCredits, sellerCreditNote } }))} value={terms.costsAndCredits.sellerCreditNote} />
@@ -323,7 +361,7 @@ export function LoiEditor({
           checked={terms.costsAndCredits.customaryClosingCosts}
           error={fieldErrors["costsAndCredits.customaryClosingCosts"]}
           id="loi-customary-costs"
-          label="Use customary closing-cost allocation"
+          label="Recommend customary closing-cost allocation"
           onChange={(customaryClosingCosts) => update("costsAndCredits.customaryClosingCosts", (value) => ({
             ...value,
             costsAndCredits: {
@@ -333,7 +371,9 @@ export function LoiEditor({
             },
           }))}
         />
+        <p className="small">Recommended. Uncheck only if you need a different city/county tax or retrofit allocation.</p>
         {!terms.costsAndCredits.customaryClosingCosts ? <TextField error={fieldErrors["costsAndCredits.alternateClosingCostAllocation"]} id="loi-alternate-costs" label="Alternate closing-cost allocation" maxLength={1000} onChange={(alternateClosingCostAllocation) => update("costsAndCredits.alternateClosingCostAllocation", (value) => ({ ...value, costsAndCredits: { ...value.costsAndCredits, alternateClosingCostAllocation } }))} required value={terms.costsAndCredits.alternateClosingCostAllocation} /> : null}
+        <fieldset className="loi-lock" disabled={counter}>
         <CheckboxField
           checked={terms.costsAndCredits.homeWarranty.included}
           error={fieldErrors["costsAndCredits.homeWarranty.included"]}
@@ -349,10 +389,13 @@ export function LoiEditor({
             },
           }))}
         />
+        </fieldset>
         {terms.costsAndCredits.homeWarranty.included ? (
           <div className="stack">
             <div className="grid three">
-              <TextField error={fieldErrors["costsAndCredits.homeWarranty.company"]} id="loi-warranty-company" label="Warranty company" maxLength={160} onChange={(company) => update("costsAndCredits.homeWarranty.company", (value) => ({ ...value, costsAndCredits: { ...value.costsAndCredits, homeWarranty: { ...value.costsAndCredits.homeWarranty, company } } }))} required value={terms.costsAndCredits.homeWarranty.company} />
+              <fieldset className="loi-lock" disabled={counter}>
+                <TextField error={fieldErrors["costsAndCredits.homeWarranty.company"]} id="loi-warranty-company" label="Warranty company" maxLength={160} onChange={(company) => update("costsAndCredits.homeWarranty.company", (value) => ({ ...value, costsAndCredits: { ...value.costsAndCredits, homeWarranty: { ...value.costsAndCredits.homeWarranty, company } } }))} required value={terms.costsAndCredits.homeWarranty.company} />
+              </fieldset>
               <MoneyField cents={terms.costsAndCredits.homeWarranty.maximumCents} error={fieldErrors["costsAndCredits.homeWarranty.maximumCents"]} id="loi-warranty-max" label="Warranty maximum" minCents={1} onChange={(maximumCents) => update("costsAndCredits.homeWarranty.maximumCents", (value) => ({ ...value, costsAndCredits: { ...value.costsAndCredits, homeWarranty: { ...value.costsAndCredits.homeWarranty, maximumCents } } }))} />
               <SelectField
                 error={fieldErrors["costsAndCredits.homeWarranty.payer"]}
@@ -363,6 +406,7 @@ export function LoiEditor({
                 value={terms.costsAndCredits.homeWarranty.payer}
               />
             </div>
+            <fieldset className="loi-lock" disabled={counter}>
             <TextField
               error={fieldErrors["costsAndCredits.homeWarranty.specialInclusions"]}
               id="loi-warranty-inclusions"
@@ -371,6 +415,7 @@ export function LoiEditor({
               onChange={(specialInclusions) => update("costsAndCredits.homeWarranty.specialInclusions", (value) => ({ ...value, costsAndCredits: { ...value.costsAndCredits, homeWarranty: { ...value.costsAndCredits.homeWarranty, specialInclusions } } }))}
               value={terms.costsAndCredits.homeWarranty.specialInclusions}
             />
+            </fieldset>
             {terms.costsAndCredits.homeWarranty.payer === "OTHER" ? <TextField error={fieldErrors["costsAndCredits.homeWarranty.payerNote"]} id="loi-warranty-payer-note" label="Warranty cost-allocation note" maxLength={500} onChange={(payerNote) => update("costsAndCredits.homeWarranty.payerNote", (value) => ({ ...value, costsAndCredits: { ...value.costsAndCredits, homeWarranty: { ...value.costsAndCredits.homeWarranty, payerNote } } }))} required value={terms.costsAndCredits.homeWarranty.payerNote} /> : null}
           </div>
         ) : null}
@@ -378,21 +423,57 @@ export function LoiEditor({
 
       <section className="card stack" aria-labelledby="loi-section-personal-property">
         <h2 id="loi-section-personal-property">7. HOA and personal property</h2>
+        <fieldset className="loi-lock" disabled={counter}>
         <div className="grid three">
-          <PayerField error={fieldErrors["hoa.documentFeePayer"]} id="hoa-document-fee-payer" label="HOA document fee" onChange={(documentFeePayer) => update("hoa.documentFeePayer", (value) => ({ ...value, hoa: { ...value.hoa, documentFeePayer } }))} value={terms.hoa.documentFeePayer} />
+          <SelectField
+            error={fieldErrors["hoa.documentFeePayer"]}
+            id="hoa-document-fee-payer"
+            label="HOA document fee"
+            onChange={(documentFeePayer) => update("hoa.documentFeePayer", (value) => ({ ...value, hoa: { ...value.hoa, documentFeePayer: documentFeePayer as LoiTermsV1["hoa"]["documentFeePayer"] } }))}
+            options={hoaDocumentFeeOptions(terms.hoa.documentFeePayer)}
+            value={terms.hoa.documentFeePayer}
+          />
           <PayerField error={fieldErrors["hoa.certificateFeePayer"]} id="hoa-certificate-fee-payer" label="HOA certificate fee" onChange={(certificateFeePayer) => update("hoa.certificateFeePayer", (value) => ({ ...value, hoa: { ...value.hoa, certificateFeePayer } }))} value={terms.hoa.certificateFeePayer} />
           <PayerField error={fieldErrors["hoa.transferFeePayer"]} id="hoa-transfer-fee-payer" label="HOA transfer fee" onChange={(transferFeePayer) => update("hoa.transferFeePayer", (value) => ({ ...value, hoa: { ...value.hoa, transferFeePayer } }))} value={terms.hoa.transferFeePayer} />
         </div>
-        <CheckboxField checked={terms.personalProperty.included} error={fieldErrors["personalProperty.included"]} id="loi-personal-property" label="Sale to include personal property?" onChange={(included) => update("personalProperty.included", (value) => ({ ...value, personalProperty: { ...value.personalProperty, included, includedItems: included ? value.personalProperty.includedItems : [] } }))} />
+        </fieldset>
+        <CheckboxField checked={terms.personalProperty.included} error={fieldErrors["personalProperty.included"]} id="loi-personal-property" label="Sale to include personal property?" onChange={(included) => update("personalProperty.included", (value) => ({ ...value, personalProperty: { ...value.personalProperty, included, includedItems: included ? value.personalProperty.includedItems : [], payer: included ? value.personalProperty.payer : "SELLER" } }))} />
         <p className="small">Attached furniture belongs with the property. TVs are excluded by default unless listed.</p>
-        {terms.personalProperty.included ? <TextField error={fieldErrors["personalProperty.includedItems"]} id="loi-items" label="Requested items (comma separated)" maxLength={6_098} onChange={(input) => update("personalProperty.includedItems", (value) => ({ ...value, personalProperty: { ...value.personalProperty, includedItems: input.split(",").map((item) => item.trim()).filter(Boolean).slice(0, 50) } }))} required value={terms.personalProperty.includedItems.join(", ")} /> : null}
+        {terms.personalProperty.included ? (
+          <div className="grid two">
+            <TextField error={fieldErrors["personalProperty.includedItems"]} id="loi-items" label="Requested items (comma separated)" maxLength={6_098} onChange={(input) => update("personalProperty.includedItems", (value) => ({ ...value, personalProperty: { ...value.personalProperty, includedItems: input.split(",").map((item) => item.trim()).filter(Boolean).slice(0, 50) } }))} required value={terms.personalProperty.includedItems.join(", ")} />
+            <SelectField error={fieldErrors["personalProperty.payer"]} id="loi-personal-property-payer" label="Who pays for included items" onChange={(payer) => update("personalProperty.payer", (value) => ({ ...value, personalProperty: { ...value.personalProperty, payer: payer === "BUYER" ? "BUYER" : "SELLER" } }))} options={[["SELLER", "Seller"], ["BUYER", "Buyer"]]} value={terms.personalProperty.payer} />
+          </div>
+        ) : null}
         <TextField error={fieldErrors["personalProperty.excludedItems"]} id="loi-excluded-items" label="Excluded personal-property items" maxLength={2000} onChange={(excludedItems) => update("personalProperty.excludedItems", (value) => ({ ...value, personalProperty: { ...value.personalProperty, excludedItems } }))} value={terms.personalProperty.excludedItems} />
       </section>
 
+      <section className="card stack" aria-labelledby="loi-section-disclosures">
+        <h2 id="loi-section-disclosures">8. Disclosures</h2>
+        <SelectField
+          error={fieldErrors["disclosures.deathOnProperty"]}
+          id="loi-disclosure-death"
+          label="Death on the property"
+          onChange={(deathOnProperty) => update("disclosures.deathOnProperty", (value) => ({
+            ...value,
+            disclosures: {
+              ...value.disclosures,
+              deathOnProperty: deathOnProperty === "YES" || deathOnProperty === "NO" ? deathOnProperty : "UNKNOWN",
+            },
+          }))}
+          options={[["UNKNOWN", "Not specified"], ["NO", "No"], ["YES", "Yes"]]}
+          value={terms.disclosures.deathOnProperty}
+        />
+        <TextAreaField error={fieldErrors["disclosures.condition"]} id="loi-disclosure-condition" label="Property condition" maxLength={2000} onChange={(condition) => update("disclosures.condition", (value) => ({ ...value, disclosures: { ...value.disclosures, condition } }))} rows={4} value={terms.disclosures.condition} />
+        <TextAreaField error={fieldErrors["disclosures.conditionsOfSale"]} id="loi-disclosure-sale" label="Conditions of sale" maxLength={2000} onChange={(conditionsOfSale) => update("disclosures.conditionsOfSale", (value) => ({ ...value, disclosures: { ...value.disclosures, conditionsOfSale } }))} rows={4} value={terms.disclosures.conditionsOfSale} />
+      </section>
+
       <section className="card stack" aria-labelledby="loi-section-additional">
-        <h2 id="loi-section-additional">8. Additional terms</h2>
+        <h2 id="loi-section-additional">9. Additional terms</h2>
+        <fieldset className="loi-lock stack" disabled={counter}>
         <TextAreaField error={fieldErrors["additionalTerms.proposedTerms"]} id="loi-additional" label="Additional proposed terms" maxLength={4000} onChange={(proposedTerms) => update("additionalTerms.proposedTerms", (value) => ({ ...value, additionalTerms: { ...value.additionalTerms, proposedTerms } }))} rows={6} value={terms.additionalTerms.proposedTerms} />
         <TextAreaField error={fieldErrors["additionalTerms.exclusions"]} id="loi-exclusions" label="Explicit exclusions" maxLength={4000} onChange={(exclusions) => update("additionalTerms.exclusions", (value) => ({ ...value, additionalTerms: { ...value.additionalTerms, exclusions } }))} rows={4} value={terms.additionalTerms.exclusions} />
+        </fieldset>
       </section>
     </form>
   );
@@ -406,7 +487,7 @@ function fundingFor(type: string, price: number): LoiTermsV1["funding"] {
 
 function possessionFor(type: string): LoiTermsV1["possession"] {
   if (type === "DAYS_AFTER_CLOSING") return { daysAfterClosing: 1, type: "DAYS_AFTER_CLOSING" };
-  if (type === "SELLER_RENT_BACK") return { amountCents: 0, days: 1, frequency: "DAILY", type: "SELLER_RENT_BACK" };
+  if (type === "SELLER_RENT_BACK") return { amountCents: 0, days: 1, frequency: "THROUGH_ESCROW", type: "SELLER_RENT_BACK" };
   if (type === "TENANT_REMAINS") return { estoppelRequired: false, note: "", type: "TENANT_REMAINS" };
   if (type === "OTHER") return { note: "", type: "OTHER" };
   return { type: "AT_CLOSING" };
@@ -437,15 +518,68 @@ function ContactFields({ errors, id, label, onChange, path, value }: { errors: R
   );
 }
 
-function ProviderField({ errors, kind, label, onChange, value }: { errors: Record<string, string>; kind: "escrow" | "title"; label: string; onChange: (value: LoiTermsV1["providers"]["escrow"]) => void; value: LoiTermsV1["providers"]["escrow"] }) {
+function ProviderField({ errors, kind, label, onChange, value }: { errors: Record<string, string>; kind: "escrow" | "title"; label: string; onChange: (value: LoiTermsV1["providers"]["escrow"] | LoiTermsV1["providers"]["title"]) => void; value: LoiTermsV1["providers"]["escrow"] | LoiTermsV1["providers"]["title"] }) {
   const id = `proposed-${kind}-provider-choice`;
   const path = `providers.${kind}`;
+  const feePayer = kind === "escrow" && "feePayer" in value ? value.feePayer : "SELLER";
   return (
     <div className="stack tight">
-      <SelectField error={errors[`${path}.choice`]} id={id} label={label} onChange={(choice) => onChange(choice === "CUSTOM" ? { choice: "CUSTOM", company: emptyContact() } : { choice: "LIBER_PREFERRED" })} options={[["LIBER_PREFERRED", "Liber-preferred option"], ["CUSTOM", "Custom company"]]} value={value.choice} />
-      {value.choice === "CUSTOM" ? <ContactFields errors={errors} id={id} label={`${kind === "escrow" ? "Escrow" : "Title"} company contact`} onChange={(company) => onChange({ ...value, company })} path={`${path}.company`} value={value.company} /> : null}
+      <SelectField
+        error={errors[`${path}.choice`]}
+        id={id}
+        label={label}
+        onChange={(choice) => onChange(kind === "escrow"
+          ? choice === "CUSTOM" ? { choice: "CUSTOM", company: emptyContact(), feePayer } : { choice: "LIBER_PREFERRED", feePayer }
+          : choice === "CUSTOM" ? { choice: "CUSTOM", company: emptyContact() } : { choice: "LIBER_PREFERRED" })}
+        options={[["LIBER_PREFERRED", "Liber-preferred option"], ["CUSTOM", "Custom company"]]}
+        value={value.choice}
+      />
+      {kind === "escrow" ? (
+        <SelectField
+          error={errors["providers.escrow.feePayer"]}
+          id="loi-escrow-fee-payer"
+          label="Who pays escrow"
+          onChange={(next) => onChange(value.choice === "CUSTOM"
+            ? { choice: "CUSTOM", company: value.company, feePayer: next === "BUYER" ? "BUYER" : "SELLER" }
+            : { choice: "LIBER_PREFERRED", feePayer: next === "BUYER" ? "BUYER" : "SELLER" })}
+          options={[["SELLER", "Seller"], ["BUYER", "Buyer"]]}
+          value={feePayer}
+        />
+      ) : null}
+      {value.choice === "CUSTOM" ? <ContactFields errors={errors} id={id} label={`${kind === "escrow" ? "Escrow" : "Title"} company contact`} onChange={(company) => onChange(kind === "escrow" ? { choice: "CUSTOM", company, feePayer } : { choice: "CUSTOM", company })} path={`${path}.company`} value={value.company} /> : null}
     </div>
   );
+}
+
+function rentbackFrequencyOptions(current: "THROUGH_ESCROW" | "MONTHLY" | "DAILY" | "WEEKLY") {
+  const options: Array<[string, string]> = [
+    ["THROUGH_ESCROW", "Paid through escrow"],
+    ["MONTHLY", "Paid monthly"],
+  ];
+  if (current === "DAILY" || current === "WEEKLY") {
+    options.unshift([current, current === "DAILY" ? "Daily" : "Weekly"]);
+  }
+  return options;
+}
+
+function hoaDocumentFeeOptions(current: LoiTermsV1["hoa"]["documentFeePayer"]) {
+  const options: Array<[string, string]> = [
+    ["NOT_APPLICABLE", "Not applicable"],
+    ["BUYER", "Buyer"],
+    ["SELLER", "Seller"],
+  ];
+  if (current === "EACH_OWN") options.push(["EACH_OWN", "Each pays own"]);
+  return options;
+}
+
+function formatDepositPreview(terms: LoiTermsV1) {
+  const preview = calculateLoiPreview({ ...terms, deposit: { basis: "PERCENT", percentageBps: LOI_STANDARD_DEPOSIT_BPS } });
+  if (!preview) return "3% of offer price";
+  return new Intl.NumberFormat("en-US", { currency: "USD", maximumFractionDigits: 2, minimumFractionDigits: 2, style: "currency" }).format(preview.earnestMoneyCents / 100);
+}
+
+function formatDepositPrice(cents: number) {
+  return new Intl.NumberFormat("en-US", { currency: "USD", maximumFractionDigits: 0, style: "currency" }).format(cents / 100);
 }
 
 type HoaPayer = LoiTermsV1["hoa"]["documentFeePayer"];

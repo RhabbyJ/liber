@@ -7,9 +7,10 @@ import { DirectUploadField } from "../../../components/direct-upload-field";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
 import { DEFAULT_MARKET_SLUG } from "../../../lib/service-areas";
 import { getActiveMarketOrFallback } from "../../../server/service-areas";
+import { avatarVariantOptions } from "../../../lib/avatar-variant";
 import {
   regenerateBuyerPublicAlias,
-  shuffleBuyerAvatar,
+  setBuyerAvatar,
   submitBuyerProfile,
 } from "../../../server/form-actions";
 
@@ -190,8 +191,8 @@ export default async function BuyerProfileBuilderPage({
   }
 
   return (
-    <div className="page wide stack loose buyer-profile-page">
-      <div className="buyer-profile-shell">
+    <div className="page wide stack loose buyer-profile-page buyer-profile-summary-page">
+      <div className="buyer-profile-shell buyer-profile-shell-summary">
         {isAdminControlled ? (
           <div className="auth-alert warning" role="status">
             <strong>Editing unavailable</strong>
@@ -233,17 +234,34 @@ export default async function BuyerProfileBuilderPage({
                   <form action={regenerateBuyerPublicAlias}>
                     <button className="button secondary" type="submit">New alias</button>
                   </form>
-                  <form action={shuffleBuyerAvatar}>
-                    <button className="button secondary" type="submit">Change avatar</button>
-                  </form>
                 </>
               )}
             </div>
           </div>
+          {isAdminControlled ? null : (
+            <form action={setBuyerAvatar} className="buyer-avatar-picker">
+              <p className="eyebrow">Choose an avatar</p>
+              <div className="avatar-option-grid">
+                {avatarVariantOptions().map((variant) => (
+                  <button
+                    aria-label={`Avatar option ${variant.split(":")[2]}`}
+                    aria-pressed={variant === buyer.avatarVariant}
+                    className={`avatar-option${variant === buyer.avatarVariant ? " selected" : ""}`}
+                    key={variant}
+                    name="avatarVariant"
+                    type="submit"
+                    value={variant}
+                  >
+                    <GeneratedAvatar seed={buyer.userId || buyer.id} size="sm" variant={variant} />
+                  </button>
+                ))}
+              </div>
+            </form>
+          )}
 
           <div className="buyer-profile-account-body">
             <div className="buyer-profile-info-block">
-              <h2>General Information</h2>
+              <h2>General information</h2>
               <dl className="buyer-profile-info-grid">
                 {generalInformation.map((item) => (
                   <div key={item.label}>
@@ -255,20 +273,22 @@ export default async function BuyerProfileBuilderPage({
             </div>
 
             <section className="buyer-profile-preapproval" aria-labelledby="buyer-preapproval-title">
-              <div className="buyer-profile-preapproval-head">
-                <span className="buyer-profile-preapproval-icon">
+              <div className="buyer-profile-preapproval-main">
+                <span className="buyer-profile-preapproval-icon" aria-hidden="true">
                   <Icon name={hasPreApproval ? "check-shield" : "lock"} size={20} />
                 </span>
-                <span
-                  className={`status-dot ${hasPreApproval ? "active" : hasPendingPreApproval ? "warning" : expiredPreApproval ? "danger" : "info"}`}
-                >
-                  {preApprovalStatus}
-                </span>
-              </div>
-              <div className="buyer-profile-preapproval-copy">
-                <p className="eyebrow">Financing readiness</p>
-                <h2 id="buyer-preapproval-title">{preApprovalTitle}</h2>
-                <p>{preApprovalDescription}</p>
+                <div className="buyer-profile-preapproval-copy">
+                  <div className="buyer-profile-preapproval-head">
+                    <p className="eyebrow">Financing readiness</p>
+                    <span
+                      className={`status-dot ${hasPreApproval ? "active" : hasPendingPreApproval ? "warning" : expiredPreApproval ? "danger" : "info"}`}
+                    >
+                      {preApprovalStatus}
+                    </span>
+                  </div>
+                  <h2 id="buyer-preapproval-title">{preApprovalTitle}</h2>
+                  <p>{preApprovalDescription}</p>
+                </div>
               </div>
               <Link
                 className={`button buyer-profile-preapproval-action ${hasPreApproval || hasPendingPreApproval ? "secondary" : "primary"}`}
@@ -282,7 +302,7 @@ export default async function BuyerProfileBuilderPage({
         </article>
 
         <article className="card buyer-verified-card">
-          <h2>Your Verified Information</h2>
+          <h2>Your verified information</h2>
           {verifiedInformation.length > 0 ? (
             <ul className="buyer-verified-list">
               {verifiedInformation.map((item) => (

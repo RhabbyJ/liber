@@ -727,7 +727,7 @@ export function MessageThread({
                     </div>
                   </form>
                 ) : (
-                  <p className="muted small">Before the buyer replies, the seller follow-up is limited to one guided message.</p>
+                  <p className="muted small">The invite is delivered. Chat opens after the buyer replies.</p>
                 )}
               </>
             ) : (
@@ -761,7 +761,7 @@ export function MessageThread({
           <section className="card stack tight">
             <div className="section-head compact">
               <div>
-                <p className="eyebrow seller">Private property</p>
+                <p className="eyebrow seller">{thread.viewerRole === "BUYER" ? "Seller's property" : "Your property"}</p>
                 <h2>{thread.propertySnapshot.title}</h2>
               </div>
               <span className="status-dot info">{thread.inviteStatus}</span>
@@ -972,10 +972,7 @@ function composerUnavailableTitle(thread: ConversationThread) {
 function composerUnavailableDescription(thread: ConversationThread) {
   if (thread.status === "BLOCKED") return "Messaging is no longer available in this conversation.";
   if (thread.status === "AWAITING_BUYER") {
-    if (thread.sellerFollowUpAvailableAt) {
-      return `A single guided follow-up becomes available ${formatMessagingDateTime(thread.sellerFollowUpAvailableAt)}.`;
-    }
-    return "No additional seller message is available unless the buyer replies.";
+    return "Chat opens after the buyer replies to your invite.";
   }
   return "The invite, property, or participant is no longer eligible for new messages. History remains available.";
 }

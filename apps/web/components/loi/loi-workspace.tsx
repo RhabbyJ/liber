@@ -1,6 +1,6 @@
 "use client";
 
-import { calculateLoiPreview, loiTermsV1Schema, type LoiComputedSummary, type LoiTermsV1 } from "@liber/validators";
+import { calculateLoiPreview, loiEditableTermsV1Schema, type LoiComputedSummary, type LoiTermsV1 } from "@liber/validators";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { getMessagingBrowserClient, logMessagingRealtimeJoinStatus } from "../messaging/realtime";
@@ -179,7 +179,7 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
 
   async function saveDraft() {
     if (!view.terms || pending) return;
-    const validation = loiTermsV1Schema.safeParse(view.terms);
+    const validation = loiEditableTermsV1Schema.safeParse(view.terms);
     if (!validation.success) {
       showFieldErrors(normalizeLoiFieldErrors(Object.fromEntries(validation.error.issues.map((issue) => [issue.path.join("."), issue.message])), view.terms));
       setError("Review the highlighted fields. Your private draft remains on this page.");
@@ -471,6 +471,17 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
         <span className="status-dot info">{statusLabel(negotiation.status)}</span>
       </header>
 
+      {negotiation.status === "TERMS_ALIGNED" ? (
+        <section className="loi-aligned-celebration" role="status">
+          <span aria-hidden="true" className="loi-aligned-mark">✓</span>
+          <div>
+            <p className="eyebrow">Aligned</p>
+            <h2>Congratulations</h2>
+            <p>You aligned on these terms for contract preparation. This is not a signed offer or escrow instruction.</p>
+          </div>
+        </section>
+      ) : null}
+
       <div aria-atomic="true" aria-live="polite" className="loi-live-region">
         {refreshError ? <p className="auth-alert warning" role="status">{refreshError}</p> : null}
         {error ? <p className="auth-alert error" role="alert">{error}</p> : null}
@@ -506,7 +517,7 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
               terms={view.terms}
             />
           ) : view.mode === "EDITING" && view.terms ? (
-            <LoiEditor fieldErrors={fieldErrors} terms={view.terms} update={updateTerms} />
+            <LoiEditor fieldErrors={fieldErrors} mode={negotiation.currentSequence > 0 ? "COUNTER" : "INITIAL"} terms={view.terms} update={updateTerms} />
           ) : displayedRevision ? (
             <TermsReview
               computedSummary={displayedRevision.computedSummary}

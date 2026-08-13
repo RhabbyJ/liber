@@ -43,7 +43,7 @@ export function PrivatePropertyImages({ imageIds }: { imageIds: string[] }) {
 
   if (images.length === 0) return null;
   return (
-    <div className="grid three" aria-label="Private property images">
+    <div className="grid three" aria-label="Property images">
       {images.map(({ id, url }) => (
         // eslint-disable-next-line @next/next/no-img-element -- Keep invite-gated signed URLs browser-direct.
         <img alt="Invited property" key={id} src={url} style={{ borderRadius: 12, width: "100%" }} />

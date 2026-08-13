@@ -70,11 +70,12 @@ The seller invite quota is 25 sends per seller in the preceding rolling 24 hours
 Guided Messaging V1 adds exactly one two-party conversation per invite,
 immutable PostgreSQL messages, versioned guided copy, plain-text fallback,
 read state, permanent V1 blocking, message reporting, and report-driven admin
-moderation. Initial operating constants are one curated seller follow-up after
-24 hours, 20 send attempts per user per minute, 120 successful messages per
-conversation per hour, 500 successful messages per user per rolling 24 hours,
-and a 10-minute content-free unread-email debounce. These beta controls do not
-change or weaken the existing invite quota.
+moderation. New invites expire after 48 hours. Before the buyer replies, the
+seller does not send additional messages. Other beta controls remain 20 send
+attempts per user per minute, 120 successful messages per conversation per hour,
+500 successful messages per user per rolling 24 hours, and a 10-minute
+content-free unread-email debounce. These beta controls do not change or weaken
+the existing invite quota.
 
 ## Required release sequence
 
@@ -252,3 +253,15 @@ Before any public launch:
 Low-traffic unused-index findings are not sufficient reason to drop ownership,
 search, or foreign-key indexes. Decide indexes from final query plans and
 representative volume.
+
+## Site-correction ops follow-ups
+
+These items from the Liber LOI Questions sheet are owner/ops work, not
+application code. Do not fake partners, lenders, badges, or escrow calculators.
+
+- ID verification partner selection and contracting.
+- Email to a partner lender for the verification badge workflow.
+- Daily product use notes from Zorik.
+- Find a lender for streamlined pre-approval.
+- Meet with escrow regarding a fee calculator.
+

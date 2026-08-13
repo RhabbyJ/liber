@@ -3,6 +3,8 @@ import { z } from "zod";
 export const LOI_SCHEMA_VERSION = 1;
 export const LOI_CALCULATION_VERSION = 1;
 export const LOI_MAX_PRICE_CENTS = 10_000_000_000;
+export const LOI_STANDARD_DEPOSIT_BPS = 300;
+export const LOI_MAX_ESCROW_DAYS = 90;
 
 const boundedText = (max: number) => z.string().trim().max(max).transform((value) => value.normalize("NFC"));
 const requiredText = (max: number) => z.string().trim().min(1).max(max).transform((value) => value.normalize("NFC"));
@@ -47,18 +49,29 @@ const fixedDeposit = z.object({ amountCents: cents, basis: z.literal("FIXED") })
 const possession = z.discriminatedUnion("type", [
   z.object({ type: z.literal("AT_CLOSING") }).strict(),
   z.object({ daysAfterClosing: positiveDays, type: z.literal("DAYS_AFTER_CLOSING") }).strict(),
-  z.object({ amountCents: cents, days: positiveDays, frequency: z.enum(["DAILY", "WEEKLY", "MONTHLY"]), type: z.literal("SELLER_RENT_BACK") }).strict(),
+  z.object({ amountCents: cents, days: positiveDays, frequency: z.enum(["THROUGH_ESCROW", "MONTHLY", "DAILY", "WEEKLY"]), type: z.literal("SELLER_RENT_BACK") }).strict(),
   z.object({ estoppelRequired: z.boolean(), note: requiredText(1000), type: z.literal("TENANT_REMAINS") }).strict(),
   z.object({ note: requiredText(1000), type: z.literal("OTHER") }).strict(),
 ]);
 
+const feePayer = z.enum(["BUYER", "SELLER"]).default("SELLER");
 const provider = z.discriminatedUnion("choice", [
   z.object({ choice: z.literal("LIBER_PREFERRED") }).strict(),
   z.object({ choice: z.literal("CUSTOM"), company: contact }).strict(),
 ]);
+const escrowProvider = z.discriminatedUnion("choice", [
+  z.object({ choice: z.literal("LIBER_PREFERRED"), feePayer }).strict(),
+  z.object({ choice: z.literal("CUSTOM"), company: contact, feePayer }).strict(),
+]);
+const disclosures = z.object({
+  condition: optionalText(2000),
+  conditionsOfSale: optionalText(2000),
+  deathOnProperty: z.enum(["YES", "NO", "UNKNOWN"]).default("UNKNOWN"),
+}).strict().default({ condition: "", conditionsOfSale: "", deathOnProperty: "UNKNOWN" });
 
 export const loiTermsV1Schema = z.object({
   additionalTerms: z.object({ exclusions: optionalText(4000), proposedTerms: optionalText(4000) }).strict(),
+  disclosures,
   costsAndCredits: z.object({
     alternateClosingCostAllocation: optionalText(1000),
     customaryClosingCosts: z.boolean(),
@@ -77,11 +90,21 @@ export const loiTermsV1Schema = z.object({
   funding: z.discriminatedUnion("type", [cashFunding, standardFinancing, sellerFinancing]),
   hoa: z.object({ certificateFeePayer: z.enum(["BUYER", "SELLER", "EACH_OWN", "NOT_APPLICABLE"]), documentFeePayer: z.enum(["BUYER", "SELLER", "EACH_OWN", "NOT_APPLICABLE"]), transferFeePayer: z.enum(["BUYER", "SELLER", "EACH_OWN", "NOT_APPLICABLE"]) }).strict(),
   parties: z.object({ buyerLegalName: requiredText(200), buyerContact: contact, vestingNote: optionalText(500) }).strict(),
-  personalProperty: z.object({ excludedItems: optionalText(2000), included: z.boolean(), includedItems: z.array(requiredText(120)).max(50) }).strict(),
+  personalProperty: z.object({
+    excludedItems: optionalText(2000),
+    included: z.boolean(),
+    includedItems: z.array(requiredText(120)).max(50),
+    payer: z.enum(["BUYER", "SELLER"]).default("SELLER"),
+  }).strict(),
   possession,
-  providers: z.object({ escrow: provider, title: provider }).strict(),
+  providers: z.object({ escrow: escrowProvider, title: provider }).strict(),
   purchasePriceCents: cents.min(1),
-  representation: z.object({ agent: agentContact, buyerRepresented: z.boolean() }).strict(),
+  representation: z.object({
+    agent: agentContact,
+    buyerRepresented: z.boolean(),
+    commissionAmount: optionalText(80).default(""),
+    commissionPayer: z.enum(["BUYER", "SELLER"]).nullable().default(null),
+  }).strict(),
   schemaVersion: z.literal(LOI_SCHEMA_VERSION),
   timing: z.object({
     appraisalContingencyDays: days.nullable(),
@@ -167,6 +190,34 @@ export const loiTermsV1Schema = z.object({
 });
 
 export type LoiTermsV1 = z.infer<typeof loiTermsV1Schema>;
+
+export const loiEditableTermsV1Schema = loiTermsV1Schema.superRefine((terms, context) => {
+  if (terms.deposit.basis !== "PERCENT" || terms.deposit.percentageBps !== LOI_STANDARD_DEPOSIT_BPS) {
+    context.addIssue({ code: "custom", message: "Earnest money is set at 3% of the offer price.", path: ["deposit"] });
+  }
+  if (terms.timing.closingDays > LOI_MAX_ESCROW_DAYS) {
+    context.addIssue({ code: "custom", message: "Escrow cannot exceed 90 days.", path: ["timing", "closingDays"] });
+  }
+  if (terms.possession.type === "SELLER_RENT_BACK" && (terms.possession.frequency === "DAILY" || terms.possession.frequency === "WEEKLY")) {
+    context.addIssue({ code: "custom", message: "Rent-back is paid through escrow or monthly.", path: ["possession", "frequency"] });
+  }
+  if (terms.hoa.documentFeePayer === "EACH_OWN") {
+    context.addIssue({ code: "custom", message: "Choose buyer or seller for the HOA document fee.", path: ["hoa", "documentFeePayer"] });
+  }
+  if (terms.representation.buyerRepresented && !terms.representation.commissionAmount) {
+    context.addIssue({ code: "custom", message: "Provide a commission amount ($ or % of sales price).", path: ["representation", "commissionAmount"] });
+  }
+  if (terms.representation.buyerRepresented && !terms.representation.commissionPayer) {
+    context.addIssue({ code: "custom", message: "Choose who pays the agent commission.", path: ["representation", "commissionPayer"] });
+  }
+  if (!terms.representation.buyerRepresented && (terms.representation.commissionAmount || terms.representation.commissionPayer)) {
+    context.addIssue({ code: "custom", message: "Clear commission details when the buyer is not represented.", path: ["representation", "commissionAmount"] });
+  }
+});
+
+export function parseLoiEditableTerms(value: unknown) {
+  return loiEditableTermsV1Schema.parse(value);
+}
 
 export const loiComputedSummaryV1Schema = z.object({
   calculationVersion: z.literal(LOI_CALCULATION_VERSION),

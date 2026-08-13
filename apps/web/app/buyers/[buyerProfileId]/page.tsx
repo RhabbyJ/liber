@@ -6,6 +6,7 @@ import { Icon } from "../../../components/icon";
 import { formatRange } from "../../../lib/format";
 import { getAuthorizedBuyerProfile } from "../../../server/contracts";
 import { getSessionUser } from "../../../server/session";
+import { blockBuyerProfile } from "../../../server/form-actions";
 
 export const metadata = {
   robots: "noindex, noarchive",
@@ -122,9 +123,15 @@ export default async function PublicBuyerProfilePage({
             ) : null}
 
             {!isOwner && inviteHref ? (
-              <Link className="button primary buyer-reference-invite" href={inviteHref}>
-                Send Invite
-              </Link>
+              <div className="stack tight">
+                <Link className="button primary buyer-reference-invite" href={inviteHref}>
+                  Send Invite
+                </Link>
+                <form action={blockBuyerProfile}>
+                  <input name="buyerProfileId" type="hidden" value={buyer.id} />
+                  <button className="button ghost" type="submit">Block this buyer</button>
+                </form>
+              </div>
             ) : isOwner ? (
               <Link className="button secondary buyer-reference-invite" href="/buyer/profile">
                 Back to your profile

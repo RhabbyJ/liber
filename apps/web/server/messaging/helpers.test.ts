@@ -139,7 +139,7 @@ describe("messaging lifecycle policy", () => {
     expect(JSON.stringify(PUBLIC_BLOCKED_CONVERSATION_STATE)).not.toContain("USER_BLOCKED");
   });
 
-  it("keeps accepted conversations active and permits one exact seller follow-up", () => {
+  it("keeps accepted conversations active and waits for the buyer before seller chat", () => {
     expect(() => assertConversationCanSend({
       kind: "FREE_TEXT",
       now: new Date("2027-01-01T00:00:00.000Z"),
@@ -153,7 +153,7 @@ describe("messaging lifecycle policy", () => {
       participantRole: "SELLER",
       state: baseState,
       templateUse: "SELLER_FOLLOW_UP",
-    })).not.toThrow();
+    })).toThrow("The buyer must respond before additional messages are available.");
     expect(() => assertConversationCanSend({
       kind: "GUIDED",
       now: new Date(sentAt.getTime() + SELLER_FOLLOW_UP_COOLDOWN_MS),

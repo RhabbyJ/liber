@@ -616,21 +616,31 @@ export async function shuffleBuyerAvatarVariant() {
     select: { avatarVariant: true },
   });
   const displayedAvatarVariant = normalizeAvatarVariant(account?.avatarVariant) ?? avatarVariantFromSeed(user.id);
-  const avatarVariant = randomAvatarVariant(displayedAvatarVariant);
+  return persistBuyerAvatarVariant(user.id, randomAvatarVariant(displayedAvatarVariant));
+}
+
+export async function setBuyerAvatarVariant(avatarVariant: string) {
+  const user = await requireCurrentUser("BUYER");
+  const normalized = normalizeAvatarVariant(avatarVariant);
+  if (!normalized) throw new Error("Choose one of the available avatars.");
+  return persistBuyerAvatarVariant(user.id, normalized);
+}
+
+async function persistBuyerAvatarVariant(userId: string, avatarVariant: string) {
   const [updatedUser, profile] = await prisma.$transaction([
     prisma.user.update({
-      where: { id: user.id },
+      where: { id: userId },
       data: { avatarVariant },
       select: { avatarVariant: true },
     }),
     prisma.buyerProfile.findUnique({
-      where: { userId: user.id },
+      where: { userId },
       select: { id: true },
     }),
   ]);
 
   return {
-    ok: true,
+    ok: true as const,
     data: { avatarVariant: updatedUser.avatarVariant, buyerProfileId: profile?.id ?? null },
   };
 }
@@ -682,12 +692,18 @@ export async function respondToInvite(input: unknown) {
     if (!invite) return 0;
 
     await lockAndAssertInvitePairAvailable(tx, invite.sellerId, user.id);
-    const locked = await tx.$queryRaw<Array<{ id: string }>>`
-      SELECT id FROM public."Invite" WHERE id = ${data.inviteId} FOR UPDATE
+    const locked = await tx.$queryRaw<Array<{ id: string; status: string }>>`
+      SELECT id, status::text AS status
+      FROM public."Invite"
+      WHERE id = ${data.inviteId}
+      FOR UPDATE
     `;
     if (locked.length !== 1) return 0;
 
-    return tx.$executeRaw`
+    // Idempotent: repeating the same response must not fail the buyer UI.
+    if (locked[0]?.status === data.response) return 1;
+
+    const updated = await tx.$executeRaw`
       UPDATE public."Invite"
       SET status = CAST(${data.response} AS public."InviteStatus"),
           "respondedAt" = now(),
@@ -697,8 +713,27 @@ export async function respondToInvite(input: unknown) {
         AND "expiresAt" > now()
         AND app_private.is_invite_property_access_valid(id, ${user.id}::uuid)
     `;
+    if (updated === 1 && data.response === "ACCEPTED") {
+      await tx.$executeRaw`
+        UPDATE public."Conversation"
+        SET status = 'ACTIVE'::public."ConversationStatus",
+            "updatedAt" = now()
+        WHERE "inviteId" = ${data.inviteId}
+          AND status = 'AWAITING_BUYER'::public."ConversationStatus"
+      `;
+    }
+    return updated;
   });
-  if (changed !== 1) throw new Error("Invite cannot be changed after response, identity change, or expiration.");
+  if (changed !== 1) {
+    const current = await prisma.invite.findFirst({
+      where: { id: data.inviteId, buyerProfile: { userId: user.id } },
+      select: { status: true },
+    });
+    if (current?.status === data.response) {
+      return { ok: true, data };
+    }
+    throw new Error("Invite cannot be changed after response, identity change, or expiration.");
+  }
   return { ok: true, data };
 }
 
@@ -866,7 +901,7 @@ export async function sendInvite(input: unknown) {
   });
   const openingNote = data.note ? normalizeMessageBody(data.note) : undefined;
   const inviteMessage = openingNote ? `${openingTemplate.text}\n\n${openingNote}` : openingTemplate.text;
-  const inviteTitle = "Private property invitation";
+  const inviteTitle = "Property invitation";
   const result = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
       SELECT pg_advisory_xact_lock(hashtextextended(${seller.id}::text, 0)) IS NULL AS locked

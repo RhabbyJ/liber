@@ -4,6 +4,7 @@ import {
   calculateLoiSummary,
   loiActionIdSchema,
   loiDraftIdSchema,
+  loiEditableTermsV1Schema,
   loiNegotiationIdSchema,
   loiRevisionIdSchema,
   loiTermsV1Schema,
@@ -14,14 +15,15 @@ const terms: LoiTermsV1 = {
   additionalTerms: { exclusions: "", proposedTerms: "" },
   costsAndCredits: { alternateClosingCostAllocation: "", customaryClosingCosts: true, homeWarranty: { company: "", included: false, maximumCents: 0, payer: "SELLER", payerNote: "", specialInclusions: "" }, sellerCreditCents: 500_000, sellerCreditNote: "" },
   deposit: { basis: "PERCENT", percentageBps: 300 },
+  disclosures: { condition: "", conditionsOfSale: "", deathOnProperty: "UNKNOWN" },
   funding: { downPaymentCents: 25_000_000, lender: { company: "Liber Test Bank", email: "", name: "", phone: "" }, loanType: "CONVENTIONAL", note: "", type: "FINANCED" },
   hoa: { certificateFeePayer: "NOT_APPLICABLE", documentFeePayer: "NOT_APPLICABLE", transferFeePayer: "NOT_APPLICABLE" },
   parties: { buyerContact: { company: "", email: "", name: "", phone: "" }, buyerLegalName: "Buyer LLC", vestingNote: "" },
-  personalProperty: { excludedItems: "", included: false, includedItems: [] },
+  personalProperty: { excludedItems: "", included: false, includedItems: [], payer: "SELLER" },
   possession: { type: "AT_CLOSING" },
-  providers: { escrow: { choice: "LIBER_PREFERRED" }, title: { choice: "LIBER_PREFERRED" } },
+  providers: { escrow: { choice: "LIBER_PREFERRED", feePayer: "SELLER" }, title: { choice: "LIBER_PREFERRED" } },
   purchasePriceCents: 100_000_000,
-  representation: { agent: { company: "", email: "", license: "", name: "", phone: "" }, buyerRepresented: false },
+  representation: { agent: { company: "", email: "", license: "", name: "", phone: "" }, buyerRepresented: false, commissionAmount: "", commissionPayer: null },
   schemaVersion: 1,
   timing: { appraisalContingencyDays: 17, closingDays: 30, inspectionContingencyDays: 10, loanContingencyDays: 21, sellerDisclosureReviewDays: 7, titleReviewDays: 7 },
 };
@@ -95,7 +97,7 @@ describe("LOI terms", () => {
 
     const agent = loiTermsV1Schema.safeParse({
       ...terms,
-      representation: { agent: { company: "Brokerage", email: "", license: "", name: "Agent Name", phone: "" }, buyerRepresented: true },
+      representation: { agent: { company: "Brokerage", email: "", license: "", name: "Agent Name", phone: "" }, buyerRepresented: true, commissionAmount: "2.5%", commissionPayer: "SELLER" },
     });
     expect(agent.success ? [] : agent.error.issues.map((issue) => issue.path.join("."))).toContain("representation.agent.email");
 
@@ -114,6 +116,37 @@ describe("LOI terms", () => {
       },
     });
     expect(sellerFinancing.success ? [] : sellerFinancing.error.issues.map((issue) => issue.path.join("."))).toContain("funding.cashDownPaymentCents");
+  });
+
+  it("locks new drafts to 3% earnest money, 90-day escrow, and agent commission when represented", () => {
+    expect(loiTermsV1Schema.safeParse({
+      ...terms,
+      representation: { agent: { company: "Brokerage", email: "agent@example.test", license: "", name: "Agent Name", phone: "" }, buyerRepresented: true },
+    }).success).toBe(true);
+    expect(loiEditableTermsV1Schema.safeParse({
+      ...terms,
+      representation: { agent: { company: "Brokerage", email: "agent@example.test", license: "", name: "Agent Name", phone: "" }, buyerRepresented: true, commissionAmount: "", commissionPayer: null },
+    }).success).toBe(false);
+    expect(loiEditableTermsV1Schema.safeParse({
+      ...terms,
+      representation: { agent: { company: "Brokerage", email: "agent@example.test", license: "", name: "Agent Name", phone: "" }, buyerRepresented: true, commissionAmount: "2.5%", commissionPayer: "SELLER" },
+    }).success).toBe(true);
+    expect(loiEditableTermsV1Schema.safeParse({
+      ...terms,
+      possession: { amountCents: 250_000, days: 30, frequency: "THROUGH_ESCROW", type: "SELLER_RENT_BACK" },
+    }).success).toBe(true);
+    expect(loiEditableTermsV1Schema.safeParse({
+      ...terms,
+      timing: { ...terms.timing, closingDays: 91 },
+    }).success).toBe(false);
+    expect(loiEditableTermsV1Schema.safeParse({
+      ...terms,
+      deposit: { amountCents: 10_000_00, basis: "FIXED" },
+    }).success).toBe(false);
+    expect(loiTermsV1Schema.safeParse({
+      ...terms,
+      deposit: { amountCents: 10_000_00, basis: "FIXED" },
+    }).success).toBe(true);
   });
 
   it("canonicalizes every LOI UUID boundary to lowercase", () => {

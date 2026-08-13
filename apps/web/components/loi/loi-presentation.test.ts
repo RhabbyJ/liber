@@ -91,7 +91,7 @@ describe("LOI presentation registry v1", () => {
 
     const representedTerms = {
       ...cashTerms,
-      representation: { agent: { company: "Brokerage", email: "", license: "", name: "Agent Name", phone: "" }, buyerRepresented: true as const },
+      representation: { agent: { company: "Brokerage", email: "", license: "", name: "Agent Name", phone: "" }, buyerRepresented: true as const, commissionAmount: "2.5%", commissionPayer: "SELLER" as const },
     };
     expect(normalizeLoiFieldErrors({ "representation.agent": "Add agent contact details." }, representedTerms)).toEqual({
       "representation.agent.email": "Add agent contact details.",

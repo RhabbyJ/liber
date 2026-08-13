@@ -12,6 +12,7 @@ import {
   reviewSellerAccess,
   revokeBadge,
   sendInvite,
+  setBuyerAvatarVariant,
   shuffleBuyerAvatarVariant,
   suspendUser,
   updateSellerProperty,
@@ -47,6 +48,15 @@ export async function submitBuyerProfile(
   redirect(`/buyer/profile?status=${status}`);
 }
 
+export async function setBuyerAvatar(formData: FormData) {
+  const avatarVariant = formData.get("avatarVariant");
+  if (typeof avatarVariant !== "string") throw new Error("Choose one of the available avatars.");
+  const { data } = await setBuyerAvatarVariant(avatarVariant);
+  revalidatePath("/buyer/profile");
+  if (data.buyerProfileId) revalidatePath(`/buyers/${data.buyerProfileId}`);
+  redirect("/buyer/profile");
+}
+
 export async function shuffleBuyerAvatar() {
   const { data } = await shuffleBuyerAvatarVariant();
   revalidatePath("/buyer/profile");
@@ -62,9 +72,97 @@ export async function regenerateBuyerPublicAlias() {
 }
 
 export async function respondToBuyerInvite(formData: FormData) {
-  await respondToInvite(formData);
+  const intent = typeof formData.get("intent") === "string" ? formData.get("intent") : formData.get("response");
+  try {
+    if (intent === "QUESTION" || intent === "TOUR" || intent === "LOI") {
+      const next = await actOnBuyerInvite(formData, intent);
+      revalidatePath("/buyer/invites");
+      revalidatePath("/buyer/profile");
+      revalidatePath("/messages");
+      redirect(next);
+    }
+    await respondToInvite(formData);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Invite cannot be changed")) {
+      redirect("/buyer/invites?error=invite-locked");
+    }
+    throw error;
+  }
   revalidatePath("/buyer/invites");
   revalidatePath("/buyer/profile");
+  revalidatePath("/messages");
+  const response = formData.get("response");
+  redirect(response === "DECLINED" ? "/buyer/invites?status=declined" : "/buyer/invites?status=accepted");
+}
+
+async function actOnBuyerInvite(formData: FormData, intent: string) {
+  const inviteId = formData.get("inviteId");
+  const conversationId = formData.get("conversationId");
+  if (typeof inviteId !== "string") throw new Error("Invite cannot be changed after response, identity change, or expiration.");
+
+  if (intent === "QUESTION") {
+    const rawQuestion = formData.get("question");
+    const question = typeof rawQuestion === "string" ? rawQuestion.trim() : "";
+    if (!question || question.length > 500) redirect("/buyer/invites?error=question");
+    if (typeof conversationId !== "string" || !conversationId) {
+      await respondToInvite({ inviteId, response: "ACCEPTED" });
+      return "/buyer/invites?status=accepted";
+    }
+    const { sendConversationMessage } = await import("./messaging/service");
+    await sendConversationMessage({
+      body: question,
+      clientMessageId: crypto.randomUUID(),
+      conversationId,
+      kind: "FREE_TEXT",
+    });
+    return `/messages/${encodeURIComponent(conversationId)}`;
+  }
+
+  if (intent === "TOUR") {
+    if (typeof conversationId !== "string" || !conversationId) {
+      await respondToInvite({ inviteId, response: "ACCEPTED" });
+      return "/buyer/invites?status=accepted";
+    }
+    const { sendConversationMessage } = await import("./messaging/service");
+    await sendConversationMessage({
+      clientMessageId: crypto.randomUUID(),
+      conversationId,
+      kind: "GUIDED",
+      templateKey: "BUYER_SCHEDULE_VIEWING",
+      templateVersion: 1,
+    });
+    return `/messages/${encodeURIComponent(conversationId)}`;
+  }
+
+  await respondToInvite({ inviteId, response: "ACCEPTED" });
+  try {
+    const { createLoiNegotiation } = await import("./loi/service");
+    const created = await createLoiNegotiation({ clientActionId: crypto.randomUUID(), inviteId });
+    return `/negotiations/${encodeURIComponent(created.id)}`;
+  } catch {
+    return typeof conversationId === "string" && conversationId
+      ? `/messages/${encodeURIComponent(conversationId)}`
+      : "/buyer/invites?status=accepted";
+  }
+}
+
+export async function blockBuyerProfile(formData: FormData) {
+  const buyerProfileId = formData.get("buyerProfileId");
+  if (typeof buyerProfileId !== "string") throw new Error("This profile is unavailable.");
+  const { blockUserByBuyerProfile } = await import("./messaging/service");
+  await blockUserByBuyerProfile({ buyerProfileId });
+  revalidatePath("/seller/search");
+  redirect("/seller/search?status=blocked");
+}
+
+export async function blockInviteConversation(formData: FormData) {
+  const conversationId = formData.get("conversationId");
+  if (typeof conversationId !== "string") throw new Error("This conversation is unavailable.");
+  const { blockConversationUser } = await import("./messaging/service");
+  await blockConversationUser({ conversationId, reason: "Invite block" });
+  revalidatePath("/buyer/invites");
+  revalidatePath("/messages");
+  redirect("/buyer/invites?status=blocked");
 }
 
 export async function submitSellerProperty(formData: FormData) {

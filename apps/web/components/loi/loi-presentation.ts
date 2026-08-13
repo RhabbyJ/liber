@@ -61,6 +61,7 @@ const SECTION_IDS = new Map([
   ["Possession and representation", "possession-representation"],
   ["Providers, warranty, and costs", "providers-costs"],
   ["HOA and personal property", "hoa-personal-property"],
+  ["Disclosures", "disclosures"],
   ["Additional terms", "additional-terms"],
 ]);
 
@@ -77,7 +78,8 @@ const ENUM_LABELS: Record<string, string> = {
   FINANCED: "Financed",
   FIXED: "Fixed amount",
   LIBER_PREFERRED: "Liber-preferred option",
-  MONTHLY: "Monthly",
+  MONTHLY: "Paid monthly",
+  NO: "No",
   NOT_APPLICABLE: "Not applicable",
   OTHER: "Other",
   PERCENT: "Percentage",
@@ -86,7 +88,10 @@ const ENUM_LABELS: Record<string, string> = {
   SELLER_FINANCING: "Seller financing",
   SELLER_RENT_BACK: "Seller rent-back",
   TENANT_REMAINS: "Tenant remains",
+  THROUGH_ESCROW: "Paid through escrow",
+  UNKNOWN: "Not specified",
   WEEKLY: "Weekly",
+  YES: "Yes",
 };
 
 const text = (value: unknown) => typeof value === "string" && value.trim() ? value : "Not specified";
@@ -159,9 +164,9 @@ const TERM_FIELDS: readonly TermFieldDefinition[] = [
   { format: yesNo, get: (value) => value.funding.type === "SELLER_FINANCING" ? value.funding.interestOnly : null, id: "funding.interestOnly", inputId: "loi-sf-interest-only", label: "Interest-only treatment", material: true, section: "Purchase and funding", visible: (value) => value.funding.type === "SELLER_FINANCING" },
   { get: (value) => value.funding.type === "SELLER_FINANCING" ? value.funding.note : null, id: "funding.sellerFinancingNote", inputId: "loi-sf-note", label: "Seller-financing note", material: true, section: "Purchase and funding", visible: (value) => value.funding.type === "SELLER_FINANCING" },
 
-  { format: enumValue, get: (value) => value.deposit.basis, id: "deposit.basis", inputId: "loi-deposit-basis", label: "Earnest-money basis", material: true, section: "Earnest-money deposit" },
+  { format: enumValue, get: (value) => value.deposit.basis, id: "deposit.basis", label: "Earnest-money basis", material: true, section: "Earnest-money deposit" },
   { format: formatLoiPercentage, get: (value) => value.deposit.basis === "PERCENT" ? value.deposit.percentageBps : null, id: "deposit.percentageBps", inputId: "loi-deposit-percent", label: "Earnest-money percentage", material: true, section: "Earnest-money deposit", visible: (value) => value.deposit.basis === "PERCENT" },
-  { format: formatLoiMoney, get: (value) => value.deposit.basis === "FIXED" ? value.deposit.amountCents : null, id: "deposit.amountCents", inputId: "loi-deposit-fixed", label: "Earnest-money amount", material: true, section: "Earnest-money deposit", visible: (value) => value.deposit.basis === "FIXED" },
+  { format: formatLoiMoney, get: (value) => value.deposit.basis === "FIXED" ? value.deposit.amountCents : null, id: "deposit.amountCents", label: "Earnest-money amount", material: true, section: "Earnest-money deposit", visible: (value) => value.deposit.basis === "FIXED" },
 
   { format: days, get: (value) => value.timing.closingDays, id: "timing.closingDays", inputId: "loi-closing", label: "Escrow / closing days", material: true, section: "Timing and contingencies" },
   { format: days, get: (value) => value.timing.inspectionContingencyDays, id: "timing.inspectionContingencyDays", inputId: "loi-inspection", label: "Physical inspection days", material: true, section: "Timing and contingencies" },
@@ -184,8 +189,11 @@ const TERM_FIELDS: readonly TermFieldDefinition[] = [
   { get: (value) => value.representation.agent.company, id: "representation.agent.company", inputId: "loi-agent-company", label: "Agent company", material: true, section: "Possession and representation", visible: (value) => value.representation.buyerRepresented },
   { get: (value) => value.representation.agent.email, id: "representation.agent.email", inputId: "loi-agent-email", label: "Agent email", material: true, section: "Possession and representation", visible: (value) => value.representation.buyerRepresented },
   { get: (value) => value.representation.agent.phone, id: "representation.agent.phone", inputId: "loi-agent-phone", label: "Agent phone", material: true, section: "Possession and representation", visible: (value) => value.representation.buyerRepresented },
+  { get: (value) => value.representation.commissionAmount, id: "representation.commissionAmount", inputId: "loi-agent-commission", label: "Agent commission", material: true, section: "Possession and representation", visible: (value) => value.representation.buyerRepresented },
+  { format: enumValue, get: (value) => value.representation.commissionPayer, id: "representation.commissionPayer", inputId: "loi-agent-commission-payer", label: "Who pays agent commission", material: true, section: "Possession and representation", visible: (value) => value.representation.buyerRepresented },
 
   { format: enumValue, get: (value) => value.providers.escrow.choice, id: "providers.escrow.choice", inputId: "proposed-escrow-provider-choice", label: "Proposed escrow provider", material: true, section: "Providers, warranty, and costs" },
+  { format: enumValue, get: (value) => value.providers.escrow.feePayer, id: "providers.escrow.feePayer", inputId: "loi-escrow-fee-payer", label: "Who pays escrow", material: true, section: "Providers, warranty, and costs" },
   { get: (value) => value.providers.escrow.choice === "CUSTOM" ? value.providers.escrow.company.name : null, id: "providers.escrow.company.name", inputId: "proposed-escrow-provider-choice-name", label: "Escrow contact name", material: true, section: "Providers, warranty, and costs", visible: (value) => value.providers.escrow.choice === "CUSTOM" },
   { get: (value) => value.providers.escrow.choice === "CUSTOM" ? value.providers.escrow.company.company : null, id: "providers.escrow.company.company", inputId: "proposed-escrow-provider-choice-company", label: "Escrow company", material: true, section: "Providers, warranty, and costs", visible: (value) => value.providers.escrow.choice === "CUSTOM" },
   { get: (value) => value.providers.escrow.choice === "CUSTOM" ? value.providers.escrow.company.email : null, id: "providers.escrow.company.email", inputId: "proposed-escrow-provider-choice-email", label: "Escrow email", material: true, section: "Providers, warranty, and costs", visible: (value) => value.providers.escrow.choice === "CUSTOM" },
@@ -211,7 +219,12 @@ const TERM_FIELDS: readonly TermFieldDefinition[] = [
   { format: enumValue, get: (value) => value.hoa.transferFeePayer, id: "hoa.transferFeePayer", inputId: "hoa-transfer-fee-payer", label: "HOA transfer fee", material: true, section: "HOA and personal property" },
   { format: yesNo, get: (value) => value.personalProperty.included, id: "personalProperty.included", inputId: "loi-personal-property", label: "Personal property included", material: true, section: "HOA and personal property" },
   { format: list, get: (value) => value.personalProperty.includedItems, id: "personalProperty.includedItems", inputId: "loi-items", label: "Requested personal-property items", material: true, section: "HOA and personal property", visible: (value) => value.personalProperty.included },
+  { format: enumValue, get: (value) => value.personalProperty.payer, id: "personalProperty.payer", inputId: "loi-personal-property-payer", label: "Who pays for included items", material: true, section: "HOA and personal property", visible: (value) => value.personalProperty.included },
   { get: (value) => value.personalProperty.excludedItems, id: "personalProperty.excludedItems", inputId: "loi-excluded-items", label: "Excluded personal-property items", material: true, section: "HOA and personal property" },
+
+  { format: enumValue, get: (value) => value.disclosures.deathOnProperty, id: "disclosures.deathOnProperty", inputId: "loi-disclosure-death", label: "Death on the property", material: true, section: "Disclosures" },
+  { get: (value) => value.disclosures.condition, id: "disclosures.condition", inputId: "loi-disclosure-condition", label: "Property condition", material: true, section: "Disclosures" },
+  { get: (value) => value.disclosures.conditionsOfSale, id: "disclosures.conditionsOfSale", inputId: "loi-disclosure-sale", label: "Conditions of sale", material: true, section: "Disclosures" },
 
   { get: (value) => value.additionalTerms.proposedTerms, id: "additionalTerms.proposedTerms", inputId: "loi-additional", label: "Additional proposed terms", material: true, section: "Additional terms" },
   { get: (value) => value.additionalTerms.exclusions, id: "additionalTerms.exclusions", inputId: "loi-exclusions", label: "Explicit exclusions", material: true, section: "Additional terms" },
@@ -314,7 +327,7 @@ export function normalizePropertyIdentity(value: unknown): LoiPropertyIdentity {
     ? "Property context unavailable"
     : typeof source.addressLine1 === "string" && source.addressLine1.trim()
       ? source.addressLine1.trim()
-      : typeof source.title === "string" && source.title.trim() ? source.title.trim() : "Private property";
+      : typeof source.title === "string" && source.title.trim() ? source.title.trim() : "Seller's property";
   const identityVersion = typeof source.propertyIdentityVersion === "number"
     ? source.propertyIdentityVersion
     : typeof source.identityVersion === "number" ? source.identityVersion : null;

@@ -78,8 +78,7 @@ LOI V1 does not:
   authoritative LOI state;
 - generate legal clauses with AI;
 - interpret legal holidays or business-day rules automatically; or
-- expose commission terms before product and counsel approve a separate schema
-  and copy.
+- collect proposed buyer-agent commission amount and payer when the buyer is represented; these remain non-binding LOI terms and do not invite the agent into the workflow.
 
 Messaging may link to the workspace and show a safe effective status. Message
 bodies never contain authoritative LOI terms and cannot mutate LOI state.
@@ -202,12 +201,13 @@ durations use bounded integer days or months. The maximum monetary value is
 | --- | --- |
 | Parties | Buyer legal/entity name; buyer contact name, company, email, and phone; vesting/taking-title note |
 | Purchase and funding | Purchase price plus exactly one of cash, financed, or structured seller financing |
-| Deposit | Percentage basis in basis points or a fixed amount in cents |
-| Timing | Closing, inspection, disclosure, title, optional appraisal, and optional loan-contingency durations |
-| Possession | At closing, positive days after closing, seller rent-back, tenant remains, or described other terms |
-| Representation | Buyer-represented flag and conditional agent contact, including optional license number |
-| Providers and costs | Proposed escrow/title choices, seller credit/note, customary or alternate cost allocation, and optional warranty with special inclusions |
-| HOA and personal property | HOA fee-payer choices, conditional included-item list, and excluded items |
+| Deposit | New drafts are 3% of price; historical revisions may still store a fixed amount |
+| Timing | Closing 1–90 days on new drafts; inspection, disclosure, title, optional appraisal, and optional loan-contingency durations |
+| Possession | At closing, positive days after closing, seller rent-back paid through escrow or monthly, tenant remains, or described other terms |
+| Representation | Buyer-represented flag, conditional agent contact, and when represented a commission amount plus payer |
+| Providers and costs | Proposed escrow/title choices, escrow fee payer, seller credit/note, customary or alternate cost allocation, and optional warranty with special inclusions |
+| HOA and personal property | HOA fee-payer choices (document fee is buyer, seller, or not applicable on new drafts), conditional included-item list with payer, and excluded items |
+| Disclosures | Death on the property, condition, and conditions of sale |
 | Additional terms | Proposed terms and explicit exclusions |
 
 ### Conditional and cross-field rules
@@ -223,14 +223,17 @@ durations use bounded integer days or months. The maximum monetary value is
 - Switching a funding union constructs a new compatible object. Switching to
   cash also clears loan contingency.
 - A fixed deposit and seller credit cannot exceed price.
-- Closing duration is 1–365 days. Other contingency durations are 0–365 days or
-  null where optional.
-- Days-after-closing and seller rent-back durations are positive. Rent-back also
-  records cents and daily, weekly, or monthly frequency.
+- Closing duration is 1–90 days on new drafts. Stored historical revisions may
+  still show 1–365 days. Other contingency durations are 0–365 days or null
+  where optional.
+- Days-after-closing and seller rent-back durations are positive. New rent-back
+  drafts use through-escrow or monthly frequency; daily/weekly remain readable
+  on historical revisions.
 - Tenant-remains and other possession require narrative detail. Switching the
   possession union clears incompatible fields.
 - A represented buyer needs agent name plus email or phone. An unrepresented
-  buyer must have all agent fields cleared.
+  buyer must have all agent fields cleared. New drafts also require commission
+  amount and payer when represented.
 - A custom escrow or title provider needs a name or company.
 - If customary closing costs are false, alternate allocation text is required;
   when customary costs are true, alternate allocation must be empty.

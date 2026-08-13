@@ -217,7 +217,7 @@ function normalizeConversationSummary(value: unknown): ConversationSummary | nul
     lastMessage,
     lastMessageAt: optionalDate(source.lastMessageAt) ?? lastMessage?.createdAt ?? "",
     muted: booleanValue(source.muted),
-    propertyTitle: textValue(property?.title) || "Private property",
+    propertyTitle: textValue(property?.title) || "Seller's property",
     unreadCount: integerValue(source.unreadCount),
   };
 }
@@ -269,7 +269,7 @@ function normalizeAdminMessageReport(value: unknown): AdminMessageReport | null 
     details: optionalText(source.details),
     inviteStatus: optionalText(recordValue(source.invite)?.status),
     message,
-    propertyTitle: textValue(source.propertyTitle, recordValue(source.property)?.title) || "Private property",
+    propertyTitle: textValue(source.propertyTitle, recordValue(source.property)?.title) || "Seller's property",
     reporterLabel: textValue(source.reporterLabel) || "Participant",
     reportedLabel,
     resolution: optionalText(source.resolution),
@@ -293,7 +293,7 @@ function normalizePropertySnapshot(value: unknown, topLevelImageIds?: unknown): 
     identityCurrent,
     location: source ? optionalText(source.location) : undefined,
     ownershipStatus: source ? optionalText(source.ownershipStatus) : undefined,
-    title: source ? textValue(source.title) || "Private property" : "Private property",
+    title: source ? textValue(source.title) || "Seller's property" : "Seller's property",
   };
 }
 

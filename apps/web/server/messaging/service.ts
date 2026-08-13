@@ -26,7 +26,6 @@ import {
   MESSAGE_CONVERSATION_LIMIT_PER_HOUR,
   MESSAGE_USER_LIMIT_PER_24_HOURS,
   PUBLIC_BLOCKED_CONVERSATION_STATE,
-  SELLER_FOLLOW_UP_COOLDOWN_MS,
   UNREAD_MESSAGE_EMAIL_DELAY_MS,
 } from "./policy";
 import { resolveMessagingTemplate } from "./templates";
@@ -204,11 +203,7 @@ export async function getConversationThread(conversationId: string) {
     moderationRevision: access.moderation_updated_at?.toISOString() ?? null,
     pageInfo: messagePage.pageInfo,
     safetyNotice: SAFETY_NOTICE,
-    sellerFollowUpAvailableAt: access.participant_role === "SELLER"
-      && effective.status === "AWAITING_BUYER"
-      && sellerFollowUpCount === 0
-      ? new Date(access.invite_sent_at.getTime() + SELLER_FOLLOW_UP_COOLDOWN_MS).toISOString()
-      : null,
+    sellerFollowUpAvailableAt: null,
   } satisfies ConversationThreadDTO;
 }
 
@@ -523,6 +518,30 @@ export async function blockConversationUser(
         metadata: { conversationsClosed },
         targetId: input.conversationId,
         targetType: "conversation",
+      },
+    });
+    return { data: { blocked: true } };
+  });
+}
+
+export async function blockUserByBuyerProfile(input: { buyerProfileId: string }) {
+  const currentUser = await getSessionUser();
+  if (!currentUser || (!hasRole(currentUser, "SELLER") && !hasRole(currentUser, "ADMIN"))) throw messagingUnavailable();
+  const profile = await prisma.buyerProfile.findUnique({
+    where: { id: input.buyerProfileId },
+    select: { userId: true },
+  });
+  if (!profile || profile.userId === currentUser.id) throw messagingUnavailable();
+  return prisma.$transaction(async (tx) => {
+    await lockPair(tx, currentUser.id, profile.userId);
+    const conversationsClosed = await blockPairInTransaction(tx, currentUser.id, profile.userId, "Profile block");
+    await tx.adminAuditLog.create({
+      data: {
+        action: "buyer_profile_user_blocked",
+        actorUserId: currentUser.id,
+        metadata: { conversationsClosed },
+        targetId: input.buyerProfileId,
+        targetType: "buyer_profile",
       },
     });
     return { data: { blocked: true } };
@@ -1016,13 +1035,10 @@ function effectiveConversationState(access: ConversationAccessRow) {
 function canCurrentParticipantSend(
   access: ConversationAccessRow,
   status: ConversationStatusValue,
-  sellerFollowUpCount: number,
+  _sellerFollowUpCount: number,
 ) {
   if (status === "ACTIVE") return true;
-  if (status !== "AWAITING_BUYER") return false;
-  if (access.participant_role === "BUYER") return true;
-  return sellerFollowUpCount === 0
-    && Date.now() >= access.invite_sent_at.getTime() + SELLER_FOLLOW_UP_COOLDOWN_MS;
+  return status === "AWAITING_BUYER" && access.participant_role === "BUYER";
 }
 
 async function countSellerFollowUps(client: Pick<typeof prisma, "$queryRaw">, access: ConversationAccessRow) {
@@ -1078,7 +1094,7 @@ function propertySnapshot(value: unknown): PropertySnapshotDTO {
       ? "Property context unavailable"
       : typeof snapshot.addressLine1 === "string" && snapshot.addressLine1.trim()
         ? snapshot.addressLine1
-        : typeof snapshot.title === "string" && snapshot.title.trim() ? snapshot.title : "Private property",
+        : typeof snapshot.title === "string" && snapshot.title.trim() ? snapshot.title : "Seller's property",
   };
 }
 

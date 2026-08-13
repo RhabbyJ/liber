@@ -385,7 +385,7 @@ Messages are not offers, counteroffers, contracts, legal acceptance, escrow inst
 
 ### Lifecycle
 
-- `AWAITING_BUYER`: the invite has been delivered. The buyer may reply. The seller may send at most one curated follow-up after 24 hours.
+- `AWAITING_BUYER`: the invite has been delivered. The buyer may reply. The seller waits for that reply before chat continues.
 - `ACTIVE`: the buyer has replied or accepted the invite. Both participants may send guided or plain-text messages.
 - `READ_ONLY`: the invite was declined, expired, or withdrawn; the property identity changed; or an account or seller approval lost eligibility. Eligible active participants may read preserved history, but sending is disabled.
 - `BLOCKED`: either participant blocked the other. Sending stops immediately, affected active invites close, and future invitations between the pair are prevented.
@@ -430,8 +430,10 @@ and immutable revision view expose every persisted term and keep explicit term
 changes separate from recalculated values. Funding V1 is limited to cash,
 financed, and structured seller financing; unstructured `OTHER` funding is
 excluded. Agent license number and home-warranty special inclusions are part of
-the persisted term set. Commission payer/amount remain disabled until product and
-counsel approve their schema and copy.
+the persisted term set. When the buyer is represented, the LOI collects proposed
+commission amount and who pays; these remain non-binding terms and do not invite
+the agent into the workflow. New drafts lock earnest money at 3% of price, and escrow duration cannot
+exceed 90 days. Historical revisions keep their stored values.
 
 The buyer may withdraw before the first submission. After submission, only the
 author of the current revision may withdraw before the counterparty responds.
@@ -447,10 +449,10 @@ terminal outcome.
 The LOI expansion excludes electronic signatures, purchase-agreement or PDF
 generation, payment/wire links, escrow instructions, lender integrations,
 third-party participants, attachments, simultaneous editing, AI-written legal
-clauses, and automatic legal/business-day deadline interpretation. Commission
-terms remain disabled until product and counsel approve their schema and copy.
-Messages may link to the workspace but cannot contain authoritative LOI terms or
-mutate LOI state.
+clauses, and automatic legal/business-day deadline interpretation. New financed
+submissions require an active pre-approval badge or an uploaded pre-approval
+letter plus lender contact. Messages may link to the workspace but cannot contain
+authoritative LOI terms or mutate LOI state.
 
 The production implementation uses PostgreSQL as the source of truth. Private Supabase Realtime events contain identifiers only and are delivery hints; every browser refetches canonical authorized data through Liber's server and retains polling/focus recovery.
 

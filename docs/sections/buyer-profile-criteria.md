@@ -23,6 +23,10 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - Draft/hidden/suspended profiles must not appear in seller search.
 - Buyer conversation identity remains the generated neutral alias. Buyer
   account names and contact details do not become messaging DTO fields.
+- Buyer invite cards show Decline, a 500-character question, request a tour, and
+  Start LOI while status is Sent or Viewed, plus a 48-hour response note.
+  After a response, the primary action is Open conversation; repeating the
+  same response is a no-op instead of a hard error page.
 - Full buyer profiles are not public pages.
 - Public pre-signup buyer previews must be limited, privacy-safe teaser cards only (`apps/web/server/buyer-preview.ts`).
 - Buyer documents are never shown to sellers.
@@ -34,6 +38,9 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - Criteria should describe property fit, not protected-class attributes.
 - Amenity needs use canonical feature tokens (Pool, Parking, ADU, Yard, Garage) so seller amenity filters can match; condition uses Move-in ready / Mild fixer / Fixer.
 - Buyer setup is one form on `/buyer/profile`: private generated identity, budget/basics, optional size/preferences, and one required target-area interaction. Criteria save in the same submit as the profile.
+- After publish, the buyer profile summary stacks identity, general information,
+  a full-width pre-approval callout, and verified badges so the financing box
+  does not crowd or cover profile details.
 - The verified-signup handoff names buyer profile setup as the next stage and shows the buyer where they are in the account -> profile -> seller-visible sequence; it must not ask for role intent again.
 - Expected profile input/publication errors return inline without clearing entered fields. Unexpected server or database failures must still fail closed through the application error boundary.
 - Profile, canonical service-area selection, visibility activation, and criteria must commit atomically; a partial save must not publish stale or mismatched buyer demand.
@@ -55,7 +62,7 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - Buyer account names are private to the buyer portal. Seller/public surfaces must use the generated `BuyerProfile.displayName` alias, not `User.name`, and buyers must not be able to type arbitrary public names.
 - Buyer profile create/update input schemas must not expose `displayName`; alias changes go through the dedicated regenerate server action.
 - Alias/avatar customization is independent from the main criteria form and appears only on the saved profile summary so it cannot submit or discard unsaved criteria.
-- Buyer avatars are generated 2D animal avatars from required allowlisted `User.avatarVariant` tokens. Every surface reads the same persisted user token; no avatar image file or URL is stored.
+- Buyer avatars are generated 2D animal avatars from required allowlisted `User.avatarVariant` tokens (`avatarka:animals:0`–`31`). The saved profile summary lets the buyer pick among those 32 options. Every surface reads the same persisted user token; no avatar image file or URL is stored.
 - `/buyer/criteria` redirects to the profile form for old links; there is no separate criteria onboarding flow.
 
 ## Agent notes

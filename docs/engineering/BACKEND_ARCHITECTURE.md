@@ -341,7 +341,7 @@ Conversation states are `AWAITING_BUYER`, `ACTIVE`, `READ_ONLY`, and `BLOCKED`.
 The buyer's first successfully inserted reply atomically records the invite as
 `ACCEPTED`, records its response time, and activates the conversation; a
 conflicting/idempotent no-op insert does not change lifecycle state. Before that,
-the seller may send one guided follow-up after 24 hours. Declined, effectively
+the seller waits for the buyer to reply; chat continues after the buyer responds. Declined, effectively
 expired, withdrawn, property-identity-invalidated, or ineligible threads become
 read-only; accepted invites remain active. A permanent V1 block serializes with
 send, closes both directions, prevents reinvitation with a generic unavailable

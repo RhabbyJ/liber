@@ -8,6 +8,7 @@ const TERM_ROOTS = new Set([
   "additionalTerms",
   "costsAndCredits",
   "deposit",
+  "disclosures",
   "funding",
   "hoa",
   "parties",

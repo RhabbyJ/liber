@@ -13,7 +13,7 @@ export default async function SellerPropertiesPage() {
   return (
     <div className="page wide stack loose">
       <PageTitle
-        eyebrow="Private property records"
+        eyebrow="Invite-only records"
         title="Your properties"
         tone="seller"
         actions={
@@ -23,7 +23,7 @@ export default async function SellerPropertiesPage() {
           </Link>
         }
       >
-        Add a property before inviting buyers. Records stay private until you invite.
+        Listings are not public. Buyers only see a property when you invite them.
       </PageTitle>
 
       {properties.length === 0 ? (
@@ -52,7 +52,7 @@ export default async function SellerPropertiesPage() {
                   />
                   <span className="media-hint">
                     <Icon name="home" size={12} />
-                    Private property
+                    Invite only
                   </span>
                 </div>
                 <div className="property-card-body">

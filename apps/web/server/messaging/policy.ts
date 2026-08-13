@@ -66,17 +66,9 @@ export function assertConversationCanSend(args: {
 
   if (args.participantRole === "BUYER") return;
 
-  const followUpAvailableAt = new Date(state.inviteSentAt.getTime() + SELLER_FOLLOW_UP_COOLDOWN_MS);
-  if (
-    args.kind !== "GUIDED"
-    || args.templateUse !== "SELLER_FOLLOW_UP"
-    || state.sellerFollowUpCount >= 1
-    || now.getTime() < followUpAvailableAt.getTime()
-  ) {
-    throw new MessagingError(
-      "CONFLICT",
-      "The buyer must respond before additional messages are available.",
-      409,
-    );
-  }
+  throw new MessagingError(
+    "CONFLICT",
+    "The buyer must respond before additional messages are available.",
+    409,
+  );
 }

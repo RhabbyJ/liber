@@ -1,8 +1,9 @@
+export const INVITE_RESPONSE_WINDOW_MS = 48 * 60 * 60 * 1000;
 export const INVITE_EXPIRATION_DAYS = 30;
 type LoiFreezeReason = "INVITE_NO_LONGER_ELIGIBLE" | "PARTICIPANT_INACTIVE" | "PARTICIPANTS_BLOCKED" | "PROPERTY_IDENTITY_CHANGED" | "PROPERTY_NO_LONGER_ELIGIBLE" | "SELLER_ACCESS_LOST";
 
 export function inviteExpiresAt(from = new Date()) {
-  return new Date(from.getTime() + INVITE_EXPIRATION_DAYS * 86_400_000);
+  return new Date(from.getTime() + INVITE_RESPONSE_WINDOW_MS);
 }
 
 export async function expireMarketplaceState(now = new Date()) {
