@@ -86,6 +86,7 @@ export function PrimaryNav({
   return (
     <div
       className="nav-shell"
+      data-dense={items.length >= 7 || undefined}
       data-primary-nav
       // The pre-hydration fallback script stamps a ready flag on this element.
       suppressHydrationWarning
@@ -101,8 +102,7 @@ export function PrimaryNav({
         onClick={() => setIsOpen((value) => !value)}
         type="button"
       >
-        <Icon className="mobile-menu-icon-open" name="menu" size={22} />
-        <Icon className="mobile-menu-icon-close" name="close" size={22} />
+        <span aria-hidden="true" className="mobile-menu-bars" />
       </button>
       <nav aria-label="Primary" className={`nav ${isOpen ? "open" : ""}`} data-primary-nav-menu>
         {items.map((item) => {
@@ -113,6 +113,7 @@ export function PrimaryNav({
             <Link
               aria-current={active ? "page" : undefined}
               className={active ? `active${modeClass}` : undefined}
+              data-label={item.label}
               href={item.href}
               key={`${item.href}-${item.label}`}
               onClick={close}
@@ -126,7 +127,7 @@ export function PrimaryNav({
             <>
               <Link className="button secondary block" href="/profile" onClick={close}>Your profile</Link>
               <form action="/logout" method="post">
-                <button className="button ghost block" type="submit">
+                <button className="button secondary block" type="submit">
                   <Icon name="logout" size={16} />
                   Sign out
                 </button>

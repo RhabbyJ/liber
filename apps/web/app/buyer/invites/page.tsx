@@ -76,8 +76,8 @@ export default async function BuyerInvitesPage({
                     <Icon name="home" size={20} />
                   </span>
                   <div className="invite-card-heading">
-                    <p className="invite-card-kicker">{invite.property}</p>
                     <h2>{invite.title}</h2>
+                    <p className="meta-line">{invite.property}</p>
                   </div>
                   <div className="invite-card-status">
                     <span className={`status-dot ${invite.status === "Accepted" ? "active" : invite.status === "Declined" ? "danger" : ""}`}>

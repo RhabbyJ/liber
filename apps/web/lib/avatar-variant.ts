@@ -54,10 +54,12 @@ export function avatarVariantOptions() {
 }
 
 /**
- * Initials avatars reuse the persisted token: its index picks one of the
- * `--avatar-color-N` backgrounds in globals.css, so this count must match them.
+ * Initials avatars reuse the persisted token: `salt % count` picks one of the
+ * `--avatar-color-N` backgrounds in globals.css. Freeze the count and order;
+ * changing either re-colors every account.
  */
-export const avatarColorCount = 10;
+export const avatarColorNames = ["Pine", "Lagoon", "Harbor", "Iris", "Plum", "Rosewood", "Terracotta", "Moss"] as const;
+export const avatarColorCount = avatarColorNames.length;
 
 export function avatarColorIndex(value: string | null | undefined, seed: string) {
   return resolveAvatarVariant(value, seed).salt % avatarColorCount;
@@ -68,29 +70,35 @@ export function avatarColorOptions() {
 }
 
 const initialPattern = /[\p{L}\p{N}]/u;
+const caselessScript = /^[\p{Script=Han}\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Arabic}\p{Script=Hebrew}]/u;
+const graphemes = new Intl.Segmenter("en", { granularity: "grapheme" });
 
-/** First letter of the first and last words ("Bluebell Porch" -> "BP"); one letter for a single word. */
+/**
+ * First letter of the first and last words ("Bluebell Porch" -> "BP"); one letter for a
+ * single word or a script without case (CJK, Hangul, Kana, Arabic, Hebrew).
+ */
 export function avatarInitials(name: string | null | undefined) {
-  const source = (name ?? "").trim();
-  const base = source.includes("@") && !source.includes(" ") ? source.split("@")[0] : source;
-  const words = base.split(/[\s._-]+/).filter((word) => initialPattern.test(word));
-  const initialOf = (word: string) => Array.from(word).find((character) => initialPattern.test(character)) ?? "";
+  const source = (name ?? "").normalize("NFC").trim().replace(/\([^)]*\)|\[[^\]]*\]|\{[^}]*\}/g, " ");
+  const base = source.includes("@") && !/\s/.test(source) ? source.split("@")[0] : source;
+  const words = base.split(/[\s._\-\u2013\u2014]+/).filter((word) => initialPattern.test(word));
+  const initialOf = (word: string) =>
+    Array.from(graphemes.segment(word), (part) => part.segment).find((part) => initialPattern.test(part)) ?? "";
   if (words.length === 0) return "";
   const first = initialOf(words[0]);
+  if (caselessScript.test(first)) return first;
   const last = words.length > 1 ? initialOf(words[words.length - 1]) : "";
   return `${first}${last}`.toLocaleUpperCase("en-US");
 }
 
+/** A random token whose color differs from the excluded one, so a shuffle always changes the avatar. */
 export function randomAvatarVariant(exclude?: string | null) {
   const normalizedExclude = normalizeAvatarVariant(exclude);
-  const options = avatarSalts.map((salt) => `${avatarProvider}:${avatarTheme}:${salt}`);
-  let index = randomIndex(options.length);
+  const excludedColor = normalizedExclude ? avatarColorIndex(normalizedExclude, "") : null;
+  const options = avatarSalts
+    .filter((salt) => salt % avatarColorCount !== excludedColor)
+    .map((salt) => `${avatarProvider}:${avatarTheme}:${salt}`);
 
-  if (normalizedExclude && options[index] === normalizedExclude) {
-    index = (index + 1) % options.length;
-  }
-
-  return options[index];
+  return options[randomIndex(options.length)];
 }
 
 function hashSeed(seed: string) {

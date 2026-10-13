@@ -124,7 +124,7 @@ export function BuyerProfileWizard({
       <ProfileFormSection title="Public identity">
         <div className="identity-preview">
           <GeneratedAvatar
-            alt="Your buyer avatar"
+            decorative
             name={buyer.name}
             seed={avatarSeed}
             size="md"

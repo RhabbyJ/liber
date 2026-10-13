@@ -21,7 +21,7 @@ export default async function AccountProfilePage() {
 
       <section className="account-identity" aria-label="Account">
         <GeneratedAvatar
-          alt="Your account avatar"
+          decorative
           name={user.name || user.email}
           seed={user.id}
           size="lg"

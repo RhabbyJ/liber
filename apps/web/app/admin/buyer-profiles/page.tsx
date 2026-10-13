@@ -14,8 +14,8 @@ export default async function AdminBuyerProfilesPage() {
           <article className="card stack" key={buyer.id}>
             <div className="section-head compact">
               <div>
-                <p className="eyebrow">{buyer.type}</p>
                 <h2>{buyer.name}</h2>
+                <p className="meta-line">{buyer.type}</p>
               </div>
               <span className={buyer.visibility === "active" ? "status-dot active" : "status-dot"}>
                 {buyer.visibility}

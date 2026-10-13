@@ -59,7 +59,6 @@ export default async function VerifySignupPage({
         </p>
         <p className="auth-switch">
           Already confirmed?{" "}
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- full load; a soft navigation here would be intercepted into the auth modal */}
           <a href="/login">Log in</a>
         </p>
       </AuthCard>

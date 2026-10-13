@@ -464,9 +464,8 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
       <header className="loi-header">
         <div className="stack tight">
           <Link className="link-button" href={`/messages/${encodeURIComponent(negotiation.conversationId)}`} ref={fallbackFocus}>← Conversation</Link>
-          <p className="eyebrow">Non-binding term alignment</p>
           <h1>LOI workspace</h1>
-          <p>Version {negotiation.currentSequence || "draft"} · {negotiation.viewerRole === "BUYER" ? "Buyer" : "Seller"} view</p>
+          <p className="meta-line">Non-binding term alignment · Version {negotiation.currentSequence || "draft"} · {negotiation.viewerRole === "BUYER" ? "Buyer" : "Seller"} view</p>
         </div>
         <span className="status-dot info">{statusLabel(negotiation.status)}</span>
       </header>
@@ -475,8 +474,7 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
         <section className="loi-aligned-celebration" role="status">
           <span aria-hidden="true" className="loi-aligned-mark">✓</span>
           <div>
-            <p className="eyebrow">Aligned</p>
-            <h2>Congratulations</h2>
+            <h2>Terms aligned</h2>
             <p>You aligned on these terms for contract preparation. This is not a signed offer or escrow instruction.</p>
           </div>
         </section>
@@ -549,7 +547,7 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
 
         <aside aria-label="LOI deal snapshot" className="loi-summary stack">
           <section className="card sage stack tight">
-            <p className="eyebrow">{historical ? `Version ${displayedRevision.sequence} snapshot` : view.mode === "EDITING" || view.mode === "REVIEWING" ? "Draft deal snapshot" : "Current deal snapshot"}</p>
+            <h2 className="card-title">{historical ? `Version ${displayedRevision.sequence} snapshot` : view.mode === "EDITING" || view.mode === "REVIEWING" ? "Draft deal snapshot" : "Current deal snapshot"}</h2>
             <Summary summary={sidebarSummary} terms={sidebarTerms} />
             <p className="muted small">Non-binding term alignment for contract preparation only.</p>
           </section>
@@ -683,8 +681,8 @@ function TermsReview({ computedSummary, heading, previousRevision = null, proper
     <section className="card stack loi-terms-review" aria-labelledby={headingId}>
       <div className="section-head">
         <div>
-          <p className="eyebrow">Complete proposed-term snapshot</p>
           <h2 id={headingId}>{heading}</h2>
+          <p className="meta-line">Complete proposed-term snapshot</p>
         </div>
         {revision ? <span className="status-dot info">Immutable</span> : <span className="status-dot warning">Private draft</span>}
       </div>
@@ -734,10 +732,11 @@ function TermsReview({ computedSummary, heading, previousRevision = null, proper
 function PropertyIdentity({ property }: { property: ReturnType<typeof normalizePropertyIdentity> }) {
   return (
     <section className="loi-property-identity" aria-label="Immutable property identity">
-      <p className="eyebrow">Property captured with this negotiation</p>
       <strong>{property.title}</strong>
       {property.location ? <span>{property.location}</span> : null}
-      <span>{property.identityVersion === null ? "Captured invite property identity" : `Property identity version ${property.identityVersion}`}</span>
+      <span className="meta-line">
+        Captured with this negotiation{property.identityVersion === null ? "" : ` · identity version ${property.identityVersion}`}
+      </span>
     </section>
   );
 }
@@ -805,7 +804,7 @@ function LoiDecisionDialog({ busy, current, decision, error, onClose, onConfirm,
     >
       <div className="loi-dialog-content stack">
         <div className="section-head">
-          <div><p className="eyebrow">Confirm exact LOI version</p><h2 id={titleId}>{title}</h2></div>
+          <div><h2 id={titleId}>{title}</h2><p className="meta-line">Confirm the exact LOI version.</p></div>
           <button aria-label="Close decision dialog" className="message-dialog-close" disabled={busy} onClick={onClose} type="button">×</button>
         </div>
         {error ? <p className="auth-alert error" role="alert">{error}</p> : null}

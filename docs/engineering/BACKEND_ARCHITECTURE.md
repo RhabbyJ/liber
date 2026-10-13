@@ -239,7 +239,7 @@ Buckets:
 Rules:
 
 - Buyer public display names are generated locally from an allowlisted neutral alias list; there is no alias API, free-text public-name field, or separate alias storage object.
-- Buyer profile display uses initials avatars: the generated public alias supplies the letters and `User.avatarVariant` selects one of ten background colors. Public and seller DTOs seed any color fallback with the generated public alias, never a buyer-profile ID or Auth UUID.
+- Buyer profile display uses initials avatars: the generated public alias supplies the letters and `User.avatarVariant` selects one of eight background colors (`index % 8`). Public and seller DTOs seed any color fallback with the generated public alias, never a buyer-profile ID or Auth UUID.
 - Avatars are rendered as text in the app; there is no avatar API, image dependency, Supabase avatar bucket, storage path, or saved image file.
 - Verification documents are immutable user evidence.
 - Document owners must not be able to overwrite/delete evidence after upload.

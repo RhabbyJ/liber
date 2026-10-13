@@ -18,7 +18,7 @@ export function EmptyState({
         <Icon name={icon} size={28} />
       </span>
       <h3>{title}</h3>
-      {description ? <p className="muted">{description}</p> : null}
+      {description ? <p>{description}</p> : null}
       {actions ? <div className="actions">{actions}</div> : null}
     </div>
   );

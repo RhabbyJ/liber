@@ -105,7 +105,7 @@ export default async function PublicBuyerProfilePage({
         </div>
         <div className="hdp-media-side">
           <div className="hdp-media-avatar">
-            <GeneratedAvatar name={buyer.name} seed={buyer.avatarSeed} size="xl" variant={buyer.avatarVariant} />
+            <GeneratedAvatar decorative name={buyer.name} seed={buyer.avatarSeed} size="xl" variant={buyer.avatarVariant} />
           </div>
           <div className="hdp-media-area">
             <Icon name="map-pin" size={28} />
@@ -212,7 +212,7 @@ export default async function PublicBuyerProfilePage({
         <aside className="hdp-rail" aria-label="Contact this buyer">
           <div className="hdp-cta-card">
             <div className="hdp-cta-identity">
-              <GeneratedAvatar name={buyer.name} seed={buyer.avatarSeed} size="md" variant={buyer.avatarVariant} />
+              <GeneratedAvatar decorative name={buyer.name} seed={buyer.avatarSeed} variant={buyer.avatarVariant} />
               <span>
                 <strong>{buyer.name}</strong>
                 <small>{compactBudgetRange(buyer.budgetMin, buyer.budgetMax)} · {buyer.location || "Liber service area"}</small>

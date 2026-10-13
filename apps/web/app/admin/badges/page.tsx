@@ -18,7 +18,7 @@ export default async function AdminBadgesPage() {
       <section className="grid three">
         {buyers.map((buyer) => (
           <article className="card stack" key={buyer.id}>
-            <p className="eyebrow">{buyer.name}</p>
+            <h2 className="card-title">{buyer.name}</h2>
             <form action={submitBadgeGrant} className="stack">
               <input name="buyerProfileId" type="hidden" value={buyer.id} />
               <div className="field">

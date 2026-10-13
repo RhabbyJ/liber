@@ -7,7 +7,7 @@ import { DirectUploadField } from "../../../components/direct-upload-field";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
 import { DEFAULT_MARKET_SLUG } from "../../../lib/service-areas";
 import { getActiveMarketOrFallback } from "../../../server/service-areas";
-import { avatarColorIndex, avatarColorOptions } from "../../../lib/avatar-variant";
+import { avatarColorIndex, avatarColorNames, avatarColorOptions } from "../../../lib/avatar-variant";
 import {
   regenerateBuyerPublicAlias,
   setBuyerAvatar,
@@ -182,7 +182,7 @@ export default async function BuyerProfileBuilderPage({
 
       <header className="profile-header">
         <GeneratedAvatar
-          alt="Your buyer avatar"
+          decorative
           name={displayName}
           seed={buyer.userId || buyer.id}
           size="xl"
@@ -223,7 +223,7 @@ export default async function BuyerProfileBuilderPage({
                 const selected = avatarColorIndex(buyer.avatarVariant, buyer.userId || buyer.id) === index;
                 return (
                   <button
-                    aria-label={`Avatar color ${index + 1}`}
+                    aria-label={avatarColorNames[index]}
                     aria-pressed={selected}
                     className={`avatar-swatch${selected ? " selected" : ""}`}
                     key={variant}
@@ -231,7 +231,7 @@ export default async function BuyerProfileBuilderPage({
                     type="submit"
                     value={variant}
                   >
-                    <GeneratedAvatar name={displayName} seed={buyer.userId || buyer.id} size="sm" variant={variant} />
+                    <GeneratedAvatar decorative name={displayName} seed={buyer.userId || buyer.id} size="sm" variant={variant} />
                   </button>
                 );
               })}

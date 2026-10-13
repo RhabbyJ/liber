@@ -260,7 +260,7 @@ export default async function InviteBuyerPage({
         <aside className="public-profile-aside invite-compose-aside">
           <article className="invite-recipient-card">
             <div className="invite-recipient">
-              <GeneratedAvatar name={buyer.name} seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
+              <GeneratedAvatar decorative name={buyer.name} seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
               <div>
                 <h2>{buyer.name}</h2>
                 {buyer.isDemo ? <span className="status-dot warning">Demo buyer</span> : null}

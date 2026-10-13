@@ -48,7 +48,7 @@ export function PublicBuyerPreviewCard({ index, preview }: { index: number; prev
             ))}
           </div>
         ) : null}
-        <GeneratedAvatar alt={`${preview.alias} avatar`} className="listing-card-avatar" name={preview.alias} seed={preview.alias} size="lg" variant={preview.avatarVariant} />
+        <GeneratedAvatar className="listing-card-avatar" decorative name={preview.alias} seed={preview.alias} variant={preview.avatarVariant} />
       </div>
       <div className="listing-card-body">
         <p className="listing-card-price">{preview.budgetLabel}</p>

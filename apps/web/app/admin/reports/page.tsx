@@ -42,8 +42,8 @@ export default async function AdminReportsPage({
               <article className="card stack message-admin-report" key={report.id}>
                 <div className="section-head compact">
                   <div>
-                    <p className="eyebrow admin">{report.category.replaceAll("_", " ")}</p>
                     <h2>{report.propertyTitle}</h2>
+                    <p className="meta-line sentence">{report.category.replaceAll("_", " ").toLowerCase()}</p>
                   </div>
                   <span className={`status-dot ${adminReportStatusTone(report.status)}`}>
                     {report.status.replaceAll("_", " ")}
