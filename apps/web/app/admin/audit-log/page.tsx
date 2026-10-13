@@ -6,9 +6,7 @@ export default async function AdminAuditLogPage() {
 
   return (
     <div className="page stack">
-      <PageTitle eyebrow="Admin" title="Audit log">
-        Sensitive trust, role, document, and moderation actions are recorded here.
-      </PageTitle>
+      <PageTitle title="Audit log" />
       <section className="card flat">
         <table className="table">
           <caption>Admin action history</caption>

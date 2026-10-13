@@ -6,10 +6,12 @@ import { GeneratedAvatar } from "./generated-avatar";
 
 export function AccountMenu({
   avatarVariant,
+  displayName,
   profileHref,
   userId,
 }: {
   avatarVariant?: string | null;
+  displayName: string;
   profileHref: string;
   userId: string;
 }) {
@@ -84,6 +86,7 @@ export function AccountMenu({
         <GeneratedAvatar
           alt="Your profile"
           className="account-menu-avatar"
+          name={displayName}
           seed={userId}
           size="sm"
           variant={avatarVariant}

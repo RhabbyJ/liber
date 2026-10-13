@@ -32,24 +32,26 @@ Owns shared visual language, navigation, layouts, reusable components, and globa
   read-only/blocked/offline states on mobile and desktop.
 - CTAs should describe the actual action.
 - Focused task-entry pages may use generous open-canvas spacing and a single high-emphasis input composition. Artwork must be original and brand-specific; visual references may guide hierarchy and proportions but not copied assets, brand colors, or product claims.
-- Avoid essay callout cards (`card cream` + amber eyebrow + long privacy/
-  legal paragraphs, or stacked `auth-alert info` walls). Put one short line in
-  the page title, field hint, empty state, or submit checkbox instead. Keep
-  real error/success alerts brief.
+- Avoid essay callout cards, left-border status banners, three-step icon
+  explainers, and stacked alert walls. Real status uses one `inline-alert`
+  (tinted background, icon, one sentence, optional text link); legal or privacy
+  copy is `fine-print` next to the action it qualifies. Account, admin, and
+  profile pages use settings-style sections (`settings-section`, `settings-list`
+  rows with chevrons, `status-list`) separated by hairlines, not shadowed cards.
 - Keep mobile and keyboard accessibility in scope.
 - Primary mobile navigation must remain usable during delayed or missing client hydration; keep menu contents/actions in the DOM and preserve the fallback behavior in `primary-nav.tsx`.
 - Primary navigation remains visible on the desktop map-first homepage. Guests get Demand map, For buyers, and For sellers; authenticated links use distinct buyer/seller action labels so dual-role accounts do not receive ambiguous duplicate links.
 - Authenticated desktop navigation uses the user's generated avatar as the account-menu trigger. The menu contains only `Your profile` and the POST-only `Sign out` action; mobile navigation exposes the same two account actions when the desktop trigger is hidden.
 - `/profile` is owner-only account identity. It may display the current session user's private name/email and workspace links, but those fields never become seller/public buyer identity.
-- Workspace context belongs in descriptive page eyebrows and navigation, not decorative Buyer mode / Seller mode pills.
+- Page headers follow the listing portals: a plain H1 (32/40, 24/32 on phones), at most one short meta line under it, and actions on the right (`components/page-title.tsx`). Do not add uppercase eyebrows, kicker labels, subtitle paragraphs, or Buyer mode / Seller mode pills; workspace context comes from navigation and a `page-back` link where a page has a parent.
 - Status styling uses one semantic icon or text label. Do not inject decorative dots beside an existing icon, and reserve warning/success color for real state.
 - Liber's production light-green palette and assignments are authoritative: `#67c94f`, `#5fbe43`, and `#47a62f`, with `#f2fbef`, `#e0f6d8`, and `#bceaad` for tints and decorative lines. Primary controls use `#5fbe43` with white foregrounds and deepen to `#47a62f`; public search and map signals use `#47a62f` with white foregrounds and the production muted-green halos. Do not add substitute green tokens that change this treatment.
-- Demand visuals may reuse the abstract atlas grammar inside maps only. Canonical service-area geometry remains the only source for real selected boundaries. Trust explanations may reuse the focused private-evidence -> Liber-review -> visible-badge flow; do not roll a decorative illustration template across unrelated empty states.
-- Focused entry pages use one original illustration, one short explanation, and one obvious primary action. Signup uses two presentation steps with a labeled Role → Account stepper; step 1 is role cards with one-line outcome microcopy (no stacked hero art), and step 2 carries the hero illustration plus account fields. Role-prefilled buyer and seller links keep the role selected while still opening at Step 1.
+- Demand visuals may reuse the abstract atlas grammar inside maps only. Canonical service-area geometry remains the only source for real selected boundaries. Explain trust in one line near the upload or badge, not with a decorative step diagram.
+- Focused entry pages use one original illustration, one short explanation, and one obvious primary action. Log in, signup, and email verification share the sign-in dialog card. Signup keeps two steps with a small Role → Account stepper; step 1 lists the roles as option rows (small artwork, label, one-line outcome), and step 2 carries a small hero illustration plus account fields. Role-prefilled buyer and seller links keep the role selected while still opening at Step 1.
 - On narrow screens the homepage may stack and scroll, but the map, preview cards, and mobile navigation actions must all remain reachable.
 - Do not use real-looking buyer imagery as a trust shortcut.
-- Buyer avatar UI uses generated 2D animal avatars from the app-approved `avatarka` animals theme. The SVG is generated locally from an allowlisted token and rendered as a data image.
-- Seller message-inbox rows use the authorized buyer's generated animal avatar; buyer-facing rows retain the generic message icon and receive no persisted seller avatar token.
+- Avatars are initials avatars (`components/generated-avatar.tsx`): one or two letters (first letters of the first and last words) in white Open Sans 600 at 40% of the diameter, on one of ten `--avatar-color-N` backgrounds that each keep at least 4.5:1 contrast. Buyer surfaces use the generated public alias; the header account trigger and `/profile` use the signed-in user's own account name, which only that user sees.
+- Seller message-inbox rows use the authorized buyer's initials avatar; buyer-facing rows retain the generic message icon and receive no persisted seller avatar token.
 - `npm run smoke:visual` covers public home/login/signup screenshots only. `VISUAL_SMOKE_BROWSER` accepts `chromium` or `firefox`; Windows defaults to Chromium then Firefox, while other platforms default to Firefox then Chromium. SwiftShader and the five-second virtual-time budget apply only to the Chromium path.
 - Public preview cards pair the generated neutral buyer alias with that generated avatar, while profile links and invite actions remain exclusive to their existing server-authorized seller surfaces.
 - `/negotiations/[negotiationId]` uses a sectioned task form, sticky deal

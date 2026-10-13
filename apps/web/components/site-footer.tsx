@@ -1,20 +1,39 @@
 import Link from "next/link";
 
-const footerLinks = [
-  { href: "/", label: "Buyer demand map" },
-  { href: "/seller/search", label: "Find buyers" },
-  { href: "/seller/properties", label: "Private properties" },
-  { href: "/seller/invites", label: "Sent invites" },
-  { href: "/buyer/profile", label: "Create a buyer profile" },
-  { href: "/buyer/badges", label: "Get verified" },
-  { href: "/buyer/invites", label: "Received invites" },
-  { href: "/login", label: "Log in" },
-  { href: "/signup", label: "Create an account" },
+const footerColumns = [
+  {
+    heading: "For sellers",
+    links: [
+      { href: "/seller/search", label: "Find buyers" },
+      { href: "/seller/properties", label: "Your properties" },
+      { href: "/seller/properties/new", label: "Add a property" },
+      { href: "/seller/invites", label: "Sent invites" },
+    ],
+  },
+  {
+    heading: "For buyers",
+    links: [
+      { href: "/buyer/profile", label: "Create a buyer profile" },
+      { href: "/buyer/badges", label: "Get verified" },
+      { href: "/buyer/invites", label: "Received invites" },
+    ],
+  },
+  {
+    heading: "Liber",
+    links: [
+      { href: "/", label: "Buyer demand map" },
+      { href: "/messages", label: "Messages" },
+      { href: "/login", label: "Log in" },
+      { href: "/signup", label: "Create an account" },
+    ],
+  },
 ];
+
+const compactLinks = footerColumns.flatMap((column) => column.links);
 
 const legalLines = [
   "Liber is a private directory of buyer demand. Properties stay private and outreach is manual.",
-  "Liber is not an escrow, lender, or transaction execution service. No offers, no escrow, no payments.",
+  "Liber is not an escrow, lender, or transaction execution service. Invites are not offers, escrow instructions, funds custody, or automated transactions.",
 ];
 
 export function SiteFooter({ variant = "full" }: { variant?: "compact" | "full" }) {
@@ -22,12 +41,12 @@ export function SiteFooter({ variant = "full" }: { variant?: "compact" | "full" 
     return (
       <footer className="site-footer compact">
         <nav aria-label="Footer" className="site-footer-compact-links">
-          {footerLinks.map((link) => (
-            <Link href={link.href} key={`${link.href}-${link.label}`}>{link.label}</Link>
+          {compactLinks.map((link) => (
+            <Link href={link.href} key={link.href}>{link.label}</Link>
           ))}
         </nav>
         {legalLines.map((line) => <p key={line}>{line}</p>)}
-        <p className="site-footer-copyright">© 2026 Liber</p>
+        <p className="site-footer-copyright">Copyright © 2026 Liber. All rights reserved.</p>
       </footer>
     );
   }
@@ -35,18 +54,27 @@ export function SiteFooter({ variant = "full" }: { variant?: "compact" | "full" 
   return (
     <footer className="site-footer">
       <div className="site-footer-inner">
-        <nav aria-label="Footer" className="site-footer-links">
-          {footerLinks.map((link) => (
-            <Link href={link.href} key={`${link.href}-${link.label}`}>{link.label}</Link>
+        <div className="site-footer-columns">
+          {footerColumns.map((column) => (
+            <nav aria-label={column.heading} className="site-footer-column" key={column.heading}>
+              <h2>{column.heading}</h2>
+              <ul>
+                {column.links.map((link) => (
+                  <li key={link.href}>
+                    <Link href={link.href}>{link.label}</Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
           ))}
-        </nav>
+        </div>
         <div className="site-footer-legal">
+          <p className="site-footer-brandline">
+            <span className="brand-mark" aria-hidden="true" />
+            Copyright © 2026 Liber. All rights reserved.
+          </p>
           {legalLines.map((line) => <p key={line}>{line}</p>)}
         </div>
-        <p className="site-footer-brandline">
-          <span className="brand-mark" aria-hidden="true" />
-          <span>© 2026 Liber · Private buyer directory</span>
-        </p>
       </div>
       <FooterSkyline />
     </footer>

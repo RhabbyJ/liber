@@ -30,7 +30,7 @@ export function BuyerCard({ buyer, priority = false }: { buyer: SellerBuyerSumma
             ))}
           </div>
         ) : null}
-        <GeneratedAvatar alt={`${buyer.name} generated avatar`} className="listing-card-avatar" seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
+        <GeneratedAvatar alt={`${buyer.name} avatar`} className="listing-card-avatar" name={buyer.name} seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
       </div>
       <div className="listing-card-body">
         <p className="listing-card-price">{compactBudgetRange(buyer.budgetMin, buyer.budgetMax)}</p>

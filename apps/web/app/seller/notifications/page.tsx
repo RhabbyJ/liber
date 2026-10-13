@@ -1,6 +1,4 @@
-import Link from "next/link";
 import { EmptyState } from "../../../components/empty-state";
-import { Icon } from "../../../components/icon";
 import { PageTitle } from "../../../components/page-title";
 import { listNotifications } from "../../../server/contracts";
 
@@ -8,36 +6,26 @@ export default async function SellerNotificationsPage() {
   const { data: notifications } = await listNotifications();
 
   return (
-    <div className="page stack loose">
-      <PageTitle
-        eyebrow="Activity"
-        title="Notifications"
-        tone="seller"
-        actions={
-          <Link className="button ghost" href="/seller/invites">
-            <Icon name="mail" size={14} />
-            Sent invites
-          </Link>
-        }
-      />
+    <div className="page narrow stack loose">
+      <PageTitle title="Notifications" />
       {notifications.length === 0 ? (
-        <EmptyState icon="sparkle" title="All quiet" description="No new activity yet. Check back after buyers respond." />
+        <EmptyState icon="bell" title="You’re all caught up" description="No notifications yet. Updates appear here when buyers respond." />
       ) : (
-        <section className="grid two">
+        <ul className="notification-list">
           {notifications.map((notification) => (
-            <article className="card stack" key={notification.id}>
-              <div className="section-head compact">
-                <p className="eyebrow seller">{notification.type.replace(/_/g, " ")}</p>
-                <span className={notification.readAt ? "status-dot" : "status-dot warning"}>
-                  {notification.readAt ? "Read" : "Unread"}
-                </span>
+            <li className={`notification-row${notification.readAt ? "" : " unread"}`} key={notification.id}>
+              <span aria-hidden="true" className="notification-dot" />
+              <div>
+                <strong>{notification.title}</strong>
+                <p>{notification.body}</p>
+                <small>
+                  {notification.createdAt}
+                  {notification.readAt ? null : <span className="visually-hidden"> (unread)</span>}
+                </small>
               </div>
-              <h2 style={{ fontSize: 18 }}>{notification.title}</h2>
-              <p className="muted">{notification.body}</p>
-              <small>{notification.createdAt}</small>
-            </article>
+            </li>
           ))}
-        </section>
+        </ul>
       )}
     </div>
   );

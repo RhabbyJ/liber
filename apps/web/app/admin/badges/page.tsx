@@ -14,9 +14,7 @@ export default async function AdminBadgesPage() {
 
   return (
     <div className="page stack">
-      <PageTitle eyebrow="Admin" title="Badges">
-        Badges are manually controlled and expired badges do not affect search.
-      </PageTitle>
+      <PageTitle title="Badges" />
       <section className="grid three">
         {buyers.map((buyer) => (
           <article className="card stack" key={buyer.id}>

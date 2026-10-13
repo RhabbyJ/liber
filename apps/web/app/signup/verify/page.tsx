@@ -18,57 +18,54 @@ export default async function VerifySignupPage({
   const mailLink = emailProviderLink(email);
 
   return (
-    <div className="page narrow verify-page">
-      <section className="card stack verify-card">
-        <div className="verify-icon" aria-hidden="true">
-          <Icon name="mail" size={26} />
-        </div>
-        <div className="stack tight">
-          <p className="eyebrow">Account verification</p>
-          <h1>Confirm your email</h1>
-          <p className="muted">
-            {email
-              ? `We sent a verification link to ${email}. Click it to activate your account. We’ll take you to your next setup step automatically.`
-              : "We sent a verification link to your email. Click it to activate your account. We’ll take you to your next setup step automatically."}
+    <div className="auth-page">
+      <section className="auth-card" aria-labelledby="verify-title">
+        <div className="auth-card-head">
+          <span className="auth-card-icon" aria-hidden="true">
+            <Icon name="mail" size={24} />
+          </span>
+          <h1 id="verify-title">Confirm your email</h1>
+          <p>
+            {email ? (
+              <>We sent a verification link to <strong>{email}</strong>. Open it to activate your account.</>
+            ) : (
+              "We sent a verification link to your email. Open it to activate your account."
+            )}
           </p>
         </div>
 
         {resent === "1" ? (
-          <div className="auth-alert success">
+          <div className="auth-alert success" role="status">
             <strong>Verification email resent</strong>
             <span>Use the newest email if more than one message arrives.</span>
           </div>
         ) : null}
 
         {status === "rate-limited" ? (
-          <div className="auth-alert info">
+          <div className="auth-alert info" role="status">
             <strong>Resend limit reached</strong>
             <span>Wait before requesting another verification email.</span>
           </div>
         ) : null}
 
-        <div className="actions">
-          {mailLink ? (
-            <a className="button primary" href={mailLink.href} rel="noreferrer" target="_blank">
-              <Icon name="arrow-right" size={15} />
-              Open {mailLink.label}
-            </a>
-          ) : null}
-          <Link className="button secondary" href="/login">Back to login</Link>
-        </div>
-
-        <form action={resendSignupConfirmation} className="verify-resend">
+        {mailLink ? (
+          <a className="button primary block lg" href={mailLink.href} rel="noreferrer" target="_blank">
+            Open {mailLink.label}
+          </a>
+        ) : null}
+        <form action={resendSignupConfirmation} className="auth-resend">
           <input name="email" type="hidden" value={email} />
           <input name="next" type="hidden" value={safeNext} />
-          <button className="link-button" disabled={!email} type="submit">
-            <Icon name="mail" size={14} />
+          <button className={`button ${mailLink ? "secondary" : "primary"} block`} disabled={!email} type="submit">
             Resend verification email
           </button>
         </form>
 
-        <p className="muted small">
-          If the email is not in your inbox, check spam or promotions. The confirmation link must be opened in the same Liber
-          environment you signed up from.
+        <p className="auth-fineprint">
+          Not in your inbox? Check spam or promotions. Open the link in the same Liber environment you signed up from.
+        </p>
+        <p className="auth-switch">
+          Already confirmed? <Link href="/login">Log in</Link>
         </p>
       </section>
     </div>

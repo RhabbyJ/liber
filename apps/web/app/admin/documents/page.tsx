@@ -7,9 +7,7 @@ export default async function AdminDocumentsPage() {
 
   return (
     <div className="page stack">
-      <PageTitle eyebrow="Admin" title="Documents">
-        Document storage paths stay private; admins review status without exposing public URLs.
-      </PageTitle>
+      <PageTitle title="Documents" />
       <section className="card flat">
         <table className="table">
           <thead>

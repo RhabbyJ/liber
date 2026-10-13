@@ -28,16 +28,14 @@ export default async function AdminMessageReportPage({
     <div className="page stack loose">
       <PageTitle
         actions={
-          <Link className="button ghost" href="/admin/reports">
-            <Icon name="arrow-left" size={14} />
+          <Link className="button secondary" href="/admin/reports">
+            <Icon name="arrow-left" size={16} />
             Report queue
           </Link>
         }
-        eyebrow="Audited review"
         title="Message report"
-        tone="admin"
       >
-        This restricted context is available because a participant reported a specific message.
+        Shown because a participant reported a specific message.
       </PageTitle>
 
       <article className="card stack message-admin-report">

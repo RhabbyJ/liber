@@ -21,9 +21,7 @@ export default async function MessagesPage() {
 
   return (
     <div className="page stack loose message-inbox-page">
-      <PageTitle eyebrow="Private outreach" title="Messages">
-        Conversations continue only from valid property invites. Liber does not support unsolicited messages, offers, escrow, or payments.
-      </PageTitle>
+      <PageTitle title="Messages" />
       <ConversationInbox initialConversations={conversations} initialPageInfo={pageInfo} />
     </div>
   );

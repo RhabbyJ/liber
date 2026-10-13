@@ -65,6 +65,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     </Link>
                     <AccountMenu
                       avatarVariant={user?.avatarVariant}
+                      displayName={user?.name || user?.email || "Account"}
                       profileHref="/profile"
                       userId={user?.id ?? "account"}
                     />

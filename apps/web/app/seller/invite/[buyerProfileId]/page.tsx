@@ -65,9 +65,7 @@ export default async function InviteBuyerPage({
   if (!canInvite) {
     return (
       <div className="page stack loose">
-        <PageTitle eyebrow="Manual outreach" title="Seller access pending" tone="seller">
-          Directory access is still under review.
-        </PageTitle>
+        <PageTitle title="Seller access pending">Directory access is still under review.</PageTitle>
         <EmptyState
           icon="shield"
           title="Invites are locked for now"
@@ -94,9 +92,7 @@ export default async function InviteBuyerPage({
   if (!buyer.canInvite) {
     return (
       <div className="page stack loose">
-        <PageTitle eyebrow="Manual outreach" title="This is your buyer profile" tone="seller">
-          Invites are only for outreach to other buyers.
-        </PageTitle>
+        <PageTitle title="This is your buyer profile">Invites are only for outreach to other buyers.</PageTitle>
         <EmptyState
           icon="people"
           title="Choose a different buyer"
@@ -108,7 +104,7 @@ export default async function InviteBuyerPage({
                 View profile
               </Link>
               <Link className="button secondary" href="/seller/search">
-                <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
+                <Icon name="arrow-left" size={14} />
                 Back to buyers
               </Link>
             </>
@@ -122,12 +118,12 @@ export default async function InviteBuyerPage({
   const propertyState = sellerInvitePropertyState(properties);
 
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
-  const buyerSummary = [buyer.type, buyer.purpose, buyer.location].filter(Boolean).join(" - ") || "Buyer";
+  const buyerSummary = [buyer.type, buyer.purpose, buyer.location].filter(Boolean).join(" · ") || "Buyer";
 
   if (propertyState.kind === "missing") {
     return (
       <div className="page stack loose">
-        <PageTitle eyebrow={`Invite ${buyer.name}`} title="Add a property first" tone="seller">
+        <PageTitle title="Add a property first">
           You need an ownership-approved property before inviting {buyer.name}.
         </PageTitle>
         <EmptyState
@@ -144,7 +140,7 @@ export default async function InviteBuyerPage({
                 Add property
               </Link>
               <Link className="button secondary" href="/seller/search">
-                <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
+                <Icon name="arrow-left" size={14} />
                 Back to buyers
               </Link>
             </>
@@ -160,7 +156,7 @@ export default async function InviteBuyerPage({
 
     return (
       <div className="page stack loose">
-        <PageTitle eyebrow={`Invite ${buyer.name}`} title={copy.title} tone="seller">
+        <PageTitle title={copy.title}>
           {property.title} · {property.location}
         </PageTitle>
         <EmptyState
@@ -178,7 +174,7 @@ export default async function InviteBuyerPage({
                 Manage properties
               </Link>
               <Link className="button ghost" href="/seller/search">
-                <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
+                <Icon name="arrow-left" size={14} />
                 Back to buyers
               </Link>
             </>
@@ -193,29 +189,17 @@ export default async function InviteBuyerPage({
 
   return (
     <div className="page wide stack loose invite-compose-page">
-      <PageTitle
-        eyebrow="Manual outreach"
-        title={`Invite ${buyer.name}`}
-        tone="seller"
-        actions={
-          <Link className="button ghost" href={`/buyers/${buyer.id}`}>
-            <Icon name="user" size={14} />
-            Back to profile
-          </Link>
-        }
-      >
-        Choose a property and opening, then send.
-      </PageTitle>
+      <Link className="page-back" href={`/buyers/${buyer.id}`}>
+        <Icon name="chevron-left" size={18} />
+        {buyer.name}
+      </Link>
+      <PageTitle title={`Invite ${buyer.name}`} />
 
       <section className="invite-compose-grid">
         <form action={submitInvite} className="invite-compose-form">
           <input name="buyerProfileId" type="hidden" value={buyer.id} />
           <input name="templateVersion" type="hidden" value={sellerOpeningTemplateVersion} />
 
-          <div className="invite-compose-heading">
-            <p className="eyebrow seller">Manual invite</p>
-            <h2>Choose an opening for {buyer.name}</h2>
-          </div>
           <div className="field">
             <label htmlFor="property">Property</label>
             <select id="property" name="propertyId" defaultValue={property.id}>
@@ -263,26 +247,24 @@ export default async function InviteBuyerPage({
             </span>
           </label>
 
-          <div className="actions between">
-            <Link className="button ghost" href={`/buyers/${buyer.id}`}>
-              Cancel
-            </Link>
+          <div className="form-actions">
             <button className="button primary lg" type="submit">
-              <Icon name="mail" size={15} />
               Send invite
             </button>
+            <Link className="text-link" href={`/buyers/${buyer.id}`}>
+              Cancel
+            </Link>
           </div>
         </form>
 
         <aside className="public-profile-aside invite-compose-aside">
-          <article className="card stack invite-recipient-card">
-            <p className="eyebrow">Recipient</p>
-            <div style={{ alignItems: "center", display: "flex", gap: 12 }}>
-              <GeneratedAvatar seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
+          <article className="invite-recipient-card">
+            <div className="invite-recipient">
+              <GeneratedAvatar name={buyer.name} seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
               <div>
-                <h3 style={{ margin: 0 }}>{buyer.name}</h3>
+                <h2>{buyer.name}</h2>
                 {buyer.isDemo ? <span className="status-dot warning">Demo buyer</span> : null}
-                <p className="muted small" style={{ margin: "4px 0 0" }}>{buyerSummary}</p>
+                <p>{buyerSummary}</p>
               </div>
             </div>
             {activeBadges.length > 0 ? (
@@ -295,7 +277,7 @@ export default async function InviteBuyerPage({
           </article>
 
           <section className="quick-overview" aria-labelledby="quick-overview-title">
-            <p className="eyebrow seller" id="quick-overview-title">Quick overview</p>
+            <h2 className="quick-overview-title" id="quick-overview-title">Property</h2>
             <article className="listing-card static">
               <div className="listing-card-media">
                 <PropertyTypeArtwork

@@ -7,7 +7,7 @@ import { DirectUploadField } from "../../../components/direct-upload-field";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
 import { DEFAULT_MARKET_SLUG } from "../../../lib/service-areas";
 import { getActiveMarketOrFallback } from "../../../server/service-areas";
-import { avatarVariantOptions } from "../../../lib/avatar-variant";
+import { avatarColorIndex, avatarColorOptions } from "../../../lib/avatar-variant";
 import {
   regenerateBuyerPublicAlias,
   setBuyerAvatar,
@@ -87,13 +87,6 @@ export default async function BuyerProfileBuilderPage({
       : expiredPreApproval
         ? "Pre-approval expired"
         : "Get pre-approved";
-  const preApprovalStatus = hasPreApproval
-    ? "Active"
-    : hasPendingPreApproval
-      ? "In review"
-      : expiredPreApproval
-        ? "Expired"
-        : "Not verified";
   const preApprovalAction = hasPreApproval || hasPendingPreApproval
     ? "View verification"
     : expiredPreApproval
@@ -109,21 +102,9 @@ export default async function BuyerProfileBuilderPage({
         ? "Upload a current document to renew your badge. Your evidence remains private."
         : "Upload a pre-approval letter or proof of funds. Liber keeps your documents private.";
   const verificationCard = (
-    <article
-      className={`card stack verification-card buyer-preapproval-card ${!hasPreApproval ? "priority" : ""}`}
-      id="buyer-verification-card"
-    >
-      <div className="section-head compact">
-        <div>
-          <p className="eyebrow">Verification</p>
-          <h2>Get pre-approved</h2>
-        </div>
-        <span className={`status-dot ${hasPreApproval ? "active" : hasPendingPreApproval ? "warning" : "info"}`}>
-          <Icon name={hasPreApproval ? "check-shield" : "lock"} size={12} />
-          {hasPreApproval ? "Active" : hasPendingPreApproval ? "In review" : "Private"}
-        </span>
-      </div>
-      <p className="muted small">
+    <section className="settings-section" aria-labelledby="buyer-verification-title" id="buyer-verification-card">
+      <h2 id="buyer-verification-title">Get pre-approved</h2>
+      <p className="settings-help">
         {hasPreApproval
           ? "Badge is active. Upload refreshed evidence before it expires."
           : hasPendingPreApproval
@@ -149,7 +130,7 @@ export default async function BuyerProfileBuilderPage({
           purpose="BUYER_VERIFICATION"
         />
       </div>
-    </article>
+    </section>
   );
 
   if (showProfileWizard) {
@@ -159,31 +140,25 @@ export default async function BuyerProfileBuilderPage({
       <div className="page wide stack loose buyer-profile-page">
         <div className="buyer-profile-shell">
           <header className="buyer-profile-intro">
-            <p className="eyebrow">{isFirstSetup ? "Buyer setup · Step 2 of 2" : "Buyer profile"}</p>
-            <h1>{isFirstSetup ? "Tell sellers what you’re looking for" : "Update your buyer profile"}</h1>
-            <p>
-              {isFirstSetup
-                ? "Your account is ready. Add your search criteria in about three minutes; your personal details stay private."
-                : "Keep your criteria current so matching sellers see the right demand."}
-            </p>
             {isFirstSetup ? (
-              <ol className="buyer-profile-path" aria-label="Buyer setup progress">
-                <li className="done"><Icon name="check" size={12} /><span>Account ready</span></li>
-                <li aria-current="step" className="current"><span>2</span><strong>Buyer profile</strong></li>
-                <li><Icon name="arrow-right" size={12} /><span>Then: visible to approved sellers</span></li>
-              </ol>
+              <p className="step-meta">Step 2 of 2</p>
             ) : (
-              <span className="status-dot active"><Icon name="check" size={12} /> Live to approved sellers</span>
+              <Link className="page-back" href="/buyer/profile">
+                <Icon name="chevron-left" size={18} />
+                Buyer profile
+              </Link>
             )}
+            <h1>{isFirstSetup ? "Tell sellers what you’re looking for" : "Edit your buyer profile"}</h1>
+            {isFirstSetup ? <p>Takes about three minutes. Your personal details stay private.</p> : null}
           </header>
-          <article className="card stack loose wizard-card profile-builder-card">
+          <div className="profile-builder-card">
             <BuyerProfileWizard
               action={submitBuyerProfile}
               buyer={wizardBuyer}
               isPublished={isActive}
               marketSlug={market.slug}
             />
-          </article>
+          </div>
           {canSubmitVerification ? verificationCard : null}
         </div>
       </div>
@@ -191,134 +166,128 @@ export default async function BuyerProfileBuilderPage({
   }
 
   return (
-    <div className="page wide stack loose buyer-profile-page buyer-profile-summary-page">
-      <div className="buyer-profile-shell buyer-profile-shell-summary">
-        {isAdminControlled ? (
-          <div className="auth-alert warning" role="status">
-            <strong>Editing unavailable</strong>
-            <span>This profile is {buyer.visibility}. Contact an admin to continue.</span>
+    <div className="page narrow stack loose buyer-profile-page buyer-profile-summary-page">
+      {isAdminControlled ? (
+        <div className="inline-alert warning" role="status">
+          <Icon name="info" size={20} />
+          <p><strong>Editing unavailable.</strong> This profile is {buyer.visibility}. Contact an admin to continue.</p>
+        </div>
+      ) : null}
+      {status === "published" || status === "saved" ? (
+        <div className="inline-alert success" role="status">
+          <Icon name="check" size={20} />
+          <p><strong>{status === "published" ? "Profile published." : "Changes saved."}</strong> Live to approved sellers.</p>
+        </div>
+      ) : null}
+
+      <header className="profile-header">
+        <GeneratedAvatar
+          alt="Your buyer avatar"
+          name={displayName}
+          seed={buyer.userId || buyer.id}
+          size="xl"
+          variant={buyer.avatarVariant}
+        />
+        <div className="profile-header-text">
+          <h1>{displayName}</h1>
+          <p>{[buyer.location || "Location not set", buyer.type || "Purchase type not set"].join(" · ")}</p>
+          <span className={`status-tag ${isActive ? "active" : buyer.visibility === "hidden" ? "expired" : "pending"}`}>
+            {visibilityLabel}
+          </span>
+        </div>
+        {isAdminControlled ? null : (
+          <div className="profile-header-actions">
+            <Link className="button primary" href="/buyer/profile?edit=profile">Edit profile</Link>
+            {isActive ? <Link className="button secondary" href={`/buyers/${buyer.id}`}>Preview</Link> : null}
           </div>
-        ) : null}
-        {status === "published" || status === "saved" ? (
-          <div className="auth-alert success" role="status">
-            <strong>{status === "published" ? "Profile published" : "Changes saved"}</strong>
-            <span>Live to approved sellers.</span>
+        )}
+      </header>
+
+      {isAdminControlled ? null : (
+        <section className="settings-section" aria-labelledby="buyer-identity-title">
+          <h2 id="buyer-identity-title">Public identity</h2>
+          <p className="settings-help">Sellers see this alias and avatar, never your name or contact details.</p>
+          <div className="settings-row-static">
+            <span>
+              <small>Alias</small>
+              <strong>{buyer.name}</strong>
+            </span>
+            <form action={regenerateBuyerPublicAlias}>
+              <button className="text-link" type="submit">Generate new alias</button>
+            </form>
           </div>
-        ) : null}
-        <article className="card buyer-profile-account-card">
-          <div className="buyer-profile-account-head">
-            <div className="buyer-profile-identity">
-              <div className="buyer-profile-avatar">
-                <GeneratedAvatar
-                  alt="Generated buyer avatar"
-                  seed={buyer.userId || buyer.id}
-                  size="xl"
-                  variant={buyer.avatarVariant}
-                />
-              </div>
-              <div>
-                <h1>{displayName}</h1>
-                <p>
-                  {buyer.location || "Location not set"}
-                  <span>{buyer.type || "Purchase type not set"}</span>
-                </p>
-              </div>
-            </div>
-            <div className="buyer-profile-actions">
-              {isAdminControlled ? null : (
-                <>
-                  <Link className="button primary" href="/buyer/profile?edit=profile">
-                    <Icon name="pencil" size={14} />
-                    Edit profile
-                  </Link>
-                  <form action={regenerateBuyerPublicAlias}>
-                    <button className="button secondary" type="submit">New alias</button>
-                  </form>
-                </>
-              )}
-            </div>
-          </div>
-          {isAdminControlled ? null : (
-            <form action={setBuyerAvatar} className="buyer-avatar-picker">
-              <p className="eyebrow">Choose an avatar</p>
-              <div className="avatar-option-grid">
-                {avatarVariantOptions().map((variant) => (
+          <form action={setBuyerAvatar} className="avatar-color-picker">
+            <p className="avatar-color-label" id="avatar-color-label">Avatar color</p>
+            <div aria-labelledby="avatar-color-label" className="avatar-swatch-grid" role="group">
+              {avatarColorOptions().map((variant, index) => {
+                const selected = avatarColorIndex(buyer.avatarVariant, buyer.userId || buyer.id) === index;
+                return (
                   <button
-                    aria-label={`Avatar option ${variant.split(":")[2]}`}
-                    aria-pressed={variant === buyer.avatarVariant}
-                    className={`avatar-option${variant === buyer.avatarVariant ? " selected" : ""}`}
+                    aria-label={`Avatar color ${index + 1}`}
+                    aria-pressed={selected}
+                    className={`avatar-swatch${selected ? " selected" : ""}`}
                     key={variant}
                     name="avatarVariant"
                     type="submit"
                     value={variant}
                   >
-                    <GeneratedAvatar seed={buyer.userId || buyer.id} size="sm" variant={variant} />
+                    <GeneratedAvatar name={displayName} seed={buyer.userId || buyer.id} size="sm" variant={variant} />
                   </button>
-                ))}
-              </div>
-            </form>
-          )}
-
-          <div className="buyer-profile-account-body">
-            <div className="buyer-profile-info-block">
-              <h2>General information</h2>
-              <dl className="buyer-profile-info-grid">
-                {generalInformation.map((item) => (
-                  <div key={item.label}>
-                    <dt>{item.label}</dt>
-                    <dd>{item.value}</dd>
-                  </div>
-                ))}
-              </dl>
+                );
+              })}
             </div>
+          </form>
+        </section>
+      )}
 
-            <section className="buyer-profile-preapproval" aria-labelledby="buyer-preapproval-title">
-              <div className="buyer-profile-preapproval-main">
-                <span className="buyer-profile-preapproval-icon" aria-hidden="true">
-                  <Icon name={hasPreApproval ? "check-shield" : "lock"} size={20} />
+      <section className="settings-section" aria-labelledby="buyer-details-title">
+        <h2 id="buyer-details-title">Profile details</h2>
+        <dl className="settings-dl">
+          {generalInformation.map((item) => (
+            <div key={item.label}>
+              <dt>{item.label}</dt>
+              <dd>{item.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section className="settings-section" aria-labelledby="buyer-preapproval-title">
+        <h2 id="buyer-preapproval-title">Financing</h2>
+        <div className="settings-status">
+          <span
+            aria-hidden="true"
+            className={`status-list-icon ${hasPreApproval ? "active" : hasPendingPreApproval ? "pending" : expiredPreApproval ? "expired" : ""}`}
+          >
+            <Icon name={hasPreApproval ? "check-shield" : "lock"} size={18} />
+          </span>
+          <span className="settings-status-text">
+            <strong>{preApprovalTitle}</strong>
+            <span>{preApprovalDescription}</span>
+          </span>
+          <Link className={`button ${hasPreApproval || hasPendingPreApproval ? "secondary" : "primary"} sm`} href="/buyer/badges">
+            {preApprovalAction}
+          </Link>
+        </div>
+      </section>
+
+      <section className="settings-section" aria-labelledby="buyer-verified-title">
+        <h2 id="buyer-verified-title">Verified information</h2>
+        {verifiedInformation.length > 0 ? (
+          <ul className="status-list">
+            {verifiedInformation.map((item) => (
+              <li key={item.label}>
+                <span aria-hidden="true" className="status-list-icon active">
+                  <Icon name="check" size={16} />
                 </span>
-                <div className="buyer-profile-preapproval-copy">
-                  <div className="buyer-profile-preapproval-head">
-                    <p className="eyebrow">Financing readiness</p>
-                    <span
-                      className={`status-dot ${hasPreApproval ? "active" : hasPendingPreApproval ? "warning" : expiredPreApproval ? "danger" : "info"}`}
-                    >
-                      {preApprovalStatus}
-                    </span>
-                  </div>
-                  <h2 id="buyer-preapproval-title">{preApprovalTitle}</h2>
-                  <p>{preApprovalDescription}</p>
-                </div>
-              </div>
-              <Link
-                className={`button buyer-profile-preapproval-action ${hasPreApproval || hasPendingPreApproval ? "secondary" : "primary"}`}
-                href="/buyer/badges"
-              >
-                {preApprovalAction}
-                <Icon name="arrow-right" size={14} />
-              </Link>
-            </section>
-          </div>
-        </article>
-
-        <article className="card buyer-verified-card">
-          <h2>Your verified information</h2>
-          {verifiedInformation.length > 0 ? (
-            <ul className="buyer-verified-list">
-              {verifiedInformation.map((item) => (
-                <li key={item.label}>
-                  <span className="buyer-verified-check">
-                    <Icon name="check" size={13} />
-                  </span>
-                  <span>{item.label}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="muted small">No verified information yet.</p>
-          )}
-        </article>
-      </div>
+                <strong>{item.label}</strong>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">No verified information yet.</p>
+        )}
+      </section>
     </div>
   );
 }

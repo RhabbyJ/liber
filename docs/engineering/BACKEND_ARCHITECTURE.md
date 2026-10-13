@@ -157,7 +157,7 @@ Key concepts:
 - `User.name` is private account identity for owner-only UI; seller/public buyer surfaces must use the generated `BuyerProfile.displayName` alias or an anonymized preview label.
 - `BuyerProfile.displayName` is a generated public buyer alias from a server allowlist, such as `Maple Haven`; profile input schemas do not expose public name editing.
 - `BuyerProfile.buyerType` stores the allowlisted purchase type (`Cash`, `Conventional financing`, `Other`) and `BuyerProfile.buyingPurpose` stores the allowlisted seeking property type (`House`, `Condo`, `Townhouse`, `Manufactured`, `Land`). The column names are legacy-compatible; product UI should use the new labels.
-- `User.avatarVariant` stores the required allowlisted generated animal-avatar token used by buyer profile, public/seller buyer cards, and owner-only account navigation surfaces. The database backfills older accounts and supplies the value for new accounts so every surface reads one persisted token. Avatar image files are not stored.
+- `User.avatarVariant` stores the required allowlisted generated avatar token used by buyer profile, public/seller buyer cards, and owner-only account navigation surfaces. The token keeps its original `avatarka:animals:N` format; `N` now selects the initials-avatar background color. The database backfills older accounts and supplies the value for new accounts so every surface reads one persisted token. Avatar image files are not stored.
 - `User.status` blocks suspended users.
 - `SellerAccess.status` controls full buyer-directory search, profile, and invite access. `PENDING` and `REJECTED` sellers may receive only the signed-in privacy-safe preview projection; `SUSPENDED` sellers receive no seller-route preview.
 - A user self-selecting `SELLER` does not automatically gain full directory access, profile routes, contact actions, or invite authority.
@@ -239,8 +239,8 @@ Buckets:
 Rules:
 
 - Buyer public display names are generated locally from an allowlisted neutral alias list; there is no alias API, free-text public-name field, or separate alias storage object.
-- Buyer profile display uses generated 2D animal avatars from `User.avatarVariant`; public and seller DTOs seed rendering with the generated public alias, never a buyer-profile ID or Auth UUID.
-- Avatar SVGs are generated locally in the app from the `avatarka` animals theme and rendered as data images; there is no avatar API, Supabase avatar bucket, storage path, or saved image file.
+- Buyer profile display uses initials avatars: the generated public alias supplies the letters and `User.avatarVariant` selects one of ten background colors. Public and seller DTOs seed any color fallback with the generated public alias, never a buyer-profile ID or Auth UUID.
+- Avatars are rendered as text in the app; there is no avatar API, image dependency, Supabase avatar bucket, storage path, or saved image file.
 - Verification documents are immutable user evidence.
 - Document owners must not be able to overwrite/delete evidence after upload.
 - Private documents are viewed through admin/server-mediated signed URLs only.

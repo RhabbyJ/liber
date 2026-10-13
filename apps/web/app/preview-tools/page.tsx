@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Icon } from "../../components/icon";
 import { PageTitle } from "../../components/page-title";
 import { sellerAccessStatusForUser } from "../../server/access";
 import { hasRole } from "../../server/authz";
@@ -26,16 +27,17 @@ export default async function PreviewToolsPage() {
 
   return (
     <div className="page narrow stack loose">
-      <PageTitle eyebrow="Private preview" title="Test controls">
-        Temporary controls for trusted testers while Liber is in CEO demo / private preview.
-        While these flags are on, every active signed-in account automatically gets admin access, and sellers get approved directory access.
-      </PageTitle>
+      <PageTitle title="Test controls" />
+      <div className="inline-alert warning" role="note">
+        <Icon name="info" size={20} />
+        <p>
+          Private preview only. While these flags are on, every active signed-in account gets admin access and sellers get
+          approved directory access.
+        </p>
+      </div>
 
       <section className="card stack">
-        <div>
-          <p className="eyebrow">Admin panel</p>
-          <h2 style={{ marginTop: 8 }}>Open the admin review tools</h2>
-        </div>
+        <h2>Admin review tools</h2>
 
         {isAdmin ? (
           <>
@@ -57,10 +59,7 @@ export default async function PreviewToolsPage() {
       </section>
 
       <section className="card stack">
-        <div>
-          <p className="eyebrow">Seller-directory access</p>
-          <h2 style={{ marginTop: 8 }}>Test the approved seller workflow</h2>
-        </div>
+        <h2>Approved seller workflow</h2>
 
         {!isSeller ? (
           <p>

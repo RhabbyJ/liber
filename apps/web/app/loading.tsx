@@ -1,9 +1,8 @@
 export default function LoadingPage() {
   return (
-    <div className="page narrow">
-      <section className="card stack">
-        <p className="muted">Loading...</p>
-      </section>
+    <div className="page narrow status-page" role="status">
+      <span className="loading-spinner" aria-hidden="true" />
+      <span className="visually-hidden">Loading</span>
     </div>
   );
 }

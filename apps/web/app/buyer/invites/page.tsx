@@ -16,19 +16,7 @@ export default async function BuyerInvitesPage({
 
   return (
     <div className="page stack loose">
-      <PageTitle
-        eyebrow="Invite inbox"
-        title="Property invites from sellers"
-        tone="buyer"
-        actions={
-          <Link className="button ghost" href="/buyer/notifications">
-            <Icon name="bell" size={14} />
-            Notifications
-          </Link>
-        }
-      >
-        Decline, ask a question, request a tour, or start an LOI. Liber never triggers offers, payments, or escrow on your behalf.
-      </PageTitle>
+      <PageTitle title="Received invites" />
 
       {status === "accepted" ? (
         <div className="auth-alert success" role="status">

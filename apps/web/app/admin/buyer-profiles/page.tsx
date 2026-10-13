@@ -8,7 +8,7 @@ export default async function AdminBuyerProfilesPage() {
 
   return (
     <div className="page stack">
-      <PageTitle eyebrow="Admin" title="Buyer profiles" />
+      <PageTitle title="Buyer profiles" />
       <section className="grid two">
         {buyers.map((buyer) => (
           <article className="card stack" key={buyer.id}>

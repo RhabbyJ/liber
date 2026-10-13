@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
-import { Icon } from "./icon";
-
-type IconName = "search" | "people" | "mail" | "doc" | "shield" | "tag" | "home" | "sparkle";
+import { Icon, type IconName } from "./icon";
 
 export function EmptyState({
   icon = "sparkle",
@@ -17,7 +15,7 @@ export function EmptyState({
   return (
     <div className="empty-state">
       <span className="empty-icon">
-        <Icon name={icon} size={22} />
+        <Icon name={icon} size={28} />
       </span>
       <h3>{title}</h3>
       {description ? <p className="muted">{description}</p> : null}

@@ -145,7 +145,7 @@ checksums, and identical comment-stripped SQL. Never make the checksum global,
 point Prisma at the evidence directory, edit the historical migration, update
 the ledger manually, or use `migrate resolve` to silence drift.
 
-`User.avatarVariant` is a required allowlisted generated animal-avatar token for account and buyer profile display. Migration `20260715081708_persist_user_avatar` backfills older accounts and enforces the stored value for new accounts. It is not an image URL or storage path.
+`User.avatarVariant` is a required allowlisted generated avatar token for account and buyer profile display. Its `avatarka:animals:N` format predates initials avatars; `N` now selects the avatar background color. Migration `20260715081708_persist_user_avatar` backfills older accounts and enforces the stored value for new accounts. It is not an image URL or storage path.
 
 `BuyerProfile.displayName` stores a generated neutral public alias, not a buyer-entered name. Application code must normalize old/stale values through the alias allowlist and fall back to a deterministic alias from the buyer id.
 

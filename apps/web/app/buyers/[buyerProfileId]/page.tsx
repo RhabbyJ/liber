@@ -30,8 +30,7 @@ export default async function PublicBuyerProfilePage({
       <div className="page narrow">
         <section className="access-panel">
           <span className="access-panel-icon" aria-hidden="true"><Icon name="lock" size={24} /></span>
-          <p className="page-kicker">Buyer profile</p>
-          <h1>Access unavailable</h1>
+          <h1>Buyer profile unavailable</h1>
           <p>Buyer profiles are only available to approved sellers, admins, or the buyer who owns the profile.</p>
           <Link className="button primary" href="/seller/search">
             View seller access status
@@ -92,16 +91,11 @@ export default async function PublicBuyerProfilePage({
       </div>
 
       {isOwner ? (
-        <section className="hdp-owner-note" aria-label="Owner preview">
-          <div>
-            <strong>This is how approved sellers see your profile.</strong>
-            <span>Your account name, email, and documents are never shown.</span>
-          </div>
-          <Link className="button secondary sm" href="/buyer/profile">
-            <Icon name="pencil" size={14} />
-            Edit profile
-          </Link>
-        </section>
+        <div className="inline-alert info hdp-owner-note" role="note">
+          <Icon name="eye" size={20} />
+          <p><strong>Preview.</strong> This is how approved sellers see your profile. Your name, email, and documents are never shown.</p>
+          <Link className="text-link" href="/buyer/profile">Edit profile</Link>
+        </div>
       ) : null}
 
       <div className="hdp-media" aria-hidden="true">
@@ -111,7 +105,7 @@ export default async function PublicBuyerProfilePage({
         </div>
         <div className="hdp-media-side">
           <div className="hdp-media-avatar">
-            <GeneratedAvatar seed={buyer.avatarSeed} size="xl" variant={buyer.avatarVariant} />
+            <GeneratedAvatar name={buyer.name} seed={buyer.avatarSeed} size="xl" variant={buyer.avatarVariant} />
           </div>
           <div className="hdp-media-area">
             <Icon name="map-pin" size={28} />
@@ -218,7 +212,7 @@ export default async function PublicBuyerProfilePage({
         <aside className="hdp-rail" aria-label="Contact this buyer">
           <div className="hdp-cta-card">
             <div className="hdp-cta-identity">
-              <GeneratedAvatar seed={buyer.avatarSeed} size="md" variant={buyer.avatarVariant} />
+              <GeneratedAvatar name={buyer.name} seed={buyer.avatarSeed} size="md" variant={buyer.avatarVariant} />
               <span>
                 <strong>{buyer.name}</strong>
                 <small>{compactBudgetRange(buyer.budgetMin, buyer.budgetMax)} · {buyer.location || "Liber service area"}</small>

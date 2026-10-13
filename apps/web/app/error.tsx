@@ -7,13 +7,10 @@ export default function ErrorPage({
   reset: () => void;
 }) {
   return (
-    <div className="page narrow">
-      <section className="card stack">
-        <p className="eyebrow">Something went wrong</p>
-        <h1>We could not complete that request</h1>
-        <p className="muted">Review the form fields and try again. If the problem repeats, contact an admin.</p>
-        <button className="button" onClick={reset} type="button">Try again</button>
-      </section>
+    <div className="page narrow status-page">
+      <h1>Something went wrong</h1>
+      <p>We couldn’t complete that request. Try again, and contact an admin if it keeps happening.</p>
+      <button className="button primary" onClick={reset} type="button">Try again</button>
     </div>
   );
 }

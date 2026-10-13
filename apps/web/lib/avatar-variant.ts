@@ -53,6 +53,34 @@ export function avatarVariantOptions() {
   return avatarSalts.map((salt) => `${avatarProvider}:${avatarTheme}:${salt}`);
 }
 
+/**
+ * Initials avatars reuse the persisted token: its index picks one of the
+ * `--avatar-color-N` backgrounds in globals.css, so this count must match them.
+ */
+export const avatarColorCount = 10;
+
+export function avatarColorIndex(value: string | null | undefined, seed: string) {
+  return resolveAvatarVariant(value, seed).salt % avatarColorCount;
+}
+
+export function avatarColorOptions() {
+  return Array.from({ length: avatarColorCount }, (_, index) => `${avatarProvider}:${avatarTheme}:${avatarSalts[index]}`);
+}
+
+const initialPattern = /[\p{L}\p{N}]/u;
+
+/** First letter of the first and last words ("Bluebell Porch" -> "BP"); one letter for a single word. */
+export function avatarInitials(name: string | null | undefined) {
+  const source = (name ?? "").trim();
+  const base = source.includes("@") && !source.includes(" ") ? source.split("@")[0] : source;
+  const words = base.split(/[\s._-]+/).filter((word) => initialPattern.test(word));
+  const initialOf = (word: string) => Array.from(word).find((character) => initialPattern.test(character)) ?? "";
+  if (words.length === 0) return "";
+  const first = initialOf(words[0]);
+  const last = words.length > 1 ? initialOf(words[words.length - 1]) : "";
+  return `${first}${last}`.toLocaleUpperCase("en-US");
+}
+
 export function randomAvatarVariant(exclude?: string | null) {
   const normalizedExclude = normalizeAvatarVariant(exclude);
   const options = avatarSalts.map((salt) => `${avatarProvider}:${avatarTheme}:${salt}`);

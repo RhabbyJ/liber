@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Icon } from "../../components/icon";
-import { ModeChip } from "../../components/mode-chip";
 import { PageTitle } from "../../components/page-title";
 
 type Section = {
@@ -22,37 +21,22 @@ const adminSections: Section[] = [
 
 export default function AdminDashboardPage() {
   return (
-    <div className="page stack loose">
-      <PageTitle
-        eyebrow="Internal admin"
-        title="Verification dashboard"
-        tone="admin"
-        badge={<ModeChip mode="admin" />}
-      >
-        Trust, moderation, and sensitive document decisions require audited admin action.
-      </PageTitle>
-      <section className="grid three">
+    <div className="page narrow stack loose">
+      <PageTitle title="Admin" />
+      <nav aria-label="Admin sections" className="settings-list">
         {adminSections.map((section) => (
-          <Link className="card stack" href={section.href} key={section.href}>
-            <span
-              className="mode-card-icon"
-              style={{ background: "var(--surface-muted)", color: "var(--ink-strong)" }}
-            >
+          <Link className="settings-row" href={section.href} key={section.href}>
+            <span className="settings-row-icon" aria-hidden="true">
               <Icon name={section.icon} size={20} />
             </span>
-            <div>
-              <p className="eyebrow">{section.title}</p>
-              <h3 style={{ fontSize: 18, marginTop: 6 }}>{section.description}</h3>
-            </div>
-            <div className="actions inline">
-              <span className="link-button">
-                Open
-                <Icon name="arrow-right" size={13} />
-              </span>
-            </div>
+            <span className="settings-row-text">
+              <strong>{section.title}</strong>
+              <small>{section.description}</small>
+            </span>
+            <Icon className="settings-row-chevron" name="chevron-right" size={20} />
           </Link>
         ))}
-      </section>
+      </nav>
     </div>
   );
 }

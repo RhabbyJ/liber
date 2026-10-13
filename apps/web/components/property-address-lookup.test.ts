@@ -9,7 +9,7 @@ describe("seller property intake", () => {
     expect(source).toContain('presentation === "intake"');
     expect(source).toContain("Find property");
     expect(source).toContain('onKeyDown={handleLookupKeyDown}');
-    expect(source).toContain('<p className="eyebrow">Step 2</p>');
+    expect(source).toContain('id="property-address-details-heading" ref={detailsHeadingRef}');
     expect(source).toMatch(/<button className="property-intake-lookup-button"[^>]*type="button">/);
     expect(source).toContain("identityRevisionRef.current");
     expect(source).toContain("lookupInFlightRef.current");
@@ -24,10 +24,9 @@ describe("seller property intake", () => {
     expect(createPage).toContain('presentation="intake"');
     expect(createPage).toContain('action={submitSellerProperty}');
     expect(createPage).toContain("PropertyHeroIllustration");
-    expect(createPage).toContain("OwnershipReviewIllustration");
-    expect(createPage).toContain("Address</strong>");
-    expect(createPage).toContain("Details</strong>");
-    expect(createPage).toContain("Confirm</strong>");
+    expect(createPage).toContain(">Listing details</h2>");
+    expect(createPage).toContain(">Ownership</h2>");
+    expect(createPage).toContain("Claiming another person&rsquo;s property may be illegal.");
     expect(createPage).toContain('name="ownershipConfirmed" required type="checkbox"');
     expect(createPage).toMatch(/<button className="button primary" type="submit">[\s\S]*?Save and continue/);
     expect(editPage).not.toContain('presentation="intake"');

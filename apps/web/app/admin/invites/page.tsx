@@ -6,7 +6,7 @@ export default async function AdminInvitesPage() {
 
   return (
     <div className="page stack">
-      <PageTitle eyebrow="Admin" title="Invites" />
+      <PageTitle title="Invites" />
       <section className="card flat">
         <table className="table">
           <thead>

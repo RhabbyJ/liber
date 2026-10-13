@@ -13,18 +13,14 @@ export default async function SellerPropertiesPage() {
   return (
     <div className="page wide stack loose">
       <PageTitle
-        eyebrow="Invite-only records"
         title="Your properties"
-        tone="seller"
         actions={
           <Link className="button primary" href="/seller/properties/new">
-            <Icon name="plus" size={14} />
+            <Icon name="plus" size={16} />
             Add property
           </Link>
         }
-      >
-        Listings are not public. Buyers only see a property when you invite them.
-      </PageTitle>
+      />
 
       {properties.length === 0 ? (
         <EmptyState

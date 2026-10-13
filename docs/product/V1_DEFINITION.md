@@ -39,7 +39,7 @@ The public or unauthenticated experience can:
 - use active, non-hidden, non-suspended buyer demand records whose preview fields are approved or derived from preview-safe criteria,
 - place pins only at approximate active service-area centers with a display offset, never at precise buyer locations,
 - show coarse buyer-demand context in preview cards, such as broad geography, budget band, property type, size needs, room needs, amenities, condition preference, and display-safe trust signals,
-- show the buyer's generated neutral alias and generated animal avatar as public-safe presentation; these are not the buyer's private account name or photograph,
+- show the buyer's generated neutral alias and its initials avatar (the alias initials on a generated color) as public-safe presentation; these are not the buyer's private account name or photograph,
 - let visitors select an active ZIP/city/neighborhood service area to pan the public map, draw an approximate selected-area polygon, and scope the limited preview cards to that selected area, without exposing full search,
 - use generated neutral aliases or other privacy-safe buyer labels,
 - invite the visitor to sign up or request seller access before viewing full search results or profiles.

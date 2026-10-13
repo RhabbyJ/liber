@@ -1,37 +1,21 @@
 import type { ReactNode } from "react";
 
-type Tone = "buyer" | "seller" | "admin";
-
 export function PageTitle({
-  eyebrow,
   title,
-  tone,
-  badge,
   actions,
   children,
 }: {
-  eyebrow?: string;
   title: string;
-  tone?: Tone;
-  badge?: ReactNode;
   actions?: ReactNode;
   children?: ReactNode;
 }) {
-  const eyebrowClass = tone === "seller" || tone === "admin" ? `eyebrow ${tone}` : "eyebrow";
-
   return (
-    <section className="page-title">
-      {(eyebrow || badge) ? (
-        <div className="page-title-top">
-          {badge}
-          {eyebrow ? <span className={eyebrowClass}>{eyebrow}</span> : null}
-        </div>
-      ) : null}
-      <div className="section-head">
+    <header className="page-title">
+      <div className="page-title-text">
         <h1>{title}</h1>
-        {actions ? <div className="actions inline">{actions}</div> : null}
+        {children ? <p className="page-title-meta">{children}</p> : null}
       </div>
-      {children ? <div className="muted">{children}</div> : null}
-    </section>
+      {actions ? <div className="page-title-actions">{actions}</div> : null}
+    </header>
   );
 }

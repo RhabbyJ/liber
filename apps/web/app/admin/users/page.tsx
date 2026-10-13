@@ -7,7 +7,7 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="page stack">
-      <PageTitle eyebrow="Admin" title="Users" />
+      <PageTitle title="Users" />
       <section className="card flat">
         <table className="table">
           <thead>

@@ -29,7 +29,7 @@ seller data.
 - Authentication changes only preview count. It does not authorize seller
   search, full buyer profiles, filters, contact actions, or additional fields.
 - Every audience may see the allowlisted generated buyer alias and generated
-  animal avatar. These are public-safe presentation, never private account
+  initials avatar. These are public-safe presentation, never private account
   identity or a buyer photograph.
 - Active sellers awaiting or denied full-directory approval may see the same signed-in preview DTO on `/seller/search`; a missing review row is handled as a distinct fail-limited state. Suspended seller-directory access does not receive that seller-route list.
 - The pre-approval seller list has no buyer routing IDs, profile links, contact controls, advanced filters, or invite actions and must not call the approved seller search contract.

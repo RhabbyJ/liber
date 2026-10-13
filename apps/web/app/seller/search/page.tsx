@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { BuyerCard } from "../../../components/buyer-card";
 import { BuyerMap } from "../../../components/buyer-map";
 import { Icon } from "../../../components/icon";
+import { PageTitle } from "../../../components/page-title";
 import { PublicBuyerPreviewCard } from "../../../components/public-buyer-preview-card";
 import { SearchFilterBar } from "../../../components/search-filter-bar";
 import { SellerMapLocationSearch } from "../../../components/seller-map-location-search";
@@ -60,17 +61,11 @@ export default async function SellerSearchPage({
     if (sellerAccess.status === "SUSPENDED") {
       return (
         <div className="page narrow stack loose">
-          <header className="page-header">
-            <p className="page-kicker">Seller directory</p>
-            <h1>Directory access unavailable</h1>
-          </header>
-          <section className="status-banner danger" aria-label="Seller directory status">
-            <span className="status-banner-icon" aria-hidden="true"><Icon name="lock" size={20} /></span>
-            <div>
-              <strong>Suspended</strong>
-              <p>Contact Liber support if you believe this restriction was applied in error.</p>
-            </div>
-          </section>
+          <PageTitle title="Directory access unavailable" />
+          <div className="inline-alert danger" role="status">
+            <Icon name="lock" size={20} />
+            <p><strong>Suspended.</strong> Contact Liber support if you believe this restriction was applied in error.</p>
+          </div>
         </div>
       );
     }
@@ -79,32 +74,26 @@ export default async function SellerSearchPage({
 
     return (
       <div className="page wide seller-preview-page stack loose">
-        <header className="page-header split">
-          <div>
-            <p className="page-kicker">Seller directory</p>
-            <h1>{selectedServiceAreaLabel ? `Buyer demand near ${selectedServiceAreaLabel}` : `${market.label} buyer demand`}</h1>
-            <p className="page-subtitle">{previews.length} anonymized {previews.length === 1 ? "buyer summary" : "buyer summaries"}</p>
-          </div>
-          <div className="seller-preview-location-search">
-            <SellerMapLocationSearch
-              defaultArea={selectedServiceAreaLabel}
-              defaultServiceArea={requestedServiceArea || ""}
-              marketSlug={market.slug}
-            />
-          </div>
-        </header>
+        <PageTitle
+          title={selectedServiceAreaLabel ? `Buyer demand near ${selectedServiceAreaLabel}` : `${market.label} buyer demand`}
+          actions={(
+            <div className="seller-preview-location-search">
+              <SellerMapLocationSearch
+                defaultArea={selectedServiceAreaLabel}
+                defaultServiceArea={requestedServiceArea || ""}
+                marketSlug={market.slug}
+              />
+            </div>
+          )}
+        >
+          {previews.length} anonymized {previews.length === 1 ? "buyer summary" : "buyer summaries"}
+        </PageTitle>
 
-        <section className={`status-banner ${accessState.tone}`} aria-label="Seller directory review status">
-          <span className="status-banner-icon" aria-hidden="true"><Icon name={accessState.tone === "rejected" ? "lock" : "shield"} size={20} /></span>
-          <div>
-            <span className="status-banner-kicker">Directory review</span>
-            <strong>{accessState.label}</strong>
-            <p>{accessState.description}</p>
-          </div>
-          <Link className="button secondary" href="/seller/properties">
-            Manage properties
-          </Link>
-        </section>
+        <div className={`inline-alert ${accessState.tone === "rejected" ? "warning" : "info"}`} role="status">
+          <Icon name={accessState.tone === "rejected" ? "lock" : "info"} size={20} />
+          <p><strong>{accessState.label}.</strong> {accessState.description}</p>
+          <Link className="text-link" href="/seller/properties">Manage properties</Link>
+        </div>
 
         {previews.length > 0 ? (
           <div className="listing-grid wide">

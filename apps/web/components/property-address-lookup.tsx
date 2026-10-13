@@ -324,11 +324,7 @@ export function PropertyAddressLookup({
         <p className="property-intake-privacy">Private &mdash; never posted publicly.</p>
 
         <section className="seller-property-intake-section property-address-details" aria-labelledby="property-address-details-heading">
-          <header className="property-intake-section-head">
-            <p className="eyebrow">Step 2</p>
-            <h2 id="property-address-details-heading" ref={detailsHeadingRef} tabIndex={-1}>Review the details</h2>
-            <p>Update anything we missed.</p>
-          </header>
+          <h2 id="property-address-details-heading" ref={detailsHeadingRef} tabIndex={-1}>Home facts</h2>
           <div className="form-grid">
             {locationDetails}
             {propertyFacts}

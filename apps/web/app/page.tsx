@@ -58,10 +58,6 @@ export default async function HomePage({
         <div className="search-toolbar-location">
           <PublicMapLocationSearch defaultArea={selectedAreaLabel} marketSlug={market.slug} />
         </div>
-        <p className="search-toolbar-note">
-          <Icon name="lock" size={14} />
-          Anonymized preview · exact locations stay private
-        </p>
         <div className="search-toolbar-actions">
           <Link className="button primary" href={mapPrimaryHref}>
             {mapPrimaryLabel}
@@ -150,13 +146,9 @@ function HomepageNextStep({
   if (isAdmin) {
     return (
       <article className="promo-card">
-        <span className="promo-card-icon" aria-hidden="true"><Icon name="shield" size={18} /></span>
-        <h2>Continue in your admin workspace</h2>
+        <h2>Admin workspace</h2>
         <p>Review marketplace access, evidence, and activity.</p>
-        <Link className="button primary" href="/admin">
-          Open admin workspace
-          <Icon name="arrow-right" size={14} />
-        </Link>
+        <Link className="button secondary" href="/admin">Open admin</Link>
       </article>
     );
   }
@@ -164,13 +156,9 @@ function HomepageNextStep({
   if (isSeller) {
     return (
       <article className="promo-card">
-        <span className="promo-card-icon" aria-hidden="true"><Icon name="search" size={18} /></span>
-        <h2>Continue in your seller workspace</h2>
-        <p>Check your access and open buyer search when approved.</p>
-        <Link className="button primary" href={sellerSearchHref}>
-          Open seller workspace
-          <Icon name="arrow-right" size={14} />
-        </Link>
+        <h2>Seller workspace</h2>
+        <p>Search matched buyers once your access is approved.</p>
+        <Link className="button secondary" href={sellerSearchHref}>Open seller workspace</Link>
       </article>
     );
   }
@@ -178,13 +166,9 @@ function HomepageNextStep({
   if (isBuyer) {
     return (
       <article className="promo-card">
-        <span className="promo-card-icon" aria-hidden="true"><Icon name="user" size={18} /></span>
-        <h2>Your buyer profile puts you on the map</h2>
+        <h2>Your buyer profile</h2>
         <p>Keep your criteria current so matching sellers can find you.</p>
-        <Link className="button primary" href={buyerProfileHref}>
-          Manage buyer profile
-          <Icon name="arrow-right" size={14} />
-        </Link>
+        <Link className="button secondary" href={buyerProfileHref}>Manage buyer profile</Link>
       </article>
     );
   }
@@ -193,15 +177,12 @@ function HomepageNextStep({
 
   return (
     <article className="promo-card">
-      <span className="promo-card-icon" aria-hidden="true"><Icon name="lock" size={18} /></span>
-      <h2>Sign in to see more buyers</h2>
-      <p>Preview up to four buyers now, then sign in to see the rest of the privacy-safe demand map.</p>
-      <Link className="button primary" href={homepageLoginHref}>
-        Sign in to see more
-        <Icon name="arrow-right" size={14} />
-      </Link>
-      <Link className="promo-card-link" href={sellerSearchHref}>Create a seller account</Link>
-      <Link className="promo-card-link" href={buyerProfileHref}>Create a buyer profile</Link>
+      <h2>See every buyer</h2>
+      <p>Guests preview four buyers. Sign in to see the full demand map.</p>
+      <Link className="button primary" href={homepageLoginHref}>Sign in</Link>
+      <p className="promo-card-links">
+        New to Liber? <Link href={sellerSearchHref}>Join as a seller</Link> or <Link href={buyerProfileHref}>create a buyer profile</Link>.
+      </p>
     </article>
   );
 }

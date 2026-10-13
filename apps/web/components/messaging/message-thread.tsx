@@ -559,16 +559,15 @@ export function MessageThread({
     <div className="page wide message-thread-page">
       <header className="message-thread-header">
         <div className="stack tight message-thread-heading">
-          <Link className="link-button" href="/messages" ref={fallbackFocusRef}>
-            <Icon name="arrow-left" size={14} />
-            All conversations
+          <Link className="page-back" href="/messages" ref={fallbackFocusRef}>
+            <Icon name="chevron-left" size={18} />
+            Messages
           </Link>
           <div className="message-thread-identity">
             <span aria-hidden="true" className="message-counterpart-icon">
               <Icon name="message" size={20} />
             </span>
             <div className="message-thread-title-copy">
-              <p className="eyebrow">Invite conversation</p>
               <h1>{thread.counterpartLabel}</h1>
               <p className="message-thread-property">{thread.propertySnapshot.title}</p>
             </div>
@@ -748,9 +747,9 @@ export function MessageThread({
 
         <aside className="message-context-panel" aria-label="Conversation context">
           {loi.available ? (
-            <section className="card sage stack tight">
-              <p className="eyebrow">LOI workspace</p>
-              <h2>{loiStatusLabel(loi.status)}</h2>
+            <section className="card stack tight">
+              <h2>Letter of intent</h2>
+              <p className="muted small">{loiStatusLabel(loi.status)}</p>
               {loi.id ? (
                 <Link className="button primary" href={`/negotiations/${encodeURIComponent(loi.id)}`}>Open LOI</Link>
               ) : loi.canCreate ? (
