@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AuthCard } from "../../../components/auth-card";
 import { Icon } from "../../../components/icon";
 import { safeInternalPath } from "../../../lib/redirect";
 import { resendSignupConfirmation } from "../../../server/auth-actions";
@@ -19,32 +19,25 @@ export default async function VerifySignupPage({
 
   return (
     <div className="auth-page">
-      <section className="auth-card" aria-labelledby="verify-title">
-        <div className="auth-card-head">
-          <span className="auth-card-icon" aria-hidden="true">
-            <Icon name="mail" size={24} />
-          </span>
-          <h1 id="verify-title">Confirm your email</h1>
-          <p>
-            {email ? (
-              <>We sent a verification link to <strong>{email}</strong>. Open it to activate your account.</>
-            ) : (
-              "We sent a verification link to your email. Open it to activate your account."
-            )}
-          </p>
-        </div>
-
+      <AuthCard
+        context={email ? (
+          <>We sent a verification link to <strong>{email}</strong>. Open it to activate your account.</>
+        ) : (
+          "We sent a verification link to your email. Open it to activate your account."
+        )}
+        title="Confirm your email"
+      >
         {resent === "1" ? (
-          <div className="auth-alert success" role="status">
-            <strong>Verification email resent</strong>
-            <span>Use the newest email if more than one message arrives.</span>
+          <div className="inline-alert success" role="status">
+            <Icon name="check" size={20} />
+            <p><strong>Verification email resent.</strong> Use the newest email if more than one message arrives.</p>
           </div>
         ) : null}
 
         {status === "rate-limited" ? (
-          <div className="auth-alert info" role="status">
-            <strong>Resend limit reached</strong>
-            <span>Wait before requesting another verification email.</span>
+          <div className="inline-alert warning" role="status">
+            <Icon name="info" size={20} />
+            <p><strong>Resend limit reached.</strong> Wait before requesting another verification email.</p>
           </div>
         ) : null}
 
@@ -65,9 +58,11 @@ export default async function VerifySignupPage({
           Not in your inbox? Check spam or promotions. Open the link in the same Liber environment you signed up from.
         </p>
         <p className="auth-switch">
-          Already confirmed? <Link href="/login">Log in</Link>
+          Already confirmed?{" "}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- full load; a soft navigation here would be intercepted into the auth modal */}
+          <a href="/login">Log in</a>
         </p>
-      </section>
+      </AuthCard>
     </div>
   );
 }

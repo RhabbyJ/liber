@@ -47,7 +47,7 @@ Owns shared visual language, navigation, layouts, reusable components, and globa
 - Status styling uses one semantic icon or text label. Do not inject decorative dots beside an existing icon, and reserve warning/success color for real state.
 - Liber's production light-green palette and assignments are authoritative: `#67c94f`, `#5fbe43`, and `#47a62f`, with `#f2fbef`, `#e0f6d8`, and `#bceaad` for tints and decorative lines. Primary controls use `#5fbe43` with white foregrounds and deepen to `#47a62f`; public search and map signals use `#47a62f` with white foregrounds and the production muted-green halos. Do not add substitute green tokens that change this treatment.
 - Demand visuals may reuse the abstract atlas grammar inside maps only. Canonical service-area geometry remains the only source for real selected boundaries. Explain trust in one line near the upload or badge, not with a decorative step diagram.
-- Focused entry pages use one original illustration, one short explanation, and one obvious primary action. Log in, signup, and email verification share the sign-in dialog card. Signup keeps two steps with a small Role → Account stepper; step 1 lists the roles as option rows (small artwork, label, one-line outcome), and step 2 carries a small hero illustration plus account fields. Role-prefilled buyer and seller links keep the role selected while still opening at Step 1.
+- Focused entry pages use one short explanation and one obvious primary action. Log in, signup, and email verification share the sign-in dialog card (`components/auth-card.tsx`): 400px wide, 32px inset, 24/32 title, Log in / New account tabs, 44px fields, a full-width primary button, and 12/16 fine print centred under it. Signup is a single form: a segmented buyer / seller / both control with one outcome line, then name, email, and password. In-app auth links open the card as a dialog over a 35% black backdrop (full-screen sheet below 640px); auth notices use the inline-alert pattern.
 - On narrow screens the homepage may stack and scroll, but the map, preview cards, and mobile navigation actions must all remain reachable.
 - Do not use real-looking buyer imagery as a trust shortcut.
 - Avatars are initials avatars (`components/generated-avatar.tsx`): one or two letters (first letters of the first and last words) in white Open Sans 600 at 40% of the diameter, on one of ten `--avatar-color-N` backgrounds that each keep at least 4.5:1 contrast. Buyer surfaces use the generated public alias; the header account trigger and `/profile` use the signed-in user's own account name, which only that user sees.
@@ -105,8 +105,8 @@ Liber's own features and palette. Keep new surfaces inside this system:
   tile), budget headline with stat dividers, glance tiles, divided sections, a
   sticky contact rail at 900px and wider, and a sticky bottom CTA below 900px.
   The invite disclaimer sits directly under Send invite in the rail.
-- `/login` uses the sign-in dialog layout: Log in / New account tabs and a
-  full-width Continue button.
+- `/login` and `/signup` use the sign-in dialog layout: Log in / New account
+  tabs and a full-width primary button, as a page or as the in-app dialog.
 - Known gap: white text measures about 2.4:1 on `#5fbe43` and about 3.1:1 on
   `#47a62f`, below WCAG AA for 16px text. The palette above is mandated, so
   changing it needs an explicit brand decision.

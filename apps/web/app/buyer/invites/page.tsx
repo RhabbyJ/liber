@@ -19,33 +19,33 @@ export default async function BuyerInvitesPage({
       <PageTitle title="Received invites" />
 
       {status === "accepted" ? (
-        <div className="auth-alert success" role="status">
-          <strong>Invite accepted</strong>
-          <span>Open the conversation when you’re ready to talk with the seller.</span>
+        <div className="inline-alert success" role="status">
+          <Icon name="check" size={20} />
+          <p><strong>Invite accepted.</strong> Open the conversation when you’re ready to talk with the seller.</p>
         </div>
       ) : null}
       {status === "declined" ? (
-        <div className="auth-alert success" role="status">
-          <strong>Invite declined</strong>
-          <span>This invite is closed. New invites can still arrive from other sellers.</span>
+        <div className="inline-alert success" role="status">
+          <Icon name="check" size={20} />
+          <p><strong>Invite declined.</strong> This invite is closed. New invites can still arrive from other sellers.</p>
         </div>
       ) : null}
       {status === "blocked" ? (
-        <div className="auth-alert success" role="status">
-          <strong>Profile blocked</strong>
-          <span>Future invites from this seller will be unavailable.</span>
+        <div className="inline-alert success" role="status">
+          <Icon name="check" size={20} />
+          <p><strong>Profile blocked.</strong> Future invites from this seller will be unavailable.</p>
         </div>
       ) : null}
       {error === "invite-locked" ? (
-        <div className="auth-alert warning" role="status">
-          <strong>Invite already settled</strong>
-          <span>This invite can’t be changed again after a response or expiration.</span>
+        <div className="inline-alert warning" role="status">
+          <Icon name="info" size={20} />
+          <p><strong>Invite already settled.</strong> This invite can’t be changed again after a response or expiration.</p>
         </div>
       ) : null}
       {error === "question" ? (
-        <div className="auth-alert warning" role="status">
-          <strong>Add a question</strong>
-          <span>Questions are limited to 500 characters and must not include personal information.</span>
+        <div className="inline-alert warning" role="status">
+          <Icon name="info" size={20} />
+          <p><strong>Add a question.</strong> Questions are limited to 500 characters and must not include personal information.</p>
         </div>
       ) : null}
 

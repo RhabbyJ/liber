@@ -122,9 +122,12 @@ session until verification succeeds. The verified callback reads the persisted
 database roles and goes directly to the matching workspace. V1 has no second
 post-signup role-selection page, and ADMIN remains impossible to self-assign.
 
-Account creation is presented in two clear steps: confirm buyer/seller intent,
-then enter the private name, email, and password fields. A role-prefilled entry
-still begins on the intent step with that choice selected.
+Account creation is one short form on the shared "Log in / New account" card:
+an inline buyer / seller / both choice with a one-line outcome for the selected
+role, then the private name, email, and password fields. A role-prefilled entry
+opens with that choice selected. In-app log in and signup links open the card
+as a dialog over the current page (full screen on phones); direct visits and
+refreshes show the same card as a page.
 
 After email verification, buyer onboarding clearly hands off from account setup to the single buyer-profile form. The handoff explains that the profile is the next setup stage and that private account details remain hidden; it does not repeat role selection.
 
