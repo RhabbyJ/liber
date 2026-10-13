@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
 import { compactBudgetRange, criteriaFacts, seekingLabel } from "../lib/listing-format";
 import { GeneratedAvatar } from "./generated-avatar";
-import { Icon } from "./icon";
 import { PropertyTypeArtwork } from "./property-type-artwork";
 
 const flagOrder = ["PRE_APPROVED", "CASH_BUYER", "VERIFIED_FUNDS", "VERIFIED_IDENTITY"];
@@ -24,7 +23,6 @@ export function BuyerCard({ buyer, priority = false }: { buyer: SellerBuyerSumma
             {buyer.isDemo ? <span className="listing-flag demo">Demo buyer</span> : null}
             {flags.map((badge) => (
               <span className="listing-flag" key={badge.type}>
-                <Icon name={badge.type === "PRE_APPROVED" ? "check-shield" : badge.type === "VERIFIED_FUNDS" || badge.type === "CASH_BUYER" ? "money" : "shield"} size={13} />
                 {badge.type === "PRE_APPROVED" ? "Pre-approved" : badge.label}
               </span>
             ))}

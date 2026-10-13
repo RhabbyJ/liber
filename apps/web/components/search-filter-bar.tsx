@@ -1,12 +1,11 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { propertyTypeOptions } from "../lib/property-types";
 import { FilterPopover } from "./filter-popover";
 import { Icon } from "./icon";
-import { PropertyTypeArtwork } from "./property-type-artwork";
 
 export type SellerSearchFilters = {
   amenities: string[];
@@ -132,7 +131,7 @@ export function SearchFilterBar({
         </FilterPopover>
         <FilterPopover appliedLabel={homeTypeLabel(filters)} label="Home type">
           {(close) => (
-            <FilterPanelFrame onApply={() => commit(close)} onReset={() => update({ propertySubtype: "" })} title="Home type">
+            <FilterPanelFrame narrow onApply={() => commit(close)} onReset={() => update({ propertySubtype: "" })} title="Home type">
               <HomeTypeFields draft={draft} update={update} />
             </FilterPanelFrame>
           )}
@@ -219,26 +218,31 @@ export function SearchFilterBar({
   );
 }
 
+/** Zillow's dropdown frame: a grey title band (with Reset), the fields, then one full-width Apply. */
 function FilterPanelFrame({
   children,
+  narrow = false,
   onApply,
   onReset,
   title,
   wide = false,
 }: {
   children: ReactNode;
+  narrow?: boolean;
   onApply: () => void;
   onReset: () => void;
   title: string;
   wide?: boolean;
 }) {
   return (
-    <div className={`filter-panel-frame${wide ? " wide" : ""}`}>
-      <p className="filter-panel-title">{title}</p>
+    <div className={`filter-panel-frame${wide ? " wide" : ""}${narrow ? " narrow" : ""}`}>
+      <div className="filter-panel-band">
+        <p className="filter-panel-title">{title}</p>
+        <button className="filter-reset-link" onClick={onReset} type="button">Reset</button>
+      </div>
       <div className="filter-panel-body">{children}</div>
       <div className="filter-panel-foot">
-        <button className="filter-reset-link" onClick={onReset} type="button">Reset</button>
-        <button className="button primary" onClick={onApply} type="button">Apply</button>
+        <button className="button primary block lg" onClick={onApply} type="button">Apply</button>
       </div>
     </div>
   );
@@ -249,28 +253,79 @@ type FieldProps = {
   update: (patch: Partial<SellerSearchFilters>) => void;
 };
 
+/** Slider stops: 0 is "no min", 1..N are budgetSteps, N + 1 is "no max". */
+const lastBudgetStop = budgetSteps.length + 1;
+
+function budgetStop(value: string, fallback: number) {
+  const amount = Number(value);
+  if (!value || !Number.isFinite(amount) || amount <= 0) return fallback;
+  const index = budgetSteps.findIndex((step) => step >= amount);
+  return index === -1 ? budgetSteps.length : index + 1;
+}
+
 function BudgetFields({ draft, update }: FieldProps) {
+  const minStop = budgetStop(draft.budgetMin, 0);
+  const maxStop = budgetStop(draft.budgetMax, lastBudgetStop);
+  const trackStyle = {
+    "--range-from": `${(minStop / lastBudgetStop) * 100}%`,
+    "--range-to": `${(maxStop / lastBudgetStop) * 100}%`,
+  } as CSSProperties;
+
   return (
-    <div className="budget-range-fields">
-      <label className="select-field">
-        <span>Minimum</span>
-        <select onChange={(event) => update({ budgetMin: event.target.value })} value={draft.budgetMin}>
-          <option value="">No min</option>
-          {withCurrent(budgetSteps.map(String), draft.budgetMin).map((value) => (
-            <option key={value} value={value}>{shortMoney(Number(value))}</option>
-          ))}
-        </select>
-      </label>
-      <span aria-hidden="true" className="budget-range-dash">–</span>
-      <label className="select-field">
-        <span>Maximum</span>
-        <select onChange={(event) => update({ budgetMax: event.target.value })} value={draft.budgetMax}>
-          <option value="">No max</option>
-          {withCurrent(budgetSteps.map(String), draft.budgetMax).map((value) => (
-            <option key={value} value={value}>{shortMoney(Number(value))}</option>
-          ))}
-        </select>
-      </label>
+    <div className="budget-fields">
+      <div className="range-slider" style={trackStyle}>
+        <input
+          aria-label="Minimum budget"
+          aria-valuetext={minStop === 0 ? "No minimum" : shortMoney(budgetSteps[minStop - 1])}
+          max={lastBudgetStop}
+          min={0}
+          onChange={(event) => {
+            const stop = Math.min(Number(event.target.value), maxStop - 1);
+            update({ budgetMin: stop === 0 ? "" : String(budgetSteps[stop - 1]) });
+          }}
+          step={1}
+          type="range"
+          value={minStop}
+        />
+        <input
+          aria-label="Maximum budget"
+          aria-valuetext={maxStop === lastBudgetStop ? "No maximum" : shortMoney(budgetSteps[maxStop - 1])}
+          max={lastBudgetStop}
+          min={0}
+          onChange={(event) => {
+            const stop = Math.max(Number(event.target.value), minStop + 1);
+            update({ budgetMax: stop === lastBudgetStop ? "" : String(budgetSteps[stop - 1]) });
+          }}
+          step={1}
+          type="range"
+          value={maxStop}
+        />
+      </div>
+      <div aria-hidden="true" className="range-scale">
+        <span>$0</span>
+        <span>{shortMoney(budgetSteps[budgetSteps.length - 1])}+</span>
+      </div>
+      <div className="budget-range-fields">
+        <label className="select-field">
+          <span>Min</span>
+          <select onChange={(event) => update({ budgetMin: event.target.value })} value={draft.budgetMin}>
+            <option value="">No min</option>
+            {withCurrent(budgetSteps.map(String), draft.budgetMin).map((value) => (
+              <option key={value} value={value}>{shortMoney(Number(value))}</option>
+            ))}
+          </select>
+        </label>
+        <span aria-hidden="true" className="budget-range-dash">–</span>
+        <label className="select-field">
+          <span>Max</span>
+          <select onChange={(event) => update({ budgetMax: event.target.value })} value={draft.budgetMax}>
+            <option value="">No max</option>
+            {withCurrent(budgetSteps.map(String), draft.budgetMax).map((value) => (
+              <option key={value} value={value}>{shortMoney(Number(value))}</option>
+            ))}
+          </select>
+        </label>
+      </div>
     </div>
   );
 }
@@ -325,32 +380,26 @@ function SegmentedChoice({
   );
 }
 
+/** One home type at a time (the server filter is single-valued), drawn as Zillow's list rows. */
 function HomeTypeFields({ draft, update }: FieldProps) {
   return (
-    <div className="home-type-grid" role="radiogroup" aria-label="Home type">
-      <button
-        aria-checked={!draft.propertySubtype}
-        className={`home-type-tile${!draft.propertySubtype ? " selected" : ""}`}
-        onClick={() => update({ propertySubtype: "" })}
-        role="radio"
-        type="button"
-      >
-        <span className="home-type-tile-icon any"><Icon name="grid" size={20} /></span>
-        <span>Any type</span>
-      </button>
-      {propertyTypeOptions.map((option) => (
-        <button
-          aria-checked={draft.propertySubtype === option.value}
-          className={`home-type-tile${draft.propertySubtype === option.value ? " selected" : ""}`}
-          key={option.value}
-          onClick={() => update({ propertySubtype: option.value })}
-          role="radio"
-          type="button"
-        >
-          <PropertyTypeArtwork className="home-type-tile-icon" motion="none" sizes="36px" value={option.label} variant="emoji" />
-          <span>{option.label}</span>
-        </button>
-      ))}
+    <div aria-label="Home type" className="option-list" role="radiogroup">
+      {[{ label: "Any home type", value: "" }, ...propertyTypeOptions].map((option) => {
+        const selected = draft.propertySubtype === option.value;
+        return (
+          <button
+            aria-checked={selected}
+            className={`option-row${selected ? " selected" : ""}`}
+            key={option.value || "any"}
+            onClick={() => update({ propertySubtype: option.value })}
+            role="radio"
+            type="button"
+          >
+            <span aria-hidden="true" className="option-radio" />
+            <span>{option.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -369,7 +418,7 @@ function TrustFields({ draft, update }: FieldProps) {
               })}
               type="checkbox"
             />
-            <span className="check-box" aria-hidden="true"><Icon name="check" size={13} /></span>
+            <span className="check-box" aria-hidden="true"><Icon name="check" size={16} /></span>
             <span className="check-copy">
               <strong>{option.label}</strong>
               <small>{option.hint}</small>

@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AuthCard } from "../../../components/auth-card";
+import { AuthShell } from "../../../components/auth-shell";
 import { Icon } from "../../../components/icon";
 import { safeInternalPath } from "../../../lib/redirect";
 import { resendSignupConfirmation } from "../../../server/auth-actions";
@@ -18,15 +19,15 @@ export default async function VerifySignupPage({
   const mailLink = emailProviderLink(email);
 
   return (
-    <div className="auth-page">
-      <AuthCard
-        context={email ? (
-          <>We sent a verification link to <strong>{email}</strong>. Open it to activate your account.</>
-        ) : (
-          "We sent a verification link to your email. Open it to activate your account."
-        )}
-        title="Confirm your email"
-      >
+    <AuthShell
+      context={email ? (
+        <>We sent a verification link to <strong>{email}</strong>. Open it to activate your account.</>
+      ) : (
+        "We sent a verification link to your email. Open it to activate your account."
+      )}
+      title="Confirm your email"
+    >
+      <div className="auth-form">
         {resent === "1" ? (
           <div className="inline-alert success" role="status">
             <Icon name="check" size={20} />
@@ -58,11 +59,10 @@ export default async function VerifySignupPage({
           Not in your inbox? Check spam or promotions. Open the link in the same Liber environment you signed up from.
         </p>
         <p className="auth-switch">
-          Already confirmed?{" "}
-          <a href="/login">Log in</a>
+          Already confirmed? <Link href="/login">Log in</Link>
         </p>
-      </AuthCard>
-    </div>
+      </div>
+    </AuthShell>
   );
 }
 

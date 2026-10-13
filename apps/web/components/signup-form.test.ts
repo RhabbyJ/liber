@@ -33,33 +33,26 @@ describe("signup form", () => {
     expect(source).toContain("12+ characters");
   });
 
-  it("renders signup and log in on the shared auth card", () => {
-    const signupView = read("app/signup/signup-view.tsx");
-    const loginView = read("app/login/login-view.tsx");
-    const loginForm = read("components/login-form.tsx");
-
-    expect(signupView).toContain("<AuthCard");
-    expect(signupView).toContain('active="signup"');
-    expect(loginView).toContain('<AuthCard active="login"');
-    expect(loginForm).toContain('action="/api/auth/login"');
-    expect(loginForm).toContain('method="post"');
+  it("renders log in, signup, and email confirmation on the shared split auth page", () => {
+    expect(read("app/signup/signup-view.tsx")).toContain('<AuthShell title="Create account">');
+    expect(read("app/login/login-view.tsx")).toContain('<AuthShell context={context} title="Log in">');
+    expect(read("app/signup/verify/page.tsx")).toContain("<AuthShell");
   });
 
-  it("keeps password login on the single API write path, even inside the modal", () => {
+  it("keeps password login on the single native API post", () => {
     const loginForm = read("components/login-form.tsx");
 
-    expect(loginForm).toContain("fetch(form.action");
+    expect(loginForm).toContain('action="/api/auth/login"');
+    expect(loginForm).toContain('method="post"');
+    expect(loginForm).not.toContain("fetch(");
     expect(loginForm).not.toContain("signInWithPassword");
     expect(loginForm).not.toContain("server/");
   });
 
-  it("opens log in and signup over the current page only through the intercepting routes", () => {
-    const modalLayout = read("app/@modal/(auth)/layout.tsx");
-    const loginModal = read("app/@modal/(auth)/(.)login/page.tsx");
-    const signupModal = read("app/@modal/(auth)/(.)signup/page.tsx");
+  it("reveals the password step on the client without asking whether an account exists", () => {
+    const loginForm = read("components/login-form.tsx");
 
-    expect(modalLayout).toContain("<AuthModal>");
-    expect(loginModal).toContain('<LoginView presentation="modal"');
-    expect(signupModal).toContain('<SignupView presentation="modal"');
+    expect(loginForm).toContain('setStep("password")');
+    expect(loginForm).not.toMatch(/\/api\/(auth|users?)\/(exists|lookup|check)/);
   });
 });

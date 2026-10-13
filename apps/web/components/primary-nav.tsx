@@ -105,23 +105,27 @@ export function PrimaryNav({
         <span aria-hidden="true" className="mobile-menu-bars" />
       </button>
       <nav aria-label="Primary" className={`nav ${isOpen ? "open" : ""}`} data-primary-nav-menu>
-        {items.map((item) => {
-          const active = item.isActive(pathname);
-          const modeClass = item.mode ? ` ${item.mode}` : "";
+        {navGroups(items).map((group, groupIndex) => (
+          <div className={`nav-group${groupIndex === 1 ? " end" : ""}`} key={groupIndex}>
+            {group.map((item) => {
+              const active = item.isActive(pathname);
+              const modeClass = item.mode ? ` ${item.mode}` : "";
 
-          return (
-            <Link
-              aria-current={active ? "page" : undefined}
-              className={active ? `active${modeClass}` : undefined}
-              data-label={item.label}
-              href={item.href}
-              key={`${item.href}-${item.label}`}
-              onClick={close}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
+              return (
+                <Link
+                  aria-current={active ? "page" : undefined}
+                  className={active ? `nav-link active${modeClass}` : "nav-link"}
+                  data-label={item.label}
+                  href={item.href}
+                  key={`${item.href}-${item.label}`}
+                  onClick={close}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
         <div className="mobile-nav-actions" data-mobile-nav-actions hidden={!isOpen} aria-hidden={isOpen ? "false" : "true"}>
           {isAuthenticated ? (
             <>
@@ -148,3 +152,8 @@ export function PrimaryNav({
   );
 }
 
+/** Zillow's split bar: short navs sit left of the centred logo; longer ones put their second half on the right. */
+function navGroups<T>(items: T[]) {
+  const splitAt = items.length <= 3 ? items.length : Math.ceil(items.length / 2);
+  return [items.slice(0, splitAt), items.slice(splitAt)];
+}

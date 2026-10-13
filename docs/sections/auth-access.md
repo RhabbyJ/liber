@@ -21,9 +21,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - `apps/web/app/auth/callback/route.ts`
 - `apps/web/app/login/page.tsx`
 - `apps/web/app/login/login-view.tsx`
-- `apps/web/app/@modal/**`
-- `apps/web/components/auth-card.tsx`
-- `apps/web/components/auth-modal.tsx`
+- `apps/web/components/auth-shell.tsx`
 - `apps/web/components/login-form.tsx`
 - `apps/web/components/signup-form.tsx`
 - `apps/web/app/profile/page.tsx`
@@ -59,20 +57,19 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Signup name is private account identity; do not treat it as seller/public buyer profile display.
 - Signup role selection may initialize only BUYER/SELLER roles from the validated server form after Supabase creates the Auth UUID and before the email-verification redirect; admin remains server-controlled.
 - Signup asks for buyer, seller, or both exactly once. The verified callback reads the persisted database roles and never displays a second role-selection page.
-- Signup is one form on the shared auth card: an inline buyer/seller/both
+- Signup is one form on the shared split auth page: an inline buyer/seller/both
   choice (one radio group, outcome microcopy for the selected role), then the
   private name, email, and password fields. Role-prefilled entry opens with the
   role selected; server-error recovery focuses the field or notice the status
   names.
-- In-app links to `/login` and `/signup` render the same server views in a
-  dialog over the current page through the root `@modal` intercepting routes.
-  Direct loads, refreshes, and the full auth pages render the page version; a
-  soft navigation intercepted on top of a full auth page reloads as a page.
-  Escape, the backdrop, the close button, and Back return to the page below.
+- Log in asks for the email first and reveals the password field on the
+  client. Revealing it never asks the server whether an account exists; both
+  steps post the same native form, and an email-only post (no JavaScript)
+  returns with the password step open.
 - Signed-in users should continue only when they already have the role needed for the requested path; a role mismatch returns them to their existing default workspace.
 - Auth routes must not use `/login`, `/signup`, `/signup/*`, `/auth/callback`, or the removed legacy `/onboarding/role` path as post-login destinations; resolve stale auth-flow `next` values to the user's role-aware default.
 - Auth POST redirects and same-origin checks must use `request-origin.ts` to keep the incoming request host/protocol and avoid local `127.0.0.1`/`localhost` CSP and cookie mismatches. Mutations accept an exact matching `Origin`, or `Sec-Fetch-Site: same-origin` only when `Origin` is absent; missing both signals fails closed.
-- Password login has one write path: `POST /api/auth/login`. Do not reintroduce a duplicate login server action with separate identity checks. The modal form posts to the same route in the background and only reads where its redirect lands, so failed attempts keep their notice in the dialog.
+- Password login has one write path: `POST /api/auth/login`. Do not reintroduce a duplicate login server action with separate identity checks. The log-in form is a native POST to that route; it never calls Supabase from the browser.
 - Server-side signup errors return to the signup form with the role and email restored instead of restarting the user. Do not put the private signup account name in URLs; same-browser draft recovery is acceptable for error recovery.
 - Logout is a POST-only auth action. Desktop and mobile logout controls must submit successfully under the CSP `form-action` policy, clear Supabase cookies, and land on `/login?status=signed-out`.
 - The owner-only `/profile` page is available to every active authenticated role and shows only that session user's private account identity plus workspace links. The header avatar menu links there and keeps logout POST-only.

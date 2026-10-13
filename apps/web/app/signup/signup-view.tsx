@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AuthCard, type AuthPresentation } from "../../components/auth-card";
+import { AuthShell } from "../../components/auth-shell";
 import { SignupForm } from "../../components/signup-form";
 import { safeInternalPath } from "../../lib/redirect";
 import { getSessionUser, pathForSignedInAuthIntent } from "../../server/session";
@@ -8,13 +8,7 @@ type Notice = { tone: "info" | "success" | "warning" | "danger"; title: string; 
 
 export type SignupSearchParams = { email?: string; next?: string; role?: string; status?: string; step?: string };
 
-export async function SignupView({
-  presentation = "page",
-  searchParams,
-}: {
-  presentation?: AuthPresentation;
-  searchParams: Promise<SignupSearchParams>;
-}) {
+export async function SignupView({ searchParams }: { searchParams: Promise<SignupSearchParams> }) {
   const { email = "", next = "", role = "", status = "" } = await searchParams;
   const safeNext = safeInternalPath(next, "");
   const initialRole = parseRole(role);
@@ -24,19 +18,16 @@ export async function SignupView({
   const notice = signupNotice(status);
 
   return (
-    <AuthCard
-      active="signup"
-      loginHref={safeNext ? `/login?next=${encodeURIComponent(safeNext)}` : "/login"}
-      presentation={presentation}
-    >
+    <AuthShell title="Create account">
       <SignupForm
         initialEmail={email}
         initialFocus={signupFocusTarget(status)}
         initialRole={initialRole}
+        loginHref={safeNext ? `/login?next=${encodeURIComponent(safeNext)}` : "/login"}
         next={safeNext}
         notice={notice}
       />
-    </AuthCard>
+    </AuthShell>
   );
 }
 

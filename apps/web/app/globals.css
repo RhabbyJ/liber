@@ -25,11 +25,13 @@
   --line: #d1d1d5;
   --line-soft: #f1f1f4;
   --line-strong: #a7a6ab;
+  --line-control: #7e7f8e;
   --surface: #ffffff;
   --surface-raised: #ffffff;
   --surface-input: #f6f6fa;
   --surface-muted: #f1f1f4;
   --surface-subtle: #f9f9fb;
+  --surface-band: #dddde1;
   --canvas: #ffffff;
   --canvas-tint: #f9f9fb;
   --surface-sand: #f2fbef;
@@ -309,13 +311,13 @@ main {
   z-index: 1000;
 }
 
+/* Zillow's bar: nav groups on both sides of a centred logo, account actions at the far right. */
 .site-header-inner {
   align-items: center;
-  display: grid;
-  gap: 16px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
   height: var(--header-h);
   padding: 0 24px;
+  position: relative;
 }
 
 .brand {
@@ -323,7 +325,13 @@ main {
   color: var(--ink-strong);
   display: inline-flex;
   gap: 10px;
-  margin-right: 8px;
+}
+
+.site-header-inner > .brand {
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .brand:focus-visible {
@@ -360,22 +368,32 @@ main {
   line-height: 1;
 }
 
-/* Redfin frame: logo left, nav right beside the account actions. */
 .nav-shell {
   align-items: center;
   display: flex;
-  justify-content: flex-end;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
 .nav {
   align-items: stretch;
   display: flex;
+  flex: 1 1 auto;
   height: var(--header-h);
+  justify-content: space-between;
   min-width: 0;
 }
 
-.nav > a {
+.nav-group {
+  display: flex;
+  margin-left: -14px;
+}
+
+.nav-group.end {
+  margin-left: 0;
+}
+
+.nav-link {
   align-items: center;
   color: var(--ink-strong);
   display: inline-flex;
@@ -391,7 +409,7 @@ main {
 }
 
 /* Reserves the bold width so the active link does not shift its neighbours. */
-.nav > a::before {
+.nav-link::before {
   content: attr(data-label);
   font-weight: 700;
   height: 0;
@@ -399,7 +417,7 @@ main {
   visibility: hidden;
 }
 
-.nav > a::after {
+.nav-link::after {
   background: var(--sage-deep);
   border-radius: 3px 3px 0 0;
   bottom: -1px;
@@ -412,21 +430,21 @@ main {
   transition: opacity var(--dur) var(--ease);
 }
 
-.nav > a.active {
+.nav-link.active {
   font-weight: 700;
 }
 
-.nav > a.active::after {
+.nav-link.active::after {
   opacity: 1;
 }
 
-.nav > a:focus-visible {
+.nav-link:focus-visible {
   border-radius: var(--r-xs);
   box-shadow: inset var(--focus-ring);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .nav > a:hover {
+  .nav-link:hover {
     color: var(--sage-deep);
   }
 }
@@ -434,8 +452,10 @@ main {
 .top-actions {
   align-items: center;
   display: flex;
+  flex: 0 0 auto;
   gap: 8px;
   justify-content: flex-end;
+  margin-left: 8px;
 }
 
 .top-actions form,
@@ -2249,71 +2269,50 @@ input[type="radio"]:disabled {
   line-height: 20px;
 }
 
-/* Log in: the sign-in dialog presented as a page */
-.auth-page {
-  background: var(--surface-subtle);
-  display: grid;
-  justify-items: center;
-  padding: 48px 16px 64px;
+/* Auth: Zillow's split sign-in page. A 480px form panel with a 320px column, vertically
+   centred, beside a full-height art panel. The site header and footer are hidden here. */
+.app-shell:has(.auth-split) > .site-header,
+.app-shell:has(.auth-split) > .site-footer {
+  display: none;
 }
 
-.auth-card {
+.auth-split {
+  display: grid;
+  grid-template-columns: minmax(360px, 480px) minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.auth-panel {
+  align-items: center;
   background: var(--surface);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-modal);
-  display: grid;
-  gap: 16px;
-  max-width: 400px;
-  padding: 32px;
-  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 48px 32px;
 }
 
-.auth-card-head {
-  display: grid;
-  gap: 8px;
-  justify-items: start;
+.auth-panel-inner {
+  width: min(100%, 320px);
 }
 
-.auth-card-head .brand-mark {
-  margin-bottom: 8px;
+.auth-brand {
+  margin-bottom: 32px;
 }
 
-.auth-card-head h1 {
+.auth-panel h1 {
   font-size: 24px;
   line-height: 32px;
 }
 
-.auth-card-head p {
+.auth-context {
+  color: var(--ink-soft);
   font-size: 14px;
   line-height: 20px;
+  margin-top: 8px;
 }
 
-.auth-tabs {
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  gap: 24px;
-}
-
-.auth-tab {
-  color: var(--ink-soft);
-  font-weight: 700;
-  padding: 8px 0 10px;
-  position: relative;
-}
-
-.auth-tab.active {
-  color: var(--ink-strong);
-}
-
-.auth-tab.active::after {
-  background: var(--sage-deep);
-  border-radius: 3px 3px 0 0;
-  bottom: -1px;
-  content: "";
-  height: 3px;
-  left: 0;
-  position: absolute;
-  right: 0;
+.auth-panel .auth-form {
+  margin-top: 32px;
 }
 
 .auth-form {
@@ -2321,10 +2320,67 @@ input[type="radio"]:disabled {
   gap: 16px;
 }
 
+.auth-form .field {
+  gap: 8px;
+}
+
+.auth-form .field label {
+  line-height: 20px;
+}
+
+/* Zillow's 2026 auth inputs: white, 48px, a #a7a6ab edge, 8px radius. */
+.auth-form .field input:not([type="radio"]):not([type="checkbox"]) {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  border-radius: var(--r-md);
+  min-height: 48px;
+}
+
+.auth-form .button.lg {
+  border-radius: var(--r-md);
+  min-height: 48px;
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 72px;
+  width: 100%;
+}
+
+.password-toggle {
+  background: none;
+  border: 0;
+  border-radius: var(--r-xs);
+  color: var(--ink-strong);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  height: 32px;
+  padding: 0 8px;
+  position: absolute;
+  right: 8px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  top: 8px;
+}
+
+.field-error {
+  color: var(--danger);
+  font-size: 14px;
+  line-height: 20px;
+  margin: 0;
+}
+
+.field-error[hidden] {
+  display: none;
+}
+
 .auth-switch {
   font-size: 14px;
   line-height: 20px;
-  text-align: center;
 }
 
 .auth-switch a {
@@ -2342,7 +2398,55 @@ input[type="radio"]:disabled {
   color: var(--ink-soft);
   font-size: 12px;
   line-height: 16px;
-  text-align: center;
+}
+
+/* Art panel: the artwork's own ground colour, so the illustration has no visible box. */
+.auth-art {
+  background: #faf8f4;
+  border-left: 1px solid var(--line-soft);
+  display: grid;
+  overflow: hidden;
+  place-items: center;
+  position: relative;
+}
+
+.auth-art-image {
+  height: auto;
+  margin-bottom: 8vh;
+  max-width: 640px;
+  position: relative;
+  width: 64%;
+  z-index: 1;
+}
+
+/* Full skyline at the panel's width (the art is 12:1). */
+.auth-art-skyline {
+  aspect-ratio: 12 / 1;
+  bottom: 0;
+  display: block;
+  height: auto;
+  left: 0;
+  position: absolute;
+  width: 100%;
+}
+
+@media (max-width: 899px) {
+  .auth-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .auth-art {
+    display: none;
+  }
+
+  .auth-panel {
+    align-items: flex-start;
+    padding: 32px 16px 48px;
+  }
+
+  .auth-panel-inner {
+    width: min(100%, 400px);
+  }
 }
 
 /* Role choice on signup: native radios drawn as the filter segmented control */
@@ -2440,105 +2544,6 @@ input[type="radio"]:disabled {
   float: right;
   font-size: 12px;
   font-weight: 400;
-}
-
-.signup-error {
-  background: var(--danger-tint);
-  border-radius: var(--r-md);
-  color: var(--danger);
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 20px;
-  margin: 0;
-  padding: 12px 16px;
-}
-
-.signup-error[hidden] {
-  display: none;
-}
-
-/* Auth modal: the same card over a dimmed page (in-app navigation only) */
-.auth-modal {
-  animation: fade-in var(--dur) var(--ease-out);
-  background: rgba(0, 0, 0, 0.35);
-  display: flex;
-  inset: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 48px 16px;
-  position: fixed;
-  z-index: 1100;
-}
-
-/* AuthModal reloads full auth pages instead of stacking a dialog on them. */
-.app-shell:has(.auth-page) ~ .auth-modal {
-  visibility: hidden;
-}
-
-.auth-modal-dialog {
-  animation: auth-modal-in var(--dur-slow) var(--ease-out);
-  margin: auto;
-  max-width: 400px;
-  position: relative;
-  width: 100%;
-}
-
-.auth-modal-close {
-  position: absolute;
-  right: 16px;
-  top: 16px;
-}
-
-.auth-modal .auth-card-head .brand-mark {
-  display: none;
-}
-
-@keyframes auth-modal-in {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@media (max-width: 639px) {
-  .auth-modal {
-    background: var(--surface);
-    padding: 0;
-  }
-
-  .auth-modal-dialog {
-    max-width: none;
-    min-height: 100%;
-  }
-
-  .auth-modal .auth-card {
-    border-radius: 0;
-    box-shadow: none;
-    max-width: none;
-    min-height: 100%;
-    padding: 56px 16px 32px;
-  }
-}
-
-@media (max-width: 639px) {
-  .auth-page {
-    background: var(--surface);
-    padding: 8px 0 32px;
-  }
-
-  .auth-card {
-    box-shadow: none;
-    padding: 16px;
-  }
-
-  .auth-card-head .brand-mark {
-    display: none;
-  }
 }
 
 /* ==========================================================================
@@ -3479,7 +3484,6 @@ input[type="radio"]:disabled {
   }
 }
 
-/* Initials avatars: white letters on one of ten palette colors (see lib/avatar-variant.ts). */
 /* Initials avatar: about 40% type up to 48px, easing to 35% at 160px. */
 .generated-avatar {
   --generated-avatar-size: 40px;
@@ -5058,20 +5062,20 @@ body:has(.search-page) .site-footer:not(.compact) {
 .filter-button {
   align-items: center;
   background: var(--surface);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-xs);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-md);
   color: var(--ink-strong);
   cursor: pointer;
   display: inline-flex;
   font-size: 14px;
   font-weight: 700;
   gap: 8px;
-  height: 36px;
+  height: 40px;
   justify-content: space-between;
   line-height: 24px;
-  max-width: 180px;
+  max-width: 200px;
   min-width: 100px;
-  padding: 0 10px 0 12px;
+  padding: 0 12px 0 16px;
   transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
   white-space: nowrap;
 }
@@ -5089,17 +5093,15 @@ body:has(.search-page) .site-footer:not(.compact) {
   transition: transform var(--dur) var(--ease);
 }
 
-.filter-popover.open .filter-button {
+.filter-popover.open .filter-button,
+.filter-button.applied {
+  background: var(--sage-tint);
   border-color: var(--sage-deep);
+  box-shadow: inset 0 0 0 1px var(--sage-deep);
 }
 
 .filter-popover.open .filter-button-chevron {
   transform: rotate(180deg);
-}
-
-.filter-button.applied {
-  background: var(--sage-tint);
-  border-color: var(--sage-deep);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -5111,8 +5113,9 @@ body:has(.search-page) .site-footer:not(.compact) {
 .filter-panel {
   animation: popover-in var(--dur) var(--ease-out);
   background: var(--surface);
-  border-radius: var(--r-xs);
+  border-radius: var(--r-xl);
   box-shadow: var(--shadow-popover);
+  overflow: hidden;
   left: 0;
   position: absolute;
   top: calc(100% + 8px);
@@ -5132,20 +5135,33 @@ body:has(.search-page) .site-footer:not(.compact) {
   display: flex;
   flex-direction: column;
   max-height: min(72vh, 600px);
-  width: 360px;
+  width: 372px;
 }
 
 .filter-panel-frame.wide {
   width: 400px;
 }
 
+.filter-panel-frame.narrow {
+  width: 260px;
+}
+
+/* Zillow's grey title band: 48px, 14/700 grey title, the panel's one secondary action on the right. */
+.filter-panel-band {
+  align-items: center;
+  background: var(--surface-band);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0 12px 0 16px;
+}
+
 .filter-panel-title {
-  border-bottom: 1px solid var(--line);
-  color: var(--ink-strong);
-  font-size: 16px;
+  color: var(--ink-soft);
+  font-size: 14px;
   font-weight: 700;
-  line-height: 24px;
-  padding: 16px;
+  line-height: 20px;
 }
 
 .filter-panel-body {
@@ -5167,16 +5183,12 @@ body:has(.search-page) .site-footer:not(.compact) {
 }
 
 .filter-panel-foot {
-  align-items: center;
-  border-top: 1px solid var(--line);
-  display: flex;
-  gap: 16px;
-  justify-content: space-between;
-  padding: 12px 16px;
+  padding: 0 16px 16px;
 }
 
 .filter-panel-foot .button {
-  min-width: 112px;
+  border-radius: var(--r-lg);
+  min-height: 48px;
 }
 
 .filter-reset-link {
@@ -5200,6 +5212,92 @@ body:has(.search-page) .site-footer:not(.compact) {
   }
 }
 
+.budget-fields {
+  display: grid;
+  gap: 8px;
+}
+
+/* Two native range inputs share one track; only their thumbs take pointer input. */
+.range-slider {
+  height: 32px;
+  position: relative;
+}
+
+.range-slider::before,
+.range-slider::after {
+  border-radius: 2px;
+  content: "";
+  height: 4px;
+  left: 12px;
+  position: absolute;
+  right: 12px;
+  top: 14px;
+}
+
+.range-slider::before {
+  background: var(--surface-band);
+}
+
+.range-slider::after {
+  background: var(--sage-deep);
+  left: calc(12px + (100% - 24px) * var(--range-from) / 100%);
+  right: calc(12px + (100% - 24px) * (1 - var(--range-to) / 100%));
+}
+
+.range-slider input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  height: 32px;
+  inset: 0;
+  margin: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
+  z-index: 1;
+}
+
+.range-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  background: var(--surface);
+  border: 1px solid var(--line-control);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  cursor: grab;
+  height: 24px;
+  pointer-events: auto;
+  width: 24px;
+}
+
+.range-slider input[type="range"]::-moz-range-thumb {
+  background: var(--surface);
+  border: 1px solid var(--line-control);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  cursor: grab;
+  height: 24px;
+  pointer-events: auto;
+  width: 24px;
+}
+
+.range-slider input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: var(--focus-ring);
+}
+
+.range-slider input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: var(--focus-ring);
+}
+
+.range-scale {
+  color: var(--ink-strong);
+  display: flex;
+  font-size: 14px;
+  justify-content: space-between;
+  line-height: 20px;
+  margin-bottom: 8px;
+}
+
 .budget-range-fields {
   align-items: end;
   display: grid;
@@ -5207,9 +5305,21 @@ body:has(.search-page) .site-footer:not(.compact) {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 }
 
+.budget-range-fields .select-field > span {
+  font-weight: 700;
+}
+
+.filter-panel .select-field select,
+.filter-sheet .select-field select {
+  background-color: var(--surface);
+  border-color: var(--line-control);
+  border-radius: var(--r-md);
+  min-height: 48px;
+}
+
 .budget-range-dash {
   color: var(--ink-soft);
-  line-height: 44px;
+  line-height: 48px;
 }
 
 .room-fields,
@@ -5301,56 +5411,44 @@ body:has(.search-page) .site-footer:not(.compact) {
   padding: 0 16px;
 }
 
-.home-type-grid {
+.option-list {
   display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: -4px 0;
 }
 
-.home-type-tile {
+.option-row {
   align-items: center;
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
+  background: none;
+  border: 0;
   border-radius: var(--r-xs);
   color: var(--ink-strong);
   cursor: pointer;
-  display: grid;
-  font-size: 14px;
-  font-weight: 700;
-  gap: 4px;
-  justify-items: center;
+  display: flex;
+  font-size: 16px;
+  gap: 12px;
   line-height: 24px;
-  padding: 12px 4px 8px;
-  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  min-height: 48px;
+  padding: 0;
+  text-align: left;
 }
 
-.home-type-tile.selected {
-  background: var(--sage-tint);
-  border-color: var(--sage-deep);
-  box-shadow: inset 0 0 0 1px var(--sage-deep);
+.option-radio {
+  border: 1px solid var(--line-control);
+  border-radius: 50%;
+  flex: 0 0 auto;
+  height: 24px;
+  transition: border-color var(--dur-fast) var(--ease), border-width var(--dur-fast) var(--ease);
+  width: 24px;
+}
+
+.option-row.selected .option-radio {
+  border: 7px solid var(--sage-deep);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .home-type-tile:hover {
+  .option-row:hover .option-radio {
     border-color: var(--sage-deep);
   }
-}
-
-.home-type-tile-icon,
-.home-type-tile .property-type-artwork.home-type-tile-icon {
-  border-radius: var(--r-xs);
-  display: inline-flex;
-  height: 40px;
-  overflow: hidden;
-  position: relative;
-  width: 40px;
-}
-
-.home-type-tile-icon.any {
-  align-items: center;
-  background: var(--surface-input);
-  color: var(--ink-strong);
-  justify-content: center;
 }
 
 .check-list {
@@ -5361,35 +5459,34 @@ body:has(.search-page) .site-footer:not(.compact) {
   align-items: flex-start;
   cursor: pointer;
   display: grid;
-  gap: 8px;
-  grid-template-columns: 20px minmax(0, 1fr);
-  min-height: 44px;
-  padding: 10px 0;
+  gap: 12px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  min-height: 48px;
+  padding: 12px 0;
   position: relative;
 }
 
 .check-row input {
-  height: 20px;
+  height: 24px;
   left: 0;
   margin: 0;
   opacity: 0;
   position: absolute;
   top: 12px;
-  width: 20px;
+  width: 24px;
 }
 
 .check-box {
   align-items: center;
   background: var(--surface);
-  border: 2px solid var(--line-strong);
+  border: 1px solid var(--line-control);
   border-radius: var(--r-xs);
   color: transparent;
   display: inline-flex;
-  height: 20px;
+  height: 24px;
   justify-content: center;
-  margin-top: 2px;
   transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
-  width: 20px;
+  width: 24px;
 }
 
 .check-box .icon {
@@ -5573,7 +5670,7 @@ body:has(.search-page) .site-footer:not(.compact) {
 .seller-map-search form,
 .public-map-search-box form {
   align-items: center;
-  border-radius: var(--r-xs);
+  border-radius: var(--r-md);
   display: flex;
   position: relative;
 }
@@ -5597,13 +5694,13 @@ body:has(.search-page) .site-footer:not(.compact) {
 .seller-map-search input,
 .public-map-search-box input {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-xs);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-md);
   caret-color: var(--sage-deep);
   color: var(--ink-strong);
   font-size: 16px;
   font-weight: 400;
-  height: 44px;
+  height: 40px;
   line-height: 24px;
   padding: 0 48px 0 12px;
   transition: border-color var(--dur) var(--ease);
@@ -5945,7 +6042,7 @@ body:has(.search-page) .site-footer:not(.compact) {
 
 .listing-card {
   background: var(--surface);
-  border-radius: var(--r-xs);
+  border-radius: var(--r-lg);
   box-shadow: var(--shadow-card);
   color: var(--ink-strong);
   cursor: pointer;
@@ -5989,7 +6086,7 @@ body:has(.search-page) .site-footer:not(.compact) {
 
 .listing-card-media {
   background: var(--surface-input);
-  border-radius: var(--r-xs) var(--r-xs) 0 0;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
   overflow: hidden;
   position: relative;
 }
@@ -6016,11 +6113,13 @@ body:has(.search-page) .site-footer:not(.compact) {
   z-index: 2;
 }
 
+/* Zillow's photo tags ("3 days on Zillow"): white pills with dark bold text. */
 .listing-flag {
   align-items: center;
-  background: rgba(10, 10, 20, 0.6);
+  background: var(--surface);
   border-radius: var(--r-pill);
-  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  color: var(--ink-strong);
   display: inline-flex;
   font-size: 12px;
   font-weight: 700;
@@ -6028,18 +6127,14 @@ body:has(.search-page) .site-footer:not(.compact) {
   line-height: 16px;
   max-width: 100%;
   overflow: hidden;
-  padding: 2px 8px;
+  padding: 4px 8px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.listing-flag .icon {
-  color: var(--sage-tint-strong);
-}
-
 .listing-flag.demo {
-  background: var(--surface);
-  color: var(--ink-strong);
+  background: rgba(10, 10, 20, 0.75);
+  color: #fff;
 }
 
 .listing-card-avatar.generated-avatar {
@@ -6055,15 +6150,15 @@ body:has(.search-page) .site-footer:not(.compact) {
 .listing-card-body {
   align-content: start;
   display: grid;
-  padding: 8px;
+  padding: 8px 12px 12px;
 }
 
 .listing-card-price {
   color: var(--ink-strong);
-  font-size: 20px;
+  font-size: 24px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-  line-height: 24px;
+  line-height: 32px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -6087,14 +6182,9 @@ body:has(.search-page) .site-footer:not(.compact) {
 }
 
 .listing-card-facts li:not(:last-child)::after {
-  color: var(--line-strong);
+  color: var(--ink-soft);
   content: "|";
-  margin: 0 5px;
-}
-
-.listing-card-facts li:nth-last-child(2)::after {
-  color: var(--ink-strong);
-  content: "-";
+  margin: 0 4px;
 }
 
 .listing-card-facts li.listing-card-kind {
@@ -6108,7 +6198,7 @@ body:has(.search-page) .site-footer:not(.compact) {
 }
 
 .listing-card-address {
-  color: var(--ink-strong);
+  color: var(--ink-soft);
   font-size: 14px;
   line-height: 24px;
   overflow: hidden;
@@ -6336,8 +6426,8 @@ body:has(.search-page) .site-footer:not(.compact) {
 .map-chip-button {
   align-items: center;
   background: var(--surface);
-  border: 0;
-  border-radius: var(--r-xs);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-md);
   box-shadow: var(--shadow-card);
   color: var(--ink-strong);
   cursor: pointer;
@@ -7882,22 +7972,43 @@ a.map-card:focus-visible {
 }
 
 @media (max-width: 1149px) {
-  .nav > a,
+  .nav-link,
   .header-text-link {
     padding: 0 8px;
   }
 
-  .nav > a::after {
+  .nav-link::after {
     left: 8px;
     right: 8px;
   }
+
+  .nav-group {
+    margin-left: -8px;
+  }
+
+  .nav-group.end {
+    margin-left: 0;
+  }
 }
 
-/* Seven or more links (dual role plus admin) use Redfin's 14px nav until the bar has room. */
+/* Seven or more links (dual role plus admin) drop to 14px type until the bar has room. */
 @media (min-width: 1024px) and (max-width: 1279px) {
-  .nav-shell[data-dense] .nav > a {
+  .nav-shell[data-dense] .nav-link {
     font-size: 14px;
-    padding: 0 8px;
+    padding: 0 6px;
+  }
+
+  .nav-shell[data-dense] .nav-link::after {
+    left: 6px;
+    right: 6px;
+  }
+
+  .nav-shell[data-dense] .nav-group {
+    margin-left: -6px;
+  }
+
+  .nav-shell[data-dense] .nav-group.end {
+    margin-left: 0;
   }
 }
 
@@ -7905,8 +8016,13 @@ a.map-card:focus-visible {
 @media (max-width: 1023px) {
   .site-header-inner {
     gap: 4px;
-    grid-template-columns: minmax(0, 1fr) auto auto;
     padding: 0 8px 0 16px;
+  }
+
+  .site-header-inner > .brand {
+    margin-right: auto;
+    position: static;
+    transform: none;
   }
 
   .brand {
@@ -7929,7 +8045,17 @@ a.map-card:focus-visible {
   }
 
   .nav-shell {
+    flex: 0 0 auto;
     order: 3;
+  }
+
+  /* The drawer lists every link in one column. */
+  .nav-group {
+    display: contents;
+  }
+
+  .top-actions {
+    margin-left: 0;
   }
 
   .mobile-menu-button {
@@ -7952,6 +8078,7 @@ a.map-card:focus-visible {
     display: none;
     flex-direction: column;
     height: auto;
+    justify-content: flex-start;
     left: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -7967,7 +8094,7 @@ a.map-card:focus-visible {
     display: flex;
   }
 
-  .nav > a {
+  .nav-link {
     align-items: flex-start;
     border-bottom: 1px solid var(--line);
     border-left: 3px solid transparent;
@@ -7977,12 +8104,12 @@ a.map-card:focus-visible {
     padding: 15px 16px 14px 13px;
   }
 
-  .nav > a::before,
-  .nav > a::after {
+  .nav-link::before,
+  .nav-link::after {
     content: none;
   }
 
-  .nav > a.active {
+  .nav-link.active {
     border-left-color: var(--sage-deep);
     color: var(--ink-strong);
     font-weight: 700;
@@ -8150,10 +8277,6 @@ a.map-card:focus-visible {
 @media (max-width: 480px) {
   .account-menu-popover {
     right: -8px;
-  }
-
-  .home-type-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

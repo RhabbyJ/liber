@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AuthCard, type AuthPresentation } from "../../components/auth-card";
+import { AuthShell } from "../../components/auth-shell";
 import { LoginForm } from "../../components/login-form";
 import { safeInternalPath } from "../../lib/redirect";
 import { getSessionUser, pathForSignedInAuthIntent } from "../../server/session";
@@ -8,13 +8,7 @@ export type LoginSearchParams = { email?: string; next?: string; status?: string
 
 type Notice = { tone: "info" | "success" | "warning" | "danger"; title: string; body: string };
 
-export async function LoginView({
-  presentation = "page",
-  searchParams,
-}: {
-  presentation?: AuthPresentation;
-  searchParams: Promise<LoginSearchParams>;
-}) {
+export async function LoginView({ searchParams }: { searchParams: Promise<LoginSearchParams> }) {
   const { email = "", next = "/", status = "" } = await searchParams;
   const safeNext = safeInternalPath(next);
   const user = await getSessionUser();
@@ -24,9 +18,9 @@ export async function LoginView({
   const notice = authNotice(status, email);
 
   return (
-    <AuthCard active="login" context={context} presentation={presentation} signupHref={signupHref}>
-      <LoginForm email={email} next={safeNext} notice={notice} presentation={presentation} />
-    </AuthCard>
+    <AuthShell context={context} title="Log in">
+      <LoginForm email={email} next={safeNext} notice={notice} signupHref={signupHref} />
+    </AuthShell>
   );
 }
 

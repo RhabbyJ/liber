@@ -4,7 +4,6 @@ import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
 import { criteriaFacts, seekingLabel } from "../lib/listing-format";
 import { syncPublicDemandPinHighlights } from "../lib/public-demand-highlight";
 import { GeneratedAvatar } from "./generated-avatar";
-import { Icon } from "./icon";
 import { PropertyTypeArtwork } from "./property-type-artwork";
 
 const flagOrder = ["Pre-approved", "Cash buyer", "Verified funds", "ID verified"];
@@ -42,7 +41,6 @@ export function PublicBuyerPreviewCard({ index, preview }: { index: number; prev
           <div className="listing-card-flags">
             {flags.map((flag) => (
               <span className="listing-flag" key={flag}>
-                <Icon name={flag === "Pre-approved" ? "check-shield" : flag === "ID verified" ? "shield" : "money"} size={13} />
                 {flag}
               </span>
             ))}

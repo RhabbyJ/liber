@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     "Buyers create verified demand profiles. Sellers search for serious buyers and send manual invites for their private properties.",
 };
 
-export default async function RootLayout({ children, modal }: { children: ReactNode; modal: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
   const user = await getSessionUser();
   const isAuthenticated = Boolean(user);
   const roles = user?.roles ?? [];
@@ -84,7 +84,6 @@ export default async function RootLayout({ children, modal }: { children: ReactN
           <main id="main-content">{children}</main>
           <SiteFooter />
         </div>
-        {modal}
       </body>
     </html>
   );

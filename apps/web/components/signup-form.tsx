@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useFormStatus } from "react-dom";
 import { signupWithPassword } from "../server/auth-actions";
@@ -13,6 +14,7 @@ type Props = {
   initialEmail: string;
   initialFocus: "name" | "email" | "password" | "notice" | null;
   initialRole: Role | null;
+  loginHref: string;
   next: string;
   notice: Notice | null;
 };
@@ -28,11 +30,12 @@ const ROLE_OPTIONS: Array<{ value: Role; label: string; detail: string }> = [
 type ValidationError = { field: "name" | "email" | "password"; message: string };
 
 /** Single-step signup: role (asked once), private name, email, and password. */
-export function SignupForm({ initialEmail, initialFocus, initialRole, next, notice }: Props) {
+export function SignupForm({ initialEmail, initialFocus, initialRole, loginHref, next, notice }: Props) {
   const [role, setRole] = useState<Role>(initialRole ?? "buyer");
   const [name, setName] = useState("");
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<ValidationError | null>(null);
 
   const noticeRef = useRef<HTMLDivElement>(null);
@@ -143,7 +146,7 @@ export function SignupForm({ initialEmail, initialFocus, initialRole, next, noti
         />
       </div>
       <div className="field">
-        <label htmlFor="email">Email</label>
+        <label htmlFor="email">Email address</label>
         <input
           aria-describedby={error?.field === "email" ? "signup-error" : undefined}
           aria-invalid={error?.field === "email" || undefined}
@@ -162,26 +165,40 @@ export function SignupForm({ initialEmail, initialFocus, initialRole, next, noti
         <label htmlFor="password">
           Password <span className="field-label-hint">12+ characters</span>
         </label>
-        <input
-          aria-describedby={error?.field === "password" ? "signup-error" : undefined}
-          aria-invalid={error?.field === "password" || undefined}
-          autoComplete="new-password"
-          id="password"
-          minLength={12}
-          name="password"
-          onChange={(event) => setPassword(event.target.value)}
-          ref={passwordRef}
-          required
-          type="password"
-          value={password}
-        />
+        <div className="password-field">
+          <input
+            aria-describedby={error?.field === "password" ? "signup-error" : undefined}
+            aria-invalid={error?.field === "password" || undefined}
+            autoComplete="new-password"
+            id="password"
+            minLength={12}
+            name="password"
+            onChange={(event) => setPassword(event.target.value)}
+            ref={passwordRef}
+            required
+            type={showPassword ? "text" : "password"}
+            value={password}
+          />
+          <button
+            aria-controls="password"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            className="password-toggle"
+            onClick={() => setShowPassword((value) => !value)}
+            type="button"
+          >
+            {showPassword ? "Hide" : "Show"}
+          </button>
+        </div>
       </div>
 
-      <p className="signup-error" hidden={!error} id="signup-error" role="alert">
+      <p className="field-error" hidden={!error} id="signup-error" role="alert">
         {error?.message}
       </p>
 
       <SubmitButton />
+      <p className="auth-switch">
+        Already have an account? <Link href={loginHref}>Log in</Link>
+      </p>
       <p className="auth-fineprint">We’ll email you a link to confirm your address. Your name stays private.</p>
     </form>
   );
