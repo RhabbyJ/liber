@@ -1,21 +1,21 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 import { isRequestSameOrigin } from "../../../../../../server/request-origin";
 import { getSessionUser } from "../../../../../../server/session";
 import { finalizeUploadSession } from "../../../../../../server/uploads/service";
+import { privateUploadJson, uploadErrorResponse } from "../../../../../../server/uploads/http";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> },
 ) {
-  if (!isRequestSameOrigin(request)) return NextResponse.json({ error: "Invalid origin." }, { status: 403 });
-  const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  if (!isRequestSameOrigin(request)) return privateUploadJson({ error: "Invalid origin." }, 403);
   try {
+    const user = await getSessionUser();
+    if (!user) return privateUploadJson({ error: "Authentication required." }, 401);
     const { sessionId } = await params;
     const data = await finalizeUploadSession({ sessionId }, user);
-    return NextResponse.json(data, { headers: { "Cache-Control": "private, no-store" } });
+    return privateUploadJson(data);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to finalize upload.";
-    return NextResponse.json({ error: message }, { headers: { "Cache-Control": "private, no-store" }, status: 400 });
+    return uploadErrorResponse(error);
   }
 }

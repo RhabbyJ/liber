@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { sendInviteEmail, sendLoiUpdateEmail, sendUnreadMessageEmail } from "./email";
+import { sendInviteEmail, sendLoiUpdateEmail, sendTourEmail, sendUnreadMessageEmail } from "./email";
 
 describe("invite email adapter", () => {
   afterEach(() => {
@@ -104,6 +104,24 @@ describe("invite email adapter", () => {
     expect(requestBody).toContain("proposed terms are only available after you sign in");
     expect(requestBody).not.toContain("$1,250,000");
     expect(requestBody).not.toContain("lender");
+  });
+
+  it("sends tour reminders and follow-up with authenticated links and no schedule or property details", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test");
+    vi.stubEnv("RESEND_FROM_EMAIL", "Liber <noreply@example.test>");
+    vi.stubEnv("SITE_URL", "https://liber.example");
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ id: "tour-email-id" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    for (const event of ["PROPOSED", "CONFIRMED", "CANCELLED", "REMINDER", "FOLLOW_UP"] as const) {
+      await sendTourEmail({ conversationId: "019f62c5-1c07-4a62-9f9a-8302778aa011", to: "recipient@example.test", event }, `tour/${event}`);
+    }
+    for (const [, request] of fetchMock.mock.calls) {
+      const body = JSON.parse(request.body);
+      expect(body.text).toContain("https://liber.example/messages/019f62c5-1c07-4a62-9f9a-8302778aa011");
+      expect(body.text).toContain("Tour details and messages are only available after you sign in");
+      expect(body.text).not.toMatch(/2026-|America\/|property address|\$[0-9]/);
+      expect(request.headers["Idempotency-Key"]).toMatch(/^tour\//);
+    }
   });
 
   it("fails closed instead of marking an unsent production job complete", async () => {

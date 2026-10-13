@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+
 export type RateLimitResult = {
   allowed: boolean;
   limit: number;
@@ -9,13 +11,17 @@ export type RateLimitStore = {
 };
 
 export function clientIpFromRequest(request: Request) {
-  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwardedFor || request.headers.get("x-real-ip") || "unknown-ip";
+  return clientIpFromHeaders(request.headers);
 }
 
 export function clientIpFromHeaders(headers: Pick<Headers, "get">) {
-  const forwardedFor = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwardedFor || headers.get("x-real-ip") || "unknown-ip";
+  // Vercel overwrites these headers. Direct/self-hosted requests have no trusted proxy contract.
+  if (process.env.VERCEL !== "1") return "unknown-ip";
+  const value = (headers.get("x-vercel-forwarded-for")
+    ?? headers.get("x-forwarded-for")
+    ?? headers.get("x-real-ip"))?.trim();
+  if (!value || value.length > 45 || !isIP(value)) return "unknown-ip";
+  return isIP(value) === 6 ? new URL(`http://[${value}]`).hostname.slice(1, -1) : value;
 }
 
 export const postgresRateLimitStore: RateLimitStore = {

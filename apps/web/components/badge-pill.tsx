@@ -15,6 +15,7 @@ const badgeIcon: Record<string, "shield" | "money" | "diamond" | "check-shield">
 };
 
 export function BadgePill({ badge }: { badge: DisplayBadge }) {
+  const isTest = badge.type === "TEST_PRE_APPROVED";
   const status = badge.status === "active" ? "active" : badge.status === "expired" ? "expired" : "pending";
   const meta = badge.expiresInDays !== undefined
     ? badge.expiresInDays < 0
@@ -23,11 +24,11 @@ export function BadgePill({ badge }: { badge: DisplayBadge }) {
     : null;
 
   return (
-    <span className={`trust-badge ${status}`}>
+    <span className={`trust-badge ${isTest && status === "active" ? "pending" : status}`}>
       <span className="trust-badge-icon">
-        <Icon name={badgeIcon[badge.type] || "shield"} size={11} />
+        <Icon name={isTest ? "info" : badgeIcon[badge.type] || "shield"} size={11} />
       </span>
-      <span>{badge.label}</span>
+      <span>{isTest ? "Test pre-approval — not verified" : badge.label}</span>
       {meta ? <span className="trust-badge-meta">· {meta}</span> : null}
     </span>
   );

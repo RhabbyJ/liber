@@ -6,7 +6,7 @@ import {
 
 describe("public demand pin highlighting", () => {
   it("highlights only the matching preview pin and clears it", () => {
-    const pins = [pin(0), pin(2), pin(4)];
+    const pins = [pin(0), pin(1, 2, 3), pin(4)];
 
     syncPublicDemandPinHighlights(pins.map(({ target }) => target), 2);
     expect(pins.map(({ classes }) => classes.has("active"))).toEqual([false, true, false]);
@@ -16,7 +16,7 @@ describe("public demand pin highlighting", () => {
   });
 });
 
-function pin(previewIndex: number) {
+function pin(...previewIndexes: number[]) {
   const classes = new Set<string>();
   const target: PublicDemandPinHighlightTarget = {
     element: {
@@ -28,7 +28,7 @@ function pin(previewIndex: number) {
         },
       },
     },
-    previewIndex,
+    previewIndexes,
   };
 
   return { classes, target };

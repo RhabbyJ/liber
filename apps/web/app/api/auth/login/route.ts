@@ -7,26 +7,46 @@ import { pathForSignedInAuthIntent } from "../../../../server/auth-intent";
 import { clientIpFromRequest } from "../../../../server/rate-limit";
 import { isRequestSameOrigin, requestUrl } from "../../../../server/request-origin";
 import { createSupabaseServerClient } from "../../../../server/supabase";
+import { readBoundedFormData, RequestBodyError } from "../../../../server/request-body";
 
 export async function POST(request: NextRequest) {
   if (!isRequestSameOrigin(request)) {
     return NextResponse.json({ error: "Invalid origin." }, { status: 403 });
   }
 
-  const formData = await request.formData();
+  let formData: FormData;
+  try {
+    formData = await readBoundedFormData(request, 16 * 1024);
+  } catch (error) {
+    return NextResponse.json({ error: "Invalid login request." }, {
+      headers: { "Cache-Control": "private, no-store" },
+      status: error instanceof RequestBodyError ? error.status : 400,
+    });
+  }
   const next = safeInternalPath(formData.get("next"));
   const email = textValue(formData, "email");
   const password = textValue(formData, "password");
+
+  if (email.length > 254 || password.length > 1024 || next.length > 2048) {
+    return redirectTo(request, "/login?status=invalid-login");
+  }
 
   if (!email || !password) {
     return redirectTo(request, `/login?status=missing-credentials&email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
   }
 
-  const limit = await enforceSharedAuthRateLimit({
-    action: "login",
-    email,
-    ip: clientIpFromRequest(request),
-  });
+  let limit;
+  try {
+    limit = await enforceSharedAuthRateLimit({
+      action: "login",
+      email,
+      ip: clientIpFromRequest(request),
+    });
+  } catch {
+    return NextResponse.json({ error: "Login is temporarily unavailable." }, {
+      headers: { "Cache-Control": "private, no-store" }, status: 503,
+    });
+  }
   if (!limit.allowed) {
     const response = redirectTo(request, "/login?status=rate-limited");
     response.headers.set("Retry-After", String(limit.retryAfterSeconds));

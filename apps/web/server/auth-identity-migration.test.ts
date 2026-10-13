@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -89,10 +90,6 @@ describe("auth identity ownership migration", () => {
       path.join(repositoryRoot, "apps/web/app/api/auth/login/route.ts"),
       "utf8",
     );
-    const stagingHarness = readFileSync(
-      path.join(repositoryRoot, "scripts/test-auth-security-staging.mjs"),
-      "utf8",
-    );
     const rollback = readFileSync(
       path.join(repositoryRoot, "docs/engineering/AUTH_SECURITY_FOLLOWUP_ROLLBACK.sql"),
       "utf8",
@@ -122,13 +119,26 @@ describe("auth identity ownership migration", () => {
     expect(login).toContain("identity-recovery-required");
     expect(login).toContain('error.code === "email_not_confirmed"');
     expect(login).not.toContain("error.message.toLowerCase()");
-    expect(stagingHarness).toContain('bucket: "property-images"');
-    expect(stagingHarness).toContain("assertSuspendedImageWritesDenied");
-    expect(stagingHarness).toContain("property_image_writes_denied_after_suspension");
-    expect(stagingHarness).not.toContain('bucket: "profile-photos"');
-    expect(stagingHarness).toContain("auth_metadata_role_ignored");
-    expect(stagingHarness).toContain("Authenticated admin bypassed the server-mediated document review path");
     expect(rollback).not.toContain("DROP FUNCTION IF EXISTS app_private.claim_email_outbox");
     expect(rollback).toContain("Never deploy the legacy");
+  });
+
+  it("fails the retired staging gate explicitly without loading credentials or creating fixtures", () => {
+    const repositoryRoot = path.resolve(process.cwd(), "../..");
+    const result = spawnSync(process.execPath, [path.join(repositoryRoot, "scripts/test-auth-security-staging.mjs")], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      env: { NODE_ENV: "test", SystemRoot: process.env.SystemRoot },
+      timeout: 5_000,
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("unavailable for the current schema");
+    expect(result.stderr).toContain("server/auth-operations.sql.test.ts");
+    expect(result.stderr).toContain("Public launch still requires a new disposable-environment proof");
+    expect(result.stderr).toContain("No staging fixtures or database changes were made");
+    expect(result.stderr).toContain("not a passing security gate");
   });
 });

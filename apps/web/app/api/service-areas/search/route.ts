@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { limitPublicGeographyRequest, PUBLIC_GEOGRAPHY_CACHE } from "../../../../server/public-geography-http";
 import {
   GeographyUnavailableError,
   searchAndResolveActiveServiceAreas,
@@ -26,13 +27,16 @@ export async function GET(request: Request) {
     });
   }
 
+  const limited = await limitPublicGeographyRequest(request);
+  if (limited) return limited;
+
   try {
     const { resolution, suggestions } = await searchAndResolveActiveServiceAreas(parsed.data.q, 8, parsed.data.market);
 
     return NextResponse.json({
       resolution: serviceAreaResolutionApiShape(resolution),
       suggestions: suggestions.map(serviceAreaApiShape),
-    });
+    }, { headers: { "Cache-Control": PUBLIC_GEOGRAPHY_CACHE } });
   } catch (error) {
     const message = error instanceof GeographyUnavailableError
       ? error.message

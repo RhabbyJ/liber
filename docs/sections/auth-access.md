@@ -10,6 +10,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - `apps/web/server/authz.ts`
 - `apps/web/server/access.ts`
 - `apps/web/server/auth-actions.ts`
+- `apps/web/server/auth-operations.ts`
 - `apps/web/server/ceo-preview.ts`
 - `apps/web/server/auth-identity.ts`
 - `apps/web/server/auth-rate-limit.ts`
@@ -44,12 +45,17 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
   application user. Participant membership is checked server-side on every
   canonical operation; a role alone never grants conversation access.
 - Suspension updates application user/profile/seller/property/invite state atomically, enqueues a retryable Supabase Auth ban, and relies on current-status Storage policies to block still-valid JWTs immediately.
+- The Auth worker claims one ban at a time and renews its owned, unexpired lease
+  before calling Supabase. Completion/failure requires the same worker, attempt,
+  and unexpired lease; stale responses cannot replace a newer claim. Expired
+  eighth-attempt claims become terminal `FAILED` records for operator review.
+  Repeating the ban remains safe when an external response is uncertain.
 - Authorization must be server-side.
 - Only the validated active server session may switch the homepage from the
   four-record guest teaser to all eligible privacy-safe previews. The query
   excludes that session UUID's own buyer profile, but authentication alone
   still grants no seller-directory or full-profile access.
-- Signup name is private account identity; do not treat it as seller/public buyer profile display.
+- Signup full name stays database-controlled; public display includes first name, last initial, and stable account code only.
 - Signup role selection may initialize only BUYER/SELLER roles from the validated server form after Supabase creates the Auth UUID and before the email-verification redirect; admin remains server-controlled.
 - Signup asks for buyer, seller, or both exactly once. The verified callback reads the persisted database roles and never displays a second role-selection page.
 - Signup uses two presentation steps: confirm buyer/seller intent with outcome
@@ -98,12 +104,29 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
   opaque database-trigger failure, the server performs a normalized application
   email lookup after signup fails; it never parses vendor error-message text to
   decide whether identity recovery is required.
-- User suspension atomically suspends the User, seller access, buyer visibility,
-  unsent recipient-bound outbox jobs, and Auth sessions before the Admin API ban
-  is confirmed and audited.
+- User suspension atomically updates application eligibility and queues the
+  external Auth ban; canonical server and Storage eligibility checks deny the
+  suspended application identity. Immediate Supabase session/refresh revocation
+  must be proven on the current queued-ban implementation, not inferred from
+  the retired `suspend_identity` helper.
 - These runtime paths depend on the unnumbered Auth/security SQL reserved for
   `00017`; they are not deployable to a database that stops at `00016`.
 
 ## Agent notes
 
+Preview elevation and wildcard cohorts require local development/test or an
+explicit Vercel Preview with the CEO target. Vercel production always refuses
+them, even when stale preview flags remain. Existing database role grants must
+still be reviewed and removed before launch.
+
+Login bodies are streamed with a 16 KiB cap. Signup limits are name 160, email
+254, password 1024 and next-path 2048 characters. Logout also enforces the shared
+same-origin policy. IP quota keys trust forwarded addresses only on Vercel;
+other hosts require a deliberate trusted-proxy adapter.
+
 Do not add fixture-login, demo-login, local bypass, or client-trusted role logic.
+
+
+## Limited name identity
+
+Buyer, seller, and combined-role signup collect a full name (first and last required; up to 160 characters). Each word must start with a letter and may contain letters, at most four combining marks per letter, apostrophes, periods, and hyphens; a trailing Jr./Sr./II/III/IV is skipped when choosing the last initial. Initials use locale-independent uppercasing and whole grapheme clusters so server and client avatars match. Public identity is first name + last initial + a stable 12-character uppercase hexadecimal account code, for example Julie P. #7C4E2A91B6D0. The code is a truncated SHA-256 digest of the immutable random Auth UUID with a Liber namespace; it is not authentication proof or a database uniqueness constraint. Codes do not reveal the UUID and have no current-account collisions in the release read-only check. Both new and existing accounts use this limited identity in profiles, public previews, approved seller search, invites, and both sides of messaging. Legacy invalid/nameless accounts show Member plus code. Full surnames and contact information stay private except existing authorized LOI party disclosures. Raw account names and UUIDs remain server-side; only the limited label enters public DTOs. Signup shows an initials preview; the final code is assigned from the created account identity. DiceBear Initials (CC0) renders locally with @dicebear/core 10.7.0 and @dicebear/styles 10.6.0; no name is sent to an external avatar service. Existing avatarVariant tokens remain a backward-compatible color preference, with eight muted colors in the picker. Public labels/codes cannot be edited or shuffled by clients. No schema, role, authorization, RLS, document, or frozen LOI calculation changes.

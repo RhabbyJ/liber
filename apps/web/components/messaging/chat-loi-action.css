@@ -1,0 +1,69 @@
+.chat-loi-action {
+  align-items: center;
+  background: var(--sage-tint);
+  border: 1px solid var(--sage-line);
+  border-radius: var(--r-md);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.chat-loi-copy {
+  min-width: 0;
+}
+
+.chat-loi-copy strong {
+  color: var(--ink-strong);
+  display: block;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.chat-loi-copy p {
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 4px 0 0;
+}
+
+.chat-loi-action .chat-loi-button {
+  background: var(--sage-strong);
+  border: 1px solid var(--sage-deep);
+  color: var(--ink-strong);
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 750;
+  gap: 9px;
+  min-height: 48px;
+  padding: 12px 20px;
+}
+
+.chat-loi-action .chat-loi-button:hover {
+  background: var(--sage);
+  color: var(--ink-strong);
+}
+
+.chat-loi-action .chat-loi-button:focus-visible {
+  outline: 2px solid var(--ink-strong);
+  outline-offset: 3px;
+}
+
+.chat-loi-action .chat-loi-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+@media (max-width: 600px) {
+  .chat-loi-action {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .chat-loi-action .chat-loi-button {
+    justify-content: center;
+    width: 100%;
+  }
+}

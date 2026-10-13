@@ -9,7 +9,7 @@ export type NavItem = {
 
 const demandMapItem: NavItem = {
   href: "/",
-  label: "Demand map",
+  label: "Map",
   isActive: (pathname) => pathname === "/",
 };
 

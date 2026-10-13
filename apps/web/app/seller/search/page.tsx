@@ -202,6 +202,7 @@ export default async function SellerSearchPage({
               <details className="seller-inline-filters">
                 <summary>All Filters</summary>
                 <SearchFiltersSidebar
+                  key={sellerSearchHrefWithout({ ...params, market: market.slug }, ["cursor", "view"])}
                   defaultArea={selectedServiceAreaLabel}
                   defaultServiceArea={requestedServiceArea || ""}
                   defaultBudgetMin={params.budgetMin || ""}

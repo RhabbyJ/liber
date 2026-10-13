@@ -1,10 +1,10 @@
 import { Prisma, prisma } from "@liber/db";
 import { resolveAvatarVariant } from "../../lib/avatar-variant";
-import { buyerAliasForDisplay } from "../../lib/buyer-alias";
+import { publicNameForDisplay } from "../public-identity";
 import { hasRole } from "../authz";
-import { INVITE_EXPIRATION_DAYS } from "../maintenance";
 import { checkRateLimit } from "../rate-limit";
 import { getSessionUser } from "../session";
+import { TEST_PROPERTY_LABEL } from "../synthetic-property-review";
 import { normalizeMessageBody, visibleMessageBody } from "./content";
 import {
   decodeAdminReportListCursor,
@@ -22,6 +22,7 @@ import {
 } from "./feature";
 import {
   assertConversationCanSend,
+  inviteDeadlineIsCurrent,
   MESSAGE_ATTEMPT_LIMIT_PER_MINUTE,
   MESSAGE_CONVERSATION_LIMIT_PER_HOUR,
   MESSAGE_USER_LIMIT_PER_24_HOURS,
@@ -60,7 +61,6 @@ type ConversationAccessRow = {
   invite_expires_at: Date | null;
   invite_id: string;
   invite_property_identity_version: number;
-  invite_sent_at: Date;
   invite_status: string;
   inbox_moderation_revision: string;
   last_message_at: Date;
@@ -69,12 +69,14 @@ type ConversationAccessRow = {
   last_read_at: Date | null;
   muted_at: Date | null;
   other_avatar_variant: string | null;
+  other_name?: string | null;
   other_user_id: string;
   participant_count: number;
   participant_created_at: Date;
   participant_role: ConversationParticipantRoleValue;
   pair_blocked: boolean;
   property_approved: boolean;
+  property_test_approved?: boolean;
   property_identity_current: boolean;
   property_identity_version: number;
   property_snapshot: unknown;
@@ -186,13 +188,12 @@ export async function listConversations(input: { cursor?: string; pageSize?: num
 export async function getConversationThread(conversationId: string) {
   const currentUser = await requireMessagingUser();
   const access = await requireConversationAccess(prisma, conversationId, currentUser.id);
-  const [summary, sellerFollowUpCount, messagePage] = await Promise.all([
+  const [summary, messagePage] = await Promise.all([
     conversationSummary(prisma, access, currentUser.id),
-    countSellerFollowUps(prisma, access),
     queryConversationMessages({ conversationId }, currentUser.id),
   ]);
   const effective = effectiveConversationState(access);
-  const canSend = canCurrentParticipantSend(access, effective.status, sellerFollowUpCount);
+  const canSend = canCurrentParticipantSend(access, effective.status);
   const imageIds = await authorizedPropertyImageIds(prisma, access);
 
   return {
@@ -210,6 +211,70 @@ export async function getConversationThread(conversationId: string) {
 export async function authorizeConversationAccess(conversationId: string) {
   const currentUser = await requireMessagingUser();
   await requireConversationAccess(prisma, conversationId, currentUser.id);
+}
+
+export async function getConversationScheduleContext(conversationId: string) {
+  const user = await requireMessagingUser();
+  const access = await requireConversationAccess(prisma, conversationId, user.id);
+  return scheduleContext(access, user.id);
+}
+
+export async function withConversationScheduleMutation<T>(
+  conversationId: string,
+  operation: (tx: TransactionClient, context: ReturnType<typeof scheduleContext>) => Promise<T>,
+) {
+  const user = await requireMessagingUser();
+  const limit = await checkRateLimit(`tour-schedule:${user.id}`, 20, 60_000);
+  if (!limit.allowed) throw new MessagingError("RATE_LIMITED", "Try again later.", 429);
+  return prisma.$transaction(async (tx) => {
+    const initial = await requireConversationAccess(tx, conversationId, user.id);
+    await lockPair(tx, initial.seller_user_id, initial.buyer_user_id);
+    await lockInvite(tx, initial.invite_id);
+    await lockConversation(tx, conversationId);
+    const access = await requireConversationAccess(tx, conversationId, user.id);
+    const context = scheduleContext(access, user.id);
+    if (!context.canSchedule) throw messagingUnavailable();
+    return operation(tx, context);
+  });
+}
+
+export async function getConversationScheduleDeliveryContext(conversationId: string, userId: string) {
+  const access = await requireConversationAccess(prisma, conversationId, userId);
+  return scheduleDeliveryContext(access, userId);
+}
+
+export async function withConversationScheduleDelivery<T>(
+  conversationId: string,
+  userId: string,
+  operation: (tx: TransactionClient, recipient: { email: string }) => Promise<T>,
+) {
+  return prisma.$transaction(async (tx) => {
+    const initial = await requireConversationAccess(tx, conversationId, userId);
+    await lockPair(tx, initial.seller_user_id, initial.buyer_user_id);
+    await lockInvite(tx, initial.invite_id);
+    await lockConversation(tx, conversationId);
+    const access = await requireConversationAccess(tx, conversationId, userId);
+    const recipient = scheduleDeliveryContext(access, userId);
+    return recipient ? operation(tx, recipient) : null;
+  }, { timeout: 30_000 });
+}
+
+function scheduleDeliveryContext(access: ConversationAccessRow, userId: string) {
+  if (!scheduleContext(access, userId).canSchedule || access.muted_at || access.property_test_approved) return null;
+  return {
+    email: access.participant_role === "BUYER" ? access.buyer_email : access.seller_email,
+  };
+}
+
+function scheduleContext(access: ConversationAccessRow, userId: string) {
+  const canSchedule = access.conversation_status === "ACTIVE" && access.invite_status === "ACCEPTED"
+    && effectiveConversationState(access).status === "ACTIVE";
+  return {
+    userId,
+    otherUserId: access.other_user_id,
+    canSchedule,
+    canReceiveTourEmail: canSchedule && !access.muted_at && !access.property_test_approved,
+  };
 }
 
 export async function listConversationMessages(
@@ -339,10 +404,7 @@ export async function sendConversationMessage(input: SendConversationMessageInpu
       return { data: messageDto(existing, currentUser.id), idempotent: true };
     }
 
-    const [hasBlock, sellerFollowUpCount] = await Promise.all([
-      pairHasBlock(tx, access.seller_user_id, access.buyer_user_id),
-      countSellerFollowUps(tx, access),
-    ]);
+    const hasBlock = await pairHasBlock(tx, access.seller_user_id, access.buyer_user_id);
     const template = input.kind === "GUIDED"
       ? resolveMessagingTemplate({
           key: input.templateKey ?? "",
@@ -364,12 +426,10 @@ export async function sendConversationMessage(input: SendConversationMessageInpu
         conversationStatus: access.conversation_status,
         hasBlock,
         inviteExpiresAt: access.invite_expires_at,
-        inviteSentAt: access.invite_sent_at,
         inviteStatus: inviteStatusValue(access.invite_status),
         propertyApproved: access.property_approved,
         propertyIdentityCurrent: access.property_identity_current,
         sellerAccessApproved: access.seller_access_approved,
-        sellerFollowUpCount,
         sellerUserActive: access.seller_user_active,
       },
       templateUse: template?.uses.includes("SELLER_FOLLOW_UP") ? "SELLER_FOLLOW_UP" : template?.uses[0],
@@ -808,11 +868,8 @@ async function loadConversationAccessRows(
       current_participant."lastReadAt" AS last_read_at,
       current_participant."mutedAt" AS muted_at,
       current_participant."createdAt" AS participant_created_at,
-      CASE
-        WHEN current_participant.role = 'SELLER'::public."ConversationParticipantRole"
-          THEN other_user."avatarVariant"
-        ELSE NULL
-      END AS other_avatar_variant,
+      other_user."avatarVariant" AS other_avatar_variant,
+      other_user.name AS other_name,
       other_participant."userId" AS other_user_id,
       participant_count.count::integer AS participant_count,
       EXISTS (
@@ -828,7 +885,6 @@ async function loadConversationAccessRows(
       ) AS pair_blocked,
       invite.id AS invite_id,
       invite.status::text AS invite_status,
-      invite."sentAt" AS invite_sent_at,
       invite."expiresAt" AS invite_expires_at,
       invite."propertyIdentityVersion" AS invite_property_identity_version,
       invite."sellerId" AS seller_user_id,
@@ -843,6 +899,14 @@ async function loadConversationAccessRows(
       buyer_user.email AS buyer_email,
       buyer_user.status = 'ACTIVE'::public."UserStatus" AS buyer_user_active,
       property."identityVersion" AS property_identity_version,
+      EXISTS (
+        SELECT 1
+        FROM public."AdminAuditLog" audit
+        WHERE audit."targetType" = 'invite'
+          AND audit."targetId" = invite.id
+          AND audit.action = 'invite_sent'
+          AND audit.metadata->>'syntheticPropertyApproval' = 'true'
+      ) AS property_test_approved,
       invite."propertyIdentityVersion" = property."identityVersion" AS property_identity_current,
       (
         property."ownerUserId" = invite."sellerId"
@@ -971,19 +1035,15 @@ function conversationSummaryDto(
   const snapshot = propertySnapshot(access.property_snapshot);
   return {
     closedReason: effective.closedReason,
-    counterpartyAvatarVariant: access.participant_role === "SELLER"
-      ? resolveAvatarVariant(access.other_avatar_variant, access.other_user_id).value
-      : null,
-    counterpartyLabel: access.participant_role === "SELLER"
-      ? buyerAliasForDisplay(access.buyer_display_name, access.buyer_user_id)
-      : "Property seller",
+    counterpartyAvatarVariant: resolveAvatarVariant(access.other_avatar_variant, access.other_user_id).value,
+    counterpartyLabel: publicNameForDisplay(access.other_name, access.other_user_id),
     id: access.conversation_id,
     invite: { id: access.invite_id, status: effective.inviteStatus },
     lastMessage: latest ? messageDto(latest, userId) : null,
     lastMessageAt: access.last_message_at.toISOString(),
     muted: Boolean(access.muted_at),
     participantRole: access.participant_role,
-    property: { ...snapshot, identityCurrent: access.property_identity_current },
+    property: { ...snapshot, ...(access.property_test_approved ? { ownershipStatus: TEST_PROPERTY_LABEL } : {}), identityCurrent: access.property_identity_current },
     status: effective.status,
     unreadCount: Number(row?.unread_count ?? 0),
   };
@@ -1020,9 +1080,7 @@ function effectiveConversationState(access: ConversationAccessRow) {
   if (access.invite_status === "WITHDRAWN") {
     return { closedReason: "INVITE_WITHDRAWN", inviteStatus: "Withdrawn", status: "READ_ONLY" as const };
   }
-  const deadline = access.invite_expires_at
-    ?? new Date(access.invite_sent_at.getTime() + INVITE_EXPIRATION_DAYS * 86_400_000);
-  if (deadline.getTime() <= Date.now()) {
+  if (!inviteDeadlineIsCurrent(access.invite_expires_at)) {
     return { closedReason: "INVITE_EXPIRED", inviteStatus: "Expired", status: "READ_ONLY" as const };
   }
   return {
@@ -1035,21 +1093,9 @@ function effectiveConversationState(access: ConversationAccessRow) {
 function canCurrentParticipantSend(
   access: ConversationAccessRow,
   status: ConversationStatusValue,
-  _sellerFollowUpCount: number,
 ) {
   if (status === "ACTIVE") return true;
   return status === "AWAITING_BUYER" && access.participant_role === "BUYER";
-}
-
-async function countSellerFollowUps(client: Pick<typeof prisma, "$queryRaw">, access: ConversationAccessRow) {
-  const [row] = await client.$queryRaw<Array<{ count: number }>>(Prisma.sql`
-    SELECT count(*)::integer AS count
-    FROM public."Message"
-    WHERE "conversationId" = ${access.conversation_id}::uuid
-      AND "senderUserId" = ${access.seller_user_id}::uuid
-      AND kind = 'GUIDED'::public."MessageKind"
-  `);
-  return Number(row?.count ?? 0);
 }
 
 async function authorizedPropertyImageIds(client: Pick<typeof prisma, "$queryRaw">, access: ConversationAccessRow) {
@@ -1063,10 +1109,8 @@ async function authorizedPropertyImageIds(client: Pick<typeof prisma, "$queryRaw
     || access.pair_blocked
   ) return [];
   if (access.participant_role === "BUYER") {
-    const deadline = access.invite_expires_at
-      ?? new Date(access.invite_sent_at.getTime() + INVITE_EXPIRATION_DAYS * 86_400_000);
     const eligible = access.invite_status === "ACCEPTED"
-      || (["SENT", "VIEWED"].includes(access.invite_status) && deadline.getTime() > Date.now());
+      || (["SENT", "VIEWED"].includes(access.invite_status) && inviteDeadlineIsCurrent(access.invite_expires_at));
     if (!eligible) return [];
   }
   const rows = await client.$queryRaw<Array<{ id: string }>>(Prisma.sql`

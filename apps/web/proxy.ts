@@ -1,17 +1,39 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { contentSecurityPolicy } from "./config/content-security-policy.mjs";
 import { requiresAuthenticatedUser } from "./server/route-access";
 
 export async function proxy(request: NextRequest) {
+  // API handlers perform their own authorization. Avoid a duplicate Auth call,
+  // cookie refresh, and personalized response on cacheable public geography APIs.
+  if (request.nextUrl.pathname === "/api" || request.nextUrl.pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const csp = contentSecurityPolicy({ nonce, production: process.env.NODE_ENV === "production",
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL });
+  // Override client-supplied values before Next.js derives the nonce for rendering.
+  request.headers.set("x-nonce", nonce);
+  request.headers.set("Content-Security-Policy", csp);
   const { response, isAuthenticated } = await sessionUserFromRequest(request);
 
   if (requiresAuthenticatedUser(request.nextUrl.pathname) && !isAuthenticated) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", request.nextUrl.pathname);
-    return NextResponse.redirect(url);
+    const redirect = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return securePageResponse(redirect, csp);
   }
 
+  return securePageResponse(response, csp);
+}
+
+function securePageResponse(response: NextResponse, csp: string) {
+  response.headers.set("Content-Security-Policy", csp);
+  // HTML and its nonce must never be shared across users or requests.
+  response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
 

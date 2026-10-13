@@ -409,6 +409,28 @@ async function checkProductionDependencies(collection) {
         `${previewAdminGrantCount} user(s) still rely on private-preview admin self-grant; remove ADMIN or replace the preview marker before production.`,
       );
     }
+    const testPropertyApprovals = await client.query(`
+      SELECT count(*)::int AS count
+      FROM public."SellerProperty" property
+      JOIN LATERAL (
+        SELECT audit.action
+        FROM public."AdminAuditLog" audit
+        WHERE audit."targetType" = 'seller_property'
+          AND audit."targetId" = property.id
+          AND audit.metadata->>'propertyIdentityVersion' = property."identityVersion"::text
+          AND audit.action IN ('property_synthetic_test_approval', 'property_synthetic_test_revocation')
+        ORDER BY audit."createdAt" DESC, audit.id DESC
+        LIMIT 1
+      ) latest_test_review ON true
+      WHERE property."ownershipVerificationStatus" = 'APPROVED'
+        AND latest_test_review.action = 'property_synthetic_test_approval'
+    `);
+    const testPropertyApprovalCount = Number(testPropertyApprovals.rows[0]?.count ?? 0);
+    if (testPropertyApprovalCount > 0) {
+      collection.push(
+        `${testPropertyApprovalCount} property record(s) still rely on synthetic test approval; revoke test approval or complete real evidence review before public launch.`,
+      );
+    }
     const geography = await client.query(`
       SELECT
         (SELECT count(*) FROM public.markets WHERE active = true) AS markets,

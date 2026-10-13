@@ -16,6 +16,19 @@ import {
 const safetyNotice = "Safety notice";
 
 describe("messaging DTO normalization", () => {
+  it("shows the seller's limited identity and initials color in both inbox and thread", () => {
+    const counterpartyLabel = "Julie P. #ABCDEF123456";
+    const [summary] = normalizeConversationSummaries({ items: [{
+      counterpartyAvatarVariant: "avatarka:animals:3", counterpartyLabel,
+      id: "conversation-identity", participantRole: "BUYER", property: {},
+    }] });
+    expect(summary.counterpartLabel).toBe(counterpartyLabel);
+    expect(summary.counterpartAvatarVariant).toBe("avatarka:animals:3");
+    const thread = normalizeConversationThread({
+      id: "conversation-identity", participantRole: "BUYER", counterpartyLabel, safetyNotice,
+    });
+    expect(thread?.counterpartLabel).toBe(counterpartyLabel);
+  });
   it("counts normalized Unicode code points like the server message boundary", () => {
     expect(normalizedMessageLength(`  ${"😀".repeat(2_000)}  `)).toBe(2_000);
     expect(normalizedMessageLength("e\u0301")).toBe(1);

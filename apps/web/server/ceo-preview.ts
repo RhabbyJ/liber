@@ -4,13 +4,15 @@ import type { AppRole } from "./authz";
 import { hasRole } from "./authz";
 import { assertRateLimit } from "./rate-limit";
 import { getSessionUser } from "./session";
+import { isControlledPreviewEnvironment } from "./preview-environment";
 
 const PREVIEW_TARGET = "ceo-preview";
 
 export function ceoPreviewSellerSelfApprovalEnabled(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ) {
-  return env.LIBER_CEO_PREVIEW_TARGET === PREVIEW_TARGET
+  return isControlledPreviewEnvironment(env)
+    && env.LIBER_CEO_PREVIEW_TARGET === PREVIEW_TARGET
     && env.LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL === "true";
 }
 

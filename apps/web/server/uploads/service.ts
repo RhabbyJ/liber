@@ -1,14 +1,18 @@
 import { prisma } from "@liber/db";
 import { createUploadSessionSchema, finalizeUploadSessionSchema } from "@liber/validators";
 import { hasRole, type AppRole } from "../authz";
-import { assertRateLimit } from "../rate-limit";
+import { checkRateLimit } from "../rate-limit";
 import { createSupabaseAdminClient } from "../supabase";
+import { requireConfidentialDocumentAccess } from "../verification/document-access";
+import { UploadError } from "./errors";
+import { detectRemoteMime } from "./signature";
 
 const SESSION_TTL_MS = 30 * 60_000;
 
 export async function createUploadSession(input: unknown, user: { id: string; roles: AppRole[] }) {
   const data = createUploadSessionSchema.parse(input);
-  await assertRateLimit(`upload-session:${user.id}`, 30, 60 * 60_000);
+  if (data.purpose !== "PROPERTY_IMAGE") requireConfidentialDocumentAccess();
+  await limitUploads(`upload-session:${user.id}`, 30, 60 * 60_000);
 
   const scope = await authorizeScope(user.id, user.roles, data);
   const sessionId = `upl_${crypto.randomUUID()}`;
@@ -41,14 +45,14 @@ export async function createUploadSession(input: unknown, user: { id: string; ro
   const supabase = createSupabaseAdminClient();
   if (!supabase) {
     await prisma.uploadSession.delete({ where: { id: sessionId } });
-    throw new Error("Supabase Storage is not configured.");
+    throw new UploadError("Private file service unavailable. Try again later.", 503);
   }
   const { data: signed, error } = await supabase.storage
     .from(bucket)
     .createSignedUploadUrl(storagePath, { upsert: false });
   if (error || !signed) {
     await prisma.uploadSession.delete({ where: { id: sessionId } });
-    throw new Error(error?.message ?? "Unable to create upload URL.");
+    throw new UploadError("Unable to create upload URL. Try again later.", 503);
   }
 
   return {
@@ -62,15 +66,20 @@ export async function createUploadSession(input: unknown, user: { id: string; ro
 
 export async function finalizeUploadSession(input: unknown, user: { id: string; roles: AppRole[] }) {
   const { sessionId } = finalizeUploadSessionSchema.parse(input);
+  await limitUploads(`upload-finalize:${user.id}`, 60, 60_000);
   const session = await prisma.uploadSession.findFirst({
     where: { id: sessionId, ownerUserId: user.id },
   });
-  if (!session) throw new Error("Upload session not found.");
+  if (!session) throw new UploadError("Upload session not found.", 404);
+  if (session.purpose !== "PROPERTY_IMAGE") requireConfidentialDocumentAccess();
   if (session.status === "FINALIZED") return finalizedResponse(session.purpose);
-  if (session.status !== "PENDING") throw new Error("Upload session can no longer be finalized.");
+  if (session.status !== "PENDING") throw new UploadError("Upload session can no longer be finalized.");
   if (session.expiresAt.getTime() <= Date.now()) {
-    await prisma.uploadSession.update({ where: { id: session.id }, data: { status: "EXPIRED" } });
-    throw new Error("Upload session expired.");
+    await prisma.uploadSession.updateMany({
+      where: { id: session.id, status: "PENDING" },
+      data: { status: "EXPIRED" },
+    });
+    throw new UploadError("Upload session expired.");
   }
 
   if (session.propertyId) {
@@ -78,30 +87,37 @@ export async function finalizeUploadSession(input: unknown, user: { id: string; 
       where: { id: session.propertyId, ownerUserId: user.id },
       select: { identityVersion: true },
     });
-    if (!property) throw new Error("Property not found.");
+    if (!property) throw new UploadError("Property not found.", 404);
     if (session.propertyIdentityVersion !== property.identityVersion) {
       await rejectSession(session.id, "Property identity changed before upload finalization.");
-      throw new Error("Property identity changed. Start a new upload.");
+      throw new UploadError("Property identity changed. Start a new upload.");
     }
   }
 
   const object = await inspectStorageObject(session.bucket, session.storagePath);
   if (object.size !== session.expectedSizeBytes || object.mimeType !== session.expectedMimeType) {
     await rejectSession(session.id, "Uploaded object metadata did not match the authorized request.");
-    throw new Error("Uploaded file does not match the authorized size and type.");
+    throw new UploadError("Uploaded file does not match the authorized size and type.");
   }
   const detectedMime = await detectStoredMime(session.bucket, session.storagePath);
   if (detectedMime !== session.expectedMimeType) {
     await rejectSession(session.id, "Uploaded object signature did not match its MIME type.");
-    throw new Error("Uploaded file signature does not match its declared type.");
+    throw new UploadError("Uploaded file signature does not match its declared type.");
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    const [owner] = await tx.$queryRaw<Array<{ roles: AppRole[]; status: string }>>`
+      SELECT roles::text[] AS roles, status FROM public."User" WHERE id = ${user.id}::uuid FOR UPDATE
+    `;
+    const requiredRole = session.purpose === "BUYER_VERIFICATION" ? "BUYER" : "SELLER";
+    if (!owner || owner.status !== "ACTIVE" || !owner.roles.includes(requiredRole)) {
+      throw new UploadError("Upload session is unavailable.", 403);
+    }
     await tx.$queryRaw`SELECT id FROM public."UploadSession" WHERE id = ${session.id} FOR UPDATE`;
     const current = await tx.uploadSession.findUniqueOrThrow({ where: { id: session.id } });
     if (current.status === "FINALIZED") return finalizedResponse(current.purpose);
     if (current.status !== "PENDING" || current.expiresAt.getTime() <= Date.now()) {
-      throw new Error("Upload session can no longer be finalized.");
+      throw new UploadError("Upload session can no longer be finalized.");
     }
     if (current.propertyId) {
       await tx.$queryRaw`SELECT id FROM public."SellerProperty" WHERE id = ${current.propertyId} FOR UPDATE`;
@@ -110,7 +126,7 @@ export async function finalizeUploadSession(input: unknown, user: { id: string; 
         select: { identityVersion: true },
       });
       if (!property || current.propertyIdentityVersion !== property.identityVersion) {
-        throw new Error("Property identity changed. Start a new upload.");
+        throw new UploadError("Property identity changed. Start a new upload.");
       }
     }
     await tx.uploadSession.update({
@@ -190,10 +206,20 @@ export async function cleanupAbandonedUploads(now = new Date()) {
   });
   let removed = 0;
   for (const session of sessions) {
+    // Claim under the row lock before Storage deletion can race a finalization commit.
+    const expired = await prisma.uploadSession.updateMany({
+      where: {
+        id: session.id,
+        expiresAt: { lte: now },
+        status: { in: ["PENDING", "UPLOADED", "REJECTED", "EXPIRED"] },
+      },
+      data: { status: "EXPIRED" },
+    });
+    if (expired.count === 0) continue;
     const { error } = await supabase.storage.from(session.bucket).remove([session.storagePath]);
     if (error) continue;
     const cleaned = await prisma.uploadSession.updateMany({
-      where: { id: session.id, status: { in: ["PENDING", "UPLOADED", "REJECTED", "EXPIRED"] } },
+      where: { id: session.id, status: "EXPIRED" },
       data: { status: "CLEANED" },
     });
     removed += cleaned.count;
@@ -207,17 +233,17 @@ async function authorizeScope(
   data: ReturnType<typeof createUploadSessionSchema.parse>,
 ) {
   if (data.purpose === "BUYER_VERIFICATION") {
-    if (!hasRole({ id: userId, roles }, "BUYER")) throw new Error("Buyer role required.");
+    if (!hasRole({ id: userId, roles }, "BUYER")) throw new UploadError("Buyer role required.", 403);
     const buyer = await prisma.buyerProfile.findUnique({ where: { userId }, select: { id: true } });
-    if (!buyer) throw new Error("Buyer profile not found.");
+    if (!buyer) throw new UploadError("Buyer profile not found.", 404);
     return { buyerProfileId: buyer.id, propertyIdentityVersion: null };
   }
-  if (!hasRole({ id: userId, roles }, "SELLER")) throw new Error("Seller role required.");
+  if (!hasRole({ id: userId, roles }, "SELLER")) throw new UploadError("Seller role required.", 403);
   const property = await prisma.sellerProperty.findFirst({
     where: { id: data.propertyId, ownerUserId: userId, status: { not: "ARCHIVED" } },
     select: { identityVersion: true },
   });
-  if (!property) throw new Error("Property not found.");
+  if (!property) throw new UploadError("Property not found.", 404);
   return { buyerProfileId: null, propertyIdentityVersion: property.identityVersion };
 }
 
@@ -231,9 +257,9 @@ async function inspectStorageObject(bucket: string, storagePath: string) {
     limit: 10,
     search: filename,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new UploadError("Unable to inspect uploaded file. Try again later.", 503);
   const object = data.find((item) => item.name === filename);
-  if (!object) throw new Error("Uploaded object was not found.");
+  if (!object) throw new UploadError("Uploaded object was not found.");
   const metadata = object.metadata as { mimetype?: string; size?: number } | null;
   return { mimeType: metadata?.mimetype ?? "", size: Number(metadata?.size ?? 0) };
 }
@@ -242,18 +268,13 @@ async function detectStoredMime(bucket: string, storagePath: string) {
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase Storage is not configured.");
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(storagePath, 60);
-  if (error || !data) throw new Error(error?.message ?? "Unable to inspect upload.");
-  const response = await fetch(data.signedUrl, { headers: { Range: "bytes=0-15" }, cache: "no-store" });
-  if (!response.ok) throw new Error("Unable to inspect uploaded file signature.");
-  return detectMime(new Uint8Array(await response.arrayBuffer()).slice(0, 16));
+  if (error || !data) throw new UploadError("Unable to inspect uploaded file. Try again later.", 503);
+  return detectRemoteMime(data.signedUrl);
 }
 
-function detectMime(bytes: Uint8Array) {
-  if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return "application/pdf";
-  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
-  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
-  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return "image/webp";
-  return null;
+async function limitUploads(key: string, limit: number, windowMs: number) {
+  const result = await checkRateLimit(key, limit, windowMs);
+  if (!result.allowed) throw new UploadError("Upload limit reached. Try again later.", 429, result.retryAfterSeconds);
 }
 
 function storageFileName(mimeType: string) {
@@ -264,7 +285,10 @@ function storageFileName(mimeType: string) {
 }
 
 async function rejectSession(id: string, reason: string) {
-  await prisma.uploadSession.update({ where: { id }, data: { rejectionReason: reason, status: "REJECTED" } });
+  await prisma.uploadSession.updateMany({
+    where: { id, status: "PENDING" },
+    data: { rejectionReason: reason, status: "REJECTED" },
+  });
 }
 
 function finalizedResponse(purpose: string) {

@@ -1,4 +1,5 @@
 import type { MarketMapContext, SelectedMapArea } from "./map-area";
+import { groupMapPoints } from "./map-point-groups";
 
 type StaticMapPoint = {
   lat: number;
@@ -24,8 +25,7 @@ export function mapboxStaticImageUrl({ market, points, selectedArea = null, toke
   const bounds = selectedArea?.bbox ?? pointBounds(points, market.bbox);
   const center = boundsCenter(bounds);
   const zoom = fitBoundsZoom(bounds);
-  const markers = points
-    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng))
+  const markers = groupMapPoints(points)
     .map((point) => `pin-s+16834c(${coordinate(point.lng)},${coordinate(point.lat)})`)
     .join(",");
   const overlay = markers ? `${markers}/` : "";

@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   sendInvite: vi.fn(),
   sendLoi: vi.fn(),
   sendUnread: vi.fn(),
+  prepareTour: vi.fn(),
+  sendCurrentTour: vi.fn(),
 }));
 
 vi.mock("@liber/db", () => ({ prisma: mocks.prisma }));
@@ -17,6 +19,7 @@ vi.mock("./email", () => ({
   sendLoiUpdateEmail: mocks.sendLoi,
   sendUnreadMessageEmail: mocks.sendUnread,
 }));
+vi.mock("./messaging/tours", () => ({ prepareTourEmail: mocks.prepareTour, sendCurrentTourEmail: mocks.sendCurrentTour }));
 
 import { processEmailOutbox } from "./email-outbox";
 
@@ -39,6 +42,16 @@ describe("email outbox messaging dispatch", () => {
   });
 
   afterEach(() => vi.unstubAllEnvs());
+
+  it("revalidates tour delivery under the owning worker lease and cancels if it becomes stale", async () => {
+    const job = { id: "tour-job", type: "TOUR_UPDATE", attempts: 1, idempotencyKey: "tour/key" };
+    mocks.prisma.$queryRaw.mockResolvedValueOnce([job]);
+    mocks.prepareTour.mockResolvedValue({ conversationId, to: "recipient@example.test", event: "REMINDER" });
+    mocks.sendCurrentTour.mockResolvedValue(null);
+    await expect(processEmailOutbox(1, "worker-tour")).resolves.toEqual({ cancelled: 1, failed: 0, processed: 1, sent: 0 });
+    expect(mocks.sendCurrentTour).toHaveBeenCalledWith(job, "worker-tour");
+    expect(mocks.prisma.emailOutbox.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "CANCELLED" }) }));
+  });
 
   it("dispatches MESSAGE_UNREAD with identifiers only after revalidation", async () => {
     mocks.prisma.$queryRaw

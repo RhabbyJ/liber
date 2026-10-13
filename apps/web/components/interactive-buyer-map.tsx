@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatRange } from "../lib/format";
+import { groupMapPoints } from "../lib/map-point-groups";
 import { approximateBuyerPoint } from "../lib/buyer-map-point";
 import { syncSelectedAreaLayer } from "../lib/map-boundary-layers";
 import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
@@ -21,10 +22,6 @@ type BuyerPoint = {
   buyer: SellerBuyerSummaryDTO;
   lat: number;
   lng: number;
-};
-
-type MarkerBuyerPoint = BuyerPoint & {
-  markerOffset: [number, number];
 };
 
 export function InteractiveBuyerMap({ buyers, market, selectedServiceArea: selectedArea = null, token }: Props) {
@@ -47,7 +44,7 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea: selec
         .filter((point): point is BuyerPoint => point !== null),
     [buyers],
   );
-  const markerPoints = useMemo(() => withMarkerOffsets(buyerPoints), [buyerPoints]);
+  const markerPoints = useMemo(() => groupMapPoints(buyerPoints), [buyerPoints]);
   const initialCenter = useMemo(() => mapCenter(buyerPoints, selectedArea, market), [buyerPoints, selectedArea, market]);
   const highlightBuyer = useCallback((buyerId: string, active: boolean) => {
     markerNodesRef.current.get(buyerId)?.classList.toggle("active", active);
@@ -151,25 +148,28 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea: selec
     markersRef.current.clear();
     markerNodesRef.current.clear();
 
-    for (const point of markerPoints) {
+    for (const group of markerPoints) {
       const markerNode = document.createElement("button");
       markerNode.type = "button";
       markerNode.className = "buyer-map-marker";
-      markerNode.setAttribute("aria-label", `Open ${point.buyer.isDemo ? "demo buyer " : ""}${point.buyer.name} map marker`);
-      markerNode.dataset.buyerId = point.buyer.id;
-      // Budget-first pins: buyer demand reads like price pins, but represents buyers.
-      markerNode.innerHTML = `<span>${escapeHtml(budgetPinLabel(point.buyer))}</span>`;
-      markerNode.addEventListener("mouseenter", () => highlightBuyer(point.buyer.id, true));
-      markerNode.addEventListener("mouseleave", () => highlightBuyer(point.buyer.id, false));
-
-      const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(popupHtml(point.buyer));
-      const marker = new window.mapboxgl.Marker({ element: markerNode, offset: point.markerOffset })
-        .setLngLat([point.lng, point.lat])
+      const buyersHere = group.points.map((point) => point.buyer);
+      markerNode.setAttribute("aria-label", buyersHere.length > 1
+        ? "Open " + buyersHere.length + " buyers targeting " + buyersHere[0].location
+        : "Open " + (buyersHere[0].isDemo ? "demo buyer " : "") + buyersHere[0].name + " map marker");
+      markerNode.innerHTML = "<span>" + (buyersHere.length > 1 ? buyersHere.length + " buyers" : escapeHtml(budgetPinLabel(buyersHere[0]))) + "</span>";
+      markerNode.addEventListener("mouseenter", () => buyersHere.forEach((buyer) => highlightBuyer(buyer.id, true)));
+      markerNode.addEventListener("mouseleave", () => buyersHere.forEach((buyer) => highlightBuyer(buyer.id, false)));
+      const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(
+        '<div class="buyer-map-popup-group">' + buyersHere.map(popupHtml).join("") + "</div>",
+      );
+      const marker = new window.mapboxgl.Marker({ element: markerNode, anchor: "center" })
+        .setLngLat([group.lng, group.lat])
         .setPopup(popup)
         .addTo(mapRef.current);
-
-      markersRef.current.set(point.buyer.id, marker);
-      markerNodesRef.current.set(point.buyer.id, markerNode);
+      for (const buyer of buyersHere) {
+        markersRef.current.set(buyer.id, marker);
+        markerNodesRef.current.set(buyer.id, markerNode);
+      }
     }
 
     if (selectedArea) {
@@ -209,20 +209,19 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea: selec
   }, [buyers, highlightBuyer]);
 
   if (didFail) {
-    return <StaticBuyerMap buyers={buyers} label="Mapbox unavailable" market={market} selectedServiceArea={selectedArea} />;
+    return <StaticBuyerMap buyers={buyers} label="Map preview" market={market} selectedServiceArea={selectedArea} token={token} />;
   }
 
   return (
     <aside className="map-shell interactive">
       <div className="map-toolbar">
         <div>
-          <strong>Buyer demand map</strong>
+          <strong>Map</strong>
           <span className="muted">{buyers.length} active buyers in {market.label} service areas</span>
         </div>
         <div className="map-toolbar-pills">
           <span>{selectedArea ? selectedArea.label : "All service areas"}</span>
-          <span>Approximate service area</span>
-          <span>Approximate pins</span>
+          <span>Buyer target areas · not home addresses</span>
         </div>
         <a className="button secondary map-filter-button" href="#search-filters">
           Filter
@@ -259,31 +258,6 @@ function mapCenter(points: BuyerPoint[], selectedArea: SelectedMapArea | null, m
   }
 
   return market.center;
-}
-
-function withMarkerOffsets(points: BuyerPoint[]): MarkerBuyerPoint[] {
-  const groups = new Map<string, BuyerPoint[]>();
-  for (const point of points) {
-    const key = `${point.lat.toFixed(5)},${point.lng.toFixed(5)}`;
-    groups.set(key, [...(groups.get(key) ?? []), point]);
-  }
-
-  return points.map((point) => {
-    const group = groups.get(`${point.lat.toFixed(5)},${point.lng.toFixed(5)}`) ?? [point];
-    const index = group.findIndex((item) => item.buyer.id === point.buyer.id);
-    return {
-      ...point,
-      markerOffset: markerOffset(index, group.length),
-    };
-  });
-}
-
-function markerOffset(index: number, count: number): [number, number] {
-  if (count <= 1) return [0, 0];
-
-  const angle = (Math.PI * 2 * index) / count - Math.PI / 2;
-  const radius = count <= 2 ? 32 : count <= 4 ? 42 : 52;
-  return [Math.round(Math.cos(angle) * radius), Math.round(Math.sin(angle) * radius)];
 }
 
 function budgetPinLabel(buyer: SellerBuyerSummaryDTO) {

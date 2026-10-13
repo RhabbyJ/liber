@@ -18,6 +18,9 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `product/CEO_ROADMAP.md` — CEO/product roadmap. Read before planning features.
 - `product/production-decisions.md` — living LA launch-gate matrix, release order, environment blockers, and advisor follow-ups.
 - `engineering/BACKEND_ARCHITECTURE.md` — backend, auth, Supabase, Prisma, storage, email, and security architecture.
+- `engineering/ARCHITECTURE_AUDIT_2026-09-21.md` — current architecture assessment, implemented bug/security fixes, verification, and remaining capacity/launch work.
+- `engineering/PUBLIC_LAUNCH_VERIFICATION_2026-09-21.md` — deployed readiness, real buyer/seller contact verification, obsolete-code cleanup, and remaining public-launch blockers.
+- `engineering/SECURITY_HARDENING_2026-09-22.md` — application hardening, staged firewall rules, verification evidence, and remaining launch requirements.
 
 - `engineering/GEOGRAPHY_CANONICAL_CUTOVER_RUNBOOK.md` — migration history, fresh/upgrade proof, reconciliation, and rollback for geography migrations 13-15.
 - `engineering/GEOGRAPHY_CANONICAL_CUTOVER_EVIDENCE_2026-07-09.md` — disposable-branch counts, per-row quarantine review, database assertions, and the open fresh-install gate.
@@ -57,6 +60,7 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `sections/public-preview-privacy.md`
 - `sections/seller-search.md`
 - `sections/seller-properties-invites.md`
+- `sections/notifications.md`
 - `sections/verification-documents-badges.md`
 - `sections/admin-ops.md`
 - `sections/ui-design-system.md`

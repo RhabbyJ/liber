@@ -1,3 +1,4 @@
+import { publicNameForDisplay } from "../../server/public-identity";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { GeneratedAvatar } from "../../components/generated-avatar";
@@ -18,18 +19,19 @@ export default async function AccountProfilePage() {
   return (
     <div className="page narrow stack loose">
       <PageTitle eyebrow="Account" title="Your profile">
-        These account details are private. Buyer-facing identity uses your generated alias and avatar.
+        Your email and full surname stay private. Others see your first name, last initial, account code, and initials avatar.
       </PageTitle>
 
       <section className="account-profile-card">
         <GeneratedAvatar
           alt="Your account avatar"
+          name={publicNameForDisplay(user.name, user.id)}
           seed={user.id}
           size="lg"
           variant={user.avatarVariant}
         />
         <div className="account-profile-identity">
-          <h2>{user.name || "Liber member"}</h2>
+          <h2>{publicNameForDisplay(user.name, user.id)}</h2>
           <p>{user.email}</p>
         </div>
         {workspaces.length > 0 ? (

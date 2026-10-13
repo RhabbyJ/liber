@@ -1,20 +1,16 @@
 import { MessagingError } from "./errors";
+import { isControlledPreviewEnvironment } from "../preview-environment";
 
 const enabledValue = "true";
-const previewTarget = "ceo-preview";
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 let cohortCache: { key: string; value: Set<string> | null } | undefined;
-
-function openCohortAllowed(environment: string, previewTargetValue: string | undefined) {
-  return environment !== "production" || previewTargetValue === previewTarget;
-}
 
 function messagingCohort() {
   const environment = process.env.NODE_ENV ?? "";
   const enabled = process.env.LIBER_MESSAGING_V1_ENABLED?.trim().toLowerCase() ?? "";
   const rawCohort = process.env.LIBER_MESSAGING_V1_COHORT_USER_IDS?.trim();
   const preview = process.env.LIBER_CEO_PREVIEW_TARGET?.trim() ?? "";
-  const cacheKey = `${environment}\0${enabled}\0${rawCohort ?? ""}\0${preview}`;
+  const cacheKey = `${environment}\0${enabled}\0${rawCohort ?? ""}\0${preview}\0${process.env.VERCEL_ENV ?? ""}`;
   if (cohortCache?.key === cacheKey) return cohortCache.value;
 
   if (enabled !== enabledValue || !rawCohort) {
@@ -29,7 +25,7 @@ function messagingCohort() {
       .filter(Boolean)
       .map((value) => value === "*" ? value : value.toLowerCase()),
   );
-  const openAllowed = openCohortAllowed(environment, preview);
+  const openAllowed = isControlledPreviewEnvironment();
   if (
     cohort.size === 0
     || (cohort.has("*") && !openAllowed)

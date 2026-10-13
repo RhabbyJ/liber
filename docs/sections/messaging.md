@@ -61,9 +61,10 @@ and report-driven admin moderation.
 - Inbox access and summaries are loaded with two set-based queries per page,
   not a per-conversation query loop. Cohort scope is applied in SQL before the
   keyset limit so disabled counterparties cannot create skipped pages. A
-  seller-facing summary may include only the buyer's allowlisted generated
-  avatar token for inbox presentation, never private account identity. A
-  buyer-facing summary receives no persisted seller avatar token.
+  summary for either party includes only the counterparty limited name/code and allowlisted initials color preference; full names and UUIDs remain internal.
+- Canonical conversation reads do not count retired seller follow-ups; send
+  eligibility depends on the effective conversation state and participant role.
+  Send-side quota enforcement remains transactional.
 - Message bodies are immutable. Ordinary redaction changes display state while
   report evidence remains restricted and every admin content access is audited.
   The same removal notice replaces a redacted opening in invite lists. A
@@ -82,8 +83,12 @@ and report-driven admin moderation.
   `{ conversationId, messageId, type }`; Supabase adds the wire event `id`.
   PostgreSQL and canonical server reads remain the source of truth. Failure of
   the optional Realtime send logs only SQLSTATE and cannot roll back the
-  canonical message or moderation update; focus/reconnect and five-second
-  polling recover missed hints. Inbox polling also refreshes its canonical
+  canonical message or moderation update; focus/reconnect and bounded
+  polling recover missed hints. Healthy Realtime polls every 30–36 seconds;
+  disconnected threads and inboxes every 5–6 seconds, with failure backoff to
+  60 seconds. Requests never overlap and pause while hidden/offline. LOI polling
+  runs separately every 30–36 seconds and on conversation lifecycle changes.
+  Inbox polling also refreshes its canonical
   first page so ordering and unread counts do not remain stale.
 - `anon`, `authenticated`, and `service_role` have no raw table privileges on
   conversations, participants, messages, blocks, or reports. All browser reads
@@ -112,9 +117,33 @@ and report-driven admin moderation.
 - Production is feature-flagged and cohort-scoped. Retention deletion remains
   disabled until counsel publishes the rule. A production cohort containing
   `*` is invalid and must fail closed; wildcard cohorts are development/test
-  convenience only.
+  convenience, or an explicitly named Vercel Preview, only. Vercel production
+  refuses wildcard cohorts even with stale CEO-preview flags.
 
 ## Agent notes
+
+The responsive messenger uses date groups and incoming/outgoing bubbles. The
+single check indicates an acknowledged send only, never read/presence. Details
+contains property context, LOI status, mute/block controls, and the full safety
+notice; the composer keeps a brief property-only reminder visible. Inbox search
+and All/Unread/Active filters operate on loaded authorized summaries, with a
+load-more explanation when older pages exist. Scoped presentation lives in
+`app/messages/messages.css` and must preserve canonical recovery, draft retention,
+moderation invalidation, and history pagination.
+
+The eligible Start LOI / Open LOI action is always visible above the message
+composer, outside collapsed Details, with a full-width 48px button on phones.
+Its dedicated presentation lives in `components/messaging/chat-loi-action.*`.
+It preserves the existing sidecar eligibility and routes into the same
+non-binding workspace; it never submits terms directly from chat.
+
+Buyer invite cards call `server/buyer/invite-response.ts` through the authenticated
+server action. The owned invite determines the conversation; client conversation
+IDs cannot redirect a reply. Question/tour responses rely on the messaging
+transaction for first-reply acceptance. Questions are normalized and limited to
+500 characters. Decline remains independent of messaging availability. LOI
+availability is checked before acceptance; creation failures are explicit and
+accepted invites can retry. The card preserves question text on expected errors.
 
 Do not turn this section into general chat, contact discovery, offer workflow,
 or a direct Supabase table-writing path. Live Supabase Realtime/RLS and
@@ -136,6 +165,49 @@ trailing refresh. The LOI card is an optional fail-closed sidecar loaded from
 server page nor canonical conversation request awaits it. The sidecar exposes
 only allowlisted link/status fields, skips LOI-table access for disabled or
 invalid configuration, and cannot make authorized messaging unavailable.
+
+## Tour scheduling (September 2026 meeting)
+
+An accepted, active conversation has one persisted `TourSchedule`. Either
+participant can propose a UTC time with an IANA display timezone and a 30, 60,
+90 or 120 minute duration. Only the other participant can confirm it. Either
+participant may cancel a future tour or propose a replacement; a replacement
+always needs fresh confirmation. Proposals must be 15 minutes to 180 days ahead.
+Tour state uses revision comparison and a client action ID for safe retries.
+Schedule mutations use the same pair -> invite -> conversation lock order and
+current eligibility checks as messages, including blocks, role loss, property
+identity changes, and the exact enabled cohort. Read-only conversations retain
+authorized tour history and cannot schedule or receive reminders.
+
+`server/messaging/tours.ts` owns the lifecycle, content-free outbox jobs and
+audits. `components/messaging/tour-scheduler.tsx` is an independent chat sidecar;
+its request timeout or failure cannot prevent ordinary chat. System messages
+record proposals, confirmation and cancellation, so the inbox also shows tour
+updates when email is unavailable. The UI shows a follow-up prompt after the
+confirmed end time, without asserting that the tour actually happened.
+
+Migration `20260927201152_add_tour_scheduling` is additive and must precede the
+application deployment, including the email worker. It exists byte-identically
+in the historical and supported-baseline roots. `TourSchedule` has RLS enabled,
+no browser or service-role grants, and participant-bound foreign keys. Apply it
+only through the documented migration path after disposable upgrade/fresh proof.
+
+`node scripts/test-tour-database.mjs deploy` verifies the marked target's current
+pre-tour migration checksums, applies the forward migration with `prisma migrate
+deploy` using the target's historical or supported-baseline lineage, and runs
+the real PostgreSQL service suite. `behavior` reruns behavior without deploying.
+The harness never resets a database or creates its sentinel. Required variables:
+`TOUR_DATABASE_TEST_URL`, `TOUR_DATABASE_TEST_SENTINEL` (16+ characters),
+`TOUR_DATABASE_TEST_ALLOW_WRITES=true`, plus `DIRECT_URL` and `DATABASE_URL` as
+shared-target deny URLs. Provision a separate current disposable database first,
+then create `public.tour_database_test_sentinel(token text primary key)` and
+insert the chosen token there. The harness rejects the known production project,
+matching shared hosts/project references, missing sentinels and schema drift.
+Proof includes real lifecycle writes, participant FKs, RLS/role denial,
+content-free outbox checks, concurrent confirm/cancel and cancellation-before-
+dispatch races. Session identity and external email are controlled test seams;
+all database behavior is real. Fixture data remains only on the disposable
+target; retire the target after evidence review.
 
 ## Migration release and recovery
 
@@ -195,3 +267,8 @@ apply the migration, deploy the exact approved SHA, run invite/message smoke
 checks with messaging still disabled, and only then reopen traffic. The feature
 flag alone does not protect legacy invite creation; do not use an ordinary
 app-first or database-first rolling deployment for this migration.
+
+
+## Limited name identity
+
+Buyer, seller, and combined-role signup collect a full name (first and last required; up to 160 characters). Public identity is first name + last initial + a stable 12-character uppercase hexadecimal account code, for example Julie P. #7C4E2A91B6D0. The code is a truncated SHA-256 digest of the immutable random Auth UUID with a Liber namespace; it is not authentication proof or a database uniqueness constraint. Codes do not reveal the UUID and have no current-account collisions in the release read-only check. Both new and existing accounts use this limited identity in profiles, public previews, approved seller search, invites, and both sides of messaging. Legacy invalid/nameless accounts show Member plus code. Full surnames and contact information stay private except existing authorized LOI party disclosures. Raw account names and UUIDs remain server-side; only the limited label enters public DTOs. Signup shows an initials preview; the final code is assigned from the created account identity. DiceBear Initials (CC0) renders locally with @dicebear/core 10.7.0 and @dicebear/styles 10.6.0; no name is sent to an external avatar service. Existing avatarVariant tokens remain a backward-compatible color preference, with eight muted colors in the picker. Public labels/codes cannot be edited or shuffled by clients. No schema, role, authorization, RLS, document, or frozen LOI calculation changes.

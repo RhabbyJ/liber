@@ -6,9 +6,9 @@ import { getSessionUser } from "../../../../server/session";
 
 export async function GET(request: Request) {
   const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Authentication required.", items: [], pageInfo: null }, { status: 401 });
+  if (!user) return privateJson({ error: "Authentication required.", items: [], pageInfo: null }, 401);
   if (!(await canViewBuyerDirectory(user))) {
-    return NextResponse.json({ error: "Seller directory access is required.", items: [], pageInfo: null }, { status: 403 });
+    return privateJson({ error: "Seller directory access is required.", items: [], pageInfo: null }, 403);
   }
 
   const { searchParams } = new URL(request.url);
@@ -33,27 +33,31 @@ export async function GET(request: Request) {
 
   try {
     const { data } = await searchBuyers(input);
-    return NextResponse.json(data);
+    return privateJson(data);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to search buyers.";
     if (message.toLowerCase().includes("rate limit")) {
-      return NextResponse.json(
+      return privateJson(
         { error: "Too many buyer searches. Try again later.", items: [], pageInfo: null },
-        { status: 429 },
+        429,
       );
     }
     if (error instanceof ZodError) {
-      return NextResponse.json(
+      return privateJson(
         { error: "Invalid buyer search filters.", items: [], pageInfo: null },
-        { status: 400 },
+        400,
       );
     }
     console.error("[seller-buyers-api] search failed", {
       name: error instanceof Error ? error.name : "UnknownError",
     });
-    return NextResponse.json(
+    return privateJson(
       { error: "Unable to search buyers.", items: [], pageInfo: null },
-      { status: 500 },
+      500,
     );
   }
+}
+
+function privateJson(body: unknown, status = 200) {
+  return NextResponse.json(body, { headers: { "Cache-Control": "private, no-store" }, status });
 }

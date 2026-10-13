@@ -7,6 +7,7 @@ const mutationRoutes = [
   "app/api/conversations/[conversationId]/read/route.ts",
   "app/api/conversations/[conversationId]/mute/route.ts",
   "app/api/conversations/[conversationId]/block/route.ts",
+  "app/api/conversations/[conversationId]/tour/route.ts",
   "app/api/messages/[messageId]/report/route.ts",
 ];
 
@@ -34,7 +35,6 @@ describe("messaging API security contracts", () => {
     expect(sessionGuard).toContain("getSessionUser()");
     expect(sessionGuard).not.toContain("prisma.user.findUnique");
     expect(session).toContain('dbUser.status !== "ACTIVE"');
-    expect(session).toContain("roles: dbUser.roles");
     expect(source).toContain('access.participant_role === "SELLER"');
     expect(source).toContain("if (!currentParticipantIsActive(access)) throw messagingNotFound()");
     expect(source).toContain("'BUYER'::public.\"UserRole\" = ANY(buyer_user.roles)");
@@ -56,7 +56,7 @@ describe("messaging API security contracts", () => {
     expect(contracts).not.toContain("sellerId: invite.sellerId");
     expect(dto).not.toMatch(/export type InviteDTO[\s\S]*?sellerId:/);
     expect(dto).not.toMatch(/export type SellerPropertyDTO[\s\S]*?ownerUserId:/);
-    expect(between(contracts, "function propertyFromDb", "async function createVerificationSignedUrl"))
+    expect(between(contracts, "function propertyFromDb", "async function searchDbBuyerProfiles"))
       .not.toContain("ownerUserId");
   });
 

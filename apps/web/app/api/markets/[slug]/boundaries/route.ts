@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { limitPublicGeographyRequest } from "../../../../../server/public-geography-http";
 import {
   GeographyUnavailableError,
   getActiveMarketDisplayGeometryBySlug,
@@ -16,6 +17,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   if (!parsedSlug.success || (parsedVersion && !parsedVersion.success)) {
     return NextResponse.json({ error: "Unsupported market boundaries." }, { status: 404 });
   }
+
+  const limited = await limitPublicGeographyRequest(request);
+  if (limited) return limited;
 
   try {
     const geometry = await getActiveMarketDisplayGeometryBySlug(

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { LoiWorkspace } from "../../../components/loi/loi-workspace";
 import { LoiError } from "../../../server/loi/errors";
 import { getLoiNegotiation } from "../../../server/loi/service";
+import { getSessionUser } from "../../../server/session";
 
 export default async function LoiNegotiationPage({ params }: { params: Promise<{ negotiationId: string }> }) {
   const { negotiationId } = await params;
@@ -12,5 +13,6 @@ export default async function LoiNegotiationPage({ params }: { params: Promise<{
     if (error instanceof LoiError && ["NOT_FOUND", "UNAVAILABLE"].includes(error.code)) notFound();
     throw error;
   }
-  return <LoiWorkspace initialNegotiation={negotiation} />;
+  const user = await getSessionUser();
+  return <LoiWorkspace initialNegotiation={negotiation} templateOwnerId={user?.id} />;
 }

@@ -1,5 +1,20 @@
 import type { PropertySubtype } from "./property-types";
 
+export type PublicBuyerPreviewDTO = {
+  alias: string;
+  amenities: string[];
+  area: string;
+  avatarVariant: string;
+  badges: string[];
+  bathroomsMin?: number;
+  bedroomsMin?: number;
+  budgetLabel: string;
+  condition?: string;
+  label: string;
+  pin?: { latitude: number; longitude: number };
+  squareFeetMin?: number;
+};
+
 export const supportedBadgeTypes = [
   "PRE_APPROVED",
   "VERIFIED_IDENTITY",
@@ -9,7 +24,7 @@ export const supportedBadgeTypes = [
 export type SupportedBadgeType = (typeof supportedBadgeTypes)[number];
 
 export type SellerBadgeDTO = {
-  type: SupportedBadgeType | "CASH_BUYER";
+  type: SupportedBadgeType | "CASH_BUYER" | "TEST_PRE_APPROVED";
   label: string;
   status: "active";
   expiresInDays?: number;
@@ -110,13 +125,4 @@ export type OwnerBuyerProfileDTO = {
   lat: number;
   lng: number;
   accountName?: string;
-};
-
-export type AdminBuyerDTO = OwnerBuyerProfileDTO & {
-  approvedDocuments: Array<{
-    id: string;
-    documentType: string;
-    fileSha256: string | null;
-    originalFilename: string | null;
-  }>;
 };

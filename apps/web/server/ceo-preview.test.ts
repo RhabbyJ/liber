@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const transaction = vi.hoisted(() => vi.fn());
 const findUnique = vi.hoisted(() => vi.fn());
@@ -32,8 +32,15 @@ import {
 const sellerId = "11111111-1111-4111-8111-111111111111";
 const testerId = "22222222-2222-4222-8222-222222222222";
 
+beforeEach(() => {
+  vi.stubEnv("NODE_ENV", "test");
+  vi.stubEnv("VERCEL_ENV", "");
+});
+afterEach(() => vi.unstubAllEnvs());
+
 function enabledEnv(overrides: Record<string, string | undefined> = {}) {
   return {
+    NODE_ENV: "test",
     LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL: "true",
     LIBER_CEO_PREVIEW_TARGET: "ceo-preview",
     ...overrides,
@@ -75,6 +82,18 @@ describe("CEO-preview seller self-approval gate", () => {
     expect(ceoPreviewSellerSelfApprovalEnabled(enabledEnv({ LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL: "1" }))).toBe(false);
     expect(ceoPreviewSellerSelfApprovalEnabled({})).toBe(false);
   });
+
+  it.each([
+    { NODE_ENV: "production", VERCEL_ENV: "production" },
+    { NODE_ENV: "test", VERCEL_ENV: "production" },
+    { NODE_ENV: "production", VERCEL_ENV: "" },
+  ])("cannot enable self-elevation on production with stale preview flags: %j", (environment) => {
+    expect(ceoPreviewToolsEnabled(enabledEnv(environment))).toBe(false);
+  });
+
+  it("supports an explicitly marked Vercel preview production build", () => {
+    expect(ceoPreviewToolsEnabled(enabledEnv({ NODE_ENV: "production", VERCEL_ENV: "preview" }))).toBe(true);
+  });
 });
 
 describe("ensureCeoPreviewDemoPrivileges", () => {
@@ -82,6 +101,13 @@ describe("ensureCeoPreviewDemoPrivileges", () => {
     vi.clearAllMocks();
     vi.stubEnv("LIBER_CEO_PREVIEW_TARGET", "ceo-preview");
     vi.stubEnv("LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL", "true");
+  });
+
+  it("does not touch database identity when deployed to production with preview opt-ins", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    await expect(ensureCeoPreviewDemoPrivileges(sellerId)).resolves.toBeNull();
+    expect(findUnique).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it("grants ADMIN and approves pending seller access together", async () => {

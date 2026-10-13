@@ -148,7 +148,9 @@ export function PropertyAddressLookup({
           return;
         }
 
-        setMessage(payload.error || "We couldn't find details. Add them below.");
+        setMessage(response.status >= 500 || response.status === 404
+          ? "We couldn't find property details right now. Enter them below to continue."
+          : payload.error || "We couldn't find details. Add them below.");
         setMessageTone("error");
         focusPropertyDetails();
         return;

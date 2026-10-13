@@ -62,10 +62,7 @@ describe("password login recovery throttling", () => {
     const form = new FormData();
     form.set("email", "buyer@example.test");
     form.set("password", "not-a-real-password");
-    const request = {
-      formData: async () => form,
-      headers: new Headers({ "x-real-ip": "203.0.113.8" }),
-    } as Request;
+    const request = new Request("https://liber.example/api/auth/login", { method: "POST", body: form });
 
     const response = await POST(request as never);
 
@@ -73,7 +70,7 @@ describe("password login recovery throttling", () => {
     expect(mocks.enforceLimit).toHaveBeenLastCalledWith({
       action: "recovery",
       email: "buyer@example.test",
-      ip: "203.0.113.8",
+      ip: "unknown-ip",
     });
     expect(response.headers.get("location")).toBe("https://liber.example/login?status=rate-limited");
     expect(mocks.signOut).toHaveBeenCalledOnce();
@@ -95,11 +92,7 @@ describe("password login recovery throttling", () => {
     const form = new FormData();
     form.set("email", "seller@example.test");
     form.set("password", "not-a-real-password");
-    const request = {
-      formData: async () => form,
-      headers: new Headers({ "x-real-ip": "203.0.113.8" }),
-      url: "https://liber.example/api/auth/login",
-    } as Request;
+    const request = new Request("https://liber.example/api/auth/login", { method: "POST", body: form });
 
     const response = await POST(request as never);
 
@@ -107,5 +100,42 @@ describe("password login recovery throttling", () => {
       "11111111-1111-4111-8111-111111111111",
     );
     expect(response.headers.get("location")).toBe("https://liber.example/seller/properties");
+  });
+
+  it("rejects a streamed oversized form before database quotas or Auth", async () => {
+    const response = await POST(new Request("https://liber.example/api/auth/login", {
+      method: "POST", body: new URLSearchParams({ email: "x".repeat(20 * 1024), password: "private" }),
+    }) as never);
+    expect(response.status).toBe(413);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(mocks.enforceLimit).not.toHaveBeenCalled();
+    expect(mocks.signIn).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed multipart without an unhandled server error", async () => {
+    const response = await POST(new Request("https://liber.example/api/auth/login", {
+      method: "POST", body: "not a form", headers: { "content-type": "multipart/form-data" },
+    }) as never);
+    expect(response.status).toBe(400);
+    expect(mocks.enforceLimit).not.toHaveBeenCalled();
+  });
+
+  it("bounds reflected credential fields before quotas and redirects", async () => {
+    const response = await POST(new Request("https://liber.example/api/auth/login", {
+      method: "POST", body: new URLSearchParams({ email: "x".repeat(255), password: "private" }),
+    }) as never);
+    expect(response.headers.get("location")).toBe("https://liber.example/login?status=invalid-login");
+    expect(mocks.enforceLimit).not.toHaveBeenCalled();
+  });
+
+  it("fails closed without exposing limiter diagnostics", async () => {
+    mocks.enforceLimit.mockReset();
+    mocks.enforceLimit.mockRejectedValue(new Error("private database connection diagnostic"));
+    const response = await POST(new Request("https://liber.example/api/auth/login", {
+      method: "POST", body: new URLSearchParams({ email: "buyer@example.test", password: "private" }),
+    }) as never);
+    expect(response.status).toBe(503);
+    expect(await response.text()).not.toContain("private database");
+    expect(mocks.signIn).not.toHaveBeenCalled();
   });
 });

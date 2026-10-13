@@ -4,8 +4,9 @@ import { EmptyState } from "../../../../components/empty-state";
 import { GeneratedAvatar } from "../../../../components/generated-avatar";
 import { Icon } from "../../../../components/icon";
 import { PropertyTypeArtwork } from "../../../../components/property-type-artwork";
+import { PropertyFeatureSummary } from "../../../../components/property-details-fields";
 import { PageTitle } from "../../../../components/page-title";
-import { messagingTemplateLabel } from "../../../../components/messaging/types";
+import { SellerInviteForm } from "../../../../components/seller-invite-form";
 import { formatMoney } from "../../../../lib/format";
 import {
   sellerInvitePropertyState,
@@ -189,7 +190,7 @@ export default async function InviteBuyerPage({
   }
 
   const { property, readyProperties } = propertyState;
-  const verified = property.status.toLowerCase().includes("verified");
+  const verified = property.status === "Ownership verified";
 
   return (
     <div className="page wide stack loose invite-compose-page">
@@ -204,81 +205,23 @@ export default async function InviteBuyerPage({
           </Link>
         }
       >
-        Choose a property and opening, then send.
+        Choose a property, send the invite, and continue in chat.
       </PageTitle>
 
       <section className="invite-compose-grid">
-        <form action={submitInvite} className="invite-compose-form">
-          <input name="buyerProfileId" type="hidden" value={buyer.id} />
-          <input name="templateVersion" type="hidden" value={sellerOpeningTemplateVersion} />
-
-          <div className="invite-compose-heading">
-            <p className="eyebrow seller">Manual invite</p>
-            <h2>Choose an opening for {buyer.name}</h2>
-          </div>
-          <div className="field">
-            <label htmlFor="property">Property</label>
-            <select id="property" name="propertyId" defaultValue={property.id}>
-              {readyProperties.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.title} — {item.status}
-                </option>
-              ))}
-            </select>
-            <span className="field-hint">Uses the approved property version. Edit the property first if details changed.</span>
-          </div>
-          <fieldset className="invite-template-fieldset">
-            <legend>Guided opening</legend>
-            <p className="field-hint">Choose one reviewed property-focused question.</p>
-            <div className="invite-template-options">
-              {sellerOpeningTemplates.map((template, index) => (
-                <label className="invite-template-option" key={template.key}>
-                  <input defaultChecked={index === 0} name="templateKey" required type="radio" value={template.key} />
-                  <span>
-                    <strong>{messagingTemplateLabel(template.key)}</strong>
-                    <small>{template.text}</small>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <div className="field full">
-            <label htmlFor="note">Short note (optional)</label>
-            <textarea
-              id="note"
-              maxLength={500}
-              name="note"
-              placeholder={`Add brief property context for ${buyer.name}`}
-            />
-            <span className="field-hint">Plain text only, up to 500 characters.</span>
-          </div>
-
-          <div className="divider" />
-
-          <label className="checkbox-row">
-            <input name="termsAccepted" required type="checkbox" value="true" />
-            <span>
-              I confirm this is a manual invite only — not an offer, escrow, or funds transfer — and I am authorized
-              to invite buyers for this property.
-            </span>
-          </label>
-
-          <div className="actions between">
-            <Link className="button ghost" href={`/buyers/${buyer.id}`}>
-              Cancel
-            </Link>
-            <button className="button primary lg" type="submit">
-              <Icon name="mail" size={15} />
-              Send invite
-            </button>
-          </div>
-        </form>
+        <SellerInviteForm
+          action={submitInvite}
+          buyer={{ id: buyer.id, name: buyer.name }}
+          properties={readyProperties.map(({ id, title, status }) => ({ id, title, status }))}
+          propertyId={property.id}
+          templateVersion={sellerOpeningTemplateVersion}
+        />
 
         <aside className="public-profile-aside invite-compose-aside">
           <article className="card stack invite-recipient-card">
             <p className="eyebrow">Recipient</p>
             <div style={{ alignItems: "center", display: "flex", gap: 12 }}>
-              <GeneratedAvatar seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
+              <GeneratedAvatar name={buyer.name} seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
               <div>
                 <h3 style={{ margin: 0 }}>{buyer.name}</h3>
                 {buyer.isDemo ? <span className="status-dot warning">Demo buyer</span> : null}
@@ -312,7 +255,7 @@ export default async function InviteBuyerPage({
                 <h3 style={{ margin: 0 }}>{property.title}</h3>
                 <span className={`status-dot ${verified ? "active" : "warning"}`}>
                   <Icon name={verified ? "check-shield" : "info"} size={12} />
-                  {verified ? "Verified" : "Pending"}
+                  {property.status}
                 </span>
               </div>
               <p className="muted small" style={{ margin: 0 }}>
@@ -324,6 +267,7 @@ export default async function InviteBuyerPage({
                 {property.area ? <span className="pill active">{property.area} sqft</span> : null}
               </div>
               <strong style={{ fontSize: 20 }}>{formatMoney(property.price)}</strong>
+              <PropertyFeatureSummary condition={property.condition} features={property.features} />
               {property.description ? <p className="muted small">{property.description}</p> : null}
             </div>
           </article>

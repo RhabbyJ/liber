@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -13,6 +15,8 @@ import {
   type ReactNode,
 } from "react";
 import { Icon } from "../icon";
+import { ChatLoiAction } from "./chat-loi-action";
+import { TourScheduler } from "./tour-scheduler";
 import { PrivatePropertyImages } from "../private-property-images";
 import {
   applySentMessageResponse,
@@ -25,12 +29,12 @@ import {
 } from "./normalize";
 import { getMessagingBrowserClient, logMessagingRealtimeJoinStatus } from "./realtime";
 import { createRefreshCoordinator } from "./refresh-coordinator";
+import { createRecoveryPolling, MESSAGING_CONNECTED_POLL_MS, MESSAGING_FALLBACK_POLL_MS } from "./recovery-polling";
 import {
   normalizeMessagingLoiSummary,
   type MessagingLoiSummary,
 } from "../../lib/messaging-loi-summary";
 import {
-  formatMessagingDateTime,
   MESSAGE_REPORT_CATEGORIES,
   type ConversationThread,
   type MessagingMessage,
@@ -63,12 +67,22 @@ export function MessageThread({
   const [isOnline, setIsOnline] = useState(true);
   const [blockOpen, setBlockOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<MessagingMessage | null>(null);
+  const [contextOpen, setContextOpen] = useState(false);
+  const [timeZone, setTimeZone] = useState("UTC");
+  const dateFormatters = useMemo(() => ({
+    day: new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone }),
+    time: new Intl.DateTimeFormat("en", { timeStyle: "short", timeZone }),
+    full: new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone }),
+  }), [timeZone]);
   const [readRetry, setReadRetry] = useState(0);
   const loiRefreshAbortRef = useRef<AbortController | null>(null);
   const loiRefreshInFlightRef = useRef(false);
   const olderMessagesAbortRef = useRef<AbortController | null>(null);
   const refreshAbortRef = useRef<AbortController | null>(null);
   const refreshEnabledRef = useRef(false);
+  const refreshSucceededRef = useRef(true);
+  const realtimeConnectedRef = useRef(false);
+  const pollingRecoverRef = useRef<(() => void) | null>(null);
   const refreshExecutorRef = useRef<(announceFailure: boolean) => Promise<void>>(async () => undefined);
   const refreshCoordinatorRef = useRef<ReturnType<typeof createRefreshCoordinator> | null>(null);
   if (!refreshCoordinatorRef.current) {
@@ -92,10 +106,15 @@ export function MessageThread({
   const olderScrollAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const fallbackFocusRef = useRef<HTMLAnchorElement | null>(null);
+  const contextToggleRef = useRef<HTMLButtonElement | null>(null);
   const threadRef = useRef(initialThread);
   threadRef.current = thread;
   const conversationId = thread.id;
   const conversationPath = `/api/conversations/${encodeURIComponent(conversationId)}`;
+
+  useEffect(() => {
+    setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  }, []);
 
   const executeRefresh = useCallback(async (announceFailure = false) => {
     if (!refreshEnabledRef.current) return;
@@ -124,11 +143,13 @@ export function MessageThread({
       if (!after) {
         newestMessageIdRef.current = canonicalNewestId;
         if (announceFailure) setError("");
+        refreshSucceededRef.current = true;
         return;
       }
       if (canonical.messages.some((message) => message.id === after)) {
         newestMessageIdRef.current = canonicalNewestId ?? after;
         if (announceFailure) setError("");
+        refreshSucceededRef.current = true;
         return;
       }
       let keepFetching = true;
@@ -160,7 +181,9 @@ export function MessageThread({
         }
       }
       if (announceFailure) setError("");
+      refreshSucceededRef.current = true;
     } catch (requestError) {
+      refreshSucceededRef.current = false;
       if (isAbortError(requestError)) return;
       if (announceFailure) setError("Messages could not be refreshed. Check your connection and try again.");
     } finally {
@@ -176,7 +199,7 @@ export function MessageThread({
   );
 
   const refreshLoiSummary = useCallback(async () => {
-    if (!refreshEnabledRef.current || loiRefreshInFlightRef.current) return;
+    if (!refreshEnabledRef.current || loiRefreshInFlightRef.current) return true;
     loiRefreshInFlightRef.current = true;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), LOI_SUMMARY_REQUEST_TIMEOUT_MS);
@@ -187,8 +210,10 @@ export function MessageThread({
         signal: controller.signal,
       });
       if (refreshEnabledRef.current) setLoi(normalizeMessagingLoiSummary(payload));
+      return true;
     } catch {
       if (refreshEnabledRef.current) setLoi({ available: false });
+      return false;
     } finally {
       window.clearTimeout(timeout);
       if (loiRefreshAbortRef.current === controller) loiRefreshAbortRef.current = null;
@@ -209,17 +234,30 @@ export function MessageThread({
   }, [refreshLoiSummary, refreshThread]);
 
   useEffect(() => {
-    const poll = window.setInterval(() => {
-      if (document.visibilityState === "visible" && navigator.onLine) {
-        void refreshThread(false);
-        void refreshLoiSummary();
-      }
-    }, 5_000);
+    void refreshLoiSummary();
+  }, [refreshLoiSummary, thread.status]);
+
+  useEffect(() => {
+    const canRefresh = () => document.visibilityState === "visible" && navigator.onLine;
+    const poll = createRecoveryPolling({
+      canRefresh,
+      intervalMs: () => realtimeConnectedRef.current ? MESSAGING_CONNECTED_POLL_MS : MESSAGING_FALLBACK_POLL_MS,
+      refresh: async () => {
+        await refreshThread(false);
+        return refreshSucceededRef.current;
+      },
+    });
+    const loiPoll = createRecoveryPolling({
+      canRefresh,
+      intervalMs: () => MESSAGING_CONNECTED_POLL_MS,
+      refresh: refreshLoiSummary,
+    });
+    pollingRecoverRef.current = poll.recover;
     const recover = () => {
       if (document.visibilityState !== "visible" || !navigator.onLine) return;
       setReadRetry((value) => value + 1);
-      void refreshThread(false);
-      void refreshLoiSummary();
+      poll.recover();
+      loiPoll.recover();
     };
     const handleFocus = () => {
       setIsOnline(navigator.onLine);
@@ -237,7 +275,9 @@ export function MessageThread({
     window.addEventListener("offline", handleOffline);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
-      window.clearInterval(poll);
+      poll.dispose();
+      loiPoll.dispose();
+      pollingRecoverRef.current = null;
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
@@ -250,6 +290,7 @@ export function MessageThread({
   }, []);
 
   useEffect(() => {
+    realtimeConnectedRef.current = false;
     const client = getMessagingBrowserClient();
     if (!client) return;
     let channel: ReturnType<typeof client.channel> | null = null;
@@ -261,22 +302,31 @@ export function MessageThread({
       channel = client
         .channel(`conversation:${thread.id}`, { config: { private: true } })
         .on("broadcast", { event: "message_changed" }, () => {
+          if (cancelled || document.visibilityState !== "visible" || !navigator.onLine) return;
           void refreshThread(false);
-          void refreshLoiSummary();
         })
         .subscribe((status: string) => {
+          if (cancelled) return;
+          realtimeConnectedRef.current = status === "SUBSCRIBED";
           if (status === "SUBSCRIBED") {
+            if (document.visibilityState !== "visible" || !navigator.onLine) return;
             void refreshThread(false);
             void refreshLoiSummary();
           }
-          else logMessagingRealtimeJoinStatus(status);
+          else {
+            logMessagingRealtimeJoinStatus(status);
+            pollingRecoverRef.current?.();
+          }
         });
     })().catch(() => {
+      if (cancelled) return;
+      realtimeConnectedRef.current = false;
       logMessagingRealtimeJoinStatus("AUTH_ERROR");
     });
 
     return () => {
       cancelled = true;
+      realtimeConnectedRef.current = false;
       if (channel) void client.removeChannel(channel);
     };
   }, [refreshLoiSummary, refreshThread, thread.id]);
@@ -307,6 +357,18 @@ export function MessageThread({
     viewport.newestMessageId = newestRenderedMessageId;
     viewport.nearBottom = history.scrollHeight - history.scrollTop - history.clientHeight < 96;
   }, [newestRenderedMessageId, oldestRenderedMessageId, renderedMessageCount]);
+
+  useEffect(() => {
+    const history = messageHistoryRef.current;
+    if (!history) return;
+    const observer = new ResizeObserver(() => {
+      if (messageViewportRef.current.nearBottom && !olderScrollAnchorRef.current) {
+        history.scrollTop = history.scrollHeight;
+      }
+    });
+    observer.observe(history);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!newestMessage) return;
@@ -558,36 +620,31 @@ export function MessageThread({
   return (
     <div className="page wide message-thread-page">
       <header className="message-thread-header">
-        <div className="stack tight message-thread-heading">
-          <Link className="link-button" href="/messages" ref={fallbackFocusRef}>
-            <Icon name="arrow-left" size={14} />
-            All conversations
+        <div className="message-thread-heading">
+          <Link aria-label="All conversations" className="messenger-back" href="/messages" ref={fallbackFocusRef}>
+            <Icon name="arrow-left" size={20} />
           </Link>
           <div className="message-thread-identity">
             <span aria-hidden="true" className="message-counterpart-icon">
               <Icon name="message" size={20} />
             </span>
             <div className="message-thread-title-copy">
-              <p className="eyebrow">Invite conversation</p>
               <h1>{thread.counterpartLabel}</h1>
               <p className="message-thread-property">{thread.propertySnapshot.title}</p>
             </div>
-            <span className={`message-status-chip ${conversationStatusClassName(thread.status)}`}>
-              {conversationStatusLabel(thread.status)}
-            </span>
           </div>
         </div>
         <div className="message-thread-actions">
-          <button className="button secondary sm" disabled={mutationPending} onClick={updateMute} type="button">
-            {thread.muted ? "Unmute" : "Mute"}
-          </button>
           <button
-            className="button secondary sm message-block-action"
-            disabled={mutationPending || thread.status === "BLOCKED"}
-            onClick={() => openDialog(() => setBlockOpen(true))}
+            aria-controls="message-context"
+            aria-expanded={contextOpen}
+            className="button secondary sm messenger-details-toggle"
+            onClick={() => setContextOpen((open) => !open)}
+            ref={contextToggleRef}
             type="button"
           >
-            Block
+            <Icon name="info" size={17} />
+            Details
           </button>
         </div>
       </header>
@@ -602,7 +659,8 @@ export function MessageThread({
         {notice ? <p className="visually-hidden">{notice}</p> : null}
       </div>
 
-      <div className="message-thread-layout">
+      <TourScheduler conversationId={conversationId} muted={thread.muted} />
+      <div className={`message-thread-layout${contextOpen ? " context-open" : ""}`}>
         <section aria-label="Conversation" className="message-thread-panel">
           <div
             aria-label="Message history"
@@ -626,39 +684,50 @@ export function MessageThread({
             <ol aria-live="polite" aria-relevant="additions text" className="message-list" role="log">
               {thread.messages.length === 0 ? (
                 <li className="message-empty">No messages to show yet.</li>
-              ) : thread.messages.map((message) => (
-                <li className={`message-row${message.isOwn ? " own" : ""}${message.kind === "SYSTEM" ? " system" : ""}`} key={message.id}>
-                  <article className="message-bubble">
-                    <div className="message-meta">
-                      <strong>{message.senderLabel}</strong>
-                      <time dateTime={message.createdAt || undefined} suppressHydrationWarning>
-                        {formatMessagingDateTime(message.createdAt)}
-                      </time>
-                    </div>
-                    <p className={message.redacted ? "muted" : undefined}>{message.body}</p>
-                    {!message.isOwn && message.kind !== "SYSTEM" && !message.redacted ? (
-                      <button
-                        className="message-report-button"
-                        onClick={() => openDialog(() => setReportTarget(message))}
-                        type="button"
-                      >
-                        Report message
-                      </button>
-                    ) : null}
-                  </article>
-                </li>
+              ) : thread.messages.map((message, index) => (
+                <Fragment key={message.id}>
+                  {formatMessageDate(message.createdAt, dateFormatters.day) !== formatMessageDate(thread.messages[index - 1]?.createdAt, dateFormatters.day) ? (
+                    <li className="messenger-day"><time dateTime={message.createdAt || undefined}>{formatMessageDate(message.createdAt, dateFormatters.day)}</time></li>
+                  ) : null}
+                  <li className={`message-row${message.isOwn ? " own" : ""}${message.kind === "SYSTEM" ? " system" : ""}`}>
+                    <article className="message-bubble">
+                      <span className="visually-hidden">{message.senderLabel}</span>
+                      {message.kind === "INVITE" ? <span className="messenger-invite-label"><Icon name="home" size={13} /> Property invite</span> : null}
+                      <p className={message.redacted ? "muted" : undefined}>{message.body}</p>
+                      <div className="message-meta">
+                        {!message.isOwn && message.kind !== "SYSTEM" && !message.redacted ? (
+                          <button
+                            aria-label={`Report message from ${message.senderLabel}, ${formatMessageDate(message.createdAt, dateFormatters.full)}`}
+                            className="message-report-button"
+                            onClick={() => openDialog(() => setReportTarget(message))}
+                            type="button"
+                          >
+                            Report
+                          </button>
+                        ) : null}
+                        <span className="messenger-message-time">
+                          <time dateTime={message.createdAt || undefined} suppressHydrationWarning title={formatMessageDate(message.createdAt, dateFormatters.full)}>
+                            {formatMessageDate(message.createdAt, dateFormatters.time)}
+                          </time>
+                          {message.isOwn && message.kind !== "SYSTEM" ? <span aria-label="Sent" className="messenger-sent" role="img" title="Sent"><Icon aria-hidden="true" name="check" size={14} /></span> : null}
+                        </span>
+                      </div>
+                    </article>
+                  </li>
+                </Fragment>
               ))}
             </ol>
           </div>
 
           <section aria-label="Message composer" className="message-composer">
+            <ChatLoiAction loi={loi} busy={mutationPending} onStart={() => void startLoi()} />
             {canSend ? (
               <>
-                <div className="message-guided-options">
-                  <div className="message-guided-heading">
-                    <h2>Quick messages</h2>
-                    <span>Send instantly</span>
-                  </div>
+                <details className="message-guided-options">
+                  <summary className="message-guided-heading">
+                    <span><Icon name="message" size={14} /> Quick replies</span>
+                    <span>Choose a message</span>
+                  </summary>
                   <div className="message-template-list">
                     {templates.map((template) => (
                       <button
@@ -678,7 +747,8 @@ export function MessageThread({
                       </button>
                     ))}
                   </div>
-                </div>
+                  <p className="messenger-quick-help">Choose a reply to send it immediately.</p>
+                </details>
                 {visibleComposerError ? (
                   <p className="message-composer-error" id="message-composer-error" role="alert">
                     {visibleComposerError}
@@ -689,23 +759,33 @@ export function MessageThread({
                     event.preventDefault();
                     void sendMessage({ body: draft, kind: "FREE_TEXT" });
                   }}>
-                    <label htmlFor="message-draft">Message {thread.counterpartLabel}</label>
-                    <textarea
-                      aria-describedby={visibleComposerError ? "message-draft-count message-composer-error" : "message-draft-count"}
-                      aria-invalid={draftLength > 2_000 || undefined}
-                      disabled={sending}
-                      id="message-draft"
-                      maxLength={4_000}
-                      name="message"
-                      onChange={(event) => {
-                        setDraft(event.target.value);
-                        if (composerError) setComposerError("");
-                      }}
-                      onKeyDown={(event) => submitOnEnter(event)}
-                      placeholder="Ask about the property or viewing logistics"
-                      rows={4}
-                      value={draft}
-                    />
+                    <label className="visually-hidden" htmlFor="message-draft">Message {thread.counterpartLabel}</label>
+                    <div className="messenger-compose-input">
+                      <textarea
+                        aria-describedby={visibleComposerError ? "message-draft-count message-composer-error" : "message-draft-count"}
+                        aria-invalid={draftLength > 2_000 || undefined}
+                        disabled={sending}
+                        id="message-draft"
+                        maxLength={4_000}
+                        name="message"
+                        onChange={(event) => {
+                          setDraft(event.target.value);
+                          if (composerError) setComposerError("");
+                        }}
+                        onKeyDown={(event) => submitOnEnter(event)}
+                        placeholder="Write a message…"
+                        rows={2}
+                        value={draft}
+                      />
+                      <button
+                        aria-label={sending ? "Sending message" : "Send message"}
+                        className="button primary messenger-send"
+                        disabled={sending || !isOnline || !draft.trim() || draftLength > 2_000}
+                        type="submit"
+                      >
+                        <Icon name="arrow-right" size={20} />
+                      </button>
+                    </div>
                     <div className="message-composer-footer">
                       <span className="message-composer-help">
                         <span
@@ -716,14 +796,7 @@ export function MessageThread({
                         </span>
                         <span aria-hidden="true" className="message-composer-shortcut">Enter to send · Shift+Enter for a new line</span>
                       </span>
-                      <button
-                        className="button primary"
-                        disabled={sending || !isOnline || !draft.trim() || draftLength > 2_000}
-                        type="submit"
-                      >
-                        <Icon name="message" size={14} />
-                        {sending ? "Sending…" : "Send"}
-                      </button>
+                      {sending ? <span className="muted small" role="status">Sending…</span> : null}
                     </div>
                   </form>
                 ) : (
@@ -739,23 +812,20 @@ export function MessageThread({
                 </div>
               </div>
             )}
-            <p className="message-safety-copy">
-              <Icon name="shield" size={16} />
-              <span>{thread.safetyNotice}</span>
-            </p>
+            <p className="messenger-private-note"><Icon name="lock" size={12} /> Property chat only. No sensitive details or payment requests.</p>
           </section>
         </section>
 
-        <aside className="message-context-panel" aria-label="Conversation context">
+        <aside className="message-context-panel" aria-label="Conversation context" hidden={!contextOpen} id="message-context">
+          <div className="messenger-context-heading">
+            <h2>Conversation details</h2>
+            <button aria-label="Close conversation details" className="messenger-context-close" onClick={() => { setContextOpen(false); contextToggleRef.current?.focus(); }} type="button">×</button>
+          </div>
           {loi.available ? (
             <section className="card sage stack tight">
               <p className="eyebrow">LOI workspace</p>
               <h2>{loiStatusLabel(loi.status)}</h2>
-              {loi.id ? (
-                <Link className="button primary" href={`/negotiations/${encodeURIComponent(loi.id)}`}>Open LOI</Link>
-              ) : loi.canCreate ? (
-                <button className="button primary" disabled={mutationPending} onClick={() => void startLoi()} type="button">Start LOI</button>
-              ) : <span className="status-dot info">Waiting for buyer</span>}
+              {!loi.id && !loi.canCreate ? <span className="status-dot info">Waiting for buyer</span> : null}
             </section>
           ) : null}
           <section className="card stack tight">
@@ -764,19 +834,36 @@ export function MessageThread({
                 <p className="eyebrow seller">{thread.viewerRole === "BUYER" ? "Seller's property" : "Your property"}</p>
                 <h2>{thread.propertySnapshot.title}</h2>
               </div>
-              <span className="status-dot info">{thread.inviteStatus}</span>
+              <span className={`message-status-chip ${conversationStatusClassName(thread.status)}`}>{conversationStatusLabel(thread.status)}</span>
             </div>
             {thread.propertySnapshot.location ? (
               <p className="muted small"><Icon name="map-pin" size={13} /> {thread.propertySnapshot.location}</p>
             ) : null}
             {thread.propertySnapshot.ownershipStatus ? (
-              <span className="status-dot active">{thread.propertySnapshot.ownershipStatus}</span>
+              <span className={`status-dot ${["APPROVED", "Ownership verified"].includes(thread.propertySnapshot.ownershipStatus) ? "active" : "warning"}`}>{thread.propertySnapshot.ownershipStatus}</span>
             ) : null}
             <PrivatePropertyImages imageIds={thread.propertySnapshot.imageIds} />
             {!thread.propertySnapshot.identityCurrent ? (
               <p className="muted small">Showing the property version shared with this invite.</p>
             ) : null}
           </section>
+          <section className="messenger-conversation-controls">
+            <button className="button secondary sm" disabled={mutationPending} onClick={updateMute} type="button">
+              <Icon name="bell" size={15} /> {thread.muted ? "Unmute conversation" : "Mute conversation"}
+            </button>
+            <button
+              className="button secondary sm message-block-action"
+              disabled={mutationPending || thread.status === "BLOCKED"}
+              onClick={() => openDialog(() => setBlockOpen(true))}
+              type="button"
+            >
+              <Icon name="shield" size={15} /> Block participant
+            </button>
+          </section>
+          <p className="message-safety-copy">
+            <Icon name="shield" size={16} />
+            <span>{thread.safetyNotice}</span>
+          </p>
         </aside>
       </div>
 
@@ -857,6 +944,12 @@ function loiStatusLabel(status: string | null) {
     WITHDRAWN: "Withdrawn",
   };
   return status ? labels[status] ?? "LOI" : "LOI";
+}
+
+function formatMessageDate(value: string | undefined, formatter: Intl.DateTimeFormat) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : formatter.format(date);
 }
 
 function MessagingDialog({

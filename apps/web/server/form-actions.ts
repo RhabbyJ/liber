@@ -1,5 +1,8 @@
 "use server";
 
+import type { InviteSendFormState } from "../lib/invite-send-form";
+import { inviteSendFeedback } from "./invite-send-errors";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -7,7 +10,6 @@ import {
   grantBadge,
   hideBuyerProfile,
   regenerateBuyerAlias,
-  respondToInvite,
   reviewDocument,
   reviewSellerAccess,
   revokeBadge,
@@ -18,6 +20,10 @@ import {
   updateSellerProperty,
 } from "./contracts";
 import { saveBuyerProfile } from "./buyer/commands";
+import type { BuyerInviteResponseState } from "../lib/buyer-invite-response";
+import type { SellerAccessReviewFormState } from "../lib/seller-access-review-form";
+import type { BadgeReviewFormState } from "../lib/badge-review-form";
+import { badgeReviewErrorMessage } from "./verification/badge-review";
 import {
   buyerProfileFormMessage,
   type BuyerProfileFormState,
@@ -71,79 +77,18 @@ export async function regenerateBuyerPublicAlias() {
   redirect("/buyer/profile");
 }
 
-export async function respondToBuyerInvite(formData: FormData) {
-  const intent = typeof formData.get("intent") === "string" ? formData.get("intent") : formData.get("response");
-  try {
-    if (intent === "QUESTION" || intent === "TOUR" || intent === "LOI") {
-      const next = await actOnBuyerInvite(formData, intent);
-      revalidatePath("/buyer/invites");
-      revalidatePath("/buyer/profile");
-      revalidatePath("/messages");
-      redirect(next);
-    }
-    await respondToInvite(formData);
-  } catch (error) {
-    if (error instanceof Error && error.message.startsWith("Invite cannot be changed")) {
-      redirect("/buyer/invites?error=invite-locked");
-    }
-    throw error;
-  }
+export async function respondToBuyerInvite(
+  _state: BuyerInviteResponseState,
+  formData: FormData,
+): Promise<BuyerInviteResponseState> {
+  const { respondToBuyerInviteCommand } = await import("./buyer/invite-response");
+  const result = await respondToBuyerInviteCommand(formData);
+  if (!result.ok) return result;
   revalidatePath("/buyer/invites");
   revalidatePath("/buyer/profile");
   revalidatePath("/messages");
-  const response = formData.get("response");
-  redirect(response === "DECLINED" ? "/buyer/invites?status=declined" : "/buyer/invites?status=accepted");
-}
-
-async function actOnBuyerInvite(formData: FormData, intent: string) {
-  const inviteId = formData.get("inviteId");
-  const conversationId = formData.get("conversationId");
-  if (typeof inviteId !== "string") throw new Error("Invite cannot be changed after response, identity change, or expiration.");
-
-  if (intent === "QUESTION") {
-    const rawQuestion = formData.get("question");
-    const question = typeof rawQuestion === "string" ? rawQuestion.trim() : "";
-    if (!question || question.length > 500) redirect("/buyer/invites?error=question");
-    if (typeof conversationId !== "string" || !conversationId) {
-      await respondToInvite({ inviteId, response: "ACCEPTED" });
-      return "/buyer/invites?status=accepted";
-    }
-    const { sendConversationMessage } = await import("./messaging/service");
-    await sendConversationMessage({
-      body: question,
-      clientMessageId: crypto.randomUUID(),
-      conversationId,
-      kind: "FREE_TEXT",
-    });
-    return `/messages/${encodeURIComponent(conversationId)}`;
-  }
-
-  if (intent === "TOUR") {
-    if (typeof conversationId !== "string" || !conversationId) {
-      await respondToInvite({ inviteId, response: "ACCEPTED" });
-      return "/buyer/invites?status=accepted";
-    }
-    const { sendConversationMessage } = await import("./messaging/service");
-    await sendConversationMessage({
-      clientMessageId: crypto.randomUUID(),
-      conversationId,
-      kind: "GUIDED",
-      templateKey: "BUYER_SCHEDULE_VIEWING",
-      templateVersion: 1,
-    });
-    return `/messages/${encodeURIComponent(conversationId)}`;
-  }
-
-  await respondToInvite({ inviteId, response: "ACCEPTED" });
-  try {
-    const { createLoiNegotiation } = await import("./loi/service");
-    const created = await createLoiNegotiation({ clientActionId: crypto.randomUUID(), inviteId });
-    return `/negotiations/${encodeURIComponent(created.id)}`;
-  } catch {
-    return typeof conversationId === "string" && conversationId
-      ? `/messages/${encodeURIComponent(conversationId)}`
-      : "/buyer/invites?status=accepted";
-  }
+  revalidatePath("/seller/invites");
+  redirect(result.next);
 }
 
 export async function blockBuyerProfile(formData: FormData) {
@@ -188,14 +133,30 @@ export async function submitSellerPropertyUpdate(formData: FormData) {
   redirect("/seller/properties");
 }
 
-export async function submitInvite(formData: FormData) {
+export async function submitInvite(
+  _state: InviteSendFormState,
+  formData: FormData,
+): Promise<InviteSendFormState> {
   const propertyId = formData.get("propertyId");
 
-  if (typeof propertyId !== "string") {
-    throw new Error("Property is required.");
+  if (typeof propertyId !== "string" || !propertyId.trim()) {
+    return { message: "Choose a property before sending your invite." };
   }
 
-  const { data: invite } = await sendInvite(formData);
+  let invite;
+  try {
+    ({ data: invite } = await sendInvite(formData));
+  } catch (error) {
+    const feedback = inviteSendFeedback(error);
+    if (feedback) return {
+      ...feedback,
+      values: {
+        propertyId: propertyId.slice(0, 200),
+        termsAccepted: ["true", "on"].includes(String(formData.get("termsAccepted"))),
+      },
+    };
+    throw error;
+  }
   revalidatePath("/seller/invites");
   revalidatePath(`/seller/properties/${propertyId}/edit`);
   revalidatePath("/buyer/notifications");
@@ -211,16 +172,42 @@ export async function submitDocumentReview(formData: FormData) {
   revalidatePath("/buyer/notifications");
 }
 
-export async function submitBadgeGrant(formData: FormData) {
-  await grantBadge(formData);
+export async function submitBadgeGrant(
+  _state: BadgeReviewFormState,
+  formData: FormData,
+): Promise<BadgeReviewFormState> {
+  try {
+    await grantBadge(formData);
+  } catch (error) {
+    const message = badgeReviewErrorMessage(error, "grant");
+    if (message) return { ok: false, message };
+    throw error;
+  }
   revalidatePath("/admin/badges");
+  revalidatePath("/buyer/badges");
+  revalidatePath("/buyer/profile");
   revalidatePath("/buyer/notifications");
+  revalidatePath("/seller/search");
+  return { ok: true, message: "Badge granted. The buyer's verification status has been updated." };
 }
 
-export async function submitBadgeRevoke(formData: FormData) {
-  await revokeBadge(formData);
+export async function submitBadgeRevoke(
+  _state: BadgeReviewFormState,
+  formData: FormData,
+): Promise<BadgeReviewFormState> {
+  try {
+    await revokeBadge(formData);
+  } catch (error) {
+    const message = badgeReviewErrorMessage(error, "revoke");
+    if (message) return { ok: false, message };
+    throw error;
+  }
   revalidatePath("/admin/badges");
+  revalidatePath("/buyer/badges");
+  revalidatePath("/buyer/profile");
   revalidatePath("/buyer/notifications");
+  revalidatePath("/seller/search");
+  return { ok: true, message: "Badge revoked. It no longer counts as active verification." };
 }
 
 export async function submitUserSuspension(formData: FormData) {
@@ -228,10 +215,21 @@ export async function submitUserSuspension(formData: FormData) {
   revalidatePath("/admin/users");
 }
 
-export async function submitSellerAccessReview(formData: FormData) {
-  await reviewSellerAccess(formData);
+export async function submitSellerAccessReview(
+  _state: SellerAccessReviewFormState,
+  formData: FormData,
+): Promise<SellerAccessReviewFormState> {
+  const result = await reviewSellerAccess(formData);
+  if (!result.ok) return result;
   revalidatePath("/admin/users");
   revalidatePath("/seller/search");
+  const status = result.data.status.toLowerCase();
+  return {
+    ok: true,
+    message: result.changed
+      ? `Seller directory access ${status}.`
+      : `Seller directory access is already ${status}. No changes were needed.`,
+  };
 }
 
 export async function submitProfileHide(formData: FormData) {

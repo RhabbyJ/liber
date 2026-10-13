@@ -1,13 +1,22 @@
 import { Prisma, prisma } from "@liber/db";
 import { createHash, randomUUID } from "node:crypto";
+import { z } from "zod";
 import {
   calculateLoiSummary,
   LOI_CALCULATION_VERSION,
   LOI_SCHEMA_VERSION,
+  LOI_RESPONSE_WINDOW_HOURS,
   LOI_STANDARD_DEPOSIT_BPS,
+  LOI_MAX_PRICE_CENTS,
   loiComputedSummaryV1Schema,
+  loiComputedSummaryV2Schema,
+  loiComputedSummaryV3Schema,
+  loiComputedSummaryV4Schema,
+  loiComputedSummaryV5Schema,
   loiNegotiationIdSchema,
   parseLoiEditableTerms,
+  parseLoiDraftTerms,
+  loiDraftTermsV1Schema,
   loiTermsV1Schema,
   type LoiTermsV1,
 } from "@liber/validators";
@@ -16,12 +25,16 @@ import { consumeSharedRateLimit } from "../shared-rate-limit";
 import { LoiError, loiConflict, loiNotFound, loiUnavailable } from "./errors";
 import { assertLoiV1EnabledForPair, loiV1Configured, loiV1EnabledForPair } from "./feature";
 import { canDraftLoi, isTerminalLoiStatus, loiAllowedActions } from "./policy";
+import { financingTestExceptionExpiresAt } from "./financing-test-exception";
 
 type Tx = Prisma.TransactionClient;
 type Role = "BUYER" | "SELLER";
 type ExistingEvent = { actorUserId: string | null; metadata: unknown; revisionId: string | null; type: string };
 const LOI_REVISION_PAGE_SIZE = 20;
 const LOI_REQUEST_FINGERPRINT_VERSION = 1;
+const loiStarterTermsSchema = loiTermsV1Schema.safeExtend({
+  purchasePriceCents: z.number().int().min(0).max(LOI_MAX_PRICE_CENTS),
+});
 type Access = {
   buyer_email: string;
   buyer_name: string | null;
@@ -136,8 +149,9 @@ export async function getLoiNegotiation(negotiationId: string) {
       allowedActions,
       conversationId: access.conversation_id,
       currentSequence: negotiation.currentSequence,
-      draft: draft && editable ? { basedOnSequence: draft.basedOnSequence, draftVersion: draft.draftVersion, id: draft.id, terms: decodeTerms(draft.schemaVersion, draft.terms), updatedAt: draft.updatedAt.toISOString() } : null,
+      draft: draft && editable ? { basedOnSequence: draft.basedOnSequence, draftVersion: draft.draftVersion, id: draft.id, terms: decodeDraftTerms(draft.schemaVersion, draft.terms), updatedAt: draft.updatedAt.toISOString() } : null,
       effectivelyExpired,
+      financingEvidenceExceptionExpiresAt: financingTestExceptionExpiresAt(access.buyer_user_id, negotiation.id),
       id: negotiation.id,
       propertySnapshot: negotiation.propertySnapshot,
       revisionPageInfo: {
@@ -188,9 +202,9 @@ export async function saveLoiDraft(input: { expectedDraftVersion: number; expect
   await rateLimit(user.id, "loi-draft", 120, 3600);
   const saved = await withNegotiation(input.negotiationId, user.id, async (tx, access, role) => {
     await assertCanDraft(tx, access, role, input.expectedSequence);
-    const incoming = parseLoiEditableTerms(input.terms);
-    const normalized = access.current_sequence === 0 ? incoming : mergeLoiCounterTerms(await loadCurrentTerms(tx, access), incoming);
-    const summary = calculateLoiSummary(normalized);
+    const incoming = parseLoiDraftTerms(input.terms, access.current_sequence > 0);
+    const normalized = access.current_sequence === 0 ? withSellerDisclosure(incoming, role) : mergeLoiCounterTerms(await loadCurrentTerms(tx, access), incoming, role, true);
+    const summary = normalized.purchasePriceCents > 0 ? calculateLoiSummary(normalized) : null;
     const [existing] = await tx.$queryRaw<Array<{ draftVersion: number }>>`
       SELECT "draftVersion" FROM public."LoiDraft"
       WHERE "negotiationId" = ${input.negotiationId}::uuid AND "ownerUserId" = ${user.id}::uuid FOR UPDATE
@@ -222,32 +236,39 @@ export async function discardLoiDraft(input: { expectedDraftVersion: number; exp
   return getLoiNegotiation(input.negotiationId);
 }
 
-export async function submitLoiRevision(input: { clientActionId: string; expectedDraftId: string; expectedDraftVersion: number; expectedSequence: number; negotiationId: string; responseDeadline: string }) {
+export async function submitLoiRevision(input: { clientActionId: string; expectedDraftId: string; expectedDraftVersion: number; expectedSequence: number; negotiationId: string; responseDeadline?: string }) {
   const user = await currentUser();
   await rateLimit(user.id, "loi-submit", 20, 3600);
-  const deadline = new Date(input.responseDeadline);
-  if (!Number.isFinite(deadline.getTime())) throw new LoiError("INVALID_INPUT", "Response deadline is invalid.", 400);
-  const requestFingerprint = fingerprintRequest({
+  const requestIdentity = {
     action: "SUBMIT",
     actorUserId: user.id,
     expectedDraftId: input.expectedDraftId,
     expectedDraftVersion: input.expectedDraftVersion,
     expectedSequence: input.expectedSequence,
     negotiationId: input.negotiationId,
-    responseDeadline: deadline.toISOString(),
-  });
+  };
+  const requestFingerprint = fingerprintRequest({ ...requestIdentity, responseWindowHours: LOI_RESPONSE_WINDOW_HOURS });
   await withNegotiation(input.negotiationId, user.id, async (tx, access, role, existingEvent) => {
     if (existingEvent) {
-      assertIdempotentEvent(existingEvent, user.id, ["INITIAL_SUBMITTED", "COUNTER_SUBMITTED"], requestFingerprint);
+      // Old submissions retain both their original deadline and retry identity.
+      const historicalDeadline = input.responseDeadline ? new Date(input.responseDeadline) : null;
+      const retryFingerprint = record(existingEvent.metadata)?.responseWindowHours === LOI_RESPONSE_WINDOW_HOURS
+        ? requestFingerprint
+        : historicalDeadline && Number.isFinite(historicalDeadline.getTime())
+          ? fingerprintRequest({ ...requestIdentity, responseDeadline: historicalDeadline.toISOString() })
+          : requestFingerprint;
+      assertIdempotentEvent(existingEvent, user.id, ["INITIAL_SUBMITTED", "COUNTER_SUBMITTED"], retryFingerprint);
       return;
     }
     await assertCanDraft(tx, access, role, input.expectedSequence);
-    const now = Date.now();
-    if (deadline.getTime() < now + 60 * 60 * 1000 || deadline.getTime() > now + 30 * 86_400_000) throw new LoiError("INVALID_INPUT", "Response deadline is outside the allowed range.", 400);
     const draft = await tx.loiDraft.findUnique({ where: { negotiationId_ownerUserId: { negotiationId: input.negotiationId, ownerUserId: user.id } } });
     if (!draft || draft.id !== input.expectedDraftId || draft.draftVersion !== input.expectedDraftVersion || draft.basedOnSequence !== input.expectedSequence) throw loiConflict("Draft changed before submission.");
-    const terms = parseLoiEditableTerms(draft.terms);
-    if (terms.funding.type === "FINANCED") await assertBuyerFinancingEvidence(tx, access.buyer_user_id);
+    const terms = access.current_sequence === 0
+      ? withSellerDisclosure(parseLoiEditableTerms(draft.terms), role)
+      : mergeLoiCounterTerms(await loadCurrentTerms(tx, access), parseLoiEditableTerms(draft.terms, true), role);
+    const financingEvidenceExceptionExpiresAt = terms.funding.type === "FINANCED"
+      ? await assertBuyerFinancingEvidence(tx, access.buyer_user_id, input.negotiationId)
+      : null;
     const summary = calculateLoiSummary(terms);
     const draftFingerprint = fingerprint({
       draftId: draft.id,
@@ -256,11 +277,13 @@ export async function submitLoiRevision(input: { clientActionId: string; expecte
       terms,
     });
     const sequence = access.current_sequence + 1;
-    const revision = await tx.loiRevision.create({ data: { calculationVersion: LOI_CALCULATION_VERSION, computedSummary: json(summary), kind: sequence === 1 ? "INITIAL" : "COUNTER", negotiationId: input.negotiationId, parentRevisionId: access.current_revision_id, responseDeadline: deadline, schemaVersion: LOI_SCHEMA_VERSION, sequence, submittedByRole: role, submittedByUserId: user.id, terms: json(terms) } });
+    const submittedAt = new Date();
+    const deadline = new Date(submittedAt.getTime() + LOI_RESPONSE_WINDOW_HOURS * 60 * 60 * 1000);
+    const revision = await tx.loiRevision.create({ data: { calculationVersion: LOI_CALCULATION_VERSION, computedSummary: json(summary), kind: sequence === 1 ? "INITIAL" : "COUNTER", negotiationId: input.negotiationId, parentRevisionId: access.current_revision_id, responseDeadline: deadline, schemaVersion: LOI_SCHEMA_VERSION, sequence, submittedAt, submittedByRole: role, submittedByUserId: user.id, terms: json(terms) } });
     const status = role === "BUYER" ? "AWAITING_SELLER_RESPONSE" : "AWAITING_BUYER_RESPONSE";
     await tx.loiNegotiation.update({ where: { id: input.negotiationId }, data: { currentRevisionId: revision.id, currentSequence: sequence, status } });
     await tx.loiDraft.delete({ where: { negotiationId_ownerUserId: { negotiationId: input.negotiationId, ownerUserId: user.id } } });
-    const event = await tx.loiEvent.create({ data: { actorRole: role, actorUserId: user.id, clientActionId: input.clientActionId, metadata: { draftFingerprint, draftFingerprintVersion: 1, requestFingerprint, requestFingerprintVersion: LOI_REQUEST_FINGERPRINT_VERSION }, negotiationId: input.negotiationId, revisionId: revision.id, type: sequence === 1 ? "INITIAL_SUBMITTED" : "COUNTER_SUBMITTED" } });
+    const event = await tx.loiEvent.create({ data: { actorRole: role, actorUserId: user.id, clientActionId: input.clientActionId, metadata: { draftFingerprint, draftFingerprintVersion: 1, requestFingerprint, requestFingerprintVersion: LOI_REQUEST_FINGERPRINT_VERSION, responseWindowHours: LOI_RESPONSE_WINDOW_HOURS, ...(financingEvidenceExceptionExpiresAt ? { financingEvidenceExceptionExpiresAt } : {}) }, negotiationId: input.negotiationId, revisionId: revision.id, type: sequence === 1 ? "INITIAL_SUBMITTED" : "COUNTER_SUBMITTED" } });
     await notifyCounterparty(tx, access, role, revision.id, event.id, sequence === 1 ? "A new LOI is ready for your review." : "A counter has been submitted.");
   }, input.clientActionId);
   return getLoiNegotiation(input.negotiationId);
@@ -367,9 +390,9 @@ function assertCanStart(access: Access) {
   if (!canStartNegotiation(access)) throw loiUnavailable();
 }
 
-async function assertBuyerFinancingEvidence(tx: Tx, buyerUserId: string) {
-  const [row] = await tx.$queryRaw<Array<{ ok: boolean }>>`
-    SELECT (
+async function assertBuyerFinancingEvidence(tx: Tx, buyerUserId: string, negotiationId: string) {
+  const [row] = await tx.$queryRaw<Array<{ badge_active: boolean; document_uploaded: boolean }>>`
+    SELECT
       EXISTS (
         SELECT 1
         FROM public."BuyerProfile" profile
@@ -378,19 +401,21 @@ async function assertBuyerFinancingEvidence(tx: Tx, buyerUserId: string) {
           AND badge."badgeType" = 'PRE_APPROVED'::public."BadgeType"
           AND badge.status = 'ACTIVE'::public."BadgeStatus"
           AND (badge."expiresAt" IS NULL OR badge."expiresAt" > now())
-      )
-      OR EXISTS (
+      ) AS badge_active,
+      EXISTS (
         SELECT 1
         FROM public."VerificationDocument" document
         WHERE document."userId" = ${buyerUserId}::uuid
           AND document."documentType" = 'PRE_APPROVAL'::public."DocumentType"
           AND document."reviewStatus" IN ('PENDING'::public."DocumentStatus", 'APPROVED'::public."DocumentStatus")
-      )
-    ) AS ok
+      ) AS document_uploaded
   `;
-  if (!row?.ok) {
-    throw new LoiError("INVALID_INPUT", "Financed terms need a pre-approval badge or an uploaded pre-approval letter.", 400);
+  if (!row?.badge_active && !row?.document_uploaded) {
+    const exceptionExpiry = financingTestExceptionExpiresAt(buyerUserId, negotiationId);
+    if (exceptionExpiry) return exceptionExpiry;
+    throw new LoiError("FINANCING_EVIDENCE_REQUIRED", "Financed terms need a pre-approval badge or an uploaded pre-approval letter.", 400);
   }
+  return null;
 }
 
 async function freezeLoiNegotiation(tx: Tx, access: Access) {
@@ -612,10 +637,12 @@ function json(value: unknown) {
 }
 
 function starterTerms(access: Access): LoiTermsV1 | null {
+  // Zero marks a missing asking/offer price in starters and private drafts.
+  // Submitted revisions still require a positive offer.
   const purchasePriceCents = snapshotPriceCents(access.property_snapshot);
   const buyerLegalName = access.buyer_name?.trim();
   if (!buyerLegalName || purchasePriceCents === null) return null;
-    const parsed = loiTermsV1Schema.safeParse({
+  const parsed = loiStarterTermsSchema.safeParse({
     additionalTerms: { exclusions: "", proposedTerms: "" },
     costsAndCredits: { alternateClosingCostAllocation: "", customaryClosingCosts: true, homeWarranty: { company: "", included: false, maximumCents: 0, payer: "SELLER", payerNote: "", specialInclusions: "" }, sellerCreditCents: 0, sellerCreditNote: "" },
     deposit: { basis: "PERCENT", percentageBps: LOI_STANDARD_DEPOSIT_BPS },
@@ -625,7 +652,7 @@ function starterTerms(access: Access): LoiTermsV1 | null {
     parties: { buyerContact: { company: "", email: access.buyer_email, name: buyerLegalName, phone: "" }, buyerLegalName, vestingNote: "" },
     personalProperty: { excludedItems: "", included: false, includedItems: [], payer: "SELLER" },
     possession: { type: "AT_CLOSING" },
-    providers: { escrow: { choice: "LIBER_PREFERRED", feePayer: "SELLER" }, title: { choice: "LIBER_PREFERRED" } },
+    providers: { escrow: { choice: "LIBER_PREFERRED", feePayer: "EACH_OWN" }, title: { choice: "LIBER_PREFERRED", feePayer: "SELLER" } },
     purchasePriceCents,
     representation: { agent: { company: "", email: "", license: "", name: "", phone: "" }, buyerRepresented: false, commissionAmount: "", commissionPayer: null },
     schemaVersion: LOI_SCHEMA_VERSION,
@@ -636,10 +663,18 @@ function starterTerms(access: Access): LoiTermsV1 | null {
 
 function snapshotPriceCents(value: unknown) {
   const snapshot = record(value);
+  if (!snapshot) return null;
   const dollars = snapshot?.price;
+  if (dollars === undefined || dollars === null || dollars === 0
+    || (typeof dollars === "string" && (dollars.trim() === "" || Number(dollars) === 0))) return 0;
   const numeric = typeof dollars === "number" ? dollars : typeof dollars === "string" ? Number(dollars) : Number.NaN;
   const cents = Math.round(numeric * 100);
   return Number.isSafeInteger(cents) && cents > 0 ? cents : null;
+}
+
+function decodeDraftTerms(version: number, value: unknown) {
+  if (version !== LOI_SCHEMA_VERSION) throw loiUnavailable();
+  return loiDraftTermsV1Schema.parse(value);
 }
 
 function decodeTerms(version: number, value: unknown) {
@@ -648,8 +683,12 @@ function decodeTerms(version: number, value: unknown) {
 }
 
 function decodeSummary(version: number, value: unknown) {
-  if (version !== LOI_CALCULATION_VERSION) throw loiUnavailable();
-  return loiComputedSummaryV1Schema.parse(value);
+  if (version === 1) return loiComputedSummaryV1Schema.parse(value);
+  if (version === 2) return loiComputedSummaryV2Schema.parse(value);
+  if (version === 3) return loiComputedSummaryV3Schema.parse(value);
+  if (version === 4) return loiComputedSummaryV4Schema.parse(value);
+  if (version === 5) return loiComputedSummaryV5Schema.parse(value);
+  throw loiUnavailable();
 }
 
 async function loadCurrentTerms(tx: Tx, access: Access) {
@@ -662,27 +701,48 @@ async function loadCurrentTerms(tx: Tx, access: Access) {
   return decodeTerms(revision.schemaVersion, revision.terms);
 }
 
-function mergeLoiCounterTerms(base: LoiTermsV1, next: LoiTermsV1): LoiTermsV1 {
-  return parseLoiEditableTerms({
+function withSellerDisclosure(terms: LoiTermsV1, role: Role, base?: LoiTermsV1): LoiTermsV1 {
+  // The role comes from the immutable participants, never from the submitted JSON.
+  const disclosures = { condition: terms.disclosures.condition, conditionsOfSale: terms.disclosures.conditionsOfSale, deathOnProperty: terms.disclosures.deathOnProperty };
+  return {
+    ...terms,
+    disclosures: role === "SELLER"
+      ? { ...disclosures, deathOnPropertyProvidedBy: "SELLER" }
+      : { ...disclosures, deathOnProperty: base?.disclosures.deathOnProperty ?? "UNKNOWN", ...(base?.disclosures.deathOnPropertyProvidedBy ? { deathOnPropertyProvidedBy: base.disclosures.deathOnPropertyProvidedBy } : {}) },
+  };
+}
+
+function mergeLoiCounterTerms(base: LoiTermsV1, next: LoiTermsV1, role: Role, draft = false): LoiTermsV1 {
+  return (draft ? parseLoiDraftTerms : parseLoiEditableTerms)({
     ...base,
     costsAndCredits: {
       ...base.costsAndCredits,
+      transferTaxSchedule: next.costsAndCredits.transferTaxSchedule ?? base.costsAndCredits.transferTaxSchedule,
       alternateClosingCostAllocation: next.costsAndCredits.alternateClosingCostAllocation,
       customaryClosingCosts: next.costsAndCredits.customaryClosingCosts,
+      closingCostPayers: next.costsAndCredits.closingCostPayers,
+      closingCostEstimates: next.costsAndCredits.closingCostEstimates,
       homeWarranty: {
         ...base.costsAndCredits.homeWarranty,
         maximumCents: next.costsAndCredits.homeWarranty.maximumCents,
         payer: next.costsAndCredits.homeWarranty.payer,
         payerNote: next.costsAndCredits.homeWarranty.payerNote,
+        buyerShareCents: next.costsAndCredits.homeWarranty.buyerShareCents,
+        sellerShareCents: next.costsAndCredits.homeWarranty.sellerShareCents,
       },
       sellerCreditCents: next.costsAndCredits.sellerCreditCents,
+      sellerCreditIncluded: next.costsAndCredits.sellerCreditIncluded,
       sellerCreditNote: next.costsAndCredits.sellerCreditNote,
     },
     deposit: { basis: "PERCENT", percentageBps: LOI_STANDARD_DEPOSIT_BPS },
-    disclosures: next.disclosures,
+    disclosures: withSellerDisclosure(next, role, base).disclosures,
+    funding: base.funding.type === "SELLER_FINANCING"
+      ? { ...base.funding, principalCents: Math.max(next.purchasePriceCents - base.funding.cashDownPaymentCents, 0) }
+      : base.funding,
+    hoa: next.hoa,
     personalProperty: next.personalProperty,
-    possession: next.possession,
-    providers: { escrow: next.providers.escrow, title: base.providers.title },
+    possession: next.possession.type === "TENANT_REMAINS" || next.possession.type === "OTHER" ? base.possession : next.possession,
+    providers: { escrow: next.providers.escrow, title: { ...base.providers.title, feePayer: next.providers.title.feePayer ?? base.providers.title.feePayer } },
     purchasePriceCents: next.purchasePriceCents,
     representation: {
       ...base.representation,
@@ -690,5 +750,5 @@ function mergeLoiCounterTerms(base: LoiTermsV1, next: LoiTermsV1): LoiTermsV1 {
       commissionPayer: next.representation.commissionPayer,
     },
     timing: next.timing,
-  });
+  }, true);
 }

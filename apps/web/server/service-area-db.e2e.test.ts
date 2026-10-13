@@ -302,9 +302,9 @@ describe.skipIf(!enabled)("database-backed canonical service areas", () => {
         },
       } as any);
       expect(sellerPoint).toEqual(area!.center);
-      const publicPoint = approximatePreviewPoint(area!.center, 0);
+      const publicPoint = approximatePreviewPoint(area!.center);
       expect(publicPoint).not.toBeNull();
-      expect(publicPoint!.lng).toBeCloseTo(area!.center.lng + 0.008, 6);
+      expect(publicPoint!.lng).toBeCloseTo(area!.center.lng, 6);
 
       const activeAreas = await prisma.serviceArea.findMany({ where: { active: true, marketId: market.id } });
       for (const activeArea of activeAreas) {

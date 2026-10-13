@@ -1,8 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requestUrl } from "../../server/request-origin";
+import { isRequestSameOrigin, requestUrl } from "../../server/request-origin";
 import { createSupabaseServerClient } from "../../server/supabase";
 
 export async function POST(request: NextRequest) {
+  if (!isRequestSameOrigin(request)) {
+    return NextResponse.json({ error: "Invalid origin." }, {
+      headers: { "Cache-Control": "private, no-store" }, status: 403,
+    });
+  }
   const supabase = await createSupabaseServerClient();
   if (supabase) {
     await supabase.auth.signOut();

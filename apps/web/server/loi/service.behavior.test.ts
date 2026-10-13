@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { LoiTermsV1 } from "@liber/validators";
+import { calculateLoiSummary, loiTermsV1Schema, previewLoiCalculation, type LoiTermsV1 } from "@liber/validators";
 import { createHash } from "node:crypto";
 
 const buyerId = "11111111-1111-4111-8111-111111111111";
@@ -90,6 +90,25 @@ function queueMutationAccess(row: ReturnType<typeof access>, readRow = row) {
     .mockResolvedValueOnce([readRow]);
 }
 
+function stubSubmission(savedTerms: LoiTermsV1, evidence = { badge_active: false, document_uploaded: false }) {
+  const row = access();
+  mocks.prisma.$queryRaw.mockImplementation(async (query: TemplateStringsArray | { strings: TemplateStringsArray }) => {
+    const sql = (Array.isArray(query) ? query : (query as { strings: TemplateStringsArray }).strings).join("");
+    return sql.includes("AS badge_active") ? [evidence] : [row];
+  });
+  mocks.prisma.loiDraft.findUnique.mockResolvedValueOnce({ basedOnSequence: 0, draftVersion: 1, id: draftId, terms: savedTerms }).mockResolvedValue(null);
+  let submitted = revision();
+  mocks.prisma.loiRevision.create.mockImplementation(async ({ data }) => {
+    submitted = { ...submitted, ...data, id: revisionId };
+    return submitted;
+  });
+  mocks.prisma.loiEvent.create.mockImplementation(async ({ data }) => ({ ...data, id: eventId }));
+  mocks.prisma.loiNegotiation.findUnique.mockResolvedValue(negotiation(1, "AWAITING_SELLER_RESPONSE"));
+  mocks.prisma.loiRevision.findMany.mockImplementation(async () => [submitted]);
+}
+
+const submitRequest = { clientActionId: actionId, expectedDraftId: draftId, expectedDraftVersion: 1, expectedSequence: 0, negotiationId };
+
 describe("LOI service behavior", () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -107,7 +126,229 @@ describe("LOI service behavior", () => {
     mocks.prisma.notification.create.mockResolvedValue({});
   });
 
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => { vi.unstubAllEnvs(); vi.useRealTimers(); });
+
+  it.each([0, 2])("saves and reloads a blank-price private draft but blocks submission at sequence %s", async (sequence) => {
+    const row = access(sequence, sequence ? "AWAITING_BUYER_RESPONSE" : "AWAITING_BUYER_SUBMISSION");
+    mocks.prisma.$queryRaw.mockImplementation(async (query: TemplateStringsArray | { strings: TemplateStringsArray }) => {
+      const sql = (Array.isArray(query) ? query : (query as { strings: TemplateStringsArray }).strings).join("");
+      return sql.includes('SELECT "draftVersion"') ? [] : [row];
+    });
+    const current = { ...revision(), sequence, submittedByRole: "SELLER", terms };
+    mocks.prisma.loiRevision.findUnique.mockResolvedValue(current);
+    mocks.prisma.loiRevision.findMany.mockResolvedValue(sequence ? [current] : []);
+    mocks.prisma.loiNegotiation.findUnique.mockResolvedValue(negotiation(sequence, row.negotiation_status));
+    let savedDraft: Record<string, unknown> | null = null;
+    mocks.prisma.loiDraft.create.mockImplementation(async ({ data }) => {
+      savedDraft = { ...data, id: draftId, updatedAt: new Date("2026-10-07T17:00:00Z") };
+      return savedDraft;
+    });
+    mocks.prisma.loiDraft.findUnique.mockImplementation(async () => savedDraft);
+    const result = await saveLoiDraft({ expectedDraftVersion: 0, expectedSequence: sequence, negotiationId, terms: { ...terms, purchasePriceCents: 0 } });
+    expect(result.draft?.terms.purchasePriceCents).toBe(0);
+    expect(result.preview).toBeNull();
+    expect((await getLoiNegotiation(negotiationId)).draft?.terms.purchasePriceCents).toBe(0);
+    await expect(submitLoiRevision({ clientActionId: actionId, expectedDraftId: draftId, expectedDraftVersion: 1, expectedSequence: sequence, negotiationId })).rejects.toMatchObject({ issues: expect.arrayContaining([expect.objectContaining({ path: ["purchasePriceCents"] })]) });
+    expect(mocks.prisma.loiRevision.create).not.toHaveBeenCalled();
+    expect(mocks.prisma.notification.create).not.toHaveBeenCalled();
+    const priced = await saveLoiDraft({ expectedDraftVersion: 0, expectedSequence: sequence, negotiationId, terms });
+    expect(priced.draft?.terms.purchasePriceCents).toBe(terms.purchasePriceCents);
+    expect(priced.preview).not.toBeNull();
+  });
+
+
+  it.each(["BUYER", "SELLER"] as const)("preserves independent escrow/title estimates and calculates a %s counter with version 3", async (role) => {
+    const sequence = role === "BUYER" ? 2 : 1;
+    const status = role === "BUYER" ? "AWAITING_BUYER_RESPONSE" : "AWAITING_SELLER_RESPONSE";
+    const estimates = { buyerEscrowCents: null, sellerEscrowCents: 300_000, buyerTitleInsuranceCents: 200_000, sellerTitleInsuranceCents: null, buyerOtherClosingCostsCents: 0, sellerOtherClosingCostsCents: 0, sellerAgentCommissionAmount: "0", note: "Synthetic quote", itemizedCosts: { transferTaxes: { amountCents: 0 }, governmentRetrofit: { amountCents: 0 } } };
+    const next = { ...terms, providers: { ...terms.providers, title: { choice: "CUSTOM" as const, company: { name: "Changed provider", company: "", email: "", phone: "" }, feePayer: "BUYER" as const } }, costsAndCredits: { ...terms.costsAndCredits, closingCostEstimates: estimates } };
+    const row = access(sequence, status);
+    mocks.getSessionUser.mockResolvedValue({ id: role === "BUYER" ? buyerId : sellerId, roles: [role] });
+    mocks.prisma.$queryRaw.mockImplementation(async (query: TemplateStringsArray | { strings: TemplateStringsArray }) => {
+      const sql = (Array.isArray(query) ? query : (query as { strings: TemplateStringsArray }).strings).join("");
+      return sql.includes('SELECT "draftVersion"') ? [] : [row];
+    });
+    const current = { ...revision(), sequence, submittedByRole: role === "BUYER" ? "SELLER" : "BUYER", terms };
+    mocks.prisma.loiRevision.findUnique.mockResolvedValue(current);
+    mocks.prisma.loiRevision.findMany.mockResolvedValue([current]);
+    mocks.prisma.loiNegotiation.findUnique.mockResolvedValue(negotiation(sequence, status));
+    mocks.prisma.loiDraft.findUnique.mockResolvedValue(null);
+    const result = await saveLoiDraft({ expectedDraftVersion: 0, expectedSequence: sequence, negotiationId, terms: next });
+    expect(mocks.prisma.loiDraft.create.mock.calls[0]![0].data.terms.costsAndCredits.closingCostEstimates).toEqual(estimates);
+    expect(mocks.prisma.loiDraft.create.mock.calls[0]![0].data.terms.providers.title).toEqual({ ...terms.providers.title, feePayer: "BUYER" });
+    expect(result.preview).toMatchObject({ calculationVersion: 5, buyerClosingCostsCents: 200_000, sellerClosingCostsCents: 300_000, closingCostEstimateComplete: true });
+  });
+
+  it("does not let an initial buyer submission author or forge attribution for the seller disclosure", async () => {
+    stubSubmission({ ...terms, disclosures: { ...terms.disclosures, deathOnProperty: "YES", deathOnPropertyProvidedBy: "SELLER" } });
+    await submitLoiRevision(submitRequest);
+    const saved = mocks.prisma.loiRevision.create.mock.calls[0]![0].data;
+    expect(saved.terms.disclosures).toEqual({ ...terms.disclosures, deathOnProperty: "UNKNOWN" });
+    expect(saved.calculationVersion).toBe(5);
+    expect(saved.computedSummary.calculationVersion).toBe(5);
+  });
+
+  it.each(["BUYER", "SELLER"] as const)("enforces server-authored disclosure ownership for a %s counter draft", async (role) => {
+    const sequence = role === "BUYER" ? 2 : 1;
+    const status = role === "BUYER" ? "AWAITING_BUYER_RESPONSE" : "AWAITING_SELLER_RESPONSE";
+    const base: LoiTermsV1 = { ...terms, disclosures: { ...terms.disclosures, deathOnProperty: "NO", deathOnPropertyProvidedBy: "SELLER" } };
+    const estimates = { buyerEscrowCents: null, sellerEscrowCents: 200_00, buyerTitleInsuranceCents: 0, sellerTitleInsuranceCents: 300_00, buyerOtherClosingCostsCents: 0, sellerOtherClosingCostsCents: 0, sellerAgentCommissionAmount: "0", note: "Estimate" };
+    const next = { ...base, disclosures: { ...base.disclosures, deathOnProperty: "YES" }, costsAndCredits: { ...base.costsAndCredits, closingCostEstimates: estimates } };
+    const row = access(sequence, status);
+    mocks.getSessionUser.mockResolvedValue({ id: role === "BUYER" ? buyerId : sellerId, roles: [role] });
+    mocks.prisma.$queryRaw.mockImplementation(async (query: TemplateStringsArray | { strings: TemplateStringsArray }) => {
+      const sql = (Array.isArray(query) ? query : (query as { strings: TemplateStringsArray }).strings).join("");
+      return sql.includes('SELECT "draftVersion"') ? [] : [row];
+    });
+    const current = { ...revision(), sequence, submittedByRole: role === "BUYER" ? "SELLER" : "BUYER", terms: base };
+    mocks.prisma.loiRevision.findUnique.mockResolvedValue(current);
+    mocks.prisma.loiRevision.findMany.mockResolvedValue([current]);
+    mocks.prisma.loiNegotiation.findUnique.mockResolvedValue(negotiation(sequence, status));
+    mocks.prisma.loiDraft.findUnique.mockResolvedValue(null);
+    const result = await saveLoiDraft({ expectedDraftVersion: 0, expectedSequence: sequence, negotiationId, terms: next });
+    const saved = mocks.prisma.loiDraft.create.mock.calls[0]![0].data.terms;
+    expect(saved.disclosures).toMatchObject({ deathOnProperty: role === "BUYER" ? "NO" : "YES", deathOnPropertyProvidedBy: "SELLER" });
+    expect(saved.costsAndCredits.closingCostEstimates).toEqual(estimates);
+    expect(result.preview).toMatchObject({ calculationVersion: 5, sellerClosingCostsCents: 500_00, closingCostEstimateComplete: false });
+  });
+
+  it("rechecks a saved buyer counter against the seller's immutable answer during submission", async () => {
+    const row = access(2, "AWAITING_BUYER_RESPONSE");
+    const base: LoiTermsV1 = { ...terms, disclosures: { ...terms.disclosures, deathOnProperty: "YES", deathOnPropertyProvidedBy: "SELLER" } };
+    const current = { ...revision(), sequence: 2, submittedByRole: "SELLER", terms: base };
+    mocks.prisma.$queryRaw.mockResolvedValue([row]);
+    mocks.prisma.loiDraft.findUnique.mockResolvedValueOnce({ basedOnSequence: 2, draftVersion: 1, id: draftId, terms: { ...base, disclosures: { ...base.disclosures, deathOnProperty: "NO" } } }).mockResolvedValue(null);
+    mocks.prisma.loiRevision.findUnique.mockResolvedValue(current);
+    mocks.prisma.loiRevision.findMany.mockResolvedValue([current]);
+    mocks.prisma.loiRevision.create.mockImplementation(async ({ data }) => ({ ...data, id: revisionId }));
+    mocks.prisma.loiEvent.create.mockImplementation(async ({ data }) => ({ ...data, id: eventId }));
+    mocks.prisma.loiNegotiation.findUnique.mockResolvedValue(negotiation(2, "AWAITING_BUYER_RESPONSE"));
+    await submitLoiRevision({ ...submitRequest, expectedSequence: 2 });
+    expect(mocks.prisma.loiRevision.create.mock.calls[0]![0].data.terms.disclosures).toEqual(base.disclosures);
+  });
+
+  it("persists scheduled transfer taxes and seller ULA on a submitted V5 revision", async () => {
+    const next: LoiTermsV1 = {...terms, purchasePriceCents: 600_000_000, funding: {type: "CASH"}, timing: {...terms.timing, loanContingencyDays: null}, costsAndCredits: {...terms.costsAndCredits, transferTaxSchedule: "LA_CITY_2026_2027"}};
+    stubSubmission(next);
+    await submitLoiRevision(submitRequest);
+    const saved=mocks.prisma.loiRevision.create.mock.calls[0]![0].data;
+    expect(saved.calculationVersion).toBe(5);
+    expect(saved.computedSummary).toMatchObject({transferTaxSchedule:"LA_CITY_2026_2027",laCountyTransferTaxCents:660_000,laCityTransferTaxCents:2_700_000,measureUlaCents:24_000_000,measureUlaRateBps:400,buyerTransferTaxCents:0,sellerTransferTaxCents:27_360_000});
+  });
+
+  it("sets a new submission deadline exactly 48 hours after the server submission time", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-25T10:00:00.000Z"));
+    stubSubmission(terms);
+
+    const result = await submitLoiRevision({ ...submitRequest, responseDeadline: "2030-01-01T00:00:00.000Z" });
+    expect(result.revisions[0]).toMatchObject({ responseDeadline: "2026-09-27T10:00:00.000Z", submittedAt: "2026-09-25T10:00:00.000Z" });
+    expect(mocks.prisma.loiEvent.create.mock.calls[0]![0].data.metadata).toMatchObject({ responseWindowHours: 48 });
+  });
+
+  it("keeps automatic-deadline retries stable across elapsed time without duplicate effects", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-25T10:00:00.000Z"));
+    stubSubmission(terms);
+    await submitLoiRevision(submitRequest);
+    const committedEvent = mocks.prisma.loiEvent.create.mock.calls[0]![0].data;
+    mocks.prisma.loiEvent.findUnique.mockResolvedValue(committedEvent);
+    vi.setSystemTime(new Date("2026-09-25T11:00:00.000Z"));
+
+    const retried = await submitLoiRevision(submitRequest);
+    expect(retried.revisions[0]?.responseDeadline).toBe("2026-09-27T10:00:00.000Z");
+    expect(mocks.prisma.loiRevision.create).toHaveBeenCalledTimes(1);
+    expect(mocks.prisma.notification.create).toHaveBeenCalledTimes(1);
+    expect(mocks.prisma.emailOutbox.create).toHaveBeenCalledTimes(1);
+    await expect(submitLoiRevision({ ...submitRequest, expectedDraftVersion: 2 })).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  describe.each(["CONVENTIONAL", "FHA", "REHAB", "OTHER"] as const)("%s loan submissions", (loanType) => {
+    it.each([
+      { badge_active: true, document_uploaded: false },
+      { badge_active: false, document_uploaded: true },
+      { badge_active: true, document_uploaded: true },
+    ])("allows financed submission with either eligible evidence source: %j", async (evidence) => {
+      const financed: LoiTermsV1 = { ...terms, funding: { downPaymentCents: 20_000_000, lender: { company: "Test lender", email: "lender@example.test", name: "", phone: "" }, loanType, note: loanType === "OTHER" ? "Bridge loan" : "", type: "FINANCED" } };
+      stubSubmission(financed, evidence);
+      const result = await submitLoiRevision(submitRequest);
+      expect(mocks.prisma.loiRevision.create).toHaveBeenCalledTimes(1);
+      expect(mocks.prisma.loiRevision.create.mock.calls[0]![0].data.computedSummary.loanAmountCents).toBe(80_000_000);
+      expect(result).toMatchObject({ currentSequence: 1, status: "AWAITING_SELLER_RESPONSE", draft: null });
+      expect(result.revisions[0]?.terms.funding).toEqual(financed.funding);
+    });
+  });
+
+  it.each(["CONVENTIONAL", "OTHER"] as const)("rejects a %s financed submission with neither eligible evidence source before creating a revision", async (loanType) => {
+    stubSubmission({ ...terms, funding: { downPaymentCents: 20_000_000, lender: { company: "Test lender", email: "", name: "", phone: "" }, loanType, note: loanType === "OTHER" ? "Bridge loan" : "", type: "FINANCED" } });
+    await expect(submitLoiRevision(submitRequest)).rejects.toMatchObject({ code: "FINANCING_EVIDENCE_REQUIRED", status: 400 });
+    expect(mocks.prisma.loiRevision.create).not.toHaveBeenCalled();
+    expect(mocks.prisma.notification.create).not.toHaveBeenCalled();
+  });
+
+  it("requires lender information even when a financing badge is available", async () => {
+    stubSubmission({ ...terms, funding: { downPaymentCents: 20_000_000, lender: { company: "", email: "", name: "", phone: "" }, loanType: "CONVENTIONAL", note: "", type: "FINANCED" } }, { badge_active: true, document_uploaded: false });
+    await expect(submitLoiRevision(submitRequest)).rejects.toMatchObject({ issues: expect.arrayContaining([expect.objectContaining({ path: ["funding", "lender"] })]) });
+    expect(mocks.prisma.loiRevision.create).not.toHaveBeenCalled();
+  });
+
+  it("submits a financed test LOI without evidence only under an exact active exception and records its expiry", async () => {
+    const expiry = new Date(Date.now() + 86_400_000).toISOString();
+    vi.stubEnv("LIBER_LOI_TEST_FINANCING_BUYER_ID", buyerId);
+    vi.stubEnv("LIBER_LOI_TEST_FINANCING_NEGOTIATION_ID", negotiationId);
+    vi.stubEnv("LIBER_LOI_TEST_FINANCING_EXPIRES_AT", expiry);
+    stubSubmission({ ...terms, funding: { downPaymentCents: 20_000_000, lender: { company: "Test lender", email: "", name: "", phone: "" }, loanType: "CONVENTIONAL", note: "", type: "FINANCED" } });
+    const result = await submitLoiRevision(submitRequest);
+    expect(result).toMatchObject({ status: "AWAITING_SELLER_RESPONSE", currentSequence: 1, financingEvidenceExceptionExpiresAt: expiry });
+    expect(mocks.prisma.loiEvent.create.mock.calls[0]![0].data.metadata.financingEvidenceExceptionExpiresAt).toBe(expiry);
+  });
+
+  it.each(["expired", "other-buyer", "other-loi"])("rejects missing financing evidence with an %s exception", async (reason) => {
+    vi.stubEnv("LIBER_LOI_TEST_FINANCING_BUYER_ID", reason === "other-buyer" ? sellerId : buyerId);
+    vi.stubEnv("LIBER_LOI_TEST_FINANCING_NEGOTIATION_ID", reason === "other-loi" ? conversationId : negotiationId);
+    vi.stubEnv("LIBER_LOI_TEST_FINANCING_EXPIRES_AT", new Date(Date.now() + (reason === "expired" ? -1 : 86_400_000)).toISOString());
+    stubSubmission({ ...terms, funding: { downPaymentCents: 20_000_000, lender: { company: "Test lender", email: "", name: "", phone: "" }, loanType: "CONVENTIONAL", note: "", type: "FINANCED" } });
+    await expect(submitLoiRevision(submitRequest)).rejects.toMatchObject({ code: "FINANCING_EVIDENCE_REQUIRED" });
+    expect(mocks.prisma.loiRevision.create).not.toHaveBeenCalled();
+  });
+
+  it.each([360, null])("recalculates seller-financed counter principal and preserves historical funding schedule %j", async (amortizationMonths) => {
+    const base: LoiTermsV1 = {
+      ...terms,
+      funding: { amortizationMonths, annualInterestBps: 600, balloonMonth: null, cashDownPaymentCents: 20_000_000, interestOnly: false, note: "Original financing", principalCents: 80_000_000, termMonths: 360, type: "SELLER_FINANCING" },
+      possession: { estoppelRequired: true, note: "Existing lease remains.", type: "TENANT_REMAINS" },
+    };
+    const next: LoiTermsV1 = {
+      ...base,
+      costsAndCredits: { ...base.costsAndCredits, customaryClosingCosts: false, closingCostPayers: { transferTaxes: "SELLER", governmentRetrofitItems: "BUYER" }, sellerCreditIncluded: true, sellerCreditCents: 500_00 },
+      funding: { ...base.funding as Extract<LoiTermsV1["funding"], { type: "SELLER_FINANCING" }>, annualInterestBps: 900, principalCents: 90_000_000 },
+      hoa: { certificateFeePayer: "BUYER", documentFeePayer: "SELLER", transferFeePayer: "BUYER" },
+      parties: { ...base.parties, buyerLegalName: "Changed buyer" },
+      possession: { estoppelRequired: false, note: "Changed tenant detail", type: "TENANT_REMAINS" },
+      purchasePriceCents: 110_000_000,
+      timing: { ...base.timing, closingDays: 45 },
+    };
+    const row = access(1, "AWAITING_SELLER_RESPONSE");
+    mocks.getSessionUser.mockResolvedValue({ id: sellerId, roles: ["SELLER"] });
+    mocks.prisma.$queryRaw.mockImplementation(async (query: TemplateStringsArray | { strings: TemplateStringsArray }) => {
+      const sql = (Array.isArray(query) ? query : (query as { strings: TemplateStringsArray }).strings).join("");
+      return sql.includes('SELECT "draftVersion"') ? [] : [row];
+    });
+    mocks.prisma.loiRevision.findUnique.mockResolvedValue({ ...revision(), terms: base });
+    mocks.prisma.loiRevision.findMany.mockResolvedValue([{ ...revision(), terms: base }]);
+    mocks.prisma.loiNegotiation.findUnique.mockResolvedValue(negotiation(1, "AWAITING_SELLER_RESPONSE"));
+    mocks.prisma.loiDraft.findUnique.mockResolvedValue(null);
+
+    await saveLoiDraft({ expectedDraftVersion: 0, expectedSequence: 1, negotiationId, terms: next });
+    const saved = mocks.prisma.loiDraft.create.mock.calls[0]![0].data.terms;
+    expect(saved.purchasePriceCents).toBe(110_000_000);
+    expect(saved.funding).toEqual({ ...base.funding, principalCents: 90_000_000 });
+    expect(saved.costsAndCredits).toMatchObject({ closingCostPayers: next.costsAndCredits.closingCostPayers, sellerCreditIncluded: true, sellerCreditCents: 500_00 });
+    expect(saved.parties).toEqual(base.parties);
+    expect(saved.possession).toEqual(base.possession);
+    expect(saved.hoa).toEqual(next.hoa);
+    expect(saved.timing.closingDays).toBe(45);
+  });
 
   it("does not query LOI tables for a disabled or invalid cohort", async () => {
     for (const [enabled, cohort] of [
@@ -196,6 +437,41 @@ describe("LOI service behavior", () => {
     expect(result.revisions[0]?.computedSummary.earnestMoneyCents).toBe(1);
   });
 
+  it.each([2, 3, 4, 5] as const)("reads a stored calculation version %s without recomputing its cash amounts", async (version) => {
+    const computed = calculateLoiSummary(terms);
+    const v3OnlyKeys = new Set(["buyerHomeWarrantyCents", "sellerHomeWarrantyCents", "buyerItemizedCostsCents", "sellerItemizedCostsCents", "rentBackAtClosingCents", "monthlyRentBackCents"]);
+    const v4OnlyKeys = new Set(["escrowFeePerSideCents", "buyerEscrowCents", "sellerEscrowCents"]);
+    const v5OnlyKeys = new Set(["transferTaxSchedule", "laCountyTransferTaxCents", "laCityTransferTaxCents", "measureUlaCents", "measureUlaRateBps", "buyerTransferTaxCents", "sellerTransferTaxCents"]);
+    const v4 = Object.fromEntries(Object.entries(computed).filter(([key]) => !v5OnlyKeys.has(key)));
+    const v3 = Object.fromEntries(Object.entries(v4).filter(([key]) => !v4OnlyKeys.has(key)));
+    const v2 = Object.fromEntries(Object.entries(v3).filter(([key]) => !v3OnlyKeys.has(key)));
+    const stored = { ...(version === 2 ? v2 : version === 3 ? v3 : version === 4 ? v4 : computed), calculationVersion: version, buyerCashDueAtClosingCents: 12345, sellerCashBeforePayoffsCents: 67890 };
+    mocks.prisma.$queryRaw.mockResolvedValueOnce([access(1, "AWAITING_SELLER_RESPONSE")]);
+    mocks.prisma.loiNegotiation.findUnique.mockResolvedValue(negotiation(1, "AWAITING_SELLER_RESPONSE"));
+    mocks.prisma.loiRevision.findMany.mockResolvedValue([{ ...revision(), calculationVersion: version, computedSummary: stored }]);
+    mocks.prisma.loiDraft.findUnique.mockResolvedValue(null);
+    const result = await getLoiNegotiation(negotiationId);
+    expect(result.revisions[0]?.computedSummary).toEqual(stored);
+  });
+
+  it("negotiates warranty shares and itemized charges without changing the base warranty company", async () => {
+    const base: LoiTermsV1 = { ...terms, costsAndCredits: { ...terms.costsAndCredits, homeWarranty: { ...terms.costsAndCredits.homeWarranty, included: true, maximumCents: 80000, company: "Fixture Warranty" } } };
+    const next: LoiTermsV1 = { ...base, costsAndCredits: { ...base.costsAndCredits, homeWarranty: { ...base.costsAndCredits.homeWarranty, company: "Changed company", payer: "OTHER", payerNote: "Buyer 250 / seller 450", buyerShareCents: 25000, sellerShareCents: 45000 }, closingCostEstimates: { buyerEscrowCents: 0, sellerEscrowCents: 0, buyerTitleInsuranceCents: 0, sellerTitleInsuranceCents: 0, buyerOtherClosingCostsCents: 0, sellerOtherClosingCostsCents: 0, sellerAgentCommissionAmount: "0", note: "Fixture", itemizedCosts: { transferTaxes: { amountCents: 100000 }, governmentRetrofit: { amountCents: 0 } } } }, possession: { type: "SELLER_RENT_BACK", amountCents: 150000, days: 30, frequency: "THROUGH_ESCROW" } };
+    const row = access(1, "AWAITING_SELLER_RESPONSE");
+    mocks.getSessionUser.mockResolvedValue({ id: sellerId, roles: ["SELLER"] });
+    mocks.prisma.$queryRaw.mockImplementation(async (query: TemplateStringsArray | { strings: TemplateStringsArray }) => (Array.isArray(query) ? query : (query as { strings: TemplateStringsArray }).strings).join("").includes('SELECT "draftVersion"') ? [] : [row]);
+    const current = { ...revision(), terms: base };
+    mocks.prisma.loiRevision.findUnique.mockResolvedValue(current);
+    mocks.prisma.loiRevision.findMany.mockResolvedValue([current]);
+    mocks.prisma.loiNegotiation.findUnique.mockResolvedValue(negotiation(1, "AWAITING_SELLER_RESPONSE"));
+    mocks.prisma.loiDraft.findUnique.mockResolvedValue(null);
+    const result = await saveLoiDraft({ expectedDraftVersion: 0, expectedSequence: 1, negotiationId, terms: next });
+    expect(result.preview).toMatchObject({ calculationVersion: 5, buyerHomeWarrantyCents: 25000, sellerHomeWarrantyCents: 45000, sellerItemizedCostsCents: 100000, rentBackAtClosingCents: 150000, buyerClosingCostsCents: 25000, sellerClosingCostsCents: 295000, closingCostEstimateComplete: true });
+    const saved = mocks.prisma.loiDraft.create.mock.calls[0]![0].data.terms;
+    expect(saved.costsAndCredits.homeWarranty).toMatchObject({ company: "Fixture Warranty", payer: "OTHER", buyerShareCents: 25000, sellerShareCents: 45000 });
+    expect(saved.costsAndCredits.closingCostEstimates.itemizedCosts).toEqual(next.costsAndCredits.closingCostEstimates!.itemizedCosts);
+  });
+
   it("exposes starter terms only for an eligible actionable initial negotiation", async () => {
     const row = { ...access(), property_price: { toString: () => "2000000" }, property_snapshot: { price: 1_000_000 } };
     mocks.prisma.$queryRaw.mockResolvedValueOnce([row]);
@@ -205,6 +481,7 @@ describe("LOI service behavior", () => {
 
     const result = await getLoiNegotiation(negotiationId);
     expect(result.starterTerms?.purchasePriceCents).toBe(100_000_000);
+    expect(result.starterTerms?.providers.escrow.feePayer).toBe("EACH_OWN");
     expect(result.allowedActions).toContain("EDIT");
 
     const ineligible = { ...row, property_ready: false };
@@ -216,10 +493,30 @@ describe("LOI service behavior", () => {
     expect(frozenRead).toMatchObject({ allowedActions: [], starterTerms: null, status: "READ_ONLY" });
   });
 
+  it.each([0, "0", "", null, undefined])("opens an eligible LOI with missing asking price (%s), without inventing a price", async (price) => {
+    const row = { ...access(), negotiation_id: null, negotiation_status: null, property_snapshot: { price } };
+    mocks.prisma.$queryRaw.mockResolvedValue([row]);
+    expect(await getLoiForConversation(conversationId)).toMatchObject({ available: true, canCreate: true });
+    mocks.prisma.loiNegotiation.create.mockResolvedValue(negotiation(0, "AWAITING_BUYER_SUBMISSION"));
+    mocks.prisma.loiNegotiation.findUnique.mockResolvedValue(negotiation(0, "AWAITING_BUYER_SUBMISSION"));
+    mocks.prisma.loiRevision.findMany.mockResolvedValue([]);
+    mocks.prisma.loiDraft.findUnique.mockResolvedValue(null);
+
+    const result = await createLoiNegotiation({ clientActionId: actionId, inviteId: row.invite_id });
+    expect(result).toMatchObject({ id: negotiationId, starterTerms: { purchasePriceCents: 0 } });
+    expect(result.allowedActions).toContain("EDIT");
+    expect(mocks.prisma.loiNegotiation.create.mock.calls[0]![0].data.propertySnapshot).toEqual({ price });
+    expect(loiTermsV1Schema.safeParse(result.starterTerms).success).toBe(false);
+    expect(previewLoiCalculation(result.starterTerms)).toBeNull();
+    expect(loiTermsV1Schema.safeParse({ ...result.starterTerms, purchasePriceCents: 75_000_000 }).success).toBe(true);
+  });
+
   it("fails closed before advertising or creating an invalid starter payload", async () => {
     const notStarted = { ...access(), negotiation_id: null, negotiation_status: null };
     const invalidRows = [
       { ...notStarted, property_snapshot: { price: 100_000_000.01 } },
+      { ...notStarted, property_snapshot: { price: -1 } },
+      { ...notStarted, property_snapshot: { price: "invalid" } },
       { ...notStarted, buyer_name: "N".repeat(161) },
       { ...notStarted, buyer_email: `${"e".repeat(250)}@x.co` },
     ];

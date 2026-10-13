@@ -142,24 +142,6 @@ export function marketBboxParam(market: Market) {
   return marketBboxString(market);
 }
 
-export async function listActiveServiceAreas(marketSlug: string): Promise<ServiceAreaResult[]> {
-  try {
-    const rows = await prisma.serviceArea.findMany({
-      where: { active: true, market: { active: true, slug: marketSlug } },
-      include: {
-        currentGeometry: { select: { sha256: true } },
-        market: { select: { slug: true } },
-      },
-      orderBy: [{ type: "asc" }, { slug: "asc" }],
-    });
-    return rows.map(dbServiceAreaToResult);
-  } catch (error) {
-    logGeographyFailure("list active service areas", error);
-    if (fixtureFallbackEnabled() && marketSlug === DEFAULT_MARKET_SLUG) return fixtureServiceAreas();
-    throw new GeographyUnavailableError(undefined, { cause: error });
-  }
-}
-
 export async function getActiveServiceAreaBySlug(slug: string, marketSlug: string) {
   try {
     const row = await prisma.serviceArea.findFirst({
@@ -231,11 +213,6 @@ export async function getSearchCoverageServiceAreaIds(serviceAreaId: string, mar
     logGeographyFailure("resolve service-area search rollups", error);
     throw new GeographyUnavailableError(undefined, { cause: error });
   }
-}
-
-export async function searchActiveServiceAreas(query: string, limit: number, marketSlug: string) {
-  const lookup = await lookupActiveServiceAreas(query, limit, marketSlug);
-  return lookup.map(({ area }) => area);
 }
 
 export async function resolveActiveServiceArea(query: string, marketSlug: string): Promise<ServiceAreaResultResolution> {

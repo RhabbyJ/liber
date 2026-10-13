@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getGeometry = vi.hoisted(() => vi.fn());
+const limit = vi.hoisted(() => vi.fn());
+vi.mock("../../../../../server/public-geography-http", () => ({ limitPublicGeographyRequest: limit }));
 
 vi.mock("../../../../../server/service-areas", () => ({
   GeographyUnavailableError: class GeographyUnavailableError extends Error {},
@@ -16,7 +18,7 @@ const geometry = {
 };
 
 describe("service-area geometry route", () => {
-  beforeEach(() => getGeometry.mockReset());
+  beforeEach(() => { getGeometry.mockReset(); limit.mockReset().mockResolvedValue(null); });
 
   it("loads the exact retained version for an immutable URL", async () => {
     getGeometry.mockResolvedValue(geometry);
@@ -62,5 +64,14 @@ describe("service-area geometry route", () => {
     );
 
     expect(response.status).toBe(404);
+  });
+
+  it("stops before geography queries when the shared budget is exhausted", async () => {
+    limit.mockResolvedValue(new Response(null, { status: 429 }));
+    const response = await GET(new Request("https://liber.test/api/service-areas/90001/geometry?market=los-angeles"), {
+      params: Promise.resolve({ slug: "90001" }),
+    });
+    expect(response.status).toBe(429);
+    expect(getGeometry).not.toHaveBeenCalled();
   });
 });

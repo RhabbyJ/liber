@@ -26,13 +26,14 @@ describe("conversation inbox rendering", () => {
     const source = readFileSync(new URL("./conversation-inbox.tsx", import.meta.url), "utf8");
 
     expect(source).toContain('fetch("/api/conversations"');
-    expect(source).toContain("window.setInterval(recover, 5_000)");
+    expect(source).toContain("createRecoveryPolling({");
+    expect(source).toContain("intervalMs: () => MESSAGING_FALLBACK_POLL_MS");
     expect(source).toContain('window.addEventListener("focus", recover)');
     expect(source).toContain('window.addEventListener("online", recover)');
     expect(source).toContain('document.addEventListener("visibilitychange", recover)');
     expect(source).toContain("signature !== firstPageSignatureRef.current");
     expect(source).toContain("conversationPageSignature(incoming, refreshedPageInfo)");
-    expect(source).toContain("if (requestInFlightRef.current) return");
+    expect(source).toContain("if (requestInFlightRef.current) return true");
     expect(source).toContain("INBOX_REFRESH_TIMEOUT_MS");
     expect(source).toContain("setLoading(false)");
     expect(source).not.toContain("if (!controller.signal.aborted) setLoading(false)");

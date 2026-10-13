@@ -57,6 +57,7 @@ export function loiErrorResponse(error: unknown) {
   if (error instanceof LoiError) {
     console.warn("LOI request rejected.", { code: error.code, status: error.status });
     const message = error.code === "AUTHENTICATION_REQUIRED" ? "Authentication required."
+      : error.code === "FINANCING_EVIDENCE_REQUIRED" ? "A current pre-approval badge or uploaded pre-approval letter is required."
       : error.code === "INVALID_INPUT" ? "Invalid LOI request."
         : error.code === "RATE_LIMITED" ? "Please wait before trying again."
           : error.code === "CONFLICT" ? "Negotiation changed. Refresh and try again."

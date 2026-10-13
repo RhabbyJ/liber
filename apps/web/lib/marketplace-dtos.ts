@@ -9,7 +9,6 @@ export type SellerPropertyDTO = {
   baths?: number;
   area?: number;
   lotSize?: number;
-  garageArea?: number;
   propertyType: PropertySubtype;
   condition: string;
   features: string[];
@@ -26,6 +25,8 @@ export type InviteDTO = {
   buyer: string;
   property: string;
   propertyStatus?: string;
+  propertyCondition?: string;
+  propertyFeatures?: string[];
   status: "Sent" | "Viewed" | "Accepted" | "Declined" | "Expired";
   sentAt: string;
   sentAtDate: string;

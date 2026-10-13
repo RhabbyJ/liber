@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { checkRateLimit, type RateLimitStore } from "./rate-limit";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { checkRateLimit, clientIpFromHeaders, clientIpFromRequest, type RateLimitStore } from "./rate-limit";
 
 function memoryStore(): RateLimitStore {
   const buckets = new Map<string, { count: number; resetAt: number }>();
@@ -21,6 +21,30 @@ function memoryStore(): RateLimitStore {
 }
 
 describe("rate limit utility", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("does not let direct requests choose arbitrary IP buckets", () => {
+    vi.stubEnv("VERCEL", "");
+    expect(clientIpFromHeaders(new Headers({ "x-forwarded-for": "203.0.113.7", "x-real-ip": "203.0.113.8" }))).toBe("unknown-ip");
+  });
+
+  it("prefers the Vercel-controlled address over an additional proxy chain", () => {
+    vi.stubEnv("VERCEL", "1");
+    expect(clientIpFromRequest(new Request("https://liber.test", { headers: {
+      "x-vercel-forwarded-for": "203.0.113.9", "x-forwarded-for": "203.0.113.7, 203.0.113.8",
+    } }))).toBe("203.0.113.9");
+  });
+
+  it.each(["arbitrary-bucket", "203.0.113.7, 203.0.113.8", "203.0.113.7:80", "a".repeat(500)])("does not mint buckets for malformed IP %j", (value) => {
+    vi.stubEnv("VERCEL", "1");
+    expect(clientIpFromHeaders(new Headers({ "x-forwarded-for": value }))).toBe("unknown-ip");
+  });
+
+  it("canonicalizes equivalent IPv6 spellings into the same quota bucket", () => {
+    vi.stubEnv("VERCEL", "1");
+    expect(clientIpFromHeaders(new Headers({ "x-forwarded-for": "2001:0DB8:0000:0000:0000:0000:0000:0001" }))).toBe("2001:db8::1");
+    expect(clientIpFromHeaders(new Headers({ "x-forwarded-for": "2001:db8::1" }))).toBe("2001:db8::1");
+  });
   it("uses a shared-store contract and blocks after the configured quota", async () => {
     const key = `test:${crypto.randomUUID()}`;
     const store = memoryStore();

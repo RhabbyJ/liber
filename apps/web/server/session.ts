@@ -7,6 +7,7 @@ import { defaultPathForSessionUser, pathForSignedInAuthIntent } from "./auth-int
 import { hasRole, type AppRole, type SessionUser } from "./authz";
 export { defaultPathForSessionUser, pathForSignedInAuthIntent };
 import { createSupabaseServerClient } from "./supabase";
+import { isControlledPreviewEnvironment } from "./preview-environment";
 
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   await connection();
@@ -35,7 +36,8 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   let roles = dbUser.roles;
   // CEO-demo: elevate every active session to ADMIN + approve seller directory access.
   if (
-    process.env.LIBER_CEO_PREVIEW_TARGET === "ceo-preview"
+    isControlledPreviewEnvironment()
+    && process.env.LIBER_CEO_PREVIEW_TARGET === "ceo-preview"
     && process.env.LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL === "true"
   ) {
     const { ensureCeoPreviewDemoPrivileges } = await import("./ceo-preview");

@@ -19,8 +19,14 @@ export function currentLoiRevision(negotiation: LoiNegotiation) {
     ?? null;
 }
 
+export function canActOnLoi(negotiation: LoiNegotiation) {
+  return !negotiation.effectivelyExpired
+    && !["TERMS_ALIGNED", "DECLINED", "WITHDRAWN", "EXPIRED", "READ_ONLY"].includes(negotiation.status ?? "");
+}
+
 export function canEditLoi(negotiation: LoiNegotiation) {
-  return negotiation.allowedActions.includes("EDIT") || negotiation.allowedActions.includes("COUNTER");
+  return canActOnLoi(negotiation)
+    && (negotiation.allowedActions.includes("EDIT") || negotiation.allowedActions.includes("COUNTER"));
 }
 
 export function currentLoiViewState(negotiation: LoiNegotiation): LoiWorkspaceViewState {
@@ -47,7 +53,7 @@ export function initialLoiViewState(negotiation: LoiNegotiation): LoiWorkspaceVi
       terms: negotiation.draft.terms,
     };
   }
-  if (negotiation.allowedActions.includes("EDIT") && negotiation.starterTerms) {
+  if (canEditLoi(negotiation) && negotiation.allowedActions.includes("EDIT") && negotiation.starterTerms) {
     return {
       dirty: true,
       draftId: null,
@@ -62,6 +68,7 @@ export function initialLoiViewState(negotiation: LoiNegotiation): LoiWorkspaceVi
 }
 
 export function editingLoiViewState(negotiation: LoiNegotiation): LoiWorkspaceViewState {
+  if (!canEditLoi(negotiation)) return currentLoiViewState(negotiation);
   const current = currentLoiRevision(negotiation);
   if (negotiation.draft) {
     return {
@@ -102,6 +109,36 @@ export function historicalLoiViewState(previous: LoiWorkspaceViewState, revision
 export function loiCanonicalIdentity(negotiation: LoiNegotiation) {
   const current = currentLoiRevision(negotiation);
   return `${negotiation.currentSequence}:${current?.id ?? "draft"}:${negotiation.status}`;
+}
+
+export function savedLoiDraftTransition({
+  basis,
+  current,
+  draft,
+  mode,
+}: {
+  basis: LoiNegotiation;
+  current: LoiNegotiation;
+  draft: NonNullable<LoiNegotiation["draft"]>;
+  mode: "EDITING" | "REVIEWING";
+}): { negotiation: LoiNegotiation; view: LoiWorkspaceViewState } | null {
+  if (basis.id !== current.id
+    || basis.viewerRole !== current.viewerRole
+    || loiCanonicalIdentity(basis) !== loiCanonicalIdentity(current)
+    || !canEditLoi(basis)
+    || !canEditLoi(current)
+    || current.effectivelyExpired
+    || !draft.id.trim()
+    || !Number.isSafeInteger(draft.draftVersion)
+    || draft.draftVersion < 1) return null;
+
+  // A polling read may already contain this save, but never replace a newer
+  // draft or revive a draft that another tab deleted/recreated while saving.
+  if (basis.draft && current.draft?.id !== basis.draft.id) return null;
+  if (current.draft && (draft.draftVersion < current.draft.draftVersion || draft.id !== current.draft.id)) return null;
+
+  const negotiation = { ...current, draft };
+  return { negotiation, view: { ...editingLoiViewState(negotiation), mode } };
 }
 
 export function reconcileLoiViewState(

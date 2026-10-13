@@ -7,6 +7,7 @@ Owns Next route handlers and external provider adapters for auth callbacks, geoc
 ## Main files
 
 - `apps/web/app/api/auth/login/route.ts`
+- `apps/web/app/api/notifications/route.ts`
 - `apps/web/app/api/geo/geocode/route.ts`
 - `apps/web/app/api/service-areas/search/route.ts`
 - `apps/web/app/api/service-areas/[slug]/route.ts`
@@ -23,6 +24,23 @@ Owns Next route handlers and external provider adapters for auth callbacks, geoc
 - `apps/web/server/rate-limit.ts`
 
 ## Invariants
+
+- Notification activity uses an active server session, owner-scoped queries,
+  minimal count/latest-invite DTOs, and private/no-store responses. PATCH requires
+  same-origin protection and strict JSON bounded to 1 KiB. Unknown or foreign
+  notification IDs are indistinguishable; GET never changes read state.
+- API handlers own authorization; page proxy skips API Auth refresh. Cacheable
+  public geography responses therefore contain no personalized cookies.
+- Public geography origin misses share a 120/minute/IP quota. Search/detail
+  metadata is cacheable for 60 seconds in browsers and 300 seconds at the CDN;
+  immutable geometry keeps its versioned cache contract. Malformed inputs fail
+  before expensive work and quota outages fail closed.
+- Login streams at most 16 KiB; enrichment/upload JSON at most 8 KiB. Geocode,
+  enrichment, seller directory and private upload/access responses explicitly
+  use private/no-store, including failures. Provider diagnostics stay server-side.
+- `GET /api/admin/documents/:documentId` requires an active ADMIN session,
+  enabled confidential-document processing and a pending document; audits access,
+  permits at most 60 requests/minute/account and issues a 60-second signed URL.
 
 - Provider-backed routes must be auth-protected or strictly rate-limited.
 - Validate request inputs.

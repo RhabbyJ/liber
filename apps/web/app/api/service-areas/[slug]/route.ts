@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { limitPublicGeographyRequest, PUBLIC_GEOGRAPHY_CACHE } from "../../../../server/public-geography-http";
 import {
   GeographyUnavailableError,
   getActiveServiceAreaBySlug,
@@ -19,11 +20,14 @@ export async function GET(
   const parsedMarket = serviceAreaSlugSchema.safeParse(market);
   if (!parsedMarket.success) return NextResponse.json({ error: "Market is required." }, { status: 400 });
 
+  const limited = await limitPublicGeographyRequest(request);
+  if (limited) return limited;
+
   try {
     const area = await getActiveServiceAreaBySlug(parsed.data, parsedMarket.data);
     if (!area) return NextResponse.json({ error: "Unsupported service area." }, { status: 404 });
 
-    return NextResponse.json(serviceAreaApiShape(area));
+    return NextResponse.json(serviceAreaApiShape(area), { headers: { "Cache-Control": PUBLIC_GEOGRAPHY_CACHE } });
   } catch (error) {
     const message = error instanceof GeographyUnavailableError
       ? error.message

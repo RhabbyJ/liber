@@ -1,15 +1,16 @@
 import Link from "next/link";
 import { marketSlugSchema } from "@liber/validators";
 import { BuyerProfileWizard } from "../../../components/buyer-profile-wizard";
+import { BadgePill } from "../../../components/badge-pill";
 import { GeneratedAvatar } from "../../../components/generated-avatar";
 import { Icon } from "../../../components/icon";
 import { DirectUploadField } from "../../../components/direct-upload-field";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
+import { confidentialDocumentAccessEnabled } from "../../../server/verification/document-access";
 import { DEFAULT_MARKET_SLUG } from "../../../lib/service-areas";
 import { getActiveMarketOrFallback } from "../../../server/service-areas";
 import { avatarVariantOptions } from "../../../lib/avatar-variant";
 import {
-  regenerateBuyerPublicAlias,
   setBuyerAvatar,
   submitBuyerProfile,
 } from "../../../server/form-actions";
@@ -23,6 +24,7 @@ export default async function BuyerProfileBuilderPage({
     ? await searchParams
     : {};
   const { data: buyer } = await getCurrentBuyerProfile();
+  const selectedAvatarColor = Number(buyer.avatarVariant?.split(":").at(-1) ?? 0) % 8;
   const parsedRequestedMarket = marketSlugSchema.safeParse(requestedMarket);
   const preferredMarketSlug = (buyer.primaryServiceArea?.active ? buyer.primaryServiceArea.marketSlug : undefined) ??
     (parsedRequestedMarket.success ? parsedRequestedMarket.data : DEFAULT_MARKET_SLUG);
@@ -47,6 +49,7 @@ export default async function BuyerProfileBuilderPage({
   const isActive = buyer.visibility === "active";
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
   const activePreApproval = activeBadges.find((badge) => badge.type === "PRE_APPROVED");
+  const activeTestPreApproval = activeBadges.find((badge) => badge.type === "TEST_PRE_APPROVED");
   const pendingPreApproval = buyer.badges.find(
     (badge) => badge.type === "PRE_APPROVED" && badge.status === "pending",
   );
@@ -139,6 +142,7 @@ export default async function BuyerProfileBuilderPage({
         ) : null}
         <DirectUploadField
           accept="application/pdf,image/png,image/jpeg,image/webp"
+          disabledReason={confidentialDocumentAccessEnabled() ? undefined : "Document verification is temporarily unavailable."}
           documentTypes={[
             { label: "Pre-approval letter", value: "PRE_APPROVAL" },
             { label: "Proof of funds", value: "VERIFIED_FUNDS" },
@@ -184,6 +188,7 @@ export default async function BuyerProfileBuilderPage({
               marketSlug={market.slug}
             />
           </article>
+          {activeTestPreApproval ? <TestPreApprovalNotice badge={activeTestPreApproval} /> : null}
           {canSubmitVerification ? verificationCard : null}
         </div>
       </div>
@@ -211,6 +216,7 @@ export default async function BuyerProfileBuilderPage({
               <div className="buyer-profile-avatar">
                 <GeneratedAvatar
                   alt="Generated buyer avatar"
+                  name={buyer.name}
                   seed={buyer.userId || buyer.id}
                   size="xl"
                   variant={buyer.avatarVariant}
@@ -231,28 +237,25 @@ export default async function BuyerProfileBuilderPage({
                     <Icon name="pencil" size={14} />
                     Edit profile
                   </Link>
-                  <form action={regenerateBuyerPublicAlias}>
-                    <button className="button secondary" type="submit">New alias</button>
-                  </form>
                 </>
               )}
             </div>
           </div>
           {isAdminControlled ? null : (
             <form action={setBuyerAvatar} className="buyer-avatar-picker">
-              <p className="eyebrow">Choose an avatar</p>
+              <p className="eyebrow">Choose an avatar color</p>
               <div className="avatar-option-grid">
-                {avatarVariantOptions().map((variant) => (
+                {avatarVariantOptions().slice(0, 8).map((variant) => (
                   <button
-                    aria-label={`Avatar option ${variant.split(":")[2]}`}
-                    aria-pressed={variant === buyer.avatarVariant}
-                    className={`avatar-option${variant === buyer.avatarVariant ? " selected" : ""}`}
+                    aria-label={`Avatar color ${variant.split(":")[2]}`}
+                    aria-pressed={Number(variant.split(":").at(-1)) === selectedAvatarColor}
+                    className={`avatar-option${Number(variant.split(":").at(-1)) === selectedAvatarColor ? " selected" : ""}`}
                     key={variant}
                     name="avatarVariant"
                     type="submit"
                     value={variant}
                   >
-                    <GeneratedAvatar seed={buyer.userId || buyer.id} size="sm" variant={variant} />
+                    <GeneratedAvatar name={buyer.name} seed={buyer.userId || buyer.id} size="sm" variant={variant} />
                   </button>
                 ))}
               </div>
@@ -301,6 +304,7 @@ export default async function BuyerProfileBuilderPage({
           </div>
         </article>
 
+        {activeTestPreApproval ? <TestPreApprovalNotice badge={activeTestPreApproval} /> : null}
         <article className="card buyer-verified-card">
           <h2>Your verified information</h2>
           {verifiedInformation.length > 0 ? (
@@ -320,5 +324,14 @@ export default async function BuyerProfileBuilderPage({
         </article>
       </div>
     </div>
+  );
+}
+
+function TestPreApprovalNotice({ badge }: { badge: Parameters<typeof BadgePill>[0]["badge"] }) {
+  return (
+    <aside className="auth-alert warning" role="status">
+      <BadgePill badge={badge} />
+      <span>Testing only. Financing has not been verified. This badge expires automatically within 24 hours.</span>
+    </aside>
   );
 }

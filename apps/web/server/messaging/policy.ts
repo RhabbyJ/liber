@@ -1,8 +1,6 @@
 import { MessagingError, messagingUnavailable } from "./errors";
 import type { MessagingParticipantRole } from "./templates";
-import { INVITE_EXPIRATION_DAYS } from "../maintenance";
 
-export const SELLER_FOLLOW_UP_COOLDOWN_MS = 24 * 60 * 60_000;
 export const MESSAGE_ATTEMPT_LIMIT_PER_MINUTE = 20;
 export const MESSAGE_CONVERSATION_LIMIT_PER_HOUR = 120;
 export const MESSAGE_USER_LIMIT_PER_24_HOURS = 500;
@@ -19,12 +17,10 @@ export type ConversationSendState = {
   conversationStatus: "ACTIVE" | "AWAITING_BUYER" | "BLOCKED" | "READ_ONLY";
   hasBlock: boolean;
   inviteExpiresAt: Date | null;
-  inviteSentAt: Date;
   inviteStatus: "ACCEPTED" | "DECLINED" | "EXPIRED" | "SENT" | "VIEWED" | "WITHDRAWN";
   propertyApproved: boolean;
   propertyIdentityCurrent: boolean;
   sellerAccessApproved: boolean;
-  sellerFollowUpCount: number;
   sellerUserActive: boolean;
 };
 
@@ -56,9 +52,7 @@ export function assertConversationCanSend(args: {
     throw messagingUnavailable();
   }
 
-  const inviteDeadline = state.inviteExpiresAt
-    ?? new Date(state.inviteSentAt.getTime() + INVITE_EXPIRATION_DAYS * 86_400_000);
-  if (state.inviteStatus !== "ACCEPTED" && inviteDeadline.getTime() <= now.getTime()) {
+  if (state.inviteStatus !== "ACCEPTED" && !inviteDeadlineIsCurrent(state.inviteExpiresAt, now)) {
     throw messagingUnavailable();
   }
 
@@ -71,4 +65,8 @@ export function assertConversationCanSend(args: {
     "The buyer must respond before additional messages are available.",
     409,
   );
+}
+
+export function inviteDeadlineIsCurrent(deadline: Date | null, now = new Date()) {
+  return deadline instanceof Date && Number.isFinite(deadline.getTime()) && deadline.getTime() > now.getTime();
 }

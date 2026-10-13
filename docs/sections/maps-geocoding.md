@@ -27,7 +27,7 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - Map view and list view must reflect the same buyer results.
 - Seller search maps are buyer-demand maps; numbered pins/clusters represent buyers or buyer demand signals, not property listings.
 - Buyer map markers must preserve privacy and should not expose exact private addresses.
-- Mapbox must be optional; local development should degrade gracefully. When WebGL initialization fails but a public token is configured, the public demand map falls back to a Mapbox Static Images street map with the same privacy-safe approximate pins.
+- Mapbox must be optional; local development should degrade gracefully. When WebGL initialization fails but a public token is configured, public and seller maps fall back to a Mapbox Static Images street map with the same area-center pins. Without a usable map provider, show an unavailable state and retain buyer cards; never position pins on decorative geography.
 - Interactive maps are clamped to the active market bbox, remain draggable/zoomable throughout Los Angeles County, and provide a View all LA County reset.
 - Maps do not draw ambient County, city, or ZCTA borders. They fetch and render a boundary only for the exact ZIP, city, or neighborhood selected through search, and remove it when the selection is cleared.
 - Customer-facing maps support direct wheel and touch gestures without requiring a modifier key.
@@ -50,7 +50,8 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - Production database failures must return controlled unavailable errors; static service-area data is test/development fixture data only.
 - Search suggestions and exact resolution are separate; ambiguous place terms and unique prefixes must ask the user to choose a specific supported area.
 - Service-area API submit flows may auto-select only exact `resolution.status === "resolved"` results, not single search suggestions.
-- Selected-area preview pins must anchor to the selected service-area center plus privacy offset instead of re-parsing buyer city text.
+- Searching a parent city or neighborhood filters results and changes the viewport; it must not move buyers away from their own selected service-area centers. No coordinate jitter or pixel fan-out is applied. Identical centers share a count marker whose popup lists the matching buyers.
+- The customer-facing destination and map headings are named Map. Public ZIP previews display the selected ZIP label.
 - Do not claim national coverage unless product docs approve it.
 
 ## Agent notes

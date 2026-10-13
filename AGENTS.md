@@ -1,100 +1,68 @@
 # AGENTS.md
 
-Rules for AI agents working in this repository.
+## Repository map
 
-This file is intentionally **product-light**. It tells agents how to work. Product scope lives in `docs/product/V1_DEFINITION.md`. Vision lives in `docs/product/CEO_ROADMAP.md`. Backend details live in `docs/engineering/BACKEND_ARCHITECTURE.md`.
+Liber is a private real-estate buyer directory built with Next.js App Router,
+TypeScript, Prisma, and Supabase Auth/Postgres/Storage.
 
-## Required reading
+- `apps/web/app` — pages and HTTP routes.
+- `apps/web/server` — authorization, domain logic, and integrations.
+- `apps/web/components` and `apps/web/lib` — UI and browser-safe helpers.
+- `packages/db` — Prisma client, schema, and SQL migrations.
+- `packages/validators` — shared input contracts.
+- `scripts` — verification and operational tooling.
 
-Before editing code, read only the docs needed for the task:
+Use `docs/README.md` to find current documentation. Read the relevant section
+notes and architecture/product contracts for the area being changed; do not
+load the entire documentation tree. Archived plans are historical context.
+For framework-specific behavior, consult the installed Next.js docs at
+`apps/web/node_modules/next/dist/docs` (or the hoisted `node_modules/next/dist/docs`).
 
-1. `AGENTS.md` — global agent rules.
-2. `docs/README.md` — source-of-truth map.
-3. `docs/product/V1_DEFINITION.md` — required for any customer-facing or workflow change.
-4. `docs/engineering/BACKEND_ARCHITECTURE.md` — required for backend, auth, storage, schema, API, or security changes.
-5. The matching `docs/sections/*.md` micro-doc for the files you will touch.
+## Working agreements
 
-Do not treat old root-level planning docs or archived notes as source of truth.
+- Complete authorized work end to end. Routine fixes, refactors, tests, and
+  documentation updates do not need repeated approval.
+- Improve architecture when a concrete correctness, security, performance, or
+  maintenance problem justifies it. Preserve sound existing patterns and avoid
+  speculative rewrites. Dependencies are allowed when needed; explain the cost.
+- For multi-step work, keep a short plan with the goal, changes, verification,
+  and non-goals. Delegate independent investigation when useful.
+- Preserve unrelated user changes. Remove obsolete code within the work's
+  scope. Keep comments focused on non-obvious behavior or invariants.
+- Current user instructions govern scope. Use `docs/product/V1_DEFINITION.md`
+  for existing behavior and `docs/product/CEO_ROADMAP.md` for direction; update
+  them when approved work changes the product. Update architecture and section
+  docs when their contracts change.
 
-## Operating mode
+## Security and data boundaries
 
-- Make the smallest correct change.
-- Prefer existing patterns over new abstractions.
-- Do not redesign adjacent code unless the task requires it.
-- Remove only unused code created by your change.
-- Do not silently change product behavior.
-- Do not add dependencies unless the task explicitly requires them and the tradeoff is documented.
-- Do not create fake data, fake credentials, or fake production behavior.
+- Enforce authorization on the server using database-controlled identity and
+  roles. Validate untrusted inputs at server boundaries.
+- Preserve RLS, private Storage access, seller/admin gates, rate limits, and
+  document immutability. Keep secrets and private data out of browser payloads,
+  logs, and test output; use the existing authorized document-access paths.
+- Use explicit test fixtures or guarded demo tooling for synthetic data; never
+  represent it as real production activity.
+- Keep applied migrations immutable. Test schema changes on a disposable target
+  using the documented migration path. A code-change request does not itself
+  authorize destructive operations or changes to shared production data.
 
-For multi-step work, maintain a short plan:
+## Commands and verification
 
-```txt
-Goal:
-Plan:
-1. Change ... -> verify with ...
-2. Change ... -> verify with ...
-Non-goals:
-```
+From the repository root, use `npm ci` to install the lockfile and `npm run dev`
+to start the app. Run the narrowest useful checks first:
 
-## Security rules
+- `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`
+- `npm run db:validate` for schema changes
+- `npm run smoke:routes`, `npm run smoke:security`,
+  `npm run smoke:no-auth-bypass`, `npm run smoke:visual` for relevant flows
+- `npm run readiness:env` for environment readiness
 
-- Authorization belongs on the server, not in UI hiding.
-- Never expose service-role keys, private storage paths, or document URLs to the browser unless mediated by an allowed server path.
-- Treat Supabase RLS and Storage policies as production security boundaries.
-- Validate inputs at server boundaries with the existing Zod validators or a local equivalent.
-- User-editable metadata must not drive authorization.
-- Do not weaken rate limits, seller access checks, document immutability, or admin-only gates to make a UI easier.
-- Do not print secrets in logs, test output, screenshots, or documentation.
+Run server-starting smoke scripts sequentially. Add regression coverage for
+meaningful bugs and changed contracts. Report only checks actually run, and
+state missing credentials or other verification limits.
 
-## Product-change rules
+Finish with changed files, behavior changes, verification results, migration or
+environment requirements, remaining risks, and whether product docs changed.
 
-- If a requested change expands product scope, first compare it to `docs/product/V1_DEFINITION.md`.
-- If the change is outside v1, do not implement it as production behavior unless explicitly approved.
-- If product behavior changes, update `docs/product/V1_DEFINITION.md` or `docs/product/CEO_ROADMAP.md` in the same change.
-- If backend behavior changes, update `docs/engineering/BACKEND_ARCHITECTURE.md` and the relevant section micro-doc.
-
-## Code comments
-
-Keep code comments short and rare.
-
-Good comments explain:
-
-- a security invariant,
-- a business rule that is easy to break,
-- a cross-file dependency that is not obvious,
-- or a temporary workaround with a removal condition.
-
-Bad comments restate the code or paste product docs into source files.
-
-When a longer explanation is needed, update the relevant `docs/sections/*.md` file instead of adding a large code comment.
-
-## Testing and verification
-
-Run the narrowest useful verification first, then broader checks when the change touches shared behavior.
-
-Common commands:
-
-```bash
-npm run typecheck
-npm test
-npm run build
-npm run db:validate
-npm run smoke:routes
-npm run smoke:security
-npm run smoke:no-auth-bypass
-npm run smoke:visual
-npm run readiness:env
-```
-
-Do not claim a command passed unless you ran it. If a command cannot run, state why.
-
-## Final response format
-
-Every agent handoff should include:
-
-- changed files,
-- what changed,
-- verification commands and results,
-- migrations or environment changes,
-- remaining risks or TODOs,
-- and whether product docs were updated.
+Instruction-file reference: [OpenAI AGENTS.md guidance](https://learn.chatgpt.com/docs/agent-configuration/agents-md).

@@ -1,5 +1,5 @@
 export const INVITE_RESPONSE_WINDOW_MS = 48 * 60 * 60 * 1000;
-export const INVITE_EXPIRATION_DAYS = 30;
+export const MAINTENANCE_BATCH_SIZE = 25;
 type LoiFreezeReason = "INVITE_NO_LONGER_ELIGIBLE" | "PARTICIPANT_INACTIVE" | "PARTICIPANTS_BLOCKED" | "PROPERTY_IDENTITY_CHANGED" | "PROPERTY_NO_LONGER_ELIGIBLE" | "SELLER_ACCESS_LOST";
 
 export function inviteExpiresAt(from = new Date()) {
@@ -10,48 +10,39 @@ export async function expireMarketplaceState(now = new Date()) {
   const { prisma } = await import("@liber/db");
 
   return prisma.$transaction(async (tx) => {
-    const [expiredBadges, expiredInvites] = await Promise.all([
-      tx.buyerBadge.findMany({
-        where: {
-          expiresAt: { lte: now },
-          status: { in: ["ACTIVE", "PENDING"] },
-        },
-        select: {
-          badgeType: true,
-          buyerProfile: { select: { userId: true } },
-          id: true,
-        },
-      }),
-      tx.invite.findMany({
-        where: {
-          expiresAt: { lte: now },
-          status: { in: ["SENT", "VIEWED"] },
-        },
-        select: {
-          buyerProfile: { select: { userId: true } },
-          buyerProfileId: true,
-          id: true,
-          propertyId: true,
-          sellerId: true,
-          title: true,
-        },
-      }),
-    ]);
-
-    const badges = await tx.buyerBadge.updateMany({
-      where: {
-        expiresAt: { lte: now },
-        status: { in: ["ACTIVE", "PENDING"] },
-      },
-      data: { status: "EXPIRED" },
-    });
-    const invites = await tx.invite.updateMany({
-      where: {
-        expiresAt: { lte: now },
-        status: { in: ["SENT", "VIEWED"] },
-      },
-      data: { status: "EXPIRED" },
-    });
+    // Notify only transitions owned by this transaction; concurrent workers skip its locks.
+    const expiredBadges = await tx.$queryRaw<Array<{ badgeType: string; userId: string; id: string }>>`
+      WITH candidates AS (
+        SELECT badge.id FROM public."BuyerBadge" badge
+        WHERE badge."expiresAt" <= ${now} AND badge.status IN ('ACTIVE', 'PENDING')
+        ORDER BY badge."expiresAt", badge.id
+        LIMIT ${MAINTENANCE_BATCH_SIZE}
+        FOR UPDATE OF badge SKIP LOCKED
+      ), expired AS (
+        UPDATE public."BuyerBadge" badge SET status = 'EXPIRED', "updatedAt" = ${now}
+        FROM candidates WHERE badge.id = candidates.id
+        RETURNING badge.id, badge."badgeType", badge."buyerProfileId"
+      )
+      SELECT expired.id, expired."badgeType", buyer."userId"
+      FROM expired JOIN public."BuyerProfile" buyer ON buyer.id = expired."buyerProfileId"
+    `;
+    const expiredInvites = await tx.$queryRaw<Array<{
+      buyerProfileId: string; userId: string; id: string; propertyId: string; sellerId: string; title: string;
+    }>>`
+      WITH candidates AS (
+        SELECT invite.id FROM public."Invite" invite
+        WHERE invite."expiresAt" <= ${now} AND invite.status IN ('SENT', 'VIEWED')
+        ORDER BY invite."expiresAt", invite.id
+        LIMIT ${MAINTENANCE_BATCH_SIZE}
+        FOR UPDATE OF invite SKIP LOCKED
+      ), expired AS (
+        UPDATE public."Invite" invite SET status = 'EXPIRED', "updatedAt" = ${now}
+        FROM candidates WHERE invite.id = candidates.id
+        RETURNING invite.id, invite."buyerProfileId", invite."propertyId", invite."sellerId", invite.title
+      )
+      SELECT expired.*, buyer."userId"
+      FROM expired JOIN public."BuyerProfile" buyer ON buyer.id = expired."buyerProfileId"
+    `;
     const expiredLoi = await tx.$queryRaw<Array<{ buyerUserId: string; currentRevisionId: string; id: string; sellerUserId: string }>>`
       SELECT negotiation.id,
         negotiation."buyerUserId" AS "buyerUserId",
@@ -65,6 +56,7 @@ export async function expireMarketplaceState(now = new Date()) {
         )
         AND revision."responseDeadline" <= ${now}
       ORDER BY negotiation.id
+      LIMIT ${MAINTENANCE_BATCH_SIZE}
       FOR UPDATE OF negotiation SKIP LOCKED
     `;
     for (const negotiation of expiredLoi) {
@@ -129,6 +121,7 @@ export async function expireMarketplaceState(now = new Date()) {
           OR EXISTS (SELECT 1 FROM public."UserBlock" block WHERE (block."blockerUserId" = negotiation."buyerUserId" AND block."blockedUserId" = negotiation."sellerUserId") OR (block."blockerUserId" = negotiation."sellerUserId" AND block."blockedUserId" = negotiation."buyerUserId"))
         )
       ORDER BY negotiation.id
+      LIMIT ${MAINTENANCE_BATCH_SIZE}
       FOR UPDATE OF negotiation SKIP LOCKED
     `) ?? [];
     for (const negotiation of frozenLoi) {
@@ -145,7 +138,7 @@ export async function expireMarketplaceState(now = new Date()) {
           metadata: { badgeId: badge.id, badgeType: badge.badgeType },
           title: "Trust badge expired",
           type: "badge_expired",
-          userId: badge.buyerProfile.userId,
+          userId: badge.userId,
         })),
       });
       await tx.adminAuditLog.create({
@@ -167,7 +160,7 @@ export async function expireMarketplaceState(now = new Date()) {
             metadata: { inviteId: invite.id, propertyId: invite.propertyId },
             title: invite.title,
             type: "invite_expired",
-            userId: invite.buyerProfile.userId,
+            userId: invite.userId,
           },
           {
             body: "Your manual buyer invite expired without a response.",
@@ -193,17 +186,30 @@ export async function expireMarketplaceState(now = new Date()) {
       });
     }
 
-    const minimizedOutbox = await tx.emailOutbox.updateMany({
-      where: { status: "SENT", sentAt: { lt: new Date(now.getTime() - 30 * 86_400_000) } },
-      data: { payload: {}, subject: null, to: "redacted" },
-    });
+    const minimizedOutbox = await tx.$queryRaw<Array<{ id: string }>>`
+      WITH candidates AS (
+        SELECT job.id FROM public."EmailOutbox" job
+        WHERE job.status = 'SENT'
+          AND job."sentAt" < ${new Date(now.getTime() - 30 * 86_400_000)}
+          AND (job.payload <> '{}'::jsonb OR job.subject IS NOT NULL OR job."to" <> 'redacted')
+        ORDER BY job."sentAt", job.id
+        LIMIT ${MAINTENANCE_BATCH_SIZE}
+        FOR UPDATE OF job SKIP LOCKED
+      )
+      UPDATE public."EmailOutbox" job
+      SET payload = '{}'::jsonb, subject = NULL, "to" = 'redacted', "updatedAt" = ${now}
+      FROM candidates WHERE job.id = candidates.id
+      RETURNING job.id
+    `;
 
     return {
-      badgesExpired: badges.count,
-      invitesExpired: invites.count,
+      badgesExpired: expiredBadges.length,
+      invitesExpired: expiredInvites.length,
       loiNegotiationsExpired: expiredLoi.length,
       loiNegotiationsFrozen: frozenLoi.length,
-      outboxPayloadsMinimized: minimizedOutbox.count,
+      outboxPayloadsMinimized: minimizedOutbox.length,
+      hasMore: [expiredBadges, expiredInvites, expiredLoi, frozenLoi, minimizedOutbox]
+        .some((rows) => rows.length === MAINTENANCE_BATCH_SIZE),
     };
-  });
+  }, { maxWait: 5_000, timeout: 15_000 });
 }

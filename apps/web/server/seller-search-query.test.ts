@@ -1,4 +1,6 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { PGlite } from "@electric-sql/pglite";
+import type { Prisma } from "@liber/db";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SearchBuyersInput } from "@liber/validators";
 
 type QueryModule = typeof import("./seller-search-query");
@@ -164,6 +166,97 @@ describe("SQL-native seller search", () => {
     expect(seen).toEqual(originalRows.map((row) => row.id));
     expect(seen).not.toContain("buyer-concurrent-insert");
   });
+});
+
+describe("seller search badge expiry in isolated PostgreSQL", () => {
+  let database: PGlite;
+  const snapshotAt = new Date("2026-07-09T20:00:00.000Z");
+  const badgeExpiry = new Date("2026-07-09T20:05:00.000Z");
+  const client = {
+    async $queryRaw<T>(query: Prisma.Sql): Promise<T> {
+      const values = query.values.map((value) => value instanceof Date
+        ? value.toISOString()
+        : value !== null && typeof value === "object" ? String(value) : value);
+      return (await database.query(query.text, values)).rows as T;
+    },
+  };
+
+  beforeAll(async () => {
+    database = new PGlite();
+    await database.exec(`
+      CREATE TABLE "User" (id text PRIMARY KEY, status text);
+      CREATE TABLE markets (id text PRIMARY KEY, slug text, active boolean);
+      CREATE TABLE service_areas (id text PRIMARY KEY, market_id text, slug text, active boolean);
+      CREATE TABLE service_area_relationships (
+        parent_service_area_id text, child_service_area_id text,
+        relation_type text, reviewed_at timestamp
+      );
+      CREATE TABLE "BuyerProfile" (
+        id text PRIMARY KEY, "userId" text, "visibilityStatus" text, "buyerType" text,
+        "budgetMin" numeric, "budgetMax" numeric,
+        "createdAt" timestamp, "updatedAt" timestamp, "lastRefreshedAt" timestamp
+      );
+      CREATE TABLE buyer_desired_service_areas (
+        buyer_profile_id text, service_area_id text, is_primary boolean, source text
+      );
+      CREATE TABLE "BuyerBadge" (
+        "buyerProfileId" text, "badgeType" text, status text, "expiresAt" timestamp
+      );
+      INSERT INTO markets VALUES ('market', 'los-angeles', true);
+      INSERT INTO service_areas VALUES ('area', 'market', '91325', true);
+      INSERT INTO "BuyerProfile"
+      SELECT id, id, 'ACTIVE', 'Cash', 500000, 1000000,
+        CASE WHEN id = 'buyer-d-new' THEN timestamp '2026-07-09 20:01:00'
+          ELSE timestamp '2026-07-09 19:00:00' END,
+        timestamp '2026-07-09 19:00:00', timestamp '2026-07-09 19:00:00'
+      FROM unnest(ARRAY['buyer-a', 'buyer-b-expiring', 'buyer-c', 'buyer-d-new']) AS id;
+      INSERT INTO "User" SELECT "userId", 'ACTIVE' FROM "BuyerProfile";
+      INSERT INTO buyer_desired_service_areas
+      SELECT id, 'area', true, 'SELECTED' FROM "BuyerProfile";
+      INSERT INTO "BuyerBadge"
+      SELECT buyer.id, badge, 'ACTIVE',
+        CASE WHEN buyer.id = 'buyer-b-expiring' THEN timestamp '2026-07-09 20:05:00' ELSE NULL END
+      FROM "BuyerProfile" buyer
+      CROSS JOIN unnest(ARRAY['PRE_APPROVED', 'VERIFIED_FUNDS', 'VERIFIED_IDENTITY']) AS badge
+      WHERE buyer.id <> 'buyer-c' OR badge <> 'VERIFIED_IDENTITY';
+    `);
+  }, 30_000);
+
+  afterAll(async () => database?.close());
+
+  it.each(["PRE_APPROVED", "CASH_BUYER"] as const)(
+    "excludes newly expired %s matches on later pages without admitting later inserts",
+    async (badge) => {
+      const filters = searchFilters({ badges: [badge], pageSize: 1, sort: "highest_budget" });
+      const first = await queryModule.querySellerSearchIds(client, filters, snapshotAt);
+      expect(first.ids).toEqual(["buyer-a"]);
+      expect(first.nextCursor).not.toBeNull();
+
+      const beforeExpiry = await queryModule.querySellerSearchIds(client, {
+        ...filters, cursor: first.nextCursor!, pageSize: 10,
+      }, new Date(badgeExpiry.getTime() - 1));
+      expect(beforeExpiry.ids).toEqual(["buyer-b-expiring", "buyer-c"]);
+
+      const atExpiry = await queryModule.querySellerSearchIds(client, {
+        ...filters, cursor: first.nextCursor!, pageSize: 10,
+      }, badgeExpiry);
+      expect(atExpiry.ids).toEqual(["buyer-c"]);
+      expect(atExpiry.snapshotAt).toBe(snapshotAt.toISOString());
+    },
+  );
+
+  it.each(["most_verified", "recommended"] as const)(
+    "removes expired badges from the %s score on later pages",
+    async (sort) => {
+      const filters = searchFilters({ pageSize: 1, sort });
+      const first = await queryModule.querySellerSearchIds(client, filters, snapshotAt);
+      expect(first.ids).toEqual(["buyer-a"]);
+      const next = await queryModule.querySellerSearchIds(client, {
+        ...filters, cursor: first.nextCursor!, pageSize: 10,
+      }, badgeExpiry);
+      expect(next.ids).toEqual(["buyer-c", "buyer-b-expiring"]);
+    },
+  );
 });
 
 function searchFilters(overrides: Partial<SearchBuyersInput> = {}): SearchBuyersInput {

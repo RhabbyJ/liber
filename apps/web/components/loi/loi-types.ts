@@ -25,6 +25,7 @@ export type LoiNegotiation = {
   currentSequence: number;
   draft: { draftVersion: number; id: string; terms: LoiTermsV1; updatedAt: string } | null;
   effectivelyExpired: boolean;
+  financingEvidenceExceptionExpiresAt?: string | null;
   id: string;
   propertySnapshot: unknown;
   revisionPageInfo: LoiRevisionPageInfo;

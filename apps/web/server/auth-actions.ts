@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { safeInternalPath } from "../lib/redirect";
+import { normalizeSignupName } from "../lib/public-identity";
 import { ensureSellerAccessRequested } from "./access";
 import {
   AuthIdentityLinkError,
@@ -14,6 +15,7 @@ import type { AppRole } from "./authz";
 import { clientIpFromHeaders } from "./rate-limit";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
 import { configuredSiteOrigin } from "./site-origin";
+import { isControlledPreviewEnvironment } from "./preview-environment";
 
 function requiredText(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -24,7 +26,8 @@ function requiredText(formData: FormData, key: string) {
 }
 
 function safeNextValue(formData: FormData) {
-  return safeInternalPath(formData.get("next"), "") || null;
+  const next = safeInternalPath(formData.get("next"), "");
+  return next.length <= 2048 ? next || null : null;
 }
 
 function selectedRoles(formData: FormData): AppRole[] {
@@ -51,7 +54,7 @@ export async function signupWithPassword(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const signupRole = signupRoleValue(formData);
   const roles = selectedRoles(formData);
-  const name = textValue(formData, "name");
+  const name = normalizeSignupName(textValue(formData, "name"));
   const email = textValue(formData, "email");
   const password = textValue(formData, "password");
   const next = safeNextValue(formData);
@@ -63,6 +66,10 @@ export async function signupWithPassword(formData: FormData) {
 
   if (!name || !email || !password) {
     redirect(signupRedirectPath(formData, "missing-fields", email));
+  }
+
+  if (name.length > 160 || email.length > 254 || password.length > 1024) {
+    redirect(signupRedirectPath(formData, "missing-fields", email.length <= 254 ? email : ""));
   }
 
   if (!signupRole || roles.length === 0) {
@@ -176,6 +183,7 @@ export async function signupWithPassword(formData: FormData) {
 export async function resendSignupConfirmation(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const email = requiredText(formData, "email");
+  if (email.length > 254) throw new Error("Enter a valid email address.");
   const next = safeNextValue(formData);
   const redirectTo = await authCallbackUrl(next ?? "/");
 
@@ -203,7 +211,9 @@ export async function resendSignupConfirmation(formData: FormData) {
 }
 
 function shouldAutoConfirmLocalSignup() {
-  return process.env.NODE_ENV !== "production" && process.env.LIBER_AUTO_CONFIRM_SIGNUPS === "true";
+  return process.env.NODE_ENV !== "production"
+    && isControlledPreviewEnvironment()
+    && process.env.LIBER_AUTO_CONFIRM_SIGNUPS === "true";
 }
 
 function textValue(formData: FormData, key: string) {

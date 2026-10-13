@@ -15,8 +15,8 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - `apps/web/components/interactive-buyer-map.tsx`
 - `apps/web/components/static-buyer-map.tsx`
 - `apps/web/server/contracts.ts`
-- `apps/web/server/buyer-dtos.ts`
-- `apps/web/lib/buyer-dto-types.ts`
+- `apps/web/server/buyer/read-models.ts`
+- `apps/web/lib/buyer-dtos.ts`
 - `apps/web/server/seller-search-query.ts`
 - `apps/web/server/buyer-preview.ts`
 - `apps/web/server/service-areas.ts`
@@ -27,6 +27,9 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - Active `PENDING` and `REJECTED` sellers receive only the signed-in privacy-safe preview projection as a read-only list. An anomalous missing access row receives the same limited projection with distinct copy; `SUSPENDED` seller access receives no seller-route preview.
 - The pre-approval list reuses `getPublicBuyerPreviews`; it must not call `searchBuyers`, serialize buyer routing IDs or identities, or render profile/contact/invite actions.
 - Approved sellers land on the map view by default (`view=list` opts out); buyer cards render below the map from the same result set.
+- The filter form remounts when applied URL filters change, so clearing filters,
+  removing a chip, and browser history navigation reset the displayed controls.
+  Changing only the cursor or view preserves the form state.
 - List and map use the same `items` from one paginated query contract; neither consumer performs its own filtering or sorting.
 - Map pins show coarse budget labels for buyer demand signals, not seller listings, identities, or exact buyer locations.
 - Location filtering requires market + service-area routing keys; the selected polygon and buyer list use the same resolved UUID.
@@ -38,6 +41,10 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - Property-fit filters (beds/baths/sqft/condition/amenities Pool/Parking/ADU/Yard/Garage) stay fit-and-trust oriented; no protected-class proxies.
 - Persisted filters and all four sorts execute in SQL before keyset pagination; do not reintroduce a fixed pre-filter cap or post-cap JavaScript matching.
 - Cursors are opaque, filter-bound, snapshot-bound, expire after 30 minutes, reject future snapshots, and are ordered by the SQL sort key plus buyer id. Filter, geography, and sort changes must clear the cursor. The snapshot excludes later inserts but is not a historical copy of profiles edited between page requests.
+- Badge eligibility and verification-based rankings use the current page request
+  time, shared with the seller DTO selection. The first-page snapshot controls
+  only the buyer creation cutoff; it never extends badge validity. Expiring
+  badges can change ordering between pages just like other mutable sort fields.
 - Guest homepage and signed-in seller previews may show only privacy-safe buyer cards; they are not full seller search.
 - Search should explain why a buyer matches where possible.
 - Search/profile-view usage consumes the shared database limiter and remains

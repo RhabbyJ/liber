@@ -13,6 +13,14 @@ describe("Mapbox static demand map", () => {
     expect(mapboxStaticImageUrl({ market, points: [], token: "" })).toBeNull();
   });
 
+  it("renders one geographically anchored marker for buyers sharing an area", () => {
+    const url = mapboxStaticImageUrl({ market, token: "pk.test", points: [
+      { lat: 34.16, lng: -118.5 }, { lat: 34.16, lng: -118.5 },
+    ] });
+    expect(url?.match(/pin-s\+16834c/g)).toHaveLength(1);
+    expect(url).toContain("(-118.5,34.16)");
+  });
+
   it("renders approximate demand points on a geographic street map", () => {
     const url = mapboxStaticImageUrl({
       market,

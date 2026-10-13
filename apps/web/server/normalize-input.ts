@@ -10,6 +10,14 @@ export function normalizeInput(input: unknown) {
   for (const key of Array.from(input.keys())) {
     const rawValues = input.getAll(key);
     const values = rawValues.filter((value) => value !== "");
+    if (values.length === 0 && key === "features" && rawValues.length > 0) {
+      output.features = [];
+      continue;
+    }
+    if (values.length === 0 && key === "condition" && rawValues.length > 0) {
+      output.condition = "";
+      continue;
+    }
     if (values.length === 0 && nullableBlankFields.has(key) && rawValues.length > 0) {
       output[key] = null;
       continue;
@@ -21,10 +29,11 @@ export function normalizeInput(input: unknown) {
 
   if (typeof output.features === "string" || Array.isArray(output.features)) {
     const rawFeatures = Array.isArray(output.features) ? output.features : [output.features];
+    const checkboxFeatures = input.getAll("features").includes("");
     output.features = Array.from(new Set(
       rawFeatures
         .filter((value): value is string => typeof value === "string")
-        .flatMap((value) => value.split(","))
+        .flatMap((value) => checkboxFeatures ? [value] : value.split(","))
         .map((value) => value.trim())
         .filter(Boolean),
     ));

@@ -29,21 +29,6 @@ const geocodeQuerySchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Authentication required.", results: [] }, { status: 401 });
-
-  const [ipLimit, userLimit] = await Promise.all([
-    checkRateLimit(`geocode:ip:${clientIpFromRequest(request)}`, 60, 60_000),
-    checkRateLimit(`geocode:user:${user.id}`, 40, 60_000),
-  ]);
-  if (!ipLimit.allowed || !userLimit.allowed) {
-    const retryAfter = Math.max(ipLimit.retryAfterSeconds, userLimit.retryAfterSeconds);
-    return NextResponse.json(
-      { error: "Rate limit reached. Try again later.", results: [] },
-      { headers: { "Retry-After": String(retryAfter) }, status: 429 },
-    );
-  }
-
   const { searchParams } = new URL(request.url);
   const parsed = geocodeQuerySchema.safeParse({
     intent: searchParams.get("intent") || undefined,
@@ -51,11 +36,31 @@ export async function GET(request: Request) {
     market: searchParams.get("market"),
     query: searchParams.get("query"),
   });
-
   if (!parsed.success) {
-    return NextResponse.json({ error: "Enter at least 3 characters.", results: [] }, { status: 400 });
+    return privateJson({ error: "Enter at least 3 characters.", results: [] }, 400);
   }
   const { intent, kind, market: marketSlug, query } = parsed.data;
+
+  const user = await getSessionUser();
+  if (!user) return privateJson({ error: "Authentication required.", results: [] }, 401);
+
+  let limits;
+  try {
+    limits = await Promise.all([
+      checkRateLimit(`geocode:ip:${clientIpFromRequest(request)}`, 60, 60_000),
+      checkRateLimit(`geocode:user:${user.id}`, 40, 60_000),
+    ]);
+  } catch {
+    return privateJson({ error: "Geocoding is temporarily unavailable.", results: [] }, 503);
+  }
+  const [ipLimit, userLimit] = limits;
+  if (!ipLimit.allowed || !userLimit.allowed) {
+    const retryAfter = Math.max(ipLimit.retryAfterSeconds, userLimit.retryAfterSeconds);
+    return NextResponse.json(
+      { error: "Rate limit reached. Try again later.", results: [] },
+      { headers: { "Cache-Control": "private, no-store", "Retry-After": String(retryAfter) }, status: 429 },
+    );
+  }
 
   let localResolution;
   try {
@@ -65,12 +70,12 @@ export async function GET(request: Request) {
   }
   const localArea = localResolution.status === "resolved" ? localResolution.area : null;
   if (localArea) {
-    return NextResponse.json({ error: null, results: [areaToResult(localArea)] });
+    return privateJson({ error: null, results: [areaToResult(localArea)] });
   }
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   if (!token) {
-    return NextResponse.json({ error: "Mapbox is not configured.", results: [] }, { status: 503 });
+    return privateJson({ error: "Mapbox is not configured.", results: [] }, 503);
   }
 
   let market;
@@ -90,25 +95,25 @@ export async function GET(request: Request) {
     types: kind === "address" ? "address,postcode,place" : "postcode,place",
   });
 
-  const response = await fetchWithRetry(`https://api.mapbox.com/search/geocode/v6/forward?${params}`, {
-    cache: "no-store",
-  });
+  try {
+    const response = await fetchWithRetry(`https://api.mapbox.com/search/geocode/v6/forward?${params}`, {
+      cache: "no-store",
+    });
+    if (!response.ok) return privateJson({ error: "Mapbox lookup failed.", results: [] }, 502);
 
-  if (!response.ok) {
-    return NextResponse.json({ error: "Mapbox lookup failed.", results: [] }, { status: 502 });
+    const payload = await response.json();
+    const features = Array.isArray(payload?.features) ? payload.features.slice(0, 3) : [];
+    const mappedResults = await Promise.all(
+      features.map((feature: Record<string, unknown>) => featureToMarketResult(feature, marketSlug)),
+    );
+    const results = mappedResults.filter((result: GeocodeResult | null): result is GeocodeResult => Boolean(result));
+    if (results.length === 0) {
+      return privateJson({ error: "That area is outside active Liber service areas.", results: [] }, 404);
+    }
+    return privateJson({ error: null, results });
+  } catch {
+    return privateJson({ error: "Geocoding is temporarily unavailable.", results: [] }, 503);
   }
-
-  const payload = await response.json();
-  const mappedResults = await Promise.all(
-    (payload?.features ?? []).map((feature: Record<string, unknown>) => featureToMarketResult(feature, marketSlug)),
-  );
-  const results = mappedResults.filter((result: GeocodeResult | null): result is GeocodeResult => Boolean(result));
-
-  if (results.length === 0) {
-    return NextResponse.json({ error: "That area is outside active Liber service areas.", results: [] }, { status: 404 });
-  }
-
-  return NextResponse.json({ error: null, results });
 }
 
 async function featureToMarketResult(feature: Record<string, unknown>, marketSlug: string) {
@@ -123,7 +128,11 @@ function geographyErrorResponse(error: unknown) {
   const message = error instanceof GeographyUnavailableError
     ? error.message
     : "Liber service-area data is temporarily unavailable.";
-  return NextResponse.json({ error: message, results: [] }, { status: 503 });
+  return privateJson({ error: message, results: [] }, 503);
+}
+
+function privateJson(body: unknown, status = 200) {
+  return NextResponse.json(body, { headers: { "Cache-Control": "private, no-store" }, status });
 }
 
 function areaToResult(area: ServiceArea) {

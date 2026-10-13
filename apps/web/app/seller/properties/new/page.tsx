@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Icon } from "../../../../components/icon";
 import { PropertyAddressLookup } from "../../../../components/property-address-lookup";
+import { PropertyDetailsFields } from "../../../../components/property-details-fields";
 import { OwnershipReviewIllustration, PropertyHeroIllustration } from "../../../../components/property-intake-illustration";
 import { PropertyTypePicker } from "../../../../components/property-type-picker";
 import { DEFAULT_MARKET_SLUG } from "../../../../lib/service-areas";
@@ -59,18 +60,7 @@ export default async function NewSellerPropertyPage({
               <label htmlFor="price">Asking price</label>
               <input id="price" name="price" placeholder="925000" inputMode="numeric" />
             </div>
-            <div className="field">
-              <label htmlFor="garage">Garage size (sq ft)</label>
-              <input id="garage" name="garageArea" placeholder="420" inputMode="numeric" />
-            </div>
-            <div className="field">
-              <label htmlFor="condition">Condition</label>
-              <input id="condition" name="condition" placeholder="Well maintained" />
-            </div>
-            <div className="field full">
-              <label htmlFor="features">Features</label>
-              <textarea id="features" name="features" placeholder="Single story, attached garage, low-maintenance yard" />
-            </div>
+            <PropertyDetailsFields />
             <div className="field full">
               <label htmlFor="description">Notes for invited buyers</label>
               <textarea id="description" name="description" placeholder="Add useful private context." />

@@ -12,19 +12,27 @@ type ClaimedAuthOperation = {
 };
 
 export async function processAuthOperations(limit = 10, workerId = `auth_${crypto.randomUUID()}`) {
-  const operations = await claimAuthOperations(limit, workerId);
   let completed = 0;
   let failed = 0;
+  let processed = 0;
   const supabase = createSupabaseAdminClient();
 
-  for (const operation of operations) {
+  while (processed < limit) {
+    const [operation] = await claimAuthOperations(1, workerId);
+    if (!operation) break;
+    processed += 1;
     try {
       if (!supabase) throw new Error("Supabase Auth admin client is not configured.");
       if (operation.type !== "BAN_USER") throw new Error(`Unsupported Auth operation: ${operation.type}`);
+      const lease = await prisma.authOperation.updateMany({
+        where: activeAuthClaim(operation, workerId),
+        data: { leaseUntil: new Date(Date.now() + LEASE_MS) },
+      });
+      if (lease.count !== 1) continue;
       const { error } = await supabase.auth.admin.updateUserById(operation.userId, { ban_duration: "876000h" });
       if (error) throw new Error(error.message);
-      await prisma.authOperation.updateMany({
-        where: { id: operation.id, status: "PROCESSING", workerId },
+      const result = await prisma.authOperation.updateMany({
+        where: activeAuthClaim(operation, workerId),
         data: {
           completedAt: new Date(),
           lastError: null,
@@ -34,11 +42,11 @@ export async function processAuthOperations(limit = 10, workerId = `auth_${crypt
           workerId: null,
         },
       });
-      completed += 1;
+      completed += result.count;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Auth operation failed.";
-      await prisma.authOperation.updateMany({
-        where: { id: operation.id, status: "PROCESSING", workerId },
+      const result = await prisma.authOperation.updateMany({
+        where: activeAuthClaim(operation, workerId),
         data: {
           lastError: message,
           leaseUntil: null,
@@ -50,22 +58,48 @@ export async function processAuthOperations(limit = 10, workerId = `auth_${crypt
           workerId: null,
         },
       });
-      failed += 1;
+      failed += result.count;
     }
   }
 
   await prisma.workerHeartbeat.upsert({
     where: { worker: "auth-operations" },
-    update: { lastRunAt: new Date(), metadata: { completed, failed, processed: operations.length } },
-    create: { worker: "auth-operations", lastRunAt: new Date(), metadata: { completed, failed, processed: operations.length } },
+    update: { lastRunAt: new Date(), metadata: { completed, failed, processed } },
+    create: { worker: "auth-operations", lastRunAt: new Date(), metadata: { completed, failed, processed } },
   });
-  return { completed, failed, processed: operations.length };
+  return { completed, failed, processed };
 }
 
-async function claimAuthOperations(limit: number, workerId: string): Promise<ClaimedAuthOperation[]> {
+function activeAuthClaim(operation: ClaimedAuthOperation, workerId: string) {
+  return {
+    id: operation.id,
+    attempts: operation.attempts,
+    leaseUntil: { gt: new Date() },
+    status: "PROCESSING" as const,
+    workerId,
+  };
+}
+
+export async function claimAuthOperations(limit: number, workerId: string): Promise<ClaimedAuthOperation[]> {
   const leaseUntil = new Date(Date.now() + LEASE_MS);
   return prisma.$queryRaw<ClaimedAuthOperation[]>`
-    WITH candidates AS (
+    WITH exhausted_candidates AS (
+      SELECT id
+      FROM public."AuthOperation"
+      WHERE status = 'PROCESSING' AND attempts >= ${MAX_ATTEMPTS}
+        AND ("leaseUntil" IS NULL OR "leaseUntil" <= now())
+      ORDER BY "createdAt" ASC
+      FOR UPDATE SKIP LOCKED
+      LIMIT ${limit}
+    ), exhausted AS (
+      UPDATE public."AuthOperation" operation
+      SET status = 'FAILED', "lastError" = 'Auth operation lease expired after the final attempt.',
+        "leaseUntil" = NULL, "lockedAt" = NULL, "workerId" = NULL,
+        "nextAttemptAt" = NULL, "updatedAt" = now()
+      FROM exhausted_candidates
+      WHERE operation.id = exhausted_candidates.id
+      RETURNING operation.id
+    ), candidates AS (
       SELECT id
       FROM public."AuthOperation"
       WHERE attempts < ${MAX_ATTEMPTS}

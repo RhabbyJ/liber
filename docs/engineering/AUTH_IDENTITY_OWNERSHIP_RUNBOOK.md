@@ -1,5 +1,13 @@
 # Auth Identity Ownership Runbook
 
+Current-lifecycle note (2026-09-22): this document records the migration-16
+identity correction. Later migrations retired `app_private.suspend_identity`.
+Current application suspension queues an `AuthOperation` ban; old helper or
+session-deletion descriptions below are not current lifecycle test evidence.
+The legacy staging command now fails without side effects pending a modern
+disposable suspension/session/Storage/identity-recreation proof. See
+`SECURITY_HARDENING_2026-09-22.md` for current launch requirements.
+
 This runbook governs migration `20260709000016_harden_auth_identity_ownership`.
 It is a forward-only correction for the Auth UUID rebinding introduced by
 `00007` and repeated by `00009`.

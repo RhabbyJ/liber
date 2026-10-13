@@ -62,7 +62,7 @@ export async function querySellerSearchIds(
     throw new SellerSearchCursorError("Seller search cursor has expired.");
   }
   const rows = await client.$queryRaw<SellerSearchRow[]>(
-    buildSellerSearchQuery(filters, snapshotAt, cursor, schema, viewerUserId),
+    buildSellerSearchQuery(filters, snapshotAt, cursor, schema, viewerUserId, now),
   );
   const hasMore = rows.length > filters.pageSize;
   const pageRows = hasMore ? rows.slice(0, filters.pageSize) : rows;
@@ -92,6 +92,7 @@ export function buildSellerSearchQuery(
   cursor: SellerSearchCursor | null = null,
   schema = Prisma.raw("public"),
   viewerUserId?: string,
+  eligibilityAt = snapshotAt,
 ) {
   const criteriaPredicates: Prisma.Sql[] = [];
   if (filters.propertyCategory) {
@@ -197,7 +198,7 @@ export function buildSellerSearchQuery(
           WHERE cash_evidence."buyerProfileId" = buyer.id
             AND cash_evidence."badgeType"::text = 'VERIFIED_FUNDS'
             AND cash_evidence.status::text = 'ACTIVE'
-            AND (cash_evidence."expiresAt" IS NULL OR cash_evidence."expiresAt" > ${snapshotAt})
+            AND (cash_evidence."expiresAt" IS NULL OR cash_evidence."expiresAt" > ${eligibilityAt})
         )
       `);
       continue;
@@ -209,7 +210,7 @@ export function buildSellerSearchQuery(
         WHERE required_badge."buyerProfileId" = buyer.id
           AND required_badge."badgeType"::text = ${badge}
           AND required_badge.status::text = 'ACTIVE'
-          AND (required_badge."expiresAt" IS NULL OR required_badge."expiresAt" > ${snapshotAt})
+          AND (required_badge."expiresAt" IS NULL OR required_badge."expiresAt" > ${eligibilityAt})
       )
     `);
   }
@@ -263,7 +264,7 @@ export function buildSellerSearchQuery(
         WHERE badge."buyerProfileId" = buyer.id
           AND badge."badgeType"::text IN ('PRE_APPROVED', 'VERIFIED_IDENTITY', 'VERIFIED_FUNDS')
           AND badge.status::text = 'ACTIVE'
-          AND (badge."expiresAt" IS NULL OR badge."expiresAt" > ${snapshotAt})
+          AND (badge."expiresAt" IS NULL OR badge."expiresAt" > ${eligibilityAt})
       ) active_badges ON TRUE
       WHERE ${Prisma.join(predicates, " AND ")}
     )

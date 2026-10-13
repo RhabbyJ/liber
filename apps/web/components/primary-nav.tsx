@@ -58,11 +58,13 @@ const PRIMARY_NAV_FALLBACK = `
 export function PrimaryNav({
   isAuthenticated,
   messagingEnabled,
+  nonce,
   previewToolsEnabled,
   roles,
 }: {
   isAuthenticated: boolean;
   messagingEnabled: boolean;
+  nonce?: string;
   previewToolsEnabled: boolean;
   roles: AppRole[];
 }) {
@@ -130,7 +132,7 @@ export function PrimaryNav({
           )}
         </div>
       </nav>
-      <script dangerouslySetInnerHTML={{ __html: PRIMARY_NAV_FALLBACK }} />
+      <script nonce={nonce} dangerouslySetInnerHTML={{ __html: PRIMARY_NAV_FALLBACK }} />
     </div>
   );
 }

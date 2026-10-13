@@ -1,10 +1,14 @@
 import { Prisma, prisma } from "@liber/db";
-import { seekingPropertyTypeSchema } from "@liber/validators";
+import { searchBuyersSchema, seekingPropertyTypeSchema } from "@liber/validators";
 import { resolveAvatarVariant } from "../lib/avatar-variant";
-import { buyerAliasForDisplay } from "../lib/buyer-alias";
+import { publicNameForDisplay } from "./public-identity";
+import type { PublicBuyerPreviewDTO } from "../lib/buyer-dtos";
 import type { ServiceAreaResult } from "./service-areas";
 import { getSearchCoverageServiceAreaIds } from "./service-areas";
 import { activePrimaryServiceAreaWhere } from "./service-area-matching";
+import { syntheticJourneyBuyerProfileIds } from "./synthetic-property-review";
+import { activeTestPreapprovalProfileIds } from "./test-preapproval";
+import { TEST_PREAPPROVAL_LABEL } from "../lib/test-preapproval";
 
 // Short, display-safe badge labels for the compact public preview UI.
 const previewBadgeLabels: Record<string, string> = {
@@ -21,31 +25,17 @@ const previewAmenities = ["Pool", "Parking", "ADU", "Yard", "Garage"];
  * Privacy-safe homepage preview of buyer demand (V1 preview rules).
  * Guests receive a capped teaser; a validated signed-in viewer receives the
  * same DTO for every eligible profile except their own.
- * No ids, private names, documents, exact locations, or profile links.
- * Generated aliases and allowlisted avatar variants are public-safe identity.
- * Coordinates are approximate only: service-area centers (or coarse-rounded
- * desired-area coordinates) with a deterministic display offset.
+ * No ids, full private names, documents, exact locations, or profile links.
+ * Identity includes only first name, last initial, and a stable account code.
+ * Account ids and private names are used internally and never serialized.
+ * Coordinates use the buyer's selected public service-area center only.
+ * Shared centers are grouped without moving pins or reading private locations.
  */
-export type PublicBuyerPreview = {
-  alias: string;
-  amenities: string[];
-  area: string;
-  avatarVariant: string;
-  badges: string[];
-  bathroomsMin?: number;
-  bedroomsMin?: number;
-  budgetLabel: string;
-  condition?: string;
-  label: string;
-  pin?: { latitude: number; longitude: number };
-  squareFeetMin?: number;
-};
-
 export async function getPublicBuyerPreviews(
   marketSlug: string,
   serviceArea?: ServiceAreaResult | null,
   viewerUserId?: string,
-): Promise<PublicBuyerPreview[]> {
+): Promise<PublicBuyerPreviewDTO[]> {
   try {
     const coverageAreaIds = serviceArea
       ? await getSearchCoverageServiceAreaIds(serviceArea.id, marketSlug)
@@ -61,6 +51,7 @@ export async function getPublicBuyerPreviews(
       ...(viewerUserId ? {} : { take: PUBLIC_PREVIEW_LIMIT }),
       select: {
         id: true,
+        userId: true,
         displayName: true,
         badges: {
           where: {
@@ -99,27 +90,28 @@ export async function getPublicBuyerPreviews(
             },
           },
         },
-        user: { select: { avatarVariant: true } },
+        user: { select: { avatarVariant: true, name: true } },
       },
     });
 
-    return profiles.map((profile, index) => {
+    const syntheticProfiles = await syntheticJourneyBuyerProfileIds(prisma, profiles.map((profile) => profile.id));
+    const testPreapprovalIds = await activeTestPreapprovalProfileIds(prisma, profiles.map((profile) => profile.id));
+    return profiles.map((profile) => {
       const criteria = profile.criteria[0];
+      const condition = searchBuyersSchema.shape.condition.safeParse(criteria?.condition);
       const amenitySet = new Set(
         profile.criteria.flatMap((item) => item.features).map((feature) => feature.trim().toLowerCase()),
       );
       const primaryArea = profile.desiredServiceAreas[0]?.serviceArea;
       const point = approximatePreviewPoint(
-        serviceArea?.center ?? (primaryArea ? { lat: primaryArea.centerLat, lng: primaryArea.centerLng } : null),
-        index,
-        profiles.length,
+        primaryArea ? { lat: primaryArea.centerLat, lng: primaryArea.centerLng } : null,
       );
       const areaLabel = primaryArea
-        ? [primaryArea.type === "neighborhood" ? primaryArea.label : primaryArea.city ?? primaryArea.label, primaryArea.state]
+        ? [primaryArea.type === "zip" || primaryArea.type === "neighborhood" ? primaryArea.label : primaryArea.city ?? primaryArea.label, primaryArea.state]
             .filter(Boolean)
             .join(", ")
         : "Liber service area";
-      const alias = buyerAliasForDisplay(profile.displayName, profile.id);
+      const alias = publicNameForDisplay(profile.user.name, profile.userId);
 
       return {
         alias,
@@ -127,6 +119,8 @@ export async function getPublicBuyerPreviews(
         area: areaLabel,
         avatarVariant: resolveAvatarVariant(profile.user.avatarVariant, profile.id).value,
         badges: [
+          ...(syntheticProfiles.has(profile.id) ? ["Demo buyer"] : []),
+          ...(testPreapprovalIds.has(profile.id) ? [TEST_PREAPPROVAL_LABEL] : []),
           ...profile.badges.map((badge) => previewBadgeLabels[badge.badgeType] ?? "Verified"),
           ...(profile.buyerType === "Cash" && profile.badges.some((badge) => badge.badgeType === "VERIFIED_FUNDS")
             ? ["Cash buyer"]
@@ -135,7 +129,7 @@ export async function getPublicBuyerPreviews(
         bathroomsMin: criteria?.bathroomsMin ?? undefined,
         bedroomsMin: criteria?.bedroomsMin ?? undefined,
         budgetLabel: budgetBandLabel(toNumber(profile.budgetMin), toNumber(profile.budgetMax)),
-        condition: criteria?.condition ?? undefined,
+        condition: condition.success ? condition.data : undefined,
         label: previewPropertyTypeLabel(profile.buyingPurpose),
         pin: point ? { latitude: point.lat, longitude: point.lng } : undefined,
         squareFeetMin: criteria?.squareFeetMin ?? undefined,
@@ -152,7 +146,7 @@ export async function hasControlledDemoBuyerPreviews() {
   try {
     return await prisma.adminAuditLog.count({
       where: { action: "seed_demo_buyer", targetType: "buyer_profile" },
-    }) > 0;
+    }) > 0 || (await syntheticJourneyBuyerProfileIds(prisma)).size > 0;
   } catch (error) {
     console.error("[public-preview] demo marker query failed", error instanceof Error ? error.message : "Unknown error");
     return false;
@@ -182,24 +176,14 @@ function toNumber(value: unknown) {
 }
 
 /**
- * Public pins must never reveal a precise buyer location: snap to the service
- * area center when possible, otherwise round to ~1 km, then spread stacked
- * pins with a small deterministic offset so they stay readable.
+ * A selected service-area center is public geography, not a private address.
+ * Keep it unchanged across searches; overlapping buyers are grouped by the UI.
  */
 export function approximatePreviewPoint(
   center: { lat: number; lng: number } | null,
-  index: number,
-  total = PUBLIC_PREVIEW_LIMIT,
 ) {
-  const baseLat = center?.lat ?? 0;
-  const baseLng = center?.lng ?? 0;
-  if (!baseLat || !baseLng) return null;
-
-  const angle = (index * 2 * Math.PI) / Math.max(total, 1);
-  return {
-    lat: baseLat + Math.sin(angle) * 0.006,
-    lng: baseLng + Math.cos(angle) * 0.008,
-  };
+  if (!center || !Number.isFinite(center.lat) || !Number.isFinite(center.lng)) return null;
+  return { lat: center.lat, lng: center.lng };
 }
 
 // Budgets are shown as coarse $50K bands, never exact figures.

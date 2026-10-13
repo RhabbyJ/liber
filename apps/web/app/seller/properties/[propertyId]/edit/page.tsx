@@ -3,11 +3,13 @@ import { notFound } from "next/navigation";
 import { Icon } from "../../../../../components/icon";
 import { DirectUploadField } from "../../../../../components/direct-upload-field";
 import { PropertyAddressLookup } from "../../../../../components/property-address-lookup";
+import { PropertyDetailsFields } from "../../../../../components/property-details-fields";
 import { PropertyTypePicker } from "../../../../../components/property-type-picker";
 import { DEFAULT_MARKET_SLUG } from "../../../../../lib/service-areas";
 import { getSellerProperty } from "../../../../../server/contracts";
 import { submitSellerPropertyUpdate } from "../../../../../server/form-actions";
 import { getActiveMarketBySlug } from "../../../../../server/service-areas";
+import { confidentialDocumentAccessEnabled } from "../../../../../server/verification/document-access";
 
 export default async function EditSellerPropertyPage({
   params,
@@ -20,7 +22,7 @@ export default async function EditSellerPropertyPage({
 
   if (!property) notFound();
 
-  const verified = property.status.toLowerCase().includes("verified");
+  const verified = property.status === "Ownership verified";
 
   return (
     <div className="page wide seller-property-reference-page">
@@ -43,6 +45,7 @@ export default async function EditSellerPropertyPage({
         <div className="seller-property-reference-form form-grid">
           <DirectUploadField
             accept="application/pdf,image/png,image/jpeg,image/webp"
+            disabledReason={confidentialDocumentAccessEnabled() ? undefined : "Document verification is temporarily unavailable."}
             hint="Private, immutable evidence for Liber admin review; 20 MB max."
             label="Government-issued photo ID"
             ownershipEvidenceKind="GOVERNMENT_ID"
@@ -51,6 +54,7 @@ export default async function EditSellerPropertyPage({
           />
           <DirectUploadField
             accept="application/pdf,image/png,image/jpeg,image/webp"
+            disabledReason={confidentialDocumentAccessEnabled() ? undefined : "Document verification is temporarily unavailable."}
             hint="Utility, tax, or mortgage bill matching this property; 20 MB max."
             label="Property address evidence"
             ownershipEvidenceKind="PROPERTY_ADDRESS_PROOF"
@@ -92,31 +96,17 @@ export default async function EditSellerPropertyPage({
 
           <PropertyAddressLookup
             defaults={{
-              addressLine1: property.title,
+              ...property.address,
               bathrooms: property.baths,
               bedrooms: property.beds,
-              city: property.location.split(",")[0]?.trim(),
               lotSize: property.lotSize,
               squareFeet: property.area,
-              state: property.location.split(",")[1]?.trim().slice(0, 2),
             }}
             marketSlug={market.slug}
             marketState={market.state}
           />
 
-          <div className="field">
-            <label htmlFor="condition">Condition</label>
-            <input id="condition" name="condition" defaultValue={property.condition} />
-          </div>
-          <div className="field">
-            <label htmlFor="garage">Garage area</label>
-            <input id="garage" name="garageArea" defaultValue={property.garageArea} inputMode="numeric" />
-          </div>
-
-          <div className="field full">
-            <label htmlFor="features">Features</label>
-            <textarea id="features" name="features" defaultValue={property.features.join(", ")} />
-          </div>
+          <PropertyDetailsFields condition={property.condition} features={property.features} />
           <div className="field full">
             <label htmlFor="description">Description</label>
             <textarea id="description" name="description" defaultValue={property.description} />

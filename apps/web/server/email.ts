@@ -2,6 +2,7 @@
 
 import { fetchWithRetry } from "./external-fetch";
 import { configuredSiteOrigin } from "./site-origin";
+import type { TourEvent } from "../lib/tour-scheduling";
 
 export type InviteEmailInput = {
   to?: string | null;
@@ -96,6 +97,25 @@ export async function sendLoiUpdateEmail(
     ].join("\n\n"),
     to: input.to,
   }, idempotency);
+}
+
+export async function sendTourEmail(
+  input: { conversationId: string; to: string; event: TourEvent },
+  idempotencyKey: string,
+): Promise<EmailResult> {
+  const copy = input.event === "REMINDER"
+    ? "Your Liber property tour is coming up."
+    : input.event === "FOLLOW_UP"
+      ? "Your scheduled Liber tour time has passed. Follow up in your conversation to discuss next steps."
+      : "Your Liber property tour schedule has an update.";
+  const url = authenticatedUrl(`/messages/${encodeURIComponent(input.conversationId)}`);
+  return sendResendEmail({
+    html: `<p>${copy}</p><p><a href="${escapeHtml(url)}">Sign in to review your tour</a>.</p><p>Tour details and messages are only available after you sign in.</p>`,
+    text: `${copy}\n\nSign in to review your tour: ${url}\n\nTour details and messages are only available after you sign in.`,
+    subject: input.event === "REMINDER" ? "Your Liber tour reminder" : input.event === "FOLLOW_UP" ? "Follow up on your Liber tour" : "Your Liber tour has an update",
+    to: input.to,
+    missingConfigurationMessage: "Tour email delivery is not configured or recipient email is missing.",
+  }, idempotencyKey);
 }
 
 async function sendResendEmail(

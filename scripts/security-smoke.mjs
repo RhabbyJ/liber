@@ -99,7 +99,18 @@ try {
   await waitForServer();
 
   const home = await fetch(baseUrl);
-  expectHeader(home, "content-security-policy");
+  const csp = expectHeader(home, "content-security-policy");
+  const scriptPolicy = csp.split(";").find((part) => part.trim().startsWith("script-src"));
+  const nonce = scriptPolicy?.match(/'nonce-([^']+)'/)?.[1];
+  if (!nonce || scriptPolicy.includes("'unsafe-inline'")) throw new Error("Missing nonce-based script policy.");
+  const html = await home.text();
+  const scriptTags = [...html.matchAll(/<script\b([^>]*)>/gi)];
+  if (!scriptTags.length || scriptTags.some(([, attributes]) => !attributes.includes(`nonce="${nonce}"`))) {
+    throw new Error("Rendered scripts do not share the response CSP nonce.");
+  }
+  const secondHome = await fetch(baseUrl);
+  if (secondHome.headers.get("content-security-policy") === csp) throw new Error("Page nonce was reused.");
+  if (!expectHeader(home, "cache-control").includes("no-store")) throw new Error("Nonce HTML must not be cached.");
   expectHeader(home, "x-content-type-options");
   expectHeader(home, "x-frame-options");
   console.log("ok security headers");
@@ -134,7 +145,8 @@ try {
   if (propertyEnrichment.status !== 401) {
     throw new Error(`/api/property/enrich returned ${propertyEnrichment.status}, expected 401.`);
   }
-  await expectStatus("/api/geo/geocode?query=Sherman", 401);
+  await expectStatus("/api/geo/geocode?market=los-angeles&query=Sherman", 401);
+  await expectStatus("/api/geo/geocode?query=Sherman", 400);
   await expectStatus("/api/seller/buyers?service_area=northridge", 401);
   await expectStatus("/api/property-images/security-smoke", 401);
   await expectStatus("/api/conversations", 401);

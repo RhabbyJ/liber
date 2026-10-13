@@ -3,6 +3,7 @@ import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
 import { PageTitle } from "../../../components/page-title";
 import { PropertyTypeArtwork } from "../../../components/property-type-artwork";
+import { PropertyFeatureSummary } from "../../../components/property-details-fields";
 import { formatMoney } from "../../../lib/format";
 import { propertySubtypeLabel } from "../../../lib/property-types";
 import { listSellerProperties } from "../../../server/contracts";
@@ -41,7 +42,7 @@ export default async function SellerPropertiesPage() {
       ) : (
         <section className="grid two">
           {properties.map((property) => {
-            const verified = property.status.toLowerCase().includes("verified");
+            const verified = property.status === "Ownership verified";
             return (
               <article className="property-card" key={property.id}>
                 <div className="media-preview">
@@ -75,6 +76,7 @@ export default async function SellerPropertiesPage() {
                     {property.area ? <span className="pill">{property.area} sqft</span> : null}
                   </div>
                   <strong style={{ fontSize: 20 }}>{formatMoney(property.price)}</strong>
+                  <PropertyFeatureSummary condition={property.condition} features={property.features} />
                   {property.description ? <p className="muted small">{property.description}</p> : null}
                   <div className="actions between">
                     <Link className="button ghost" href={`/seller/properties/${property.id}/edit`}>

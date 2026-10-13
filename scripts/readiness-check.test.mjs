@@ -349,6 +349,18 @@ test("production dependency readiness detects persisted preview admin self-grant
   assert.match(readinessSource, /still rely on private-preview admin self-grant/);
 });
 
+test("production readiness rejects current test approvals without counting revoked or stale versions", () => {
+  const source = readFileSync(readinessScript, "utf8");
+  const query = source.slice(source.indexOf("const testPropertyApprovals"), source.indexOf("const geography ="));
+  assert.match(query, /JOIN LATERAL/);
+  assert.match(query, /propertyIdentityVersion' = property\."identityVersion"::text/);
+  assert.match(query, /'property_synthetic_test_approval', 'property_synthetic_test_revocation'/);
+  assert.match(query, /ORDER BY audit\."createdAt" DESC, audit\.id DESC\s+LIMIT 1/);
+  assert.match(query, /latest_test_review\.action = 'property_synthetic_test_approval'/);
+  assert.match(query, /ownershipVerificationStatus" = 'APPROVED'/);
+  assert.match(query, /collection\.push\([\s\S]*still rely on synthetic test approval/);
+});
+
 test("production readiness requires a sufficiently strong maintenance secret", () => {
   const result = spawnSync(process.execPath, [readinessScript, "--production"], {
     cwd: path.dirname(readinessScript),

@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ui-preview",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--env-file=C:/Users/rjega/liber/apps/web/.env.local",
+        "C:/Users/rjega/liber-ui-preview/scripts/with-local-ca.mjs",
+        "C:\\Users\\rjega\\liber-ui-preview\\node_modules\\.bin\\next.cmd",
+        "dev",
+        "C:/Users/rjega/liber-ui-preview/apps/web",
+        "--port",
+        "3001"
+      ],
+      "port": 3001
+    }
+  ]
+}

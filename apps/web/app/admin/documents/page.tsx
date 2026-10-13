@@ -1,15 +1,29 @@
 import { PageTitle } from "../../../components/page-title";
+import Link from "next/link";
 import { listPendingDocuments } from "../../../server/contracts";
 import { submitDocumentReview } from "../../../server/form-actions";
+import { AdminSyntheticPropertyReview } from "../../../components/admin-synthetic-property-review";
+import { listSyntheticPropertyReviewCandidates } from "../../../server/synthetic-property-review";
 
-export default async function AdminDocumentsPage() {
-  const { data: adminDocuments } = await listPendingDocuments();
+export default async function AdminDocumentsPage({ searchParams }: { searchParams: Promise<{ cursor?: string }> }) {
+  const { cursor } = await searchParams;
+  const { data: adminDocuments, available, nextCursor } = await listPendingDocuments(cursor);
+  const testProperties = await listSyntheticPropertyReviewCandidates();
 
   return (
     <div className="page stack">
       <PageTitle eyebrow="Admin" title="Documents">
         Document storage paths stay private; admins review status without exposing public URLs.
       </PageTitle>
+      {!available ? <p role="status">Document verification is temporarily unavailable.</p> : null}
+      <p className="auth-alert info">For buyer verification, review and approve the document below, then <Link href="/admin/badges">grant its matching badge</Link>. Uploading a file submits it to this review queue; it does not approve the badge automatically.</p>
+      {testProperties.length ? (
+        <section className="card flat stack">
+          <h2>Synthetic journey test controls</h2>
+          <p className="muted">Only the designated demo seller’s properties appear here. Test approvals let that seller invite the designated demo buyer. They do not verify ownership or approve any document.</p>
+          {testProperties.map((property) => <AdminSyntheticPropertyReview key={property.id} property={property} />)}
+        </section>
+      ) : null}
       <section className="card flat">
         <table className="table">
           <thead>
@@ -23,23 +37,14 @@ export default async function AdminDocumentsPage() {
             </tr>
           </thead>
           <tbody>
-            {adminDocuments.map((document) => {
-              const signedUrl = "signedUrl" in document && typeof document.signedUrl === "string"
-                ? document.signedUrl
-                : null;
-
-              return (
+            {adminDocuments.map((document) => (
               <tr key={document.id}>
                 <td>{document.owner}</td>
                 <td>{document.subject}</td>
                 <td>{document.type}</td>
                 <td>{document.status}</td>
                 <td>
-                  {signedUrl ? (
-                    <a href={signedUrl} rel="noreferrer" target="_blank">Open</a>
-                  ) : (
-                    <span className="muted">Private</span>
-                  )}
+                  <a href={`/api/admin/documents/${encodeURIComponent(document.id)}`} rel="noreferrer" target="_blank">Open</a>
                 </td>
                 <td>
                   <div className="actions inline">
@@ -68,11 +73,11 @@ export default async function AdminDocumentsPage() {
                   </div>
                 </td>
               </tr>
-              );
-            })}
+            ))}
           </tbody>
         </table>
       </section>
+      {nextCursor ? <a className="button secondary" href={`/admin/documents?cursor=${encodeURIComponent(nextCursor)}`}>Next documents</a> : null}
     </div>
   );
 }

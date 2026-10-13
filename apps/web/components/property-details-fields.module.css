@@ -1,0 +1,58 @@
+.fieldset {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.fieldset legend {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.choices {
+  display: grid;
+  gap: 4px 20px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  margin-top: 8px;
+}
+
+.fieldset label.choice {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  min-height: 44px;
+  overflow-wrap: anywhere;
+}
+
+.choice input[type="checkbox"] {
+  accent-color: var(--sage-strong);
+  flex: 0 0 20px;
+  height: 20px;
+  min-height: 20px;
+  margin: 0;
+  padding: 0;
+  width: 20px;
+}
+
+.choice:has(input:focus-visible) {
+  border-radius: 4px;
+  outline: 2px solid var(--sage-strong);
+  outline-offset: 3px;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.summary li {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}

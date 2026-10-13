@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { BadgePill } from "../../../components/badge-pill";
 import { DirectUploadField } from "../../../components/direct-upload-field";
+import { BuyerVerificationDocuments } from "../../../components/buyer-verification-documents";
 import { Icon } from "../../../components/icon";
 import { PageTitle } from "../../../components/page-title";
 import { TrustTransformation } from "../../../components/trust-transformation";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
+import { confidentialDocumentAccessEnabled } from "../../../server/verification/document-access";
+import { listCurrentBuyerVerificationDocuments } from "../../../server/verification/buyer-documents";
 
 export default async function BuyerBadgesPage() {
-  const { data: buyer } = await getCurrentBuyerProfile();
+  const [{ data: buyer }, documents] = await Promise.all([getCurrentBuyerProfile(), listCurrentBuyerVerificationDocuments()]);
   const hasActiveBadges = buyer.badges.some((badge) => badge.status === "active");
 
   return (
@@ -31,7 +34,7 @@ export default async function BuyerBadgesPage() {
         <TrustTransformation />
       </section>
 
-      <section className="card stack">
+      <section className="card stack" id="verification-upload">
         <div className="section-head compact">
           <div>
             <p className="eyebrow">Upload</p>
@@ -44,16 +47,19 @@ export default async function BuyerBadgesPage() {
         </div>
         <DirectUploadField
           accept="application/pdf,image/png,image/jpeg,image/webp"
+          disabledReason={confidentialDocumentAccessEnabled() ? undefined : "Document verification is temporarily unavailable."}
           documentTypes={[
             { label: "Pre-approval letter", value: "PRE_APPROVAL" },
             { label: "Proof of funds", value: "VERIFIED_FUNDS" },
             { label: "Identity", value: "IDENTITY" },
           ]}
-          hint="PDF, PNG, JPEG, or WebP; 20 MB max. Uploads go directly to private Storage."
+          hint="PDF, PNG, JPEG, or WebP; 20 MB max. Only you and authorized reviewers can access your document."
           label="File"
           purpose="BUYER_VERIFICATION"
         />
       </section>
+
+      <BuyerVerificationDocuments documents={documents} />
 
       <section className="stack">
         <div className="section-head compact">

@@ -1,7 +1,7 @@
 import { Prisma, prisma } from "@liber/db";
 import { updateBuyerProfileSchema, upsertBuyerCriteriaSchema } from "@liber/validators";
 import { redirect } from "next/navigation";
-import { buyerAliasFromSeed, normalizeBuyerAlias } from "../../lib/buyer-alias";
+import { publicNameForDisplay } from "../public-identity";
 import { propertySubtypeFromSeekingPropertyType } from "../../lib/property-types";
 import { defaultPathForSessionUser } from "../auth-intent";
 import { hasRole } from "../authz";
@@ -43,6 +43,14 @@ export async function saveBuyerProfile(input: unknown, mode: SaveMode = "PUBLISH
   if (mode === "PUBLISH") validatePublication(profile, criteria);
 
   const result = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
+    // The owner row also serializes first-profile creation and account suspension.
+    const [owner] = await tx.$queryRaw<Array<{ roles: string[]; status: string }>>`
+      SELECT roles::text[] AS roles, status::text AS status
+      FROM public."User" WHERE id = ${user.id}::uuid FOR UPDATE
+    `;
+    if (!owner || owner.status !== "ACTIVE" || !owner.roles.includes("BUYER")) {
+      throw new Error("Buyer account is no longer active or authorized.");
+    }
     const existing = await tx.buyerProfile.findUnique({
       where: { userId: user.id },
       select: { displayName: true, id: true, visibilityStatus: true },
@@ -58,31 +66,31 @@ export async function saveBuyerProfile(input: unknown, mode: SaveMode = "PUBLISH
     if (mode === "PUBLISH" && !selectedArea) {
       throw new Error("Choose an active Liber service area before publishing your profile.");
     }
-    const displayName = normalizeBuyerAlias(existing?.displayName) ?? buyerAliasFromSeed(user.id);
+    const displayName = publicNameForDisplay(user.name, user.id);
     const saved = await tx.buyerProfile.upsert({
       where: { userId: user.id },
       update: {
-        bio: profile.bio,
-        budgetMax: profile.budgetMax,
-        budgetMin: profile.budgetMin,
-        buyerType: profile.buyerType,
-        buyingPurpose: profile.buyingPurpose,
+        bio: profile.bio ?? null,
+        budgetMax: profile.budgetMax ?? null,
+        budgetMin: profile.budgetMin ?? null,
+        buyerType: profile.buyerType ?? null,
+        buyingPurpose: profile.buyingPurpose ?? null,
         displayName,
-        downPaymentMax: profile.downPaymentMax,
-        downPaymentMin: profile.downPaymentMin,
+        downPaymentMax: profile.downPaymentMax ?? null,
+        downPaymentMin: profile.downPaymentMin ?? null,
         lastRefreshedAt: new Date(),
         visibilityStatus: "DRAFT",
         ...locationData(selectedArea),
       },
       create: {
-        bio: profile.bio,
-        budgetMax: profile.budgetMax,
-        budgetMin: profile.budgetMin,
-        buyerType: profile.buyerType,
-        buyingPurpose: profile.buyingPurpose,
+        bio: profile.bio ?? null,
+        budgetMax: profile.budgetMax ?? null,
+        budgetMin: profile.budgetMin ?? null,
+        buyerType: profile.buyerType ?? null,
+        buyingPurpose: profile.buyingPurpose ?? null,
         displayName,
-        downPaymentMax: profile.downPaymentMax,
-        downPaymentMin: profile.downPaymentMin,
+        downPaymentMax: profile.downPaymentMax ?? null,
+        downPaymentMin: profile.downPaymentMin ?? null,
         lastRefreshedAt: new Date(),
         userId: user.id,
         visibilityStatus: "DRAFT",
@@ -189,19 +197,19 @@ function locationData(area: CanonicalArea | null) {
 
 function criteriaData(criteria: ReturnType<typeof upsertBuyerCriteriaSchema.parse>) {
   return {
-    bathroomsMin: criteria.bathroomsMin,
-    bedroomsMin: criteria.bedroomsMin,
-    condition: criteria.condition,
+    bathroomsMin: criteria.bathroomsMin ?? null,
+    bedroomsMin: criteria.bedroomsMin ?? null,
+    condition: criteria.condition || null,
     features: criteria.features,
-    lotSizeMax: criteria.lotSizeMax,
-    lotSizeMin: criteria.lotSizeMin,
-    priceMax: criteria.priceMax,
-    priceMin: criteria.priceMin,
+    lotSizeMax: criteria.lotSizeMax ?? null,
+    lotSizeMin: criteria.lotSizeMin ?? null,
+    priceMax: criteria.priceMax ?? null,
+    priceMin: criteria.priceMin ?? null,
     propertyCategory: "HOME" as const,
     propertySubtype: criteria.propertySubtype,
-    squareFeetMax: criteria.squareFeetMax,
-    squareFeetMin: criteria.squareFeetMin,
-    yearBuiltMin: criteria.yearBuiltMin,
+    squareFeetMax: criteria.squareFeetMax ?? null,
+    squareFeetMin: criteria.squareFeetMin ?? null,
+    yearBuiltMin: criteria.yearBuiltMin ?? null,
   };
 }
 

@@ -84,6 +84,17 @@ describe("Liber validators", () => {
     ).toThrow("Budget minimum cannot exceed budget maximum.");
   });
 
+  it("bounds buyer budgets to the Decimal(12, 2) column instead of overflowing on save", () => {
+    expect(updateBuyerProfileSchema.parse({ budgetMin: "0", budgetMax: "9999999999.99" })).toMatchObject({
+      budgetMax: 9_999_999_999.99,
+      budgetMin: 0,
+    });
+    for (const schema of [createBuyerProfileSchema, updateBuyerProfileSchema]) {
+      expect(() => schema.parse({ budgetMin: "500000", budgetMax: "10000000000" })).toThrow("Budget cannot exceed $9,999,999,999.99.");
+      expect(() => schema.parse({ budgetMin: "Infinity", budgetMax: "500000" })).toThrow();
+    }
+  });
+
   it("allows custom buyer budget and down payment amounts", () => {
     expect(updateBuyerProfileSchema.parse({
       budgetMax: "987654",

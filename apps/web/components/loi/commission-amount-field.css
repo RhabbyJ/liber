@@ -1,0 +1,80 @@
+.loi-commission-units {
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 1fr 1fr;
+  padding: 4px;
+}
+
+.loi-commission-units button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+  min-height: 48px;
+  padding: 9px 8px;
+}
+
+.loi-commission-units button[aria-pressed="true"] {
+  background: var(--sage-tint-strong);
+  border-color: var(--sage-line);
+  color: var(--ink-strong);
+  box-shadow: var(--shadow-1);
+}
+
+.loi-commission-units button:focus-visible {
+  outline: 2px solid var(--ink-strong);
+  outline-offset: 2px;
+}
+
+.loi-commission-units button:disabled {
+  cursor: default;
+}
+
+.loi-commission-input {
+  position: relative;
+}
+
+.loi-commission-input input {
+  min-height: 48px;
+  width: 100%;
+}
+
+.loi-commission-input > span {
+  color: var(--ink-soft);
+  font-weight: 650;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.loi-commission-input.is-dollar > span { left: 14px; }
+.loi-commission-input.is-dollar input { padding-left: 34px; }
+.loi-commission-input.is-percent > span { right: 14px; }
+.loi-commission-input.is-percent input { padding-right: 34px; }
+
+.loi-money-input {
+  position: relative;
+}
+
+.field .loi-money-input input {
+  padding-left: 30px;
+  width: 100%;
+}
+
+.loi-money-input > span {
+  color: var(--ink-soft);
+  font-weight: 650;
+  left: 14px;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}

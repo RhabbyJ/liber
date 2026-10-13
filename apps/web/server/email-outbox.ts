@@ -1,5 +1,6 @@
 import { prisma } from "@liber/db";
 import { sendInviteEmail, sendLoiUpdateEmail, sendUnreadMessageEmail, type EmailResult } from "./email";
+import { prepareTourEmail, sendCurrentTourEmail } from "./messaging/tours";
 import { loiV1EnabledForPair } from "./loi/feature";
 import { messagingV1EnabledForPair } from "./messaging/feature";
 
@@ -18,20 +19,27 @@ type ClaimedEmailJob = {
   loiNegotiationId: string | null;
   loiRevisionId: string | null;
   loiRecipientUserId: string | null;
+  tourScheduleId?: string | null;
+  tourRevision?: number | null;
+  tourRecipientUserId?: string | null;
+  tourEvent?: string | null;
 };
 
 export async function processEmailOutbox(limit = 10, workerId = `email_${crypto.randomUUID()}`) {
-  const jobs = await claimEmailJobs(limit, workerId);
   let sent = 0;
   let failed = 0;
   let cancelled = 0;
+  let processed = 0;
 
-  for (const job of jobs) {
+  while (processed < limit) {
+    const [job] = await claimEmailJobs(1, workerId);
+    if (!job) break;
+    processed += 1;
     try {
-      const delivery = await prepareEmailDelivery(job);
+      const delivery = await prepareEmailDelivery(job, workerId);
       if (!delivery.deliverable) {
-        await prisma.emailOutbox.updateMany({
-          where: { id: job.id, status: "SENDING", workerId },
+        const result = await prisma.emailOutbox.updateMany({
+          where: activeEmailClaim(job, workerId),
           data: {
             lastError: delivery.reason,
             leaseUntil: null,
@@ -41,15 +49,28 @@ export async function processEmailOutbox(limit = 10, workerId = `email_${crypto.
             workerId: null,
           },
         });
-        cancelled += 1;
+        cancelled += result.count;
         continue;
       }
+      const lease = await prisma.emailOutbox.updateMany({
+        where: activeEmailClaim(job, workerId),
+        data: { leaseUntil: new Date(Date.now() + LEASE_MS) },
+      });
+      if (lease.count !== 1) continue;
       const result = await delivery.send();
+      if (!result) {
+        const cancelledClaim = await prisma.emailOutbox.updateMany({
+          where: activeEmailClaim(job, workerId),
+          data: { status: "CANCELLED", lastError: "Notification became ineligible before dispatch.", leaseUntil: null, lockedAt: null, nextAttemptAt: null, workerId: null },
+        });
+        cancelled += cancelledClaim.count;
+        continue;
+      }
       if (result.provider === "mock" && process.env.NODE_ENV !== "development" && process.env.NODE_ENV !== "test") {
         throw new Error(result.reason || "Email provider is not configured.");
       }
-      await prisma.emailOutbox.updateMany({
-        where: { id: job.id, status: "SENDING", workerId },
+      const completed = await prisma.emailOutbox.updateMany({
+        where: activeEmailClaim(job, workerId),
         data: {
           lastError: null,
           leaseUntil: null,
@@ -61,12 +82,12 @@ export async function processEmailOutbox(limit = 10, workerId = `email_${crypto.
           workerId: null,
         },
       });
-      sent += 1;
+      sent += completed.count;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Email job failed.";
       const retryDelayMs = Math.min(60, 2 ** job.attempts) * 60_000;
-      await prisma.emailOutbox.updateMany({
-        where: { id: job.id, status: "SENDING", workerId },
+      const completed = await prisma.emailOutbox.updateMany({
+        where: activeEmailClaim(job, workerId),
         data: {
           lastError: message,
           leaseUntil: null,
@@ -76,22 +97,48 @@ export async function processEmailOutbox(limit = 10, workerId = `email_${crypto.
           workerId: null,
         },
       });
-      failed += 1;
+      failed += completed.count;
     }
   }
 
   await prisma.workerHeartbeat.upsert({
     where: { worker: "email-outbox" },
-    update: { lastRunAt: new Date(), metadata: { cancelled, failed, processed: jobs.length, sent } },
-    create: { worker: "email-outbox", lastRunAt: new Date(), metadata: { cancelled, failed, processed: jobs.length, sent } },
+    update: { lastRunAt: new Date(), metadata: { cancelled, failed, processed, sent } },
+    create: { worker: "email-outbox", lastRunAt: new Date(), metadata: { cancelled, failed, processed, sent } },
   });
-  return { cancelled, failed, processed: jobs.length, sent };
+  return { cancelled, failed, processed, sent };
+}
+
+function activeEmailClaim(job: ClaimedEmailJob, workerId: string) {
+  return {
+    id: job.id,
+    attempts: job.attempts,
+    leaseUntil: { gt: new Date() },
+    status: "SENDING" as const,
+    workerId,
+  };
 }
 
 export async function claimEmailJobs(limit: number, workerId: string): Promise<ClaimedEmailJob[]> {
   const leaseUntil = new Date(Date.now() + LEASE_MS);
   return prisma.$queryRaw<ClaimedEmailJob[]>`
-    WITH candidates AS (
+    WITH exhausted_candidates AS (
+      SELECT id
+      FROM public."EmailOutbox"
+      WHERE status = 'SENDING' AND attempts >= ${MAX_ATTEMPTS}
+        AND ("leaseUntil" IS NULL OR "leaseUntil" <= now())
+      ORDER BY "createdAt" ASC
+      FOR UPDATE SKIP LOCKED
+      LIMIT ${limit}
+    ), exhausted AS (
+      UPDATE public."EmailOutbox" job
+      SET status = 'FAILED', "lastError" = 'Email delivery lease expired after the final attempt.',
+        "leaseUntil" = NULL, "lockedAt" = NULL, "workerId" = NULL,
+        "nextAttemptAt" = NULL, "updatedAt" = now()
+      FROM exhausted_candidates
+      WHERE job.id = exhausted_candidates.id
+      RETURNING job.id
+    ), candidates AS (
       SELECT id
       FROM public."EmailOutbox"
       WHERE attempts < ${MAX_ATTEMPTS}
@@ -123,6 +170,10 @@ export async function claimEmailJobs(limit: number, workerId: string): Promise<C
       job."loiNegotiationId" AS "loiNegotiationId",
       job."loiRevisionId" AS "loiRevisionId",
       job."loiRecipientUserId" AS "loiRecipientUserId",
+      job."tourScheduleId" AS "tourScheduleId",
+      job."tourRevision" AS "tourRevision",
+      job."tourRecipientUserId" AS "tourRecipientUserId",
+      job."tourEvent" AS "tourEvent",
       job."idempotencyKey" AS "idempotencyKey"
   `;
 }
@@ -143,9 +194,9 @@ async function inviteDeliveryEmail(inviteId: string) {
   return result?.deliverable ? result.current_email?.trim() || null : null;
 }
 
-async function prepareEmailDelivery(job: ClaimedEmailJob): Promise<
+async function prepareEmailDelivery(job: ClaimedEmailJob, workerId: string): Promise<
   | { deliverable: false; reason: string }
-  | { deliverable: true; send: () => Promise<EmailResult> }
+  | { deliverable: true; send: () => Promise<EmailResult | null> }
 > {
   if (job.type === "INVITE") {
     const currentEmail = job.inviteId ? await inviteDeliveryEmail(job.inviteId) : null;
@@ -186,6 +237,12 @@ async function prepareEmailDelivery(job: ClaimedEmailJob): Promise<
     };
   }
 
+  if (job.type === "TOUR_UPDATE") {
+    const delivery = await prepareTourEmail(job);
+    if (!delivery) return { deliverable: false, reason: "Tour notification became ineligible before delivery." };
+    return { deliverable: true, send: () => sendCurrentTourEmail(job, workerId) };
+  }
+
   throw new Error(`Unsupported email job type: ${job.type}`);
 }
 
@@ -205,6 +262,7 @@ async function loiUpdateDeliveryEmail(negotiationId: string, revisionId: string,
         AND (
           (
             negotiation.status IN ('AWAITING_SELLER_RESPONSE', 'AWAITING_BUYER_RESPONSE')
+            AND current_revision."responseDeadline" > now()
             AND delivery_event.type IN ('INITIAL_SUBMITTED', 'COUNTER_SUBMITTED')
             AND delivery_event."actorUserId" = current_revision."submittedByUserId"
             AND recipient.id <> current_revision."submittedByUserId"
@@ -350,6 +408,7 @@ async function unreadMessageDeliveryEmail(conversationId: string, recipientUserI
     JOIN public."User" other_user ON other_user.id = other_participant."userId"
     JOIN public."Invite" invite ON invite.id = conversation."inviteId"
     JOIN public."BuyerProfile" buyer ON buyer.id = invite."buyerProfileId"
+    JOIN public."User" buyer_user ON buyer_user.id = buyer."userId"
     JOIN public."User" seller ON seller.id = invite."sellerId"
     LEFT JOIN public."SellerAccess" seller_access ON seller_access."userId" = seller.id
     JOIN public."SellerProperty" property ON property.id = invite."propertyId"

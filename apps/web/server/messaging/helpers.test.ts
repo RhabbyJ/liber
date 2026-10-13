@@ -16,7 +16,6 @@ import {
 import {
   assertConversationCanSend,
   PUBLIC_BLOCKED_CONVERSATION_STATE,
-  SELLER_FOLLOW_UP_COOLDOWN_MS,
 } from "./policy";
 import { resolveMessagingTemplate } from "./templates";
 
@@ -56,6 +55,20 @@ describe("messaging rollout", () => {
     vi.stubEnv("LIBER_MESSAGING_V1_COHORT_USER_IDS", "*");
     expect(messagingV1NavigationEnabledForUser(sellerId)).toBe(false);
     expect(messagingV1EnabledForPair(sellerId, buyerId)).toBe(false);
+  });
+
+  it("invalidates cached preview wildcard access when the deployment becomes production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("LIBER_CEO_PREVIEW_TARGET", "ceo-preview");
+    vi.stubEnv("LIBER_MESSAGING_V1_ENABLED", "true");
+    vi.stubEnv("LIBER_MESSAGING_V1_COHORT_USER_IDS", "*");
+    expect(messagingV1EnabledForPair(sellerId, buyerId)).toBe(true);
+    vi.stubEnv("VERCEL_ENV", "production");
+    expect(messagingV1EnabledForPair(sellerId, buyerId)).toBe(false);
+    expect(messagingV1NavigationEnabledForUser(sellerId)).toBe(false);
+    vi.stubEnv("LIBER_MESSAGING_V1_COHORT_USER_IDS", `${sellerId},${buyerId}`);
+    expect(messagingV1EnabledForPair(sellerId, buyerId)).toBe(true);
   });
 
   it("fails closed on a mixed invalid production cohort", () => {
@@ -110,22 +123,20 @@ describe("messaging lifecycle policy", () => {
     buyerUserActive: true,
     conversationStatus: "AWAITING_BUYER" as const,
     hasBlock: false,
-    inviteExpiresAt: null,
-    inviteSentAt: sentAt,
+    inviteExpiresAt: new Date("2026-01-03T00:00:00.000Z"),
     inviteStatus: "SENT" as const,
     propertyApproved: true,
     propertyIdentityCurrent: true,
     sellerAccessApproved: true,
-    sellerFollowUpCount: 0,
     sellerUserActive: true,
   };
 
-  it("uses the legacy 30-day expiry fallback instead of treating null as infinite", () => {
+  it.each([null, new Date("invalid"), new Date("2026-01-03T00:00:00.000Z")])("denies missing, invalid, and exactly expired invitation deadlines (%s)", (deadline) => {
     expect(() => assertConversationCanSend({
       kind: "FREE_TEXT",
-      now: new Date("2026-02-01T00:00:00.000Z"),
+      now: new Date("2026-01-03T00:00:00.000Z"),
       participantRole: "BUYER",
-      state: baseState,
+      state: { ...baseState, inviteExpiresAt: deadline },
     })).toThrow("unavailable");
   });
 
@@ -144,23 +155,16 @@ describe("messaging lifecycle policy", () => {
       kind: "FREE_TEXT",
       now: new Date("2027-01-01T00:00:00.000Z"),
       participantRole: "BUYER",
-      state: { ...baseState, conversationStatus: "ACTIVE", inviteStatus: "ACCEPTED" },
+      state: { ...baseState, conversationStatus: "ACTIVE", inviteStatus: "ACCEPTED", inviteExpiresAt: null },
     })).not.toThrow();
 
     expect(() => assertConversationCanSend({
       kind: "GUIDED",
-      now: new Date(sentAt.getTime() + SELLER_FOLLOW_UP_COOLDOWN_MS),
+      now: new Date(sentAt.getTime() + 24 * 60 * 60_000),
       participantRole: "SELLER",
       state: baseState,
       templateUse: "SELLER_FOLLOW_UP",
     })).toThrow("The buyer must respond before additional messages are available.");
-    expect(() => assertConversationCanSend({
-      kind: "GUIDED",
-      now: new Date(sentAt.getTime() + SELLER_FOLLOW_UP_COOLDOWN_MS),
-      participantRole: "SELLER",
-      state: { ...baseState, sellerFollowUpCount: 1 },
-      templateUse: "SELLER_FOLLOW_UP",
-    })).toThrow("must respond");
   });
 });
 

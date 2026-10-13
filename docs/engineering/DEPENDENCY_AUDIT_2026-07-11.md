@@ -1,5 +1,9 @@
 # Dependency Audit — 2026-07-11
 
+Historical audit. For the September dependency refresh, current verification,
+and scoped override tradeoffs, see
+[`ARCHITECTURE_AUDIT_2026-09-21.md`](ARCHITECTURE_AUDIT_2026-09-21.md).
+
 Command: `npm audit --omit=dev`
 
 Result: six findings (one high, five moderate). No automatic fix was applied because the proposed forced fixes downgrade Prisma to 6.19.3 or Next to 9.3.3 and would be breaking/unsafe.

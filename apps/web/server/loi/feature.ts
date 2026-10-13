@@ -1,12 +1,7 @@
 import { LoiError } from "./errors";
+import { isControlledPreviewEnvironment } from "../preview-environment";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const PREVIEW_TARGET = "ceo-preview";
-
-function openCohortAllowed(env: NodeJS.ProcessEnv = process.env) {
-  return env.NODE_ENV !== "production"
-    || env.LIBER_CEO_PREVIEW_TARGET === PREVIEW_TARGET;
-}
 
 function cohort() {
   if (process.env.LIBER_LOI_V1_ENABLED?.trim().toLowerCase() !== "true") return null;
@@ -14,7 +9,7 @@ function cohort() {
     .split(",")
     .map((value) => value.trim().toLowerCase());
   if (values.length === 1 && values[0] === "*") {
-    return openCohortAllowed() ? new Set(["*"]) : null;
+    return isControlledPreviewEnvironment() ? new Set(["*"]) : null;
   }
   const users = new Set(values);
   if (values.length !== 2 || users.size !== 2 || values.some((value) => !value || !UUID.test(value))) {

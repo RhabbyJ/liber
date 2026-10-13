@@ -90,7 +90,7 @@ export function normalizeConversationThread(value: unknown): ConversationThread 
   if (!id || (viewerRole !== "BUYER" && viewerRole !== "SELLER") || !safetyNotice) return null;
 
   const counterpartLabel = viewerRole === "BUYER"
-    ? "Property seller"
+    ? normalizePublicIdentityLabel(textValue(source.counterpartyLabel)) ?? "Property seller"
     : textValue(source.counterpartyLabel) || "Buyer";
   const messages = arrayValue(source, "items")
     .map((item) => normalizeMessage(item, counterpartLabel))
@@ -202,7 +202,7 @@ function normalizeConversationSummary(value: unknown): ConversationSummary | nul
   const role = enumValue(source.participantRole);
   if (!id || (role !== "BUYER" && role !== "SELLER")) return null;
   const counterpartLabel = role === "BUYER"
-    ? "Property seller"
+    ? normalizePublicIdentityLabel(textValue(source.counterpartyLabel)) ?? "Property seller"
     : textValue(source.counterpartyLabel) || "Buyer";
   const property = recordValue(source.property);
   const lastMessage = normalizeMessage(source.lastMessage, counterpartLabel);
@@ -210,7 +210,7 @@ function normalizeConversationSummary(value: unknown): ConversationSummary | nul
   return {
     id,
     status: normalizeConversationStatus(source.status),
-    counterpartAvatarVariant: role === "SELLER"
+    counterpartAvatarVariant: role === "SELLER" || normalizePublicIdentityLabel(counterpartLabel)
       ? optionalText(source.counterpartyAvatarVariant) ?? null
       : null,
     counterpartLabel,
@@ -376,3 +376,4 @@ function optionalDate(...values: unknown[]) {
 function validDate(value: unknown) {
   return typeof value === "string" && value.length > 0 && !Number.isNaN(Date.parse(value));
 }
+import { normalizePublicIdentityLabel } from "../../lib/public-identity";

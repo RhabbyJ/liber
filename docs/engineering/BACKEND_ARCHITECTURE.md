@@ -82,7 +82,9 @@ Clearly marked seed/demo buyer records are allowed in local development and CEO 
 
 Trusted testers in the CEO demo / private preview may use `/preview-tools` when
 both server-only values `LIBER_CEO_PREVIEW_TARGET=ceo-preview` and
-`LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL=true` are exact matches. The surface can:
+`LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL=true` are exact matches in local
+development/test or Vercel Preview. Vercel production always refuses these
+capabilities, even with stale preview flags. The surface can:
 
 - add `ADMIN` to the signed-in active user's roles so the real `/admin` pages
   become reachable, and
@@ -98,6 +100,14 @@ without a real reviewer and review timestamp, and any user who still has
 `ADMIN` after an `admin_role_preview_self_grant` audit marker.
 
 ## Database migration paths
+
+The current security/resource boundaries, unpublished firewall draft, public
+document gate, and remaining provider requirements are recorded in
+`SECURITY_HARDENING_2026-09-22.md`. Public confidential uploads and document review
+are closed until exact-object private malware scanning is implemented. Admin
+document queues page 50 records and sign a single file only upon audited access.
+Expiry jobs are bounded to 25 records/category with `expiration.hasMore`
+continuation; schedulers must invoke subsequent batches.
 
 Existing databases use `prisma.config.ts` and the immutable history under
 `packages/db/prisma/migrations`. Brand-new current Supabase databases use
@@ -154,8 +164,8 @@ Runtime authorization must read server-controlled state from the database, not b
 Key concepts:
 
 - `User.roles` stores buyer/seller/admin roles.
-- `User.name` is private account identity for owner-only UI; seller/public buyer surfaces must use the generated `BuyerProfile.displayName` alias or an anonymized preview label.
-- `BuyerProfile.displayName` is a generated public buyer alias from a server allowlist, such as `Maple Haven`; profile input schemas do not expose public name editing.
+- User.name is private database-controlled account identity. Public projection derives only first name, last initial, and stable code; full names never enter public payloads.
+- BuyerProfile.displayName is server-owned limited name/code saved on profile updates. Public reads derive the canonical current identity from the account; no arbitrary name editing.
 - `BuyerProfile.buyerType` stores the allowlisted purchase type (`Cash`, `Conventional financing`, `Other`) and `BuyerProfile.buyingPurpose` stores the allowlisted seeking property type (`House`, `Condo`, `Townhouse`, `Manufactured`, `Land`). The column names are legacy-compatible; product UI should use the new labels.
 - `User.avatarVariant` stores the required allowlisted generated animal-avatar token used by buyer profile, public/seller buyer cards, and owner-only account navigation surfaces. The database backfills older accounts and supplies the value for new accounts so every surface reads one persisted token. Avatar image files are not stored.
 - `User.status` blocks suspended users.
@@ -217,6 +227,11 @@ Sensitive application data should flow through server actions or route handlers 
 
 Buyer profile publication returns expected validation/publication messages as form state so the browser can preserve entered fields. Unknown database, authorization, or infrastructure failures are not serialized to the form and continue through the application error boundary.
 
+Buyer aggregate saves lock the owning User before reading or creating a profile
+and recheck ACTIVE status and the BUYER role inside each serializable retry.
+Optional scalar fields cleared by the form are written as explicit nulls;
+undefined Prisma updates must not retain obsolete budget or criteria values.
+
 Main server files:
 
 - `apps/web/server/contracts.ts`
@@ -238,8 +253,8 @@ Buckets:
 
 Rules:
 
-- Buyer public display names are generated locally from an allowlisted neutral alias list; there is no alias API, free-text public-name field, or separate alias storage object.
-- Buyer profile display uses generated 2D animal avatars from `User.avatarVariant`; public and seller DTOs seed rendering with the generated public alias, never a buyer-profile ID or Auth UUID.
+- Public display labels are derived server-side from database account name and a namespaced hash of the random account UUID.
+- All avatars use locally rendered DiceBear initials and the persisted allowlisted token as a color preference; no remote name or avatar requests.
 - Avatar SVGs are generated locally in the app from the `avatarka` animals theme and rendered as data images; there is no avatar API, Supabase avatar bucket, storage path, or saved image file.
 - Verification documents are immutable user evidence.
 - Document owners must not be able to overwrite/delete evidence after upload.
@@ -247,6 +262,9 @@ Rules:
 - Storage paths and signed URLs must not become public profile data.
 - Browser uploads use an authorized `UploadSession`, a server-selected path, a signed upload token, direct Storage transfer, and server finalization. Finalization verifies ownership, expiry, object path, actual size/type, initial-byte signature, and current property identity version before creating a document/image row. `propertyIdentityVersion` is the sole supported property-evidence binding; migration `20260715071054_retire_legacy_ownership_version` removes retired parallel version triggers that could reject valid finalization on drifted targets.
 - Abandoned sessions and orphaned objects are removed by the outbox maintenance worker.
+- Cleanup atomically transitions an eligible expired session to EXPIRED before
+  removing its Storage object. FINALIZED sessions cannot be cleaned or regressed
+  by stale expiry/rejection writes. Failed Storage removal remains retryable.
 - Browser DTOs never return raw Storage paths. Finalization returns document/image IDs and status; authorized reads return short-lived server-mediated signed URLs only.
 - Seller ownership verification documents keep `DocumentType.OWNERSHIP` and use `OwnershipEvidenceKind` to distinguish government ID from property address proof. Ownership status can become approved only after both required current-version evidence kinds and the structured owner/address/authority checklist are approved by an admin.
 
@@ -282,6 +300,13 @@ Invite creation must check:
 Invite creation serializes per seller with a transaction-scoped advisory lock. Prisma raw queries must project the PostgreSQL `void` lock result to a supported scalar so the driver does not reject the transaction before invite validation. The quota is 25 sends in the preceding rolling 24 hours for a currently ownership-approved `READY_FOR_INVITES` property. Invite responses atomically require an unexpired `SENT`/`VIEWED` row.
 
 The HTML invite form posts its versioned guided-template number as text. The server normalizes that one FormData field to an integer before the strict shared invite validator runs; JSON messaging routes continue to require numeric versions and do not receive FormData coercion.
+
+`submitInvite` returns allowlisted expected failures through `useActionState`.
+The client preserves the property and terms controls and displays recovery
+links. Duplicate conversation IDs are selected only from the seller-scoped
+invite and returned after existing pair/property/access checks and the messaging
+feature gate. Unknown exceptions and Next redirects are rethrown; the global
+error boundary exposes only Next's support digest, not the raw exception.
 
 Property authority attestations, images, and invites are stamped with the current property `identityVersion`. An identity-relevant edit clears the attestation, resets verification, withdraws `SENT`, `VIEWED`, and `ACCEPTED` invites, and prevents old images or delayed email from being reused for the new identity. Sellers explicitly re-attest after editing. Admin ownership review locks and re-reads the property before approving current-version evidence.
 
@@ -334,7 +359,7 @@ happens in the inbox SQL before the keyset limit.
 For a seller viewing a buyer conversation, the authorized inbox query may select
 the buyer's persisted, allowlisted `User.avatarVariant`; the DTO returns that
 token for local avatar rendering without exposing the buyer's Auth UUID or
-private account name. Buyer-facing summaries return no seller avatar token and
+private account name. Buyer-facing summaries return the seller limited identity and initials color token and
 retain the generic seller presentation.
 
 Conversation states are `AWAITING_BUYER`, `ACTIVE`, `READ_ONLY`, and `BLOCKED`.
@@ -380,7 +405,7 @@ Participant read state records the last read message ID as well as its timestamp
 so equal timestamps cannot mark unseen messages read. DTOs contain no Auth UUIDs,
 email, documents, Storage paths, report evidence, blocker identity, or current
 property identity from a version-invalidated thread. Buyers see a generic
-property-seller label; sellers see the buyer's generated alias.
+seller limited name/code; sellers see the buyer limited name/code.
 
 Supabase Realtime is an optional delivery hint. Message-insert and
 moderation-status triggers call
@@ -396,7 +421,9 @@ only its SQLSTATE, so it cannot roll back the canonical message; polling recover
 the missed hint. Browsers receive no Realtime INSERT policy. The Data API roles
 `anon`, `authenticated`, and `service_role` have zero privileges on raw messaging
 tables. Clients authenticate a private channel, then refetch canonical server
-DTOs after events, reconnect, focus, and a five-second polling fallback. Join
+DTOs after events, reconnect and focus. Healthy Realtime uses a 30–36-second
+polling fallback; disconnected threads and inboxes use 5–6 seconds. Sequential
+requests back off to 60 seconds on failure and pause while hidden/offline. Join
 authorization can remain cached on an existing socket, so canonical fetches and
 lifecycle closure remain the suspension boundary.
 The migration aborts if another permissive public/authenticated Realtime SELECT
@@ -446,6 +473,16 @@ Submission also fingerprints the exact saved draft. Agreement records
 `TERMS_ALIGNED` against the exact current revision for later contract
 preparation; it is not a signature or binding acceptance.
 
+Reusable LOI templates are a browser preference, not authoritative draft data.
+The authorized workspace receives only the current user's server-verified UUID
+to scope local storage. The template model validates version, bounded names,
+count (20), byte size (128 KiB), and an explicit reusable-term whitelist. It
+excludes transaction identity, price, deposit, funding, agent/buyer identity,
+and disclosures. Applying respects counter locks and marks local terms dirty;
+server authorization, validation, and exact saved-draft review still govern
+every save and submission. No template API, database migration, or account
+sync is added; browser storage errors never claim success or silently clear data.
+
 Workspace reads use one repeatable-read snapshot, resolve the current revision
 by foreign key, and return at most 20 recent revisions; older history uses a
 participant-authorized sequence cursor. Historical summaries are decoded from
@@ -467,7 +504,9 @@ through an active-participant helper. Event triggers call `realtime.send` with
 only the business identifiers
 `{ negotiationId, eventId, revisionId, type }`; Supabase adds its
 transport-level `id` to the delivered wire payload. Authorized server refetch
-plus focus and five-second polling remain canonical.
+plus focus and polling remain canonical. The messaging thread's LOI summary
+polls separately every 30–36 seconds and immediately after lifecycle changes;
+the dedicated negotiation view retains its existing recovery interval.
 
 `LOI_UPDATE` email jobs contain no term values, use the leased `EmailOutbox`,
 cancel superseded pending jobs, and revalidate the current revision,
@@ -510,6 +549,48 @@ Guided messaging files:
 - `packages/validators/src/index.ts`
 - `packages/db/prisma/schema.prisma`
 
+## September 25 meeting additions
+
+Tour scheduling is attached to an accepted conversation. Server-controlled
+participant identity, the existing pair -> invite -> conversation lock order,
+optimistic revision checks and idempotent action IDs protect proposals,
+counterparty confirmation and cancellation. The private `TourSchedule` table
+has participant foreign keys and no browser/Data API grants. Tour notifications
+use typed, content-free `EmailOutbox` references; delivery revalidates the
+current schedule and recipient while holding the same locks through the bounded
+provider call. The server-only `LIBER_TOUR_REMINDERS_ENABLED` flag defaults off
+until the recurring worker and verified email sender are proven. The additive
+`20260927201152_add_tour_scheduling` migration must be applied before deploying
+the new app, including its outbox reader. See the messaging and email section
+notes for the guarded disposable database proof and reminder timing.
+
+Seller condition/features reuse the existing property columns, with shared
+create/edit controls and explicit empty-array clearing. Garage square footage
+is retained in storage for history but removed from current forms and DTOs.
+
+LOI financial estimates are optional versioned term JSON. Calculation version 2
+stores fee subtotals, commissions, and estimated closing cash in each new immutable
+revision; the version 1 decoder preserves old summaries. Server-side role rules
+force initial buyer death disclosure to unknown, stamp seller-authored answers,
+and preserve the base answer on buyer counters. No existing revision is rewritten.
+
+Financed submission normally requires an active pre-approval badge or a pending/
+approved uploaded pre-approval letter. The authorized temporary test exception
+uses server-only `LIBER_LOI_TEST_FINANCING_*` configuration with one exact buyer
+UUID, one exact negotiation UUID, and canonical UTC expiry. It skips only the
+evidence check, preserves all authorization and term validation, grants no badge,
+and records its expiry on the submission event. Invalid or expired configuration
+fails closed; deleting the settings revokes it immediately.
+
+`GET /api/loi/negotiations/:id/pdf` delegates participant/cohort authorization to
+the canonical read model, requires `TERMS_ALIGNED`, selects its exact current
+sequence, rate-limits exports, and generates a private/no-store attachment.
+The shared presentation catalog supplies every persisted term and stored summary.
+`pdf-lib` and fontkit run only on the server; the licensed bundled DejaVu font
+supports accented text without a remote request. Explicit output tracing includes
+the font in the serverless route. There is no public file, stored signed URL,
+new document authorization path, or inclusion of private drafts.
+
 ## Search architecture
 
 Seller search queries persisted buyer profiles/criteria through canonical market and service-area relations. Free-form city/state and coordinate/radius inputs are not seller-search geography.
@@ -538,6 +619,10 @@ Budget filters are treated as range-overlap filters: a buyer matches when the bu
 
 Persisted seller search uses keyset pagination rather than an offset or fixed pre-filter cap. The result contract returns unchanged seller-safe buyer DTO items plus page metadata. Each opaque cursor is bound to the current filter/sort fingerprint, the first-page snapshot, the last SQL sort key, and buyer id. Ordering always includes buyer id as a unique tiebreaker. Cursors expire after 30 minutes and reject future snapshots; new profiles created after the first-page snapshot do not enter later pages. List and map receive the same page items. Cursor snapshots do not recreate historical values for profiles edited between requests, so mutable-sort updates remain eventually consistent.
 
+Badge eligibility and verification ranking use the current request time, shared
+with the seller DTO projection, even on cursor pages. The cursor snapshot only
+freezes the insertion cutoff; it does not keep expired badges valid.
+
 Do not add search filters based on protected-class proxies or unnecessary personal attributes.
 
 Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN` on the buyer search query against realistic data volume. Legacy city/state/ZIP lookup indexes are removed by the canonical cutover. Public launch requires measured indexes for the active canonical-area join, budget overlap, badge status, criteria filters, and sort/cursor patterns. The current unnumbered CTO proposal and temporary-table evidence live in `docs/engineering/SELLER_SEARCH_SQL_PROPOSAL.sql` and `docs/engineering/SELLER_SEARCH_SQL_EVIDENCE_2026-07-09.md`; neither is an applied migration.
@@ -548,12 +633,16 @@ Before true production launch, run Supabase/Postgres advisor checks and `EXPLAIN
 
 - without a validated session, reads at most 4 `ACTIVE` buyer profiles,
 - with a validated active session, reads every otherwise eligible preview except the viewer's own buyer profile; the Auth UUID is used only in the server-side exclusion predicate and is never selected or serialized,
-- returns only privacy-safe fields: generated neutral alias, allowlisted generated-avatar variant, anonymized buyer-type label, coarse city/state, $50K-banded budget, structured criteria facts, active badge labels,
-- pin coordinates are approximate only: canonical service-area centers plus a deterministic display offset — never raw `desiredLat`/`desiredLng`,
-- never returns ids, private account names, avatar files, exact locations, documents, or storage paths; the generated alias and allowlisted avatar variant are the only public identity presentation,
+- returns only privacy-safe fields: first name and last initial with stable code, allowlisted initials color preference, anonymized buyer-type label, coarse city/state, $50K-banded budget, structured criteria facts, active badge labels,
+- validates condition labels with the shared seller-search condition schema
+  (Move-in ready, Mild fixer, Fixer) and omits arbitrary stored text for every
+  preview audience; server and browser share `PublicBuyerPreviewDTO` from
+  `apps/web/lib/buyer-dtos.ts`,
+- pin coordinates are approximate only: the buyer's canonical service-area center without jitter — never raw `desiredLat`/`desiredLng`,
+- never returns ids, private account names, avatar files, exact locations, documents, or storage paths; the limited name/code and initials color preference are the only public identity presentation,
 - the public map may let visitors select a known active ZIP/city/neighborhood service area to pan/draw an approximate area polygon and scope the limited preview cards to that area,
 - selected-area preview filtering uses the same canonical selected-area UUID and reviewed query-time rollups as seller search,
-- when a service area is selected, preview pins anchor to that selected service-area center plus the deterministic privacy offset instead of re-parsing buyer city text,
+- when a service area is selected, it scopes query coverage and the map viewport; each pin retains its buyer's own canonical area center, including ZIP selections within a parent city search. Identical centers share a count marker with all matching previews in its popup,
 - has no full public search/filter API, buyer routing identifiers, buyer profile links, contact actions, or invite actions; guests may sign in or create an account, while signed-in users receive only an applicable role-aware next step,
 - is best-effort: failures return an empty list / hide the map and must not break the homepage,
 - must not grow into public search or expose buyer profile URLs. Authentication changes preview count and may place the same projection on the seller route; it never substitutes for approved seller-directory access. Full search APIs, profile reads, and invite commands retain their server and database approval checks.
@@ -580,11 +669,25 @@ The retained three-argument limiter overload uses an explicitly named timestamp 
 
 ## Maintenance
 
-`POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET` and expires stale invites/badges. `GET /api/maintenance/outbox` uses the same bearer secret for leased email delivery, Auth bans, and abandoned-upload cleanup. The endpoints remain available, but their Vercel schedules are temporarily disabled for the controlled Hobby-plan preview. Public launch is blocked until the outbox schedule is restored to every minute (`* * * * *`) and expiry is restored to daily at 09:00 UTC (`0 9 * * *`), with worker heartbeats verified.
+`GET`/`POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET` and expires stale invites/badges. `GET /api/maintenance/outbox` uses the same bearer secret for leased email delivery, Auth bans, and abandoned-upload cleanup. The September 27 release configuration restores the outbox schedule to every minute (`* * * * *`) and bounded expiry to every minute (`* * * * *`). The existing Vercel account was verified as Pro, which supports this schedule. Production deployment and fresh worker heartbeats are still required before claiming live delivery readiness.
 
 Email and Auth jobs use atomic `FOR UPDATE SKIP LOCKED` claims, expiring leases, worker IDs, bounded retry, idempotency keys, provider message IDs, and worker heartbeats. Missing Resend configuration outside development/test is a job failure and a production-readiness failure. Production readiness also requires server-only `SITE_URL` to be a canonical HTTPS origin so every authenticated email link has a validated base.
 
+Email and Auth processing claim one job at a time, renew the owned unexpired lease before
+provider submission, and fence state changes by worker ID, attempt number, and
+lease expiry. Expired final-attempt claims become terminal FAILED jobs (five
+attempts for email, eight for Auth bans), and completion/failure counters include
+only committed transitions. Provider idempotency and repeatable Auth bans handle
+uncertain in-flight outcomes. Isolated PostgreSQL regressions exercise both
+workers' claim recovery and stale-response fencing with external APIs mocked.
+
 Invite email rows reference the invite they deliver. The worker revalidates deliverability immediately before provider submission, and terminal or identity-invalidated invites cancel unsent work instead of retrying it.
+
+Unread-email eligibility joins the buyer account independently of the recipient
+so both participants' roles are checked. Pending LOI submission/counter notices
+require an unexpired current revision even before scheduled expiry runs;
+committed terminal-event notices remain deliverable after the old deadline.
+Isolated PostgreSQL tests execute these eligibility queries in the normal suite.
 
 Do not create unauthenticated maintenance endpoints.
 
@@ -619,3 +722,23 @@ Do not create unauthenticated maintenance endpoints.
   `is_active_app_user`. Suspension also disables seller
   access/properties/invites and enqueues a retryable Supabase Auth ban.
 - No production claims for escrow, money movement, or lender approval.
+
+
+## Limited name identity
+
+Buyer, seller, and combined-role signup collect a full name (first and last required; up to 160 characters). Public identity is first name + last initial + a stable 12-character uppercase hexadecimal account code, for example Julie P. #7C4E2A91B6D0. The code is a truncated SHA-256 digest of the immutable random Auth UUID with a Liber namespace; it is not authentication proof or a database uniqueness constraint. Codes do not reveal the UUID and have no current-account collisions in the release read-only check. Both new and existing accounts use this limited identity in profiles, public previews, approved seller search, invites, and both sides of messaging. Legacy invalid/nameless accounts show Member plus code. Full surnames and contact information stay private except existing authorized LOI party disclosures. Raw account names and UUIDs remain server-side; only the limited label enters public DTOs. Signup shows an initials preview; the final code is assigned from the created account identity. DiceBear Initials (CC0) renders locally with @dicebear/core 10.7.0 and @dicebear/styles 10.6.0; no name is sent to an external avatar service. Existing avatarVariant tokens remain a backward-compatible color preference, with eight muted colors in the picker. Public labels/codes cannot be edited or shuffled by clients. No schema, role, authorization, RLS, document, or frozen LOI calculation changes.
+
+## Admin self test pre-approval display
+
+`server/test-preapproval.ts` stores distinct `buyer_test_preapproval_granted` / `buyer_test_preapproval_revoked` audit actions for an admin’s own existing buyer profile in the explicitly enabled CEO demo. Grants require active database ADMIN and BUYER roles under User→BuyerProfile locks, explicit synthetic confirmation, and a 30/hour rate limit. Metadata marks synthetic=true, evidenceVerified=false and an expiry bounded to 24 hours. Latest-per-profile audit reads fail closed on revocation, expiry or malformed metadata. Projections add display-only `TEST_PRE_APPROVED` through `lib/test-preapproval.ts`; no BuyerBadge, document, financial eligibility/filter/count/ranking, schema, or LOI calculation changes. This uses each environment’s existing CEO preview gate.
+
+
+Private LOI draft price, October 7, 2026: Offer price is optional while saving an owner-private draft, including a counter draft. An unset offer uses zero as an internal missing marker, renders blank, and has no financial preview. Price-dependent comparisons wait until an offer price is present; other existing draft validations remain enforced. Saved drafts reload through the draft-only decoder. Review and server submission require a positive offer price and retain all funding, credit, commission, eligibility and immutable-revision checks. No migration, shared data, dependency or environment changes.
+
+
+Escrow fee schedule, October 7, 2026: New LOI calculations use version 4. Each side defaults to $300 plus $1.75 per $1,000 of the positive offer price, calculated proportionally and rounded half-up to cents independently for each side. At $1,000,000 the fee is $2,050 per side. Each Own allocates one fee to each party; Buyer or Seller allocates both fees to that party. Blank escrow estimates select the schedule; entered quotes override the allocated amount, including explicit zero for no charge. Other blank fees remain unknown. Price changes reprice automatic fees; a payer switch preserves quoted amounts and uses the scheduled amount for an unquoted share. Title quotes still need both shares to establish a combined total. Buyer escrow increases buyer closing cash; seller escrow reduces seller proceeds once. A blank offer price may still be saved privately, but cannot calculate escrow or be submitted. V4 stores the per-side scheduled fee and the actual allocated buyer/seller escrow amounts in the immutable summary; review, history and final PDF use those frozen amounts. V1/V2/V3 decoders and historical summaries are unchanged. No database migration, dependency or environment change. Rollback after a V4 revision exists must retain V4 decoding. Earlier fee-schedule-pending notes describe their dated releases and are superseded by this contract.
+
+
+LA City transfer-tax estimates, October 7, 2026: Calculation version 5 adds an optional, explicit City of Los Angeles July 2026–June 2027 schedule. The default remains entered combined transfer-tax quotes; neither an LA mailing address nor the existing property snapshot establishes city jurisdiction. Selecting the schedule confirms the estimate is for a taxable full-price transfer inside city limits in this rate period. County base tax is $0.55 per $500 and city base tax is $2.25 per $500, each rounded up to the next increment, for consideration above $100. ULA is 4% of the entire offer price strictly above $5,400,000 and below $10,900,000; 5.5% of the entire price at or above $10,900,000. Exactly $5,400,000 has no ULA. The base-tax payer remains negotiable; ULA is always seller-paid and is included once in seller itemized costs and proceeds. LA rate mode ignores retained manual transfer-tax quotes; returning to quoted mode restores those inputs. Other cities, exemptions, special taxable values and other closing periods use a quote including any ULA. Exempt/not-applicable base taxes require quoted mode. Review shows the chosen schedule and county/city/ULA amounts; the fee ledger separates base transfer tax and seller ULA. V5 freezes the schedule, tax components and allocated totals; V1/V2/V3/V4 decoding and immutable summaries remain unchanged. Counteroffers may negotiate the schedule and price; omitted schedule from older clients retains the current revision's choice. Reusable templates cannot carry a city-jurisdiction assertion into another property. The terms JSON keeps schemaVersion 1 with an optional validated field; no database migration, environment or dependency change. After V5 revisions exist, rollback must retain V5 decoding.
+
+Rate sources verified October 7, 2026: [Los Angeles Office of Finance — Real Property Transfer Tax and Measure ULA FAQ](https://finance.lacity.gov/faq/measure-ula), [Los Angeles County Recorder — Documentary Transfer Tax](https://www.lavote.gov/home/recorder/property-document-recording/documentary-transfer-taxes). These rates are estimates for the selected taxable-price assumption; Liber does not determine jurisdiction, exemptions or actual closing tax liability.

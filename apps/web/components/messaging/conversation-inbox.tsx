@@ -12,6 +12,7 @@ import {
   normalizeConversationSummaries,
 } from "./normalize";
 import type { ConversationSummary, MessagingListPageInfo } from "./types";
+import { createRecoveryPolling, MESSAGING_FALLBACK_POLL_MS } from "./recovery-polling";
 
 const conversationDateFormatter = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
 const conversationTimeFormatter = new Intl.DateTimeFormat("en", { timeStyle: "short" });
@@ -29,6 +30,8 @@ export function ConversationInbox({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "unread" | "active">("all");
   const firstPageSignatureRef = useRef(conversationPageSignature(initialConversations, initialPageInfo));
   const requestInFlightRef = useRef<"load" | "refresh" | null>(null);
   const requestAbortRef = useRef<AbortController | null>(null);
@@ -38,7 +41,7 @@ export function ConversationInbox({
   }, []);
 
   const refreshFirstPage = useCallback(async () => {
-    if (requestInFlightRef.current) return;
+    if (requestInFlightRef.current) return true;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), INBOX_REFRESH_TIMEOUT_MS);
     requestAbortRef.current = controller;
@@ -49,9 +52,9 @@ export function ConversationInbox({
         signal: controller.signal,
       });
       const payload = await response.json().catch(() => null) as unknown;
-      if (controller.signal.aborted || !response.ok) return;
+      if (controller.signal.aborted || !response.ok) return false;
       const refreshedPageInfo = normalizeListPageInfo(payload);
-      if (refreshedPageInfo.hasMore && !refreshedPageInfo.nextCursor) return;
+      if (refreshedPageInfo.hasMore && !refreshedPageInfo.nextCursor) return false;
       const incoming = normalizeConversationSummaries(payload);
       const signature = conversationPageSignature(incoming, refreshedPageInfo);
       if (signature !== firstPageSignatureRef.current) {
@@ -59,8 +62,10 @@ export function ConversationInbox({
         setConversations(incoming);
         setPageInfo(refreshedPageInfo);
       }
+      return true;
     } catch {
       // Polling is a recovery path; the next focus, online, or timer event retries.
+      return false;
     } finally {
       window.clearTimeout(timeout);
       if (requestAbortRef.current === controller) requestAbortRef.current = null;
@@ -69,16 +74,18 @@ export function ConversationInbox({
   }, []);
 
   useEffect(() => {
-    void refreshFirstPage();
-    const recover = () => {
-      if (document.visibilityState === "visible" && navigator.onLine) void refreshFirstPage();
-    };
-    const poll = window.setInterval(recover, 5_000);
+    const poll = createRecoveryPolling({
+      canRefresh: () => document.visibilityState === "visible" && navigator.onLine,
+      intervalMs: () => MESSAGING_FALLBACK_POLL_MS,
+      refresh: refreshFirstPage,
+    });
+    const recover = () => poll.recover();
+    recover();
     window.addEventListener("focus", recover);
     window.addEventListener("online", recover);
     document.addEventListener("visibilitychange", recover);
     return () => {
-      window.clearInterval(poll);
+      poll.dispose();
       window.removeEventListener("focus", recover);
       window.removeEventListener("online", recover);
       document.removeEventListener("visibilitychange", recover);
@@ -135,10 +142,36 @@ export function ConversationInbox({
     );
   }
 
+  const query = search.trim().toLocaleLowerCase();
+  const visibleConversations = conversations.filter((conversation) => {
+    if (filter === "unread" && conversation.unreadCount === 0) return false;
+    if (filter === "active" && conversation.status !== "ACTIVE") return false;
+    return !query || [conversation.counterpartLabel, conversation.propertyTitle, conversation.lastMessage?.body ?? ""]
+      .some((value) => value.toLocaleLowerCase().includes(query));
+  });
+  const unreadConversations = conversations.filter((conversation) => conversation.unreadCount > 0).length;
+
   return (
-    <section aria-label="Conversations" className="stack tight">
+    <section aria-label="Conversations" className="messenger-inbox">
+      <div className="messenger-inbox-tools">
+        <label className="messenger-search">
+          <Icon aria-hidden="true" name="search" size={18} />
+          <span className="visually-hidden">Search loaded conversations</span>
+          <input onChange={(event) => setSearch(event.target.value)} placeholder="Search conversations" type="search" value={search} />
+        </label>
+        <div aria-label="Filter conversations" className="messenger-filters" role="group">
+          <button aria-pressed={filter === "all"} onClick={() => setFilter("all")} type="button">All</button>
+          <button aria-pressed={filter === "unread"} onClick={() => setFilter("unread")} type="button">
+            Unread {unreadConversations > 0 ? <span>{unreadConversations}</span> : null}
+          </button>
+          <button aria-pressed={filter === "active"} onClick={() => setFilter("active")} type="button">Active</button>
+        </div>
+      </div>
+      <p aria-live="polite" className="visually-hidden">
+        {visibleConversations.length} of {conversations.length} loaded conversations shown.
+      </p>
       <div className="message-inbox-list">
-        {conversations.map((conversation) => (
+        {visibleConversations.map((conversation) => (
           <Link
             className={`message-inbox-item${conversation.unreadCount > 0 ? " unread" : ""}`}
             href={`/messages/${conversation.id}`}
@@ -148,7 +181,8 @@ export function ConversationInbox({
               <GeneratedAvatar
                 alt={`${conversation.counterpartLabel} avatar`}
                 className="message-inbox-avatar"
-                seed={conversation.id}
+                name={conversation.counterpartLabel}
+                seed={conversation.counterpartLabel}
                 variant={conversation.counterpartAvatarVariant}
               />
             ) : (
@@ -184,15 +218,23 @@ export function ConversationInbox({
                 </span>
               ) : null}
               {conversation.muted ? <span className="muted small">Muted</span> : null}
-              <Icon name="chevron-right" size={16} />
             </span>
           </Link>
         ))}
+        {visibleConversations.length === 0 ? (
+          <div className="messenger-no-results">
+            <Icon aria-hidden="true" name="search" size={24} />
+            <h2>No matching conversations</h2>
+            <p>Try a different search or filter.</p>
+            <button className="button secondary sm" onClick={() => { setSearch(""); setFilter("all"); }} type="button">Show all conversations</button>
+          </div>
+        ) : null}
       </div>
       {error ? <p className="auth-alert error" role="alert">{error}</p> : null}
       <p aria-live="polite" className="visually-hidden">{notice}</p>
       {pageInfo.hasMore && pageInfo.nextCursor ? (
         <div className="message-inbox-pagination">
+          <p className="muted small">Search and filters apply to loaded conversations.</p>
           <button className="button secondary" disabled={loading} onClick={() => void loadMore()} type="button">
             {loading ? "Loading…" : "Load older conversations"}
           </button>

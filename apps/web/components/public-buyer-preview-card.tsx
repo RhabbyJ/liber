@@ -1,12 +1,13 @@
 "use client";
 
-import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
+import type { PublicBuyerPreviewDTO } from "../lib/buyer-dtos";
 import { syncPublicDemandPinHighlights } from "../lib/public-demand-highlight";
+import { hasVerifiedPreviewBadge } from "../lib/test-preapproval";
 import { GeneratedAvatar } from "./generated-avatar";
 import { Icon } from "./icon";
 import { PropertyTypeArtwork } from "./property-type-artwork";
 
-export function PublicBuyerPreviewCard({ index, preview }: { index: number; preview: PublicBuyerPreviewDto }) {
+export function PublicBuyerPreviewCard({ index, preview }: { index: number; preview: PublicBuyerPreviewDTO }) {
   const meta = [
     preview.bedroomsMin ? `${preview.bedroomsMin}+ bd` : null,
     preview.bathroomsMin ? `${preview.bathroomsMin}+ ba` : null,
@@ -15,10 +16,10 @@ export function PublicBuyerPreviewCard({ index, preview }: { index: number; prev
   ].filter((fact): fact is string => Boolean(fact));
   const chips = [...preview.badges.slice(0, 2), ...preview.amenities].slice(0, 4);
   const setActivePreviewIndex = (activeIndex: number | null) => {
-    const pins = Array.from(document.querySelectorAll<HTMLElement>("[data-public-demand-preview-index]"))
+    const pins = Array.from(document.querySelectorAll<HTMLElement>("[data-public-demand-preview-indexes]"))
       .map((element) => ({
         element,
-        previewIndex: Number(element.dataset.publicDemandPreviewIndex),
+        previewIndexes: (element.dataset.publicDemandPreviewIndexes ?? "").split(",").map(Number),
       }));
     syncPublicDemandPinHighlights(pins, activeIndex);
   };
@@ -40,6 +41,7 @@ export function PublicBuyerPreviewCard({ index, preview }: { index: number; prev
         <div className="demand-card-identity">
           <GeneratedAvatar
             alt={`${preview.alias} generated buyer avatar`}
+            name={preview.alias}
             seed={preview.alias}
             variant={preview.avatarVariant}
           />
@@ -58,7 +60,7 @@ export function PublicBuyerPreviewCard({ index, preview }: { index: number; prev
             <p className="demand-card-kicker">Seeking a {preview.label.toLowerCase()}</p>
             <p className="demand-card-budget">{preview.budgetLabel}</p>
           </div>
-          {preview.badges.length > 0 ? (
+          {hasVerifiedPreviewBadge(preview.badges) ? (
             <span className="demand-card-verified">
               <Icon name="check-shield" size={13} />
               Verified details

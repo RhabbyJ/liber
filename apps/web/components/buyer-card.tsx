@@ -14,6 +14,7 @@ export function BuyerCard({
   variant?: "home" | "row";
 }) {
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
+  const testPreApproval = activeBadges.find((badge) => badge.type === "TEST_PRE_APPROVED");
   const profileSummary = [buyer.type, buyer.purpose].filter(Boolean).join(" - ") || "Buyer";
   const profileLocationSummary = [profileSummary, buyer.location].filter(Boolean).join(" - ");
 
@@ -21,7 +22,7 @@ export function BuyerCard({
     return (
       <article className="buyer-card" data-buyer-id={buyer.id}>
         <div className="buyer-card-head">
-          <GeneratedAvatar seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
+          <GeneratedAvatar name={buyer.name} seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
           <div>
             <h3>{buyer.name}</h3>
             {buyer.isDemo ? <span className="status-dot warning">Demo buyer</span> : null}
@@ -49,9 +50,10 @@ export function BuyerCard({
         </div>
         {activeBadges.length > 0 ? (
           <div className="pill-row">
-            {activeBadges.slice(0, 3).map((badge) => (
+            {activeBadges.filter((badge) => badge.type !== "TEST_PRE_APPROVED").slice(0, 3).map((badge) => (
               <BadgePill badge={badge} key={badge.label} />
             ))}
+            {testPreApproval ? <BadgePill badge={testPreApproval} /> : null}
           </div>
         ) : null}
         <div className="actions inline">
@@ -70,7 +72,7 @@ export function BuyerCard({
   return (
     <article className="buyer-row" data-buyer-id={buyer.id}>
       <div className="buyer-row-profile">
-        <GeneratedAvatar seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
+        <GeneratedAvatar name={buyer.name} seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
         <div>
           <h3>{buyer.name}</h3>
           {buyer.isDemo ? <span className="status-dot warning">Demo buyer</span> : null}
@@ -80,14 +82,15 @@ export function BuyerCard({
 
       <div className="buyer-row-status">
         <div className={preApprovalBadge ? "buyer-row-status-label active" : "buyer-row-status-label"}>
-          {preApprovalBadge ? (
+          {preApprovalBadge || testPreApproval ? (
             <span className="buyer-row-status-icon">
-              <Icon name="check-shield" size={15} />
+              <Icon name={preApprovalBadge ? "check-shield" : "info"} size={15} />
             </span>
           ) : null}
-          <strong>{preApprovalBadge ? "Pre-approved" : "Not pre-approved"}</strong>
+          <strong>{preApprovalBadge ? "Pre-approved" : testPreApproval ? "Test pre-approval" : "Not pre-approved"}</strong>
         </div>
-        <span>{buyerApprovalSummary(preApprovalBadge)}</span>
+        <span>{!preApprovalBadge && testPreApproval ? "Not lender-verified" : buyerApprovalSummary(preApprovalBadge)}</span>
+        {preApprovalBadge && testPreApproval ? <BadgePill badge={testPreApproval} /> : null}
       </div>
 
       <div className="buyer-row-fit">

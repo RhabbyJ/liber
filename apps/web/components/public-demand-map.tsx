@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
+import type { PublicBuyerPreviewDTO } from "../lib/buyer-dtos";
 import { syncSelectedAreaLayer } from "../lib/map-boundary-layers";
 import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
 import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
+import { groupMapPoints } from "../lib/map-point-groups";
 import { mapboxStaticImageUrl } from "../lib/mapbox-static-image";
 import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
 
@@ -12,7 +13,7 @@ type Props = {
   market: MarketMapContext;
   primaryCtaHref: string;
   primaryCtaLabel: string;
-  previews: PublicBuyerPreviewDto[];
+  previews: PublicBuyerPreviewDTO[];
   secondaryCtaHref?: string;
   secondaryCtaLabel?: string;
   selectedArea?: SelectedMapArea | null;
@@ -24,7 +25,7 @@ type PreviewPoint = {
   index: number;
   lat: number;
   lng: number;
-  preview: PublicBuyerPreviewDto;
+  preview: PublicBuyerPreviewDTO;
 };
 
 /**
@@ -149,30 +150,33 @@ export function PublicDemandMap({
     markersRef.current = [];
     setHasLiveMarkers(false);
 
-    for (const point of points) {
+    for (const group of groupMapPoints(points)) {
+      const point = group.points[0];
       const markerNode = document.createElement("button");
       markerNode.type = "button";
       markerNode.className = "buyer-map-marker public-demand-pin";
-      markerNode.dataset.publicDemandPreviewIndex = String(point.index);
-      markerNode.setAttribute("aria-label", `Buyer demand around ${point.preview.area}`);
-      markerNode.innerHTML = `<span aria-hidden="true"></span>`;
+      markerNode.dataset.publicDemandPreviewIndexes = group.points.map((item) => item.index).join(",");
+      markerNode.setAttribute("aria-label", `${group.points.length} ${group.points.length === 1 ? "buyer targeting" : "buyers targeting"} ${point.preview.area}`);
+      markerNode.innerHTML = group.points.length > 1
+        ? `<span class="public-demand-count" aria-hidden="true">${group.points.length}</span>`
+        : `<span aria-hidden="true"></span>`;
 
       const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(
-        previewPopupHtml(point.preview, {
+        `<div class="buyer-map-popup-group">${group.points.map((item) => previewPopupHtml(item.preview, {
           primaryHref: primaryCtaHref,
           primaryLabel: primaryCtaLabel,
           secondaryHref: secondaryCtaHref,
           secondaryLabel: secondaryCtaLabel,
-        }),
+        })).join("")}</div>`,
       );
-      const marker = new window.mapboxgl.Marker({ element: markerNode })
+      const marker = new window.mapboxgl.Marker({ element: markerNode, anchor: "center" })
         .setLngLat([point.lng, point.lat])
         .setPopup(popup)
         .addTo(mapRef.current);
 
       markersRef.current.push(marker);
     }
-    setHasLiveMarkers(points.length > 0);
+    setHasLiveMarkers(true);
 
     if (selectedArea) {
       mapRef.current.fitBounds(selectedAreaBounds(selectedArea), { maxZoom: 12.6, padding: 92 });
@@ -211,7 +215,7 @@ export function PublicDemandMap({
         View all LA County
       </button>
       <div className="public-map-note">
-        {selectedArea ? "Selected area boundary · anonymized demand" : "Search an area to show its boundary · anonymized demand"}
+        {selectedArea ? "Selected boundary · buyer target areas" : "Buyer target areas · not home addresses"}
       </div>
     </div>
   );
@@ -231,7 +235,7 @@ function PublicStaticDemandMap({
   return (
     <div className="public-map-shell fallback" aria-label="Buyer demand preview map">
       <StaticDemandLayer market={market} points={points} selectedArea={selectedArea} token={token} />
-      <div className="public-map-note">Approximate locations · privacy-safe preview</div>
+      <div className="public-map-note">Buyer target areas · not home addresses</div>
     </div>
   );
 }
@@ -276,7 +280,7 @@ function StaticDemandLayer({
 }
 
 function previewPopupHtml(
-  preview: PublicBuyerPreviewDto,
+  preview: PublicBuyerPreviewDTO,
   cta: {
     primaryHref: string;
     primaryLabel: string;

@@ -4,7 +4,7 @@ import { primaryNavItems } from "./primary-nav-items";
 describe("primary navigation", () => {
   it("keeps useful guest destinations in the navbar", () => {
     expect(primaryNavItems(false, []).map(({ href, label }) => ({ href, label }))).toEqual([
-      { href: "/", label: "Demand map" },
+      { href: "/", label: "Map" },
       { href: "/signup?role=buyer&next=%2Fbuyer%2Fprofile", label: "For buyers" },
       { href: "/signup?role=seller&next=%2Fseller%2Fsearch", label: "For sellers" },
     ]);
@@ -14,7 +14,7 @@ describe("primary navigation", () => {
     const labels = primaryNavItems(true, ["BUYER", "SELLER"], true).map((item) => item.label);
 
     expect(labels).toEqual([
-      "Demand map",
+      "Map",
       "Received invites",
       "Find buyers",
       "Properties",

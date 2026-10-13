@@ -1,0 +1,223 @@
+.notification-shell {
+  position: relative;
+}
+
+.notification-shell .notification-button {
+  flex-shrink: 0;
+  height: 44px;
+  width: 44px;
+}
+
+.notification-button.has-unread {
+  background: var(--sage-tint-strong);
+  border-color: var(--sage-line);
+  box-shadow: 0 0 0 3px var(--sage-tint);
+  color: var(--sage-deep);
+}
+
+.notification-button:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: 2px solid var(--sage-deep);
+  outline-offset: 2px;
+}
+
+.notification-count {
+  align-items: center;
+  background: var(--sage-strong);
+  border: 2px solid var(--surface);
+  border-radius: var(--r-pill);
+  color: var(--ink-strong);
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 750;
+  justify-content: center;
+  line-height: 1;
+  min-height: 19px;
+  min-width: 19px;
+  padding: 2px 4px;
+  position: absolute;
+  right: -5px;
+  top: -5px;
+}
+
+.notification-popover {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-float);
+  color: var(--ink);
+  padding: 18px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 12px);
+  width: min(290px, calc(100vw - 32px));
+  z-index: 42;
+}
+
+.notification-popover[hidden] {
+  display: none;
+}
+
+.notification-popover strong {
+  color: var(--ink-strong);
+  font-size: 15px;
+}
+
+.notification-popover p {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 8px 0 12px;
+}
+
+.notification-popover-link,
+.notification-mark-read {
+  align-items: center;
+  border-radius: var(--r-sm);
+  display: flex;
+  font-size: 13px;
+  font-weight: 650;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.notification-popover-link {
+  background: var(--sage-tint);
+  color: var(--ink-strong);
+}
+
+.notification-mark-read {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  cursor: pointer;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.notification-mark-read:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.notification-popover-link:focus-visible,
+.notification-mark-read:focus-visible,
+.invite-arrival-body a:focus-visible,
+.invite-arrival-close:focus-visible {
+  outline: 2px solid var(--sage-deep);
+  outline-offset: 2px;
+}
+
+.notification-popover .notification-error {
+  color: var(--danger);
+  margin-bottom: 0;
+}
+
+.invite-arrival-toast {
+  align-items: start;
+  animation: invite-arrival-enter 180ms ease-out;
+  background: var(--surface);
+  border: 1px solid var(--sage-line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-float);
+  color: var(--ink);
+  display: flex;
+  gap: 12px;
+  max-width: calc(100vw - 32px);
+  padding: 16px;
+  position: fixed;
+  right: var(--gutter);
+  top: 90px;
+  width: 370px;
+  z-index: 41;
+}
+
+.invite-arrival-icon {
+  background: var(--sage-tint-strong);
+  border-radius: var(--r-sm);
+  color: var(--sage-deep);
+  display: grid;
+  flex-shrink: 0;
+  height: 38px;
+  place-items: center;
+  width: 38px;
+}
+
+.invite-arrival-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.invite-arrival-body strong {
+  color: var(--ink-strong);
+  display: block;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.invite-arrival-body p {
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 4px 0 6px;
+}
+
+.invite-arrival-body a {
+  align-items: center;
+  color: var(--ink-strong);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 7px;
+  min-height: 44px;
+}
+
+.invite-arrival-close {
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-sm);
+  color: var(--ink-soft);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 23px;
+  height: 44px;
+  line-height: 1;
+  margin: -8px -8px 0 0;
+  width: 44px;
+}
+
+@keyframes invite-arrival-enter {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 1080px) {
+  .topbar.has-notifications {
+    gap: 12px;
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .topbar.has-notifications .top-actions.is-authenticated {
+    display: flex;
+  }
+
+  .topbar.has-notifications .top-actions.is-authenticated .account-menu {
+    display: none;
+  }
+
+  .invite-arrival-toast {
+    right: 16px;
+    top: 88px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .invite-arrival-toast {
+    animation: none;
+  }
+
+  .notification-shell .notification-button {
+    transition: none;
+  }
+}

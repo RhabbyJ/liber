@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapboxServiceAreaQueries, mapPinPosition } from "./mapbox";
-
-const buyers = [
-  { id: "buyer-1", lat: 34.233923, lng: -118.519279, serviceAreaSlug: "northridge" },
-  { id: "buyer-2", lat: 34.1467, lng: -118.433314, serviceAreaSlug: "studio-city" },
-];
+import { mapboxServiceAreaQueries } from "./mapbox";
 
 describe("Mapbox static map helpers", () => {
   it("uses typed postcode metadata instead of five-digit house numbers", () => {
@@ -18,14 +13,4 @@ describe("Mapbox static map helpers", () => {
     })).toEqual(["91604", "Studio City"]);
   });
 
-  it("keeps map pin positions within the visible map bounds", () => {
-    const position = mapPinPosition(buyers[0], buyers);
-
-    expect(position).not.toBeNull();
-    if (!position) return;
-    expect(position.left).toBeGreaterThanOrEqual(8);
-    expect(position.left).toBeLessThanOrEqual(92);
-    expect(position.top).toBeGreaterThanOrEqual(8);
-    expect(position.top).toBeLessThanOrEqual(92);
-  });
 });

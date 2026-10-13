@@ -7,10 +7,19 @@
     "packages/*"
   ],
   "overrides": {
-    "@hono/node-server": "1.19.13",
-    "hono": "4.12.25",
-    "postcss": "8.5.19",
-    "vite": "8.0.16"
+    "@hono/node-server": "1.19.17",
+    "hono": "4.13.8",
+    "postcss": "8.5.28",
+    "vite": "8.0.16",
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.0"
+    },
+    "@prisma/dev": {
+      "valibot": "1.5.0"
+    },
+    "prisma": {
+      "mysql2": "3.24.4"
+    }
   },
   "scripts": {
     "dev": "npm run dev -w @liber/web",
@@ -54,9 +63,10 @@
     "db:test-auth-security:staging": "node scripts/test-auth-security-staging.mjs"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.4.1",
     "prisma": "7.8.0",
     "typescript": "6.0.3",
-    "vitest": "4.1.6"
+    "vitest": "4.1.11"
   },
   "dependencies": {
     "playwright": "^1.62.1"

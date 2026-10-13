@@ -1,15 +1,28 @@
 # Production Decisions
 
-Last reviewed: 2026-07-17
+Last reviewed: 2026-09-22
 
 This is the living launch-gate matrix for moving Liber from a controlled CEO
 demo/private preview to a public Los Angeles beta. It does not override
 `V1_DEFINITION.md`, `CEO_ROADMAP.md`, or the backend architecture.
-This update records deployment and authorization proof only; it does not expand
-the approved product scope.
+This update reconciles the September 21 verification and September 22 local
+hardening evidence. It does not expand approved scope or imply that local
+changes are deployed. Provider findings retain the dates of their source audits.
 
 ## Current release state
 
+- The latest workspace hardening passes 612 automated tests (16 credential-gated
+  tests skipped), typecheck, lint, build and scoped security/browser checks.
+  Those changes remain local; the September 21 deployment audit identified the
+  August 12 deployment as the production alias. See
+  `../engineering/SECURITY_HARDENING_2026-09-22.md` for exact scope and limitations.
+- Confidential document processing is now gated off in the local code for
+  public/unknown environments until actual private malware scanning exists.
+  Preview flags cannot enable production privilege elevation or bypass that
+  gate. Existing stored preview grants still require review and cleanup.
+- Two Vercel firewall observation rules are staged, valid and unpublished.
+  Logging collects evidence; it does not enforce blocking. Operator publication,
+  traffic review and Preview enforcement testing remain required.
 - Keep Liber in controlled preview availability; malware scanning and scheduled
   maintenance remain public-launch blockers.
 - Guided Messaging V1 is approved for implementation as invite-scoped guided
@@ -43,6 +56,25 @@ the approved product scope.
   hardening does not clear the remaining Supabase-owned PostGIS or Auth gates.
 - LA County geography activation is a coverage decision, not authorization to
   describe the entire product as publicly launched.
+
+## Work before the next CEO review
+
+The approved marketplace loop provides sufficient scope for continued
+engineering. Prioritize completing and proving that loop over expanding it.
+
+| Work | Engineering deliverable | External input or boundary |
+| --- | --- | --- |
+| Account security | Forgotten-password recovery, admin MFA enrollment/step-up and tested recovery behavior | Authorized provider access; agree who retains real administration before changing existing roles |
+| Current release proof | Modernize the retired Auth/Storage/suspension harness; rerun ordinary buyer/seller HTTP and browser flows on the final reviewed build | Disposable staging credentials; never substitute shared production for destructive fixtures |
+| Reliable operations | Executable scheduler setup, bounded expiry continuation, heartbeat/backlog/failure alerts and delivery tests | Verified sender/domain access and an approved scheduler/hosting budget where required |
+| Database resilience | Review forward least-privilege changes, rehearse restore, and measure query/connection capacity with representative fixtures | Isolated environment and provider support for Supabase-owned extensions |
+| Meeting/release packet | Reproducible demo, exact code revision and checks, rollback plan, dry-run inventory of synthetic records and preview role grants | Owner identifies genuine admins, seller approvers and support/moderation responsibility |
+
+CEO/counsel decisions remain retention/legal hold/deletion, fair-housing guided
+copy and moderation policy, staffing, launch/cohort boundaries, and LOI approval
+for any wider rollout. The scanner vendor is already selected; its paid private
+account, credentials and retention/region terms are outstanding. Routine code,
+test, scheduler and email preparation do not require a new product decision.
 
 ## Architecture-boundary implementation status
 
@@ -165,10 +197,13 @@ the existing invite quota.
   only conversation/message/type business identifiers and Supabase added the
   transport-level wire `id`.
 - The same branch persisted the buyer quick reply and seller response through
-  application-equivalent SQL. Record the still-open exact authenticated
-  browser/Next.js HTTP journey for that buyer/seller path before enabling a
-  production cohort; the database and Realtime evidence does not substitute for
-  it.
+  application-equivalent SQL. The September 21 local production-build proof
+  subsequently exercised real ordinary buyer/seller login, invite creation,
+  bidirectional messaging, automatic refresh and blocking through Next.js HTTP
+  and the browser. Its scoped fixtures were cleaned up. See
+  `../engineering/PUBLIC_LAUNCH_VERIFICATION_2026-09-21.md`; rerun this authenticated
+  journey on the final hardened release revision before promotion. The
+  September 22 browser pass covered public/navigation flows, not that full journey.
 - Staff the report queue and audit report-content reads, status changes, and
   redactions. There is no unrestricted admin inbox.
 - Keep `LIBER_MESSAGING_V1_ENABLED` disabled by default in production and use
@@ -188,8 +223,10 @@ the existing invite quota.
   closed, and `app_private` remained unavailable as a Data API schema. This
   closes the real-session private-Realtime and raw-Data-API proof gate; it does
   not authorize a production cohort.
-- Keep LOI disabled pending the protected exact-SHA fresh/representative-upgrade
-  jobs, two-connection race proof, authenticated browser/UI verification,
+- September 21 scoped HTTP proof completed LOI draft/submission/counter/alignment
+  and retries, with browser verification of aligned terms and revision display.
+  Keep broader LOI rollout disabled pending protected exact-SHA fresh/upgrade
+  jobs, two-connection race proof, final-release authenticated journey reruns,
   scheduled worker/provider proof, and required product/counsel approvals.
 
 ### Release infrastructure
@@ -211,7 +248,11 @@ the existing invite quota.
 
 ## Environment and advisor decisions
 
-- Vercel cron schedules are temporarily disabled for the controlled Hobby-plan preview so deployments can proceed. Restore a per-minute outbox scheduler and the daily expiry scheduler before relying on automated email, Auth bans, invite expiry, or upload cleanup.
+- Vercel cron schedules remain disabled in the repository for the controlled
+  preview. Configure per-minute outbox/Auth work and bounded expiry invocations
+  before relying on automated email, Auth bans, invite expiry or upload cleanup.
+  Drain `expiration.hasMore` through subsequent invocations; a daily single
+  expiry call is insufficient for the current bounded batches.
 - Keep a unique `AUTH_RATE_LIMIT_PEPPER` of at least 32 characters in each deployed environment. Production and the `codex/ui-refresh` branch preview are configured separately; any additional preview branch must receive its own value before Auth can be exercised there.
 - Configure `CRON_SECRET` before scheduled maintenance is enabled.
 - Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` before relying on invite
@@ -246,7 +287,9 @@ the existing invite quota.
 Before any public launch:
 
 - Restore `/api/maintenance/outbox` on `* * * * *` (every minute).
-- Restore `/api/maintenance/expire` on `0 9 * * *` (daily at 09:00 UTC).
+- Schedule `/api/maintenance/expire` every minute, with subsequent bounded
+  invocations when `expiration.hasMore` is true and alerts on persistent backlog.
+  Do not run an unbounded draining loop inside one HTTP request.
 - Use Vercel Pro or an external scheduler that supports the required frequency; do not reduce the outbox worker to a daily schedule.
 - Confirm `CRON_SECRET` is configured, deploy, and verify successful worker heartbeats plus email, Auth-ban, invite-expiry, and upload-cleanup processing.
 

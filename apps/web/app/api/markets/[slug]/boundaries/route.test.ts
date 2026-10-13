@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getGeometry = vi.hoisted(() => vi.fn());
+const limit = vi.hoisted(() => vi.fn());
+vi.mock("../../../../../server/public-geography-http", () => ({ limitPublicGeographyRequest: limit }));
 
 vi.mock("../../../../../server/service-areas", () => ({
   GeographyUnavailableError: class GeographyUnavailableError extends Error {},
@@ -20,7 +22,7 @@ const geojson = {
 };
 
 describe("market display-boundary route", () => {
-  beforeEach(() => getGeometry.mockReset());
+  beforeEach(() => { getGeometry.mockReset(); limit.mockReset().mockResolvedValue(null); });
 
   it("serves an immutable privacy-safe version", async () => {
     getGeometry.mockResolvedValue({ geojson, sha256: hash });
@@ -55,5 +57,6 @@ describe("market display-boundary route", () => {
 
     expect(response.status).toBe(404);
     expect(getGeometry).not.toHaveBeenCalled();
+    expect(limit).not.toHaveBeenCalled();
   });
 });

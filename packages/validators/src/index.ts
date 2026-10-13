@@ -227,6 +227,8 @@ export const conversationListQuerySchema = z.object({
 }).strict();
 
 const optionalMoney = z.coerce.number().min(0).optional();
+// Saved budgets are Decimal(12, 2); larger input must fail validation instead of overflowing the column.
+const optionalBuyerBudget = z.coerce.number().min(0).max(9_999_999_999.99, "Budget cannot exceed $9,999,999,999.99.").optional();
 const optionalInteger = z.coerce.number().int().min(0).optional();
 export const marketSlugSchema = z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/);
 const nullableServiceAreaSlug = z.union([
@@ -240,8 +242,8 @@ const buyerProfileShape = {
   buyingPurpose: buyingPurposeSchema.optional(),
   desiredMarketSlug: marketSlugSchema.optional(),
   desiredServiceAreaSlug: nullableServiceAreaSlug,
-  budgetMin: optionalMoney,
-  budgetMax: optionalMoney,
+  budgetMin: optionalBuyerBudget,
+  budgetMax: optionalBuyerBudget,
   downPaymentMin: optionalMoney,
   downPaymentMax: optionalMoney,
   visibilityStatus: buyerSelfVisibilityStatusSchema.optional(),
@@ -364,7 +366,6 @@ export const createSellerPropertySchema = z.object({
   propertyType: propertySubtypeSchema,
   bedrooms: optionalInteger,
   bathrooms: optionalInteger,
-  garageArea: optionalInteger,
   squareFeet: optionalInteger,
   lotSize: optionalInteger,
   condition: z.string().trim().max(80).optional(),

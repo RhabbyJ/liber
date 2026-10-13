@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import type { Prisma } from "@liber/db";
 import type {
   SellerBadgeDTO,
@@ -6,7 +5,7 @@ import type {
   SellerBuyerDetailDTO,
   SellerBuyerSummaryDTO,
 } from "../../lib/buyer-dtos";
-import { buyerAliasForDisplay } from "../../lib/buyer-alias";
+import { publicNameForDisplay } from "../public-identity";
 import { resolveAvatarVariant } from "../../lib/avatar-variant";
 import { propertySubtypeLabel } from "../../lib/property-types";
 
@@ -26,7 +25,7 @@ export function sellerBuyerSelect(now = new Date()) {
   downPaymentMax: true,
   lastRefreshedAt: true,
   updatedAt: true,
-  user: { select: { avatarVariant: true } },
+  user: { select: { avatarVariant: true, name: true } },
   criteria: {
     take: 1,
     select: {
@@ -142,30 +141,19 @@ function sellerBadges(row: SellerBuyerRow): SellerBadgeDTO[] {
   return badges;
 }
 
-function approximateSellerPoint(id: string, centerLat: number, centerLng: number) {
-  const digest = createHash("sha256").update(`seller-map:${id}`).digest();
-  const angle = (digest.readUInt16BE(0) / 65_535) * Math.PI * 2;
-  const radius = 0.0025 + (digest.readUInt16BE(2) / 65_535) * 0.0025;
-  return {
-    lat: centerLat + Math.sin(angle) * radius,
-    lng: centerLng + Math.cos(angle) * radius,
-  };
-}
-
 export function sellerBuyerSummary(row: SellerBuyerRow, viewerUserId: string, isDemo = false): SellerBuyerSummaryDTO {
   const area = row.desiredServiceAreas[0]?.serviceArea;
   if (!area) throw new Error("Seller buyer projection requires an active selected service area.");
   const criteriaDetails = row.criteria.map(criteriaDTO);
   const criteria = criteriaLabels(criteriaDetails);
-  const point = approximateSellerPoint(row.id, area.centerLat, area.centerLng);
   const city = area.type === "neighborhood" ? area.label : area.city ?? area.label;
-  const alias = buyerAliasForDisplay(row.displayName, row.id);
+  const publicName = publicNameForDisplay(row.user.name, row.userId);
   return {
     id: row.id,
     isDemo,
-    avatarSeed: alias,
+    avatarSeed: publicName,
     avatarVariant: resolveAvatarVariant(row.user.avatarVariant, row.id).value,
-    name: alias,
+    name: publicName,
     location: area.type === "zip" && area.postalCode
       ? `${city}, ${area.state} ${area.postalCode}`
       : `${area.label}, ${area.state}`,
@@ -190,8 +178,8 @@ export function sellerBuyerSummary(row: SellerBuyerRow, viewerUserId: string, is
     refreshedAt: (row.lastRefreshedAt ?? row.updatedAt).toISOString().slice(0, 10),
     marketSlug: area.market.slug,
     serviceAreaSlug: area.slug,
-    lat: point.lat,
-    lng: point.lng,
+    lat: area.centerLat,
+    lng: area.centerLng,
     canInvite: row.userId !== viewerUserId,
   };
 }

@@ -15,7 +15,13 @@ Owns internal admin review and moderation tools: users, seller access, buyer pro
 
 - Admin pages are internal only.
 - Admin role is server-controlled.
+- Buyer badge cards show private account name/email only through the admin-authorized buyer query. Document approval precedes badge grant; missing or incompatible approved evidence disables the grant with a link to Documents. Grant/revoke actions show inline feedback and refresh affected buyer/admin views. Derived cash-buyer signals have no independent revoke control.
 - Sensitive admin actions should write audit logs.
+- Authenticated admins may review their own seller access, evidence, and badges and may moderate their own account. Self-review uses the same server authorization, evidence rules, rate limits, and audit trail as reviewing another account; it never grants the admin role.
+- Seller-directory review returns expected validation and rate-limit failures inline. Reviews lock the target user and recheck the current access before writing. Repeating the current status is a no-op that preserves the original review and creates no extra audit or notification. The users page disables redundant approval and approval of suspended accounts.
+- Seller-directory approval and property ownership approval are separate gates. The users page links to document review and explains that each property needs current approved ownership evidence before invites can be sent.
+- `/admin/documents` has separate synthetic journey controls only while the existing CEO preview flags are enabled and the server session is an admin. The closed cohort is `liber-demo-seller-20260925-journey@example.com` and `liber-demo-buyer-20260925-journey@example.com`; there is no general verification bypass. Approval requires active approved seller access, an unflagged/unarchived property, and the seller's current normal authority attestation. It writes `property_synthetic_test_approval`, never a fabricated verification document or `PropertyVerificationDecision`. Revoke writes `property_synthetic_test_revocation` and restores the real current evidence state. Repeated decisions are harmless. These controls return validation and save failures inline.
+- True-production readiness blocks any approved property whose current identity's latest test-review audit is an approval. Revoked markers and obsolete property versions do not count as active overrides.
 - Conversation content access is report-driven. Report reads, status changes,
   resolution, and redaction are audited; admins do not receive a general inbox
   or unrestricted conversation browser.
@@ -30,3 +36,7 @@ Owns internal admin review and moderation tools: users, seller access, buyer pro
 ## Agent notes
 
 Admin UX can be utilitarian. Correctness, auditability, and privacy matter more than polish.
+
+## Self test pre-approval
+
+`server/test-preapproval.ts` and `/admin/badges/test-actions.ts` provide a distinct demo-only self marker. The server derives the target from the signed-in admin, locks the User then own BuyerProfile, rechecks active ADMIN/BUYER roles, requires explicit test confirmation on grant, and limits changes to 30/hour. Grants/revocations are audited and repeated decisions are no-ops. Grants last 24 hours. This tool never writes BuyerBadge or VerificationDocument and cannot target another buyer. No migration or new environment setting is required; it uses the existing CEO preview gate.

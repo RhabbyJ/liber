@@ -1,14 +1,25 @@
 "use client";
 
-import { calculateLoiPreview, loiEditableTermsV1Schema, type LoiComputedSummary, type LoiTermsV1 } from "@liber/validators";
+import { loiCounterEditableTermsV1Schema, loiEditableTermsV1Schema, loiCounterEditableDraftTermsV1Schema, loiEditableDraftTermsV1Schema, previewLoiCalculation, type LoiCalculationIssue, type LoiComputedSummary, type LoiTermsV1 } from "@liber/validators";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { getMessagingBrowserClient, logMessagingRealtimeJoinStatus } from "../messaging/realtime";
 import { LoiEditor, type LoiTermsUpdater } from "./loi-editor";
+import { loiCashEquations } from "./loi-cash-equation";
+import { LoiSellerProceeds, LoiSellerProceedsBreakdown } from "./loi-seller-proceeds";
+import { parseSellerLoanPayoff, sellerNetProceeds } from "./loi-seller-proceeds-values";
+import { LoiCompletedDownload } from "./loi-completed-download";
+import { loiFeeBreakdown } from "./loi-fee-breakdown";
+import "./loi-cash-callout.css";
+import { LoiActionBar } from "./loi-action-bar";
+import { LoiTemplateDialog } from "./loi-template-dialog";
+import { applyLoiTemplate, type LoiTemplate } from "./loi-template-values";
+import { createLoiRefreshGuard } from "./loi-refresh";
 import {
   formatLoiDateTime,
   formatLoiMoney,
   loiInputIdForNormalizedErrors,
+  loiRevisionHeading,
   loiSummaryRows,
   loiTermSections,
   normalizeLoiFieldErrors,
@@ -28,15 +39,17 @@ import {
   mergeLoiRevisions,
   missingLoiRevisionPredecessorLabel,
   reconcileLoiViewState,
+  savedLoiDraftTransition,
   type LoiWorkspaceViewState,
 } from "./loi-workspace-state";
 import type { LoiNegotiation, LoiRevision, LoiRevisionPage, LoiRole } from "./loi-types";
 
-type Decision = "agree" | "decline" | "withdraw";
-type PendingOperation = Decision | "discard" | "history" | "save" | "submit" | null;
+type Decision = "agree" | "decline" | "withdraw" | "discard";
+type PendingOperation = Decision | "history" | "save" | "submit" | null;
 type CanonicalMode = "INITIAL" | "RECONCILE" | "CURRENT";
+const FINANCING_EVIDENCE_REQUIRED_MESSAGE = "Financed terms need a current pre-approval badge or an uploaded pre-approval letter. Your saved draft is safe. Upload a letter from your buyer profile, then return to review and submit.";
 
-export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNegotiation }) {
+export function LoiWorkspace({ initialNegotiation, templateOwnerId }: { initialNegotiation: LoiNegotiation; templateOwnerId?: string }) {
   const [negotiation, setNegotiation] = useState(initialNegotiation);
   const negotiationRef = useRef(initialNegotiation);
   const [history, setHistory] = useState(() => initialNegotiation.revisions);
@@ -44,15 +57,17 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
   const loadedOlderHistory = useRef(false);
   const [view, setView] = useState<LoiWorkspaceViewState>(() => initialLoiViewState(initialNegotiation));
   const [decision, setDecision] = useState<Decision | null>(null);
+  const [templateMode, setTemplateMode] = useState<"save" | "use" | null>(null);
   const [decisionError, setDecisionError] = useState("");
-  const [deadline, setDeadline] = useState(defaultDeadline());
   const [pending, setPending] = useState<PendingOperation>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [refreshError, setRefreshError] = useState("");
   const [notice, setNotice] = useState("");
+  const [sellerPayoff, setSellerPayoff] = useState({ negotiationId: initialNegotiation.id, value: "" });
   const refreshInFlight = useRef(false);
   const refreshQueued = useRef(false);
+  const refreshGuard = useRef(createLoiRefreshGuard());
   const returnFocus = useRef<HTMLElement | null>(null);
   const fallbackFocus = useRef<HTMLAnchorElement | null>(null);
   const viewHeading = useRef<HTMLHeadingElement | null>(null);
@@ -66,16 +81,16 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
     : null;
   const canEdit = canEditLoi(negotiation);
 
-  const localSummary = useMemo(() => {
-    return view.terms ? calculateLoiPreview(view.terms) : null;
-  }, [view.terms]);
+  // One calculation per edit feeds the editor, snapshot, fee details, and action bar.
+  const livePreview = useMemo(() => view.terms ? previewLoiCalculation(view.terms) : null, [view.terms]);
+  const localSummary = livePreview?.summary ?? null;
 
-  const sidebarTerms = view.mode === "EDITING" || view.mode === "REVIEWING"
-    ? view.terms
-    : displayedRevision?.terms ?? null;
-  const sidebarSummary = view.mode === "EDITING" || view.mode === "REVIEWING"
-    ? localSummary
-    : displayedRevision?.computedSummary ?? null;
+  const drafting = view.mode === "EDITING" || view.mode === "REVIEWING";
+  const sidebarTerms = drafting ? view.terms : displayedRevision?.terms ?? null;
+  const sidebarSummary = drafting ? localSummary : displayedRevision?.computedSummary ?? null;
+  const sidebarIssues = drafting ? livePreview?.issues ?? [] : [];
+  const payoff = sellerPayoff.negotiationId === negotiation.id ? sellerPayoff.value : "";
+  const liveTotal = view.mode === "EDITING" ? liveCalculatorTotal(localSummary, negotiation.viewerRole, payoff) : null;
 
   const applyCanonical = useCallback((next: LoiNegotiation, mode: CanonicalMode = "RECONCILE") => {
     const previous = negotiationRef.current;
@@ -92,6 +107,7 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
     if (canonicalChanged) {
       actionAttempts.current.clear();
       setDecision(null);
+      setTemplateMode(null);
       setDecisionError("");
       setFieldErrors({});
       if (mode === "RECONCILE") setNotice("The current LOI state changed. Review the current version before taking another action.");
@@ -115,8 +131,14 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
       do {
         refreshQueued.current = false;
         try {
-          const result = await request(`/api/loi/negotiations/${initialNegotiation.id}`, { cache: "no-store" }) as LoiNegotiation;
-          applyCanonical(result);
+          const applied = await refreshGuard.current.read(
+            () => request(`/api/loi/negotiations/${initialNegotiation.id}`, { cache: "no-store" }) as Promise<LoiNegotiation>,
+            applyCanonical,
+          );
+          if (!applied) {
+            refreshQueued.current = true;
+            continue;
+          }
           setRefreshError("");
         } catch {
           setRefreshError("The latest LOI state could not be refreshed.");
@@ -164,50 +186,70 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
     };
   }, [initialNegotiation.id, refresh]);
 
-  const updateTerms: LoiTermsUpdater = (fieldPath, next) => {
+  // Stable identity keeps the editor's normalization effects from re-running on every keystroke.
+  const updateTerms = useCallback<LoiTermsUpdater>((fieldPath, next) => {
     setView((currentView) => ({
       ...currentView,
       dirty: true,
       mode: "EDITING",
-      staleDraft: false,
       terms: currentView.terms ? next(currentView.terms) : currentView.terms,
     }));
-    setFieldErrors((currentErrors) => Object.fromEntries(Object.entries(currentErrors).filter(([path]) => path !== fieldPath && !path.startsWith(`${fieldPath}.`) && !fieldPath.startsWith(`${path}.`))));
+    setFieldErrors((currentErrors) => {
+      const remaining = Object.entries(currentErrors).filter(([path]) => path !== fieldPath && !path.startsWith(`${fieldPath}.`) && !fieldPath.startsWith(`${path}.`));
+      return remaining.length === Object.keys(currentErrors).length ? currentErrors : Object.fromEntries(remaining);
+    });
     setError("");
     setNotice("");
-  };
+  }, []);
 
-  async function saveDraft() {
-    if (!view.terms || pending) return;
-    const validation = loiEditableTermsV1Schema.safeParse(view.terms);
+  async function saveDraft(reviewAfterSave = false) {
+    if (!view.terms || pending || view.staleDraft || !canEdit) return;
+    const schema = reviewAfterSave
+      ? (negotiation.currentSequence > 0 ? loiCounterEditableTermsV1Schema : loiEditableTermsV1Schema)
+      : (negotiation.currentSequence > 0 ? loiCounterEditableDraftTermsV1Schema : loiEditableDraftTermsV1Schema);
+    const validation = schema.safeParse(view.terms);
     if (!validation.success) {
       showFieldErrors(normalizeLoiFieldErrors(Object.fromEntries(validation.error.issues.map((issue) => [issue.path.join("."), issue.message])), view.terms));
       setError("Review the highlighted fields. Your private draft remains on this page.");
       return;
     }
+    if (reviewAfterSave && !view.dirty && view.draftVersion > 0) {
+      enterReview();
+      return;
+    }
     setPending("save");
     setError("");
     setNotice("");
+    const basis = negotiationRef.current;
     try {
       const result = await request(`/api/loi/negotiations/${negotiation.id}/draft`, {
         body: JSON.stringify({ expectedDraftVersion: view.draftVersion, expectedSequence: negotiation.currentSequence, terms: validation.data }),
         headers: { "Content-Type": "application/json" },
         method: "PUT",
       }) as { draft: { draftVersion: number; id: string; terms: LoiTermsV1; updatedAt?: string } };
-      const updatedNegotiation: LoiNegotiation = {
-        ...negotiationRef.current,
+      refreshGuard.current.invalidate();
+      const saved = savedLoiDraftTransition({
+        basis,
+        current: negotiationRef.current,
         draft: {
           draftVersion: result.draft.draftVersion,
           id: result.draft.id,
           terms: result.draft.terms,
           updatedAt: result.draft.updatedAt ?? new Date().toISOString(),
         },
-      };
-      negotiationRef.current = updatedNegotiation;
-      setNegotiation(updatedNegotiation);
-      setView((currentView) => ({ ...currentView, dirty: false, draftId: result.draft.id, draftVersion: result.draft.draftVersion, staleDraft: false, terms: result.draft.terms }));
+        mode: reviewAfterSave ? "REVIEWING" : "EDITING",
+      });
+      if (!saved) {
+        setError("The LOI changed while saving. Review the latest state before continuing.");
+        void refresh();
+        return;
+      }
+      negotiationRef.current = saved.negotiation;
+      setNegotiation(saved.negotiation);
+      setView(saved.view);
       setFieldErrors({});
       setNotice("Private draft saved.");
+      if (reviewAfterSave) focusWorkspaceView();
     } catch (requestError) {
       handleMutationError(requestError);
     } finally {
@@ -216,14 +258,8 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
   }
 
   async function submit() {
-    if (!view.terms || view.draftVersion < 1 || view.dirty || view.mode !== "REVIEWING" || pending || !canEdit) {
+    if (!view.terms || view.draftVersion < 1 || view.dirty || view.staleDraft || view.mode !== "REVIEWING" || pending || !canEdit) {
       setError("Review the exact saved draft before submitting it.");
-      return;
-    }
-    const deadlineDate = new Date(deadline);
-    if (!validDeadline(deadlineDate)) {
-      setError("Choose a response deadline between one hour and 30 days from now.");
-      window.requestAnimationFrame(() => document.getElementById("loi-response-deadline")?.focus());
       return;
     }
     const expectedDraftId = view.draftId;
@@ -231,7 +267,7 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
       setError("The saved private draft identity is unavailable. Refresh before submitting.");
       return;
     }
-    const signature = `${negotiation.currentSequence}:${expectedDraftId}:${view.draftVersion}:${deadlineDate.toISOString()}`;
+    const signature = `${negotiation.currentSequence}:${expectedDraftId}:${view.draftVersion}`;
     setPending("submit");
     setError("");
     setNotice("");
@@ -242,15 +278,16 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
           expectedDraftId,
           expectedDraftVersion: view.draftVersion,
           expectedSequence: negotiation.currentSequence,
-          responseDeadline: deadlineDate.toISOString(),
         }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       }) as LoiNegotiation;
+      refreshGuard.current.invalidate();
       actionAttempts.current.delete("submit");
       applyCanonical(result, "CURRENT");
       setFieldErrors({});
       setNotice(negotiation.currentSequence ? "Counter submitted." : "LOI submitted.");
+      focusWorkspaceView();
     } catch (requestError) {
       handleMutationError(requestError);
     } finally {
@@ -276,6 +313,7 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
         headers: { "Content-Type": "application/json" },
         method: "POST",
       }) as LoiNegotiation;
+      refreshGuard.current.invalidate();
       actionAttempts.current.delete(action);
       applyCanonical(result, "CURRENT");
       closeDecision();
@@ -305,6 +343,7 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
         headers: { "Content-Type": "application/json" },
         method: "POST",
       }) as LoiNegotiation;
+      refreshGuard.current.invalidate();
       actionAttempts.current.delete("withdraw");
       applyCanonical(result, "CURRENT");
       closeDecision();
@@ -328,11 +367,13 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
         headers: { "Content-Type": "application/json" },
         method: "DELETE",
       }) as LoiNegotiation;
+      refreshGuard.current.invalidate();
       applyCanonical(result, initial ? "INITIAL" : "CURRENT");
+      closeDecision();
       setFieldErrors({});
       setNotice(initial ? "Initial draft reset to fresh starter terms." : "Counter draft discarded. The current submitted version is unchanged.");
     } catch (requestError) {
-      handleMutationError(requestError);
+      handleDecisionError(requestError);
     } finally {
       setPending(null);
     }
@@ -356,6 +397,11 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
 
   function startOrResume() {
     if (!canEdit) return;
+    if (view.mode === "REVIEWING") {
+      setView((currentView) => ({ ...currentView, mode: "EDITING" }));
+      focusWorkspaceView();
+      return;
+    }
     setView(editingLoiViewState(negotiation));
     setFieldErrors({});
     setError("");
@@ -368,7 +414,6 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
       setError("Save the private draft before reviewing it.");
       return;
     }
-    if (!validDeadline(new Date(deadline))) setDeadline(defaultDeadline());
     setView((currentView) => ({ ...currentView, mode: "REVIEWING" }));
     setError("");
     focusWorkspaceView();
@@ -377,6 +422,22 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
   function showCurrent() {
     setView(currentLoiViewState(negotiation));
     setError("");
+    focusWorkspaceView();
+  }
+
+  function openTemplate(mode: "save" | "use") {
+    if (pending || view.staleDraft || !templateOwnerId || !sidebarTerms) return;
+    setTemplateMode(mode);
+  }
+
+  function useTemplate(template: LoiTemplate) {
+    if (pending || view.staleDraft || !canEdit || !view.terms) return;
+    const terms = applyLoiTemplate(view.terms, template, { counter: negotiation.currentSequence > 0 });
+    setView((currentView) => ({ ...currentView, mode: "EDITING", terms, dirty: true }));
+    setFieldErrors({});
+    setError("");
+    setNotice(`Applied template “${template.name}”. Review your changes, then save and review the draft.`);
+    setTemplateMode(null);
     focusWorkspaceView();
   }
 
@@ -414,13 +475,15 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
     setDecisionError("");
     window.requestAnimationFrame(() => {
       const target = returnFocus.current;
-      if (target?.isConnected && !target.matches(":disabled")) target.focus();
+      if (target?.isConnected && target.getClientRects().length && !target.matches(":disabled")) target.focus();
+      else if (document.querySelector<HTMLElement>(".loi-more-actions summary")) document.querySelector<HTMLElement>(".loi-more-actions summary")?.focus();
       else fallbackFocus.current?.focus();
     });
   }
 
   function showFieldErrors(errors: Record<string, string>) {
     setFieldErrors(errors);
+    setView((currentView) => currentView.terms ? { ...currentView, mode: "EDITING" } : currentView);
     window.requestAnimationFrame(() => {
       const renderedInvalid = document.querySelector<HTMLElement>("#loi-editor [aria-invalid='true']");
       const fallbackId = loiInputIdForNormalizedErrors(errors, view.terms ?? undefined);
@@ -453,17 +516,20 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
   }
 
   function focusWorkspaceView() {
-    window.requestAnimationFrame(() => viewHeading.current?.focus({ preventScroll: true }));
+    window.requestAnimationFrame(() => {
+      viewHeading.current?.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
+      viewHeading.current?.focus({ preventScroll: true });
+    });
   }
 
   const historical = view.mode === "HISTORICAL" && displayedRevision && displayedRevision.id !== current?.id;
-  const hasActionBar = historical || canEdit || negotiation.allowedActions.some((action) => ["AGREE", "DECLINE", "WITHDRAW"].includes(action));
+  const hasActionBar = historical || canEdit || (view.mode === "CURRENT" && negotiation.currentSequence > 0) || negotiation.allowedActions.some((action) => ["AGREE", "DECLINE", "WITHDRAW"].includes(action));
 
   return (
     <div className={`page wide loi-page stack${hasActionBar ? " has-action-bar" : ""}`}>
       <header className="loi-header">
         <div className="stack tight">
-          <Link className="link-button" href={`/messages/${encodeURIComponent(negotiation.conversationId)}`} ref={fallbackFocus}>← Conversation</Link>
+          <Link className="link-button" href={`/messages/${encodeURIComponent(negotiation.conversationId)}`} ref={fallbackFocus}>← Back to messages</Link>
           <p className="eyebrow">Non-binding term alignment</p>
           <h1>LOI workspace</h1>
           <p>Version {negotiation.currentSequence || "draft"} · {negotiation.viewerRole === "BUYER" ? "Buyer" : "Seller"} view</p>
@@ -475,8 +541,9 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
         <section className="loi-aligned-celebration" role="status">
           <span aria-hidden="true" className="loi-aligned-mark">✓</span>
           <div>
-            <p className="eyebrow">Aligned</p>
-            <h2>Congratulations</h2>
+            <p className="eyebrow">Terms aligned</p>
+            <h2>Completed LOI</h2>
+            <p>Both buyer and seller can view the final terms. This LOI is read-only.</p>
             <p>You aligned on these terms for contract preparation. This is not a signed offer or escrow instruction.</p>
           </div>
         </section>
@@ -484,7 +551,7 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
 
       <div aria-atomic="true" aria-live="polite" className="loi-live-region">
         {refreshError ? <p className="auth-alert warning" role="status">{refreshError}</p> : null}
-        {error ? <p className="auth-alert error" role="alert">{error}</p> : null}
+        {error && !hasActionBar ? <p className="auth-alert error" role="alert">{error}</p> : null}
         {notice ? <p className="auth-alert success" role="status">{notice}</p> : null}
       </div>
 
@@ -505,23 +572,46 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
       ) : null}
 
       <div className="loi-layout">
-        <main className="stack">
-          <h2 className="visually-hidden" ref={viewHeading} tabIndex={-1}>LOI {viewModeLabel(view.mode)}</h2>
+        <section aria-labelledby="loi-view-title" className="stack">
+          <h2 className="loi-view-heading" id="loi-view-title" ref={viewHeading} tabIndex={-1}>{negotiation.status === "TERMS_ALIGNED" && view.mode !== "HISTORICAL" ? "Final terms · Read-only" : view.mode === "EDITING" ? "Draft your terms" : view.mode === "REVIEWING" ? "Review before you submit" : `LOI ${viewModeLabel(view.mode)}`}</h2>
+          {view.mode === "CURRENT" && negotiation.viewerRole === "SELLER" && negotiation.allowedActions.includes("COUNTER") && current?.terms.disclosures.deathOnPropertyProvidedBy !== "SELLER" ? <section className="card stack tight">
+            <h3>Add your seller disclosure</h3>
+            <p>The death-on-property question is yours to answer. Add your answer in a counter so the buyer can review the exact updated terms before alignment.</p>
+            <button className="button secondary" disabled={Boolean(pending)} onClick={startOrResume} type="button">Add seller disclosure</button>
+          </section> : null}
+          {view.mode === "EDITING" || view.mode === "REVIEWING" ? (
+            <ol aria-label="LOI progress" className="loi-progress">
+              <li aria-current={view.mode === "EDITING" ? "step" : undefined}><span aria-hidden="true">1</span>Draft terms</li>
+              <li aria-current={view.mode === "REVIEWING" ? "step" : undefined}><span aria-hidden="true">2</span>Review</li>
+              <li><span aria-hidden="true">3</span>Submit</li>
+            </ol>
+          ) : null}
           {view.mode === "REVIEWING" && view.terms && localSummary ? (
+            <>
+            {view.terms.funding.type === "FINANCED" ? <section className="card stack tight">
+              <h3>Loan submission requirements</h3>
+              {negotiation.financingEvidenceExceptionExpiresAt ? <p>A temporary testing exception allows this LOI to be submitted without pre-approval evidence until {formatLoiDateTime(negotiation.financingEvidenceExceptionExpiresAt)}. This does not verify financing or grant a badge.</p> : <>
+                <p>The buyer needs a current pre-approval badge or an uploaded pre-approval letter before these financed terms can be sent. A pending letter is sufficient; badge approval is not required to submit.</p>
+                {negotiation.viewerRole === "BUYER" ? <Link href="/buyer/profile#buyer-verification-card" rel="noopener noreferrer" target="_blank">Upload or review pre-approval (opens a new tab)</Link> : <p>The buyer can upload their letter from their profile.</p>}
+              </>}
+            </section> : null}
             <TermsReview
               computedSummary={localSummary}
               heading="Review saved private draft"
               propertySnapshot={negotiation.propertySnapshot}
-              responseDeadline={deadline}
               role={negotiation.viewerRole}
               terms={view.terms}
             />
+            </>
           ) : view.mode === "EDITING" && view.terms ? (
-            <LoiEditor fieldErrors={fieldErrors} mode={negotiation.currentSequence > 0 ? "COUNTER" : "INITIAL"} terms={view.terms} update={updateTerms} />
+            <>
+            <PropertyIdentity property={normalizePropertyIdentity(negotiation.propertySnapshot)} />
+            <LoiEditor counterBaseTerms={current?.terms} disabled={Boolean(pending)} fieldErrors={fieldErrors} mode={negotiation.currentSequence > 0 ? "COUNTER" : "INITIAL"} preview={livePreview} terms={view.terms} update={updateTerms} viewerRole={negotiation.viewerRole} />
+            </>
           ) : displayedRevision ? (
             <TermsReview
               computedSummary={displayedRevision.computedSummary}
-              heading={`Submitted version ${displayedRevision.sequence}`}
+              heading={loiRevisionHeading(displayedRevision, negotiation.viewerRole)}
               previousRevision={previousDisplayedRevision}
               propertySnapshot={negotiation.propertySnapshot}
               revision={displayedRevision}
@@ -535,6 +625,8 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
             </section>
           )}
 
+          {history.length ? <details className="loi-history-disclosure" key={view.mode} open={view.mode !== "EDITING" && view.mode !== "REVIEWING"}>
+          <summary>Submitted versions ({history.length}{historyPageInfo.hasOlder ? "+" : ""})</summary>
           <RevisionTimeline
             currentRevisionId={current?.id ?? null}
             history={history}
@@ -545,49 +637,33 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
             role={negotiation.viewerRole}
             selectedRevisionId={displayedRevision?.id ?? null}
           />
-        </main>
+          </details> : null}
+        </section>
 
         <aside aria-label="LOI deal snapshot" className="loi-summary stack">
           <section className="card sage stack tight">
             <p className="eyebrow">{historical ? `Version ${displayedRevision.sequence} snapshot` : view.mode === "EDITING" || view.mode === "REVIEWING" ? "Draft deal snapshot" : "Current deal snapshot"}</p>
-            <Summary summary={sidebarSummary} terms={sidebarTerms} />
+            <Summary summary={sidebarSummary} terms={sidebarTerms} compact viewerRole={negotiation.viewerRole} issues={sidebarIssues} />
+            {sidebarTerms ? <a className="link-button" href="#loi-financial-details-title">View fees and calculations ↓</a> : null}
             <p className="muted small">Non-binding term alignment for contract preparation only.</p>
           </section>
+          {negotiation.viewerRole === "SELLER" && sidebarTerms ? <LoiSellerProceeds key={negotiation.id} summary={sidebarSummary} terms={sidebarTerms} showDetails={false} payoff={payoff} onPayoffChange={(value) => setSellerPayoff({ negotiationId: negotiation.id, value })} /> : null}
         </aside>
       </div>
 
-      {hasActionBar ? (
-        <div aria-busy={Boolean(pending)} aria-label="LOI actions" className="loi-action-bar" role="region">
-          {historical ? (
-            <button className="button primary" disabled={Boolean(pending)} onClick={showCurrent} type="button">Return to current version {negotiation.currentSequence}</button>
-          ) : view.mode === "REVIEWING" && canEdit ? (
-            <>
-              <button className="button secondary" disabled={Boolean(pending)} onClick={() => setView((currentView) => ({ ...currentView, mode: "EDITING" }))} type="button">Back to edit</button>
-              <label className="loi-deadline" htmlFor="loi-response-deadline">
-                Response deadline
-                <input id="loi-response-deadline" max={maxDeadline()} min={minDeadline()} onChange={(event) => setDeadline(event.target.value)} type="datetime-local" value={deadline} />
-                <span className="muted small">{Intl.DateTimeFormat().resolvedOptions().timeZone}</span>
-              </label>
-              <button className="button primary" disabled={Boolean(pending) || view.dirty || view.draftVersion < 1 || view.staleDraft} onClick={() => void submit()} type="button">
-                {pending === "submit" ? "Submitting…" : negotiation.currentSequence ? `Submit counter as version ${negotiation.currentSequence + 1}` : "Submit LOI as version 1"}
-              </button>
-            </>
-          ) : view.mode === "EDITING" && canEdit ? (
-            <>
-              {negotiation.allowedActions.includes("WITHDRAW") ? <button className="button warning" disabled={Boolean(pending)} onClick={() => openDecision("withdraw")} type="button">Withdraw LOI</button> : null}
-              <button className="button secondary" disabled={Boolean(pending) || !view.dirty || view.staleDraft} onClick={() => void saveDraft()} type="button">{pending === "save" ? "Saving…" : view.dirty ? "Save private draft" : "Saved"}</button>
-              <button className="button secondary" disabled={Boolean(pending) || view.staleDraft} onClick={() => void discardDraft()} type="button">{pending === "discard" ? (negotiation.currentSequence === 0 ? "Resetting…" : "Discarding…") : negotiation.currentSequence === 0 ? "Reset initial draft" : "Discard counter draft"}</button>
-              <button className="button primary" disabled={Boolean(pending) || view.dirty || view.draftVersion < 1 || view.staleDraft} onClick={enterReview} type="button">Review saved LOI</button>
-            </>
-          ) : (
-            <>
-              {negotiation.allowedActions.includes("WITHDRAW") ? <button className="button warning" disabled={Boolean(pending)} onClick={() => openDecision("withdraw")} type="button">Withdraw LOI</button> : null}
-              {canEdit ? <button className="button secondary" disabled={Boolean(pending)} onClick={startOrResume} type="button">{negotiation.draft ? "Resume private draft" : negotiation.currentSequence === 0 ? "Start initial draft" : "Counter current version"}</button> : null}
-              {negotiation.allowedActions.includes("DECLINE") ? <button className="button warning" disabled={Boolean(pending)} onClick={() => openDecision("decline")} type="button">Decline version {negotiation.currentSequence}</button> : null}
-              {negotiation.allowedActions.includes("AGREE") ? <button className="button primary" disabled={Boolean(pending)} onClick={() => openDecision("agree")} type="button">Align on version {negotiation.currentSequence} for contract preparation</button> : null}
-            </>
-          )}
+      {sidebarTerms ? <section className="loi-financial-details stack" aria-labelledby="loi-financial-details-title">
+        <div className="section-head compact"><h2 id="loi-financial-details-title">Fees and calculation details</h2><p className="muted small">Updates with your offer terms.</p></div>
+        <div className="loi-financial-details-grid">
+          {negotiation.viewerRole === "BUYER" ? <section className="card stack">
+            <Summary summary={sidebarSummary} terms={sidebarTerms} detailsOnly viewerRole="BUYER" />
+          </section> : <LoiSellerProceedsBreakdown summary={sidebarSummary} terms={sidebarTerms} payoff={payoff} />}
         </div>
+      </section> : null}
+
+      <LoiCompletedDownload negotiation={negotiation} historical={Boolean(historical)} />
+
+      {hasActionBar ? (
+        <LoiActionBar error={error} financingEvidenceRequired={error === FINANCING_EVIDENCE_REQUIRED_MESSAGE} liveTotal={liveTotal} negotiation={negotiation} onCurrent={showCurrent} onDecision={openDecision} onDiscard={() => openDecision("discard")} onEdit={startOrResume} onReview={() => void saveDraft(true)} onSave={() => void saveDraft()} onSaveTemplate={templateOwnerId && sidebarTerms ? () => openTemplate("save") : undefined} onUseTemplate={templateOwnerId && view.terms && canEdit && (view.mode === "EDITING" || view.mode === "REVIEWING") ? () => openTemplate("use") : undefined} onSubmit={() => void submit()} pending={pending} view={view} />
       ) : null}
 
       {decision ? (
@@ -597,11 +673,21 @@ export function LoiWorkspace({ initialNegotiation }: { initialNegotiation: LoiNe
           decision={decision}
           error={decisionError}
           onClose={closeDecision}
-          onConfirm={() => void (decision === "withdraw" ? withdraw() : decide(decision))}
+          onConfirm={() => void (decision === "discard" ? discardDraft() : decision === "withdraw" ? withdraw() : decide(decision))}
+          payoff={payoff}
           propertySnapshot={negotiation.propertySnapshot}
           role={negotiation.viewerRole}
         />
       ) : null}
+      {templateMode && templateOwnerId && sidebarTerms ? <LoiTemplateDialog
+        busy={Boolean(pending) || view.staleDraft}
+        mode={templateMode}
+        onApply={useTemplate}
+        onClose={() => setTemplateMode(null)}
+        onSaved={(name) => { setTemplateMode(null); setNotice(`Saved LOI template “${name}” in this browser.`); }}
+        ownerId={templateOwnerId}
+        terms={sidebarTerms}
+      /> : null}
     </div>
   );
 }
@@ -616,6 +702,16 @@ function RevisionTimeline({ currentRevisionId, history, loading, onLoadOlder, on
   role: LoiRole;
   selectedRevisionId: string | null;
 }) {
+  // Immutable revisions only need diffing when history changes, not on every draft keystroke.
+  const rows = useMemo(() => history.map((revision) => {
+    const previous = history.find((candidate) => candidate.sequence === revision.sequence - 1) ?? null;
+    return {
+      calculatedDiffs: previous ? recalculatedDiffs(previous.computedSummary, revision.computedSummary) : [],
+      previous,
+      revision,
+      termDiffs: previous ? semanticTermDiffs(previous.terms, revision.terms, role) : [],
+    };
+  }), [history, role]);
   return (
     <section className="card stack tight" aria-labelledby="loi-history-title">
       <div className="section-head">
@@ -625,10 +721,7 @@ function RevisionTimeline({ currentRevisionId, history, loading, onLoadOlder, on
       {pageInfo.hasOlder ? <button className="button secondary sm" disabled={loading} onClick={onLoadOlder} type="button">{loading ? "Loading…" : "Load older versions"}</button> : null}
       {history.length ? (
         <ol className="loi-revision-list">
-          {history.map((revision) => {
-            const previous = history.find((candidate) => candidate.sequence === revision.sequence - 1) ?? null;
-            const termDiffs = previous ? semanticTermDiffs(previous.terms, revision.terms, role) : [];
-            const calculatedDiffs = previous ? recalculatedDiffs(previous.computedSummary, revision.computedSummary) : [];
+          {rows.map(({ calculatedDiffs, previous, revision, termDiffs }) => {
             const selected = revision.id === selectedRevisionId;
             return (
               <li key={revision.id}>
@@ -684,7 +777,7 @@ function TermsReview({ computedSummary, heading, previousRevision = null, proper
       <div className="section-head">
         <div>
           <p className="eyebrow">Complete proposed-term snapshot</p>
-          <h2 id={headingId}>{heading}</h2>
+          <h2 id={headingId} style={{ overflowWrap: "anywhere" }}>{heading}</h2>
         </div>
         {revision ? <span className="status-dot info">Immutable</span> : <span className="status-dot warning">Private draft</span>}
       </div>
@@ -755,25 +848,66 @@ function DiffList({ diffs, recalculated = false }: { diffs: LoiSemanticDiff[]; r
   );
 }
 
-function Summary({ summary, terms }: { summary: LoiComputedSummary | null; terms: LoiTermsV1 | null }) {
-  if (!summary || !terms) return <p className="muted">Complete valid draft fields to see the calculated summary.</p>;
-  return (
-    <dl className="loi-summary-list">
+function Summary({ summary, terms, viewerRole = "BUYER", compact = false, detailsOnly = false, issues = [] }: { summary: LoiComputedSummary | null; terms: LoiTermsV1 | null; viewerRole?: LoiRole; compact?: boolean; detailsOnly?: boolean; issues?: LoiCalculationIssue[] }) {
+  if (!summary || !terms) return <p className="muted">Complete valid draft fields to see your calculated summary.</p>;
+  if (detailsOnly && summary.calculationVersion === 1) return <p className="muted">Closing costs were not calculated in this historical version.</p>;
+  const isBuyer = viewerRole === "BUYER";
+  return <div className="stack tight">
+    {issues.length ? <div className="loi-calculator-issues" role="status">
+      <strong>Figures use the amounts entered</strong>
+      {issues.map((issue) => <span key={issue.path}>{issue.message}</span>)}
+    </div> : null}
+    {!detailsOnly && isBuyer && summary.calculationVersion !== 1 ? <section className="loi-cash-callout" aria-label="Buyer cash needed">
+      <div aria-live="polite" aria-atomic="true">
+        <p className="loi-cash-callout-label">Estimated total cash needed</p>
+        <strong className="loi-cash-callout-amount">{formatLoiMoney(summary.buyerCashDueAtClosingCents + summary.earnestMoneyCents)}</strong>
+        <p className="loi-cash-callout-caption">Includes your deposit and entered closing fees</p>
+      </div>
+      <dl className="loi-cash-callout-breakdown">
+        <div><dt>Earnest-money deposit</dt><dd>{formatLoiMoney(summary.earnestMoneyCents)}</dd></div>
+        <div><dt>Expected cash to close<br /><span className="muted small">Remaining balance</span></dt><dd>{formatLoiMoney(summary.buyerCashDueAtClosingCents)}</dd></div>
+      </dl>
+      <p className="field-hint">Deposit + remaining closing balance. If your deposit is already paid, use the remaining balance.</p>
+    </section> : null}
+    {!detailsOnly ? <dl className="loi-summary-list">
       <div><dt>Purchase price</dt><dd>{formatLoiMoney(terms.purchasePriceCents)}</dd></div>
-      <div><dt>Loan amount</dt><dd>{formatLoiMoney(summary.loanAmountCents)}</dd></div>
-      <div><dt>Earnest money</dt><dd>{formatLoiMoney(summary.earnestMoneyCents)}</dd></div>
-      <div><dt>Effective price after credit</dt><dd>{formatLoiMoney(summary.effectivePriceAfterSellerCreditCents)}</dd></div>
-    </dl>
-  );
+      {isBuyer ? <>
+        <div><dt>Loan amount</dt><dd>{formatLoiMoney(summary.loanAmountCents)}</dd></div>
+        {!compact || summary.calculationVersion === 1 ? <div><dt>Earnest money</dt><dd>{formatLoiMoney(summary.earnestMoneyCents)}</dd></div> : null}
+      </> : terms.funding.type === "SELLER_FINANCING" ? <div><dt>Seller-financed principal</dt><dd>{formatLoiMoney(summary.loanAmountCents)}</dd></div> : null}
+    </dl> : null}
+    {!compact && summary.calculationVersion !== 1 ? <section className="stack tight" aria-label={isBuyer ? "Buyer fee estimates" : "Seller fee estimates"}>
+      <h3>{isBuyer ? "Your buyer fees" : "Your seller fees"}</h3>
+      <dl className="loi-summary-list">
+        {loiFeeBreakdown(terms, summary).map((row) => {
+          const cents = isBuyer ? row.buyerCents : row.sellerCents;
+          return <div key={row.label}><dt>{row.label}</dt><dd>{cents === null ? "Not estimated" : formatLoiMoney(cents)}</dd></div>;
+        })}
+        <div><dt><strong>{isBuyer ? "Buyer closing-cost estimate" : "Seller closing-cost estimate"}</strong></dt><dd><strong>{formatLoiMoney(isBuyer ? summary.buyerClosingCostsCents : summary.sellerClosingCostsCents)}</strong></dd></div>
+      </dl>
+      <p className="field-hint">Your share only. Fees paid by the other party show $0.00. {(summary.calculationVersion === 4 || summary.calculationVersion === 5) ? "Escrow includes the scheduled fee unless you enter a quote." : "Escrow reflects the quotes stored with this version."}</p>
+    </section> : null}
+    {!compact ? loiCashEquations(terms, summary).filter((equation) => equation.label === (isBuyer ? "Buyer cash calculation" : "Seller cash calculation")).map((equation) => <section className="stack tight" aria-label={equation.label} key={equation.label}>
+      <h3>{equation.label}</h3>
+      <dl className="loi-summary-list">
+        {equation.rows.map((row) => <div key={row.label}><dt>{row.label}</dt><dd>{row.operator} {formatLoiMoney(row.cents)}</dd></div>)}
+        <div><dt><strong>{equation.totalLabel}</strong></dt><dd><strong>= {formatLoiMoney(equation.totalCents)}</strong></dd></div>
+      </dl>
+    </section>) : null}
+    {!compact && (summary.calculationVersion === 3 || (summary.calculationVersion === 4 || summary.calculationVersion === 5)) && summary.monthlyRentBackCents ? <p className="small">Monthly rent-back (separate from {isBuyer ? "closing cash" : "proceeds"}): {formatLoiMoney(summary.monthlyRentBackCents)}</p> : null}
+    {compact && summary.calculationVersion !== 1 && !summary.closingCostEstimateComplete ? <p className="field-hint">Estimate incomplete. Add remaining fees below.</p> : null}
+    {!compact && summary.calculationVersion !== 1 ? <p className="small">{summary.closingCostEstimateComplete ? "Based on your provided estimates; actual charges may differ." : "Estimates incomplete. Missing fees are excluded from these subtotals."} {isBuyer ? "Your cash calculation credits the deposit and seller credit once." : "Your proceeds subtract your fees, seller credit, and any seller-financed principal. Existing loan payoffs are separate."} Prorations and charges not entered are excluded. A negative balance is a modeled credit, subject to lender and escrow approval.</p> : null}
+  </div>;
 }
 
-function LoiDecisionDialog({ busy, current, decision, error, onClose, onConfirm, propertySnapshot, role }: {
+function LoiDecisionDialog({ busy, current, decision, error, onClose, onConfirm, payoff, propertySnapshot, role }: {
   busy: boolean;
   current: LoiRevision | null;
   decision: Decision;
   error: string;
   onClose: () => void;
   onConfirm: () => void;
+  payoff: string;
   propertySnapshot: unknown;
   role: LoiRole;
 }) {
@@ -789,10 +923,13 @@ function LoiDecisionDialog({ busy, current, decision, error, onClose, onConfirm,
 
   const title = decision === "agree"
     ? `Align on version ${current?.sequence ?? "draft"}?`
-    : decision === "decline" ? `Decline version ${current?.sequence ?? "draft"}?` : "Withdraw this LOI?";
+    : decision === "decline" ? `Decline version ${current?.sequence ?? "draft"}?`
+    : decision === "discard" ? current ? "Discard your counter draft?" : "Reset your initial draft?" : "Withdraw this LOI?";
   const confirmLabel = decision === "agree"
     ? `Align on version ${current?.sequence} for contract preparation`
-    : decision === "decline" ? `Decline version ${current?.sequence}` : current ? `Withdraw version ${current.sequence}` : "Withdraw initial draft";
+    : decision === "decline" ? `Decline version ${current?.sequence}`
+    : decision === "discard" ? current ? "Discard counter draft" : "Reset initial draft"
+    : current ? `Withdraw version ${current.sequence}` : "Withdraw initial draft";
 
   return (
     <dialog
@@ -805,15 +942,19 @@ function LoiDecisionDialog({ busy, current, decision, error, onClose, onConfirm,
     >
       <div className="loi-dialog-content stack">
         <div className="section-head">
-          <div><p className="eyebrow">Confirm exact LOI version</p><h2 id={titleId}>{title}</h2></div>
+          <div><p className="eyebrow">{decision === "discard" ? "Private draft only" : "Confirm exact LOI version"}</p><h2 id={titleId}>{title}</h2></div>
           <button aria-label="Close decision dialog" className="message-dialog-close" disabled={busy} onClick={onClose} type="button">×</button>
         </div>
         {error ? <p className="auth-alert error" role="alert">{error}</p> : null}
-        {current ? (
+        {decision === "discard" ? (
+          <p>{current ? "This removes your saved counter and unsaved changes. The submitted version stays unchanged." : "This removes your saved draft and unsaved changes, then starts again with the original suggested terms."}</p>
+        ) : current ? (
           <>
             <section className="card sage stack tight loi-decision-summary" aria-label={`Version ${current.sequence} decision summary`}>
               <PropertyIdentity property={normalizePropertyIdentity(propertySnapshot)} />
-              <Summary summary={current.computedSummary} terms={current.terms} />
+              {role === "SELLER"
+                ? <LoiSellerProceedsBreakdown summary={current.computedSummary} terms={current.terms} payoff={payoff} />
+                : <Summary summary={current.computedSummary} terms={current.terms} viewerRole={role} />}
               <p><strong>Exact response deadline:</strong> <time dateTime={current.responseDeadline}>{formatLoiDateTime(current.responseDeadline)}</time></p>
             </section>
             <TermsReview computedSummary={current.computedSummary} heading={`Version ${current.sequence} complete terms`} propertySnapshot={propertySnapshot} revision={current} role={role} terms={current.terms} />
@@ -824,7 +965,7 @@ function LoiDecisionDialog({ busy, current, decision, error, onClose, onConfirm,
             <p>No terms have been submitted. Withdrawal will close the initial private-draft workflow.</p>
           </section>
         )}
-        <p className="muted">This records non-binding proposed-term status for contract preparation. It is not a signature or binding acceptance.</p>
+        {decision !== "discard" ? <p className="muted">This records non-binding proposed-term status for contract preparation. It is not a signature or binding acceptance.</p> : null}
         <div className="actions right">
           <button className="button secondary" disabled={busy} onClick={onClose} ref={cancel} type="button">Cancel</button>
           <button className={decision === "agree" ? "button primary" : "button warning"} disabled={busy} onClick={onConfirm} type="button">{busy ? "Recording…" : confirmLabel}</button>
@@ -841,18 +982,20 @@ async function request(url: string, init: RequestInit = {}) {
     const fieldErrors = body && typeof body === "object" && "fieldErrors" in body
       ? (body as { fieldErrors?: unknown }).fieldErrors
       : {};
-    throw new LoiRequestError(response.status, fieldErrors);
+    const code = body && typeof body === "object" && "code" in body && typeof body.code === "string" ? body.code : "";
+    throw new LoiRequestError(response.status, fieldErrors, code);
   }
   return body;
 }
 
 class LoiRequestError extends Error {
-  constructor(readonly status: number, readonly fieldErrors: unknown) {
+  constructor(readonly status: number, readonly fieldErrors: unknown, readonly code = "") {
     super("LOI request failed.");
   }
 }
 
 function message(error: unknown) {
+  if (error instanceof LoiRequestError && error.code === "FINANCING_EVIDENCE_REQUIRED") return FINANCING_EVIDENCE_REQUIRED_MESSAGE;
   if (error instanceof LoiRequestError && error.status === 409) return "This negotiation or private draft changed elsewhere. Refresh or load the latest saved draft before continuing.";
   if (error instanceof LoiRequestError && error.status === 429) return "Please wait a moment before trying again. Your current input remains on this page.";
   if (error instanceof LoiRequestError && error.fieldErrors && typeof error.fieldErrors === "object" && Object.keys(error.fieldErrors).length) return "Review the highlighted fields. Your private draft remains on this page.";
@@ -863,28 +1006,6 @@ function decisionMessage(error: unknown) {
   if (error instanceof LoiRequestError && error.status === 409) return "The current LOI changed. Close this dialog and review the latest version before trying again.";
   if (error instanceof LoiRequestError && error.status === 429) return "Please wait a moment before trying this decision again.";
   return "This decision could not be recorded. The LOI remains unchanged.";
-}
-
-function localDateTime(value: Date) {
-  const offset = value.getTimezoneOffset() * 60_000;
-  return new Date(value.getTime() - offset).toISOString().slice(0, 16);
-}
-
-function minDeadline() {
-  return localDateTime(new Date(Date.now() + 65 * 60 * 1000));
-}
-
-function maxDeadline() {
-  return localDateTime(new Date(Date.now() + 30 * 86_400_000));
-}
-
-function defaultDeadline() {
-  return localDateTime(new Date(Date.now() + 3 * 86_400_000));
-}
-
-function validDeadline(value: Date) {
-  const time = value.getTime();
-  return Number.isFinite(time) && time >= Date.now() + 60 * 60 * 1000 && time <= Date.now() + 30 * 86_400_000;
 }
 
 function statusLabel(status: string | null) {
@@ -903,6 +1024,16 @@ function statusLabel(status: string | null) {
 
 function viewModeLabel(mode: LoiWorkspaceViewState["mode"]) {
   return mode === "CURRENT" ? "current version" : mode === "HISTORICAL" ? "historical version" : mode === "EDITING" ? "private draft editor" : "saved draft review";
+}
+
+// The key figure stays in the fixed action bar so phone users see each edit's effect without scrolling.
+function liveCalculatorTotal(summary: LoiComputedSummary | null, role: LoiRole, payoff: string) {
+  if (!summary || summary.calculationVersion === 1) return null;
+  if (role === "BUYER") return { label: "Total cash needed", value: formatLoiMoney(summary.buyerCashDueAtClosingCents + summary.earnestMoneyCents) };
+  const net = sellerNetProceeds(summary, parseSellerLoanPayoff(payoff).cents);
+  return net === null
+    ? { label: "Seller cash before loan payoff", value: formatLoiMoney(summary.sellerCashBeforePayoffsCents) }
+    : { label: "Net proceeds", value: formatLoiMoney(net) };
 }
 
 function reduceMotion() {

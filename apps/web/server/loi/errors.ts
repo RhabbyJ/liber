@@ -1,4 +1,4 @@
-export type LoiErrorCode = "AUTHENTICATION_REQUIRED" | "CONFLICT" | "INVALID_INPUT" | "NOT_FOUND" | "RATE_LIMITED" | "UNAVAILABLE";
+export type LoiErrorCode = "AUTHENTICATION_REQUIRED" | "CONFLICT" | "FINANCING_EVIDENCE_REQUIRED" | "INVALID_INPUT" | "NOT_FOUND" | "RATE_LIMITED" | "UNAVAILABLE";
 
 export class LoiError extends Error {
   constructor(readonly code: LoiErrorCode, message: string, readonly status: number, options?: ErrorOptions) {

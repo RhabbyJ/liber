@@ -285,6 +285,7 @@ model User {
   loiNegotiationsAsBuyer   LoiNegotiation[]              @relation("LoiBuyer")
   loiNegotiationsAsSeller  LoiNegotiation[]              @relation("LoiSeller")
   loiOutboxJobs            EmailOutbox[]                  @relation("LoiOutboxRecipient")
+  tourOutboxJobs           EmailOutbox[]                  @relation("TourOutboxRecipient")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -813,6 +814,7 @@ model Conversation {
   participants   ConversationParticipant[]
   messages       Message[]
   reports        MessageReport[]
+  tourSchedule   TourSchedule?
   emailOutbox    EmailOutbox[]
   loiNegotiation LoiNegotiation?
 
@@ -834,6 +836,8 @@ model ConversationParticipant {
   lastReadAt        DateTime?
   mutedAt           DateTime?
   sentMessages      Message[]                   @relation("MessageSender")
+  proposedTours     TourSchedule[]              @relation("TourProposer")
+  changedTours      TourSchedule[]              @relation("TourActor")
   createdAt         DateTime                    @default(now())
 
   @@id([conversationId, userId])
@@ -1044,6 +1048,27 @@ model AdminAuditLog {
   @@index([createdAt])
 }
 
+model TourSchedule {
+  id               String                  @id @default(uuid()) @db.Uuid
+  conversationId   String                  @unique @db.Uuid
+  conversation     Conversation            @relation(fields: [conversationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  proposedByUserId String                  @db.Uuid
+  proposedBy       ConversationParticipant @relation("TourProposer", fields: [conversationId, proposedByUserId], references: [conversationId, userId], onDelete: Restrict, onUpdate: Restrict, map: "TourSchedule_proposer_fkey")
+  lastActorUserId  String                  @db.Uuid
+  lastActor        ConversationParticipant @relation("TourActor", fields: [conversationId, lastActorUserId], references: [conversationId, userId], onDelete: Restrict, onUpdate: Restrict, map: "TourSchedule_actor_fkey")
+  lastActionId     String                  @db.Uuid
+  revision         Int                     @default(1)
+  status           String
+  startsAt         DateTime
+  timeZone         String
+  durationMinutes  Int
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  outboxJobs       EmailOutbox[]
+
+  @@index([status, startsAt])
+}
+
 model EmailOutbox {
   id                     String            @id @default(cuid())
   type                   String
@@ -1073,6 +1098,12 @@ model EmailOutbox {
   loiRevision            LoiRevision?      @relation(fields: [loiRevisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   loiRecipientUserId     String?           @db.Uuid
   loiRecipient           User?             @relation("LoiOutboxRecipient", fields: [loiRecipientUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  tourScheduleId         String?           @db.Uuid
+  tourSchedule           TourSchedule?     @relation(fields: [tourScheduleId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  tourRevision           Int?
+  tourRecipientUserId    String?           @db.Uuid
+  tourRecipient          User?             @relation("TourOutboxRecipient", fields: [tourRecipientUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  tourEvent              String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1087,6 +1118,8 @@ model EmailOutbox {
   @@index([loiNegotiationId, loiRecipientUserId, status, nextAttemptAt], map: "EmailOutbox_loi_delivery_idx")
   @@index([loiRevisionId])
   @@index([loiRecipientUserId])
+  @@index([tourScheduleId, tourRevision, status])
+  @@index([tourRecipientUserId])
 }
 
 model PropertyVerificationDecision {

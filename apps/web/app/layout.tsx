@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { publicNameForDisplay } from "../server/public-identity";
 import { AccountMenu } from "../components/account-menu";
 import { Icon } from "../components/icon";
 import { PrimaryNav } from "../components/primary-nav";
+import { NotificationBell } from "../components/notification-bell";
 import { messagingV1NavigationEnabledForUser } from "../server/messaging/feature";
 import { ceoPreviewToolsEnabled } from "../server/ceo-preview";
 import { getSessionUser } from "../server/session";
+import { readNotificationActivity } from "../server/notifications";
 import "./globals.css";
+import "../components/notification-bell.css";
 
 export const metadata: Metadata = {
   title: "Liber — A buyer-first real estate marketplace",
@@ -16,18 +21,20 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   const user = await getSessionUser();
   const isAuthenticated = Boolean(user);
   const roles = user?.roles ?? [];
   const messagingEnabled = user ? messagingV1NavigationEnabledForUser(user.id) : false;
   const previewToolsEnabled = ceoPreviewToolsEnabled();
+  const notificationActivity = user ? await readNotificationActivity(user).catch(() => null) : null;
 
   return (
     <html lang="en">
       <body>
         <a className="skip-link" href="#main-content">Skip to content</a>
         <div className="app-shell">
-          <header className="topbar">
+          <header className={`topbar${isAuthenticated ? " has-notifications" : ""}`}>
             <Link className="brand" href="/" aria-label="Liber home">
               <span className="brand-mark" aria-hidden="true" />
               <span className="brand-text">
@@ -36,23 +43,24 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               </span>
             </Link>
             <PrimaryNav
+              nonce={nonce}
               isAuthenticated={isAuthenticated}
               messagingEnabled={messagingEnabled}
               previewToolsEnabled={previewToolsEnabled}
               roles={roles}
             />
-            <div className="top-actions">
+            <div className={`top-actions${isAuthenticated ? " is-authenticated" : ""}`}>
               {isAuthenticated ? (
                 <>
-                  <Link
-                    aria-label="Notifications"
-                    className="notification-button"
+                  <NotificationBell
                     href={notificationHrefForRoles(roles)}
-                  >
-                    <Icon name="bell" size={18} />
-                  </Link>
+                    initialActivity={notificationActivity}
+                    isBuyer={roles.includes("BUYER")}
+                    key={user?.id}
+                  />
                   <AccountMenu
                     avatarVariant={user?.avatarVariant}
+                    displayName={user ? publicNameForDisplay(user.name, user.id) : undefined}
                     profileHref="/profile"
                     userId={user?.id ?? "account"}
                   />

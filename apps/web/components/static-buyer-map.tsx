@@ -1,48 +1,47 @@
-import Link from "next/link";
+"use client";
+
+import { useState } from "react";
 import type { MarketMapContext, SelectedMapArea } from "../lib/map-area";
 import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
-import { mapPinPosition } from "../lib/mapbox";
-import { DemandAtlasBackdrop } from "./demand-atlas";
+import { approximateBuyerPoint } from "../lib/buyer-map-point";
+import { mapboxStaticImageUrl } from "../lib/mapbox-static-image";
 
 type Props = {
   buyers: SellerBuyerSummaryDTO[];
   label?: string;
   market: MarketMapContext;
   selectedServiceArea?: SelectedMapArea | null;
+  token?: string;
 };
 
-export function StaticBuyerMap({ buyers, label = "Approximate pins", market, selectedServiceArea = null }: Props) {
-  const areaLabel = selectedServiceArea ? selectedServiceArea.label : label;
-
+export function StaticBuyerMap({ buyers, label = "Area centers", market, selectedServiceArea = null, token }: Props) {
+  const points = buyers.map(approximateBuyerPoint).filter((point) => point !== null);
+  const imageUrl = mapboxStaticImageUrl({ market, points, selectedArea: selectedServiceArea, token });
+  const [failedImageUrl, setFailedImageUrl] = useState("");
   return (
     <aside className="map-shell fallback">
       <div className="map-toolbar">
         <div>
-          <strong>Buyer demand map</strong>
+          <strong>Map</strong>
           <span className="muted">{buyers.length} active buyers in {market.label} service areas</span>
         </div>
         <div className="map-toolbar-pills">
-          <span>{areaLabel}</span>
-          <span>Seller safe view</span>
+          <span>{selectedServiceArea?.label ?? label}</span>
+          <span>Buyer target areas · not home addresses</span>
         </div>
       </div>
-      <div className="map-pins">
-        <DemandAtlasBackdrop />
-        {buyers.map((buyer) => {
-          const position = mapPinPosition(buyer, buyers);
-          if (!position) return null;
-          return (
-            <Link
-              aria-label={`Open ${buyer.isDemo ? "demo buyer " : ""}${buyer.name}`}
-              className="map-pin"
-              href={`/buyers/${buyer.id}`}
-              key={buyer.id}
-              style={{ left: `${position.left}%`, top: `${position.top}%` }}
-            >
-              <span>{buyer.name.slice(0, 1)}</span>
-            </Link>
-          );
-        })}
+      <div className="seller-map-static">
+        {imageUrl && failedImageUrl !== imageUrl ? (
+          // The provider renders both streets and pins in one geographic projection.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img alt="Map of buyer target area centers" className="public-map-static-image"
+            onError={() => setFailedImageUrl(imageUrl)} src={imageUrl} />
+        ) : (
+          <div className="public-map-static-empty">
+            <strong>Map unavailable</strong>
+            <span>Use the buyer cards below to view profiles and send invites.</span>
+          </div>
+        )}
       </div>
     </aside>
   );

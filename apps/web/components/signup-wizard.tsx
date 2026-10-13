@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { signupWithPassword } from "../server/auth-actions";
+import { normalizeSignupName, publicNamePreview } from "../lib/public-identity";
+import { GeneratedAvatar } from "./generated-avatar";
 import { Icon } from "./icon";
 import { SignupHeroIllustration, SignupRoleIllustration } from "./signup-illustration";
 
@@ -82,7 +84,7 @@ export function SignupWizard({ initialRole, initialEmail, initialFocus, initialS
   function validateCurrent(): ValidationError | null {
     if (step === 0 && !role) return { field: "role", message: "Pick one to continue." };
     if (step === 1) {
-      if (name.trim().length < 1) return { field: "name", message: "Add your name to continue." };
+      if (!normalizeSignupName(name)) return { field: "name", message: "Enter your first and last name using letters, apostrophes, or hyphens." };
       if (!email.trim()) return { field: "email", message: "Enter your email." };
       if (!/^\S+@\S+\.\S+$/.test(email.trim())) return { field: "email", message: "Use a valid email format." };
       if (!password) return { field: "password", message: "Create a password." };
@@ -187,25 +189,30 @@ export function SignupWizard({ initialRole, initialEmail, initialFocus, initialS
           <SignupHeroIllustration motion="none" />
           <h1 className="signup-question">Create your account</h1>
           <p className="signup-helper">
-            Continuing as {roleLabel(role)}. Your name stays private; we&rsquo;ll verify your email.
+            Continuing as {roleLabel(role)}. We&rsquo;ll verify your email.
           </p>
           <div className="signup-account-fields">
             <label className="signup-field" htmlFor="name">
-              <span className="signup-field-label">Name <small>Private</small></span>
+              <span className="signup-field-label">Full name <small>Last name private</small></span>
               <input
                 autoComplete="name"
                 className="signup-input"
                 id="name"
+                maxLength={160}
                 name="name"
                 onChange={(event) => setName(event.target.value)}
                 placeholder="First Last"
                 ref={nameRef}
                 required
-                aria-describedby={error?.field === "name" ? "signup-error" : undefined}
+                aria-describedby={`signup-identity-description${error?.field === "name" ? " signup-error" : ""}`}
                 aria-invalid={error?.field === "name" || undefined}
                 value={name}
               />
             </label>
+            <p className="muted small" id="signup-identity-description">
+              Buyers and sellers see your first name, last initial, and a unique code. Your avatar uses initials; your full last name stays private.
+            </p>
+            <SignupIdentityPreview name={name} />
             <label className="signup-field" htmlFor="email">
               <span className="signup-field-label">Email</span>
               <input
@@ -269,6 +276,26 @@ export function SignupWizard({ initialRole, initialEmail, initialFocus, initialS
           <Link href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}>Log in</Link>
         </p>
       </form>
+    </div>
+  );
+}
+
+function SignupIdentityPreview({ name }: { name: string }) {
+  const identityPreview = publicNamePreview(name);
+  return (
+    <div aria-label="Public identity preview" className="card sage compact">
+      <div className="card-row">
+        <GeneratedAvatar
+          alt="Your initials avatar preview"
+          name={identityPreview}
+          seed={identityPreview ?? "signup"}
+          size="sm"
+        />
+        <div className="section-stack" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+          <strong>{identityPreview ?? "Your public identity"}</strong>
+          <span className="muted small">Code assigned at signup</span>
+        </div>
+      </div>
     </div>
   );
 }

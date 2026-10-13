@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { loiErrorResponse } from "./http";
+import { LoiError } from "./errors";
 
 describe("LOI HTTP errors", () => {
+  it("returns an actionable financing-evidence code without exposing document details", async () => {
+    const response = loiErrorResponse(new LoiError("FINANCING_EVIDENCE_REQUIRED", "Internal document lookup detail", 400));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ code: "FINANCING_EVIDENCE_REQUIRED", error: "A current pre-approval badge or uploaded pre-approval letter is required." });
+  });
   it("returns bounded term field errors without echoing submitted values", async () => {
     const secretValue = "private-buyer-input-must-not-echo";
     const schema = z.object({

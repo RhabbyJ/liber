@@ -48,7 +48,8 @@ export default async function PublicBuyerProfilePage({
     ? user ? invitePath : `/login?next=${encodeURIComponent(invitePath)}`
     : null;
   const isOwner = buyer.viewerIsOwner;
-  const primaryBadge = activeBadges[0];
+  const primaryBadge = activeBadges.find((badge) => badge.type !== "TEST_PRE_APPROVED") ?? activeBadges[0];
+  const secondaryBadges = activeBadges.filter((badge) => badge !== primaryBadge);
 
   return (
     <div className="page wide buyer-reference-page">
@@ -69,7 +70,7 @@ export default async function PublicBuyerProfilePage({
         <aside className="public-profile-aside buyer-reference-aside">
           <div className="buyer-reference-photo">
             <div className="profile-avatar-mark">
-              <GeneratedAvatar seed={buyer.avatarSeed} size="xl" variant={buyer.avatarVariant} />
+              <GeneratedAvatar name={buyer.name} seed={buyer.avatarSeed} size="xl" variant={buyer.avatarVariant} />
             </div>
           </div>
 
@@ -95,8 +96,11 @@ export default async function PublicBuyerProfilePage({
 
             {primaryBadge ? (
               <div className="buyer-reference-verified">
-                <span className="buyer-reference-verified-icon">
-                  <Icon name="check-shield" size={16} />
+                <span
+                  className="buyer-reference-verified-icon"
+                  style={primaryBadge.type === "TEST_PRE_APPROVED" ? { background: "var(--amber)", color: "var(--amber-strong)" } : undefined}
+                >
+                  <Icon name={primaryBadge.type === "TEST_PRE_APPROVED" ? "info" : "check-shield"} size={16} />
                 </span>
                 <div>
                   <strong>{badgeDisplayLabel(primaryBadge)}</strong>
@@ -113,7 +117,7 @@ export default async function PublicBuyerProfilePage({
 
             {activeBadges.length > 1 || otherBadges.length > 0 ? (
               <div className="buyer-reference-badge-row">
-                {activeBadges.slice(primaryBadge ? 1 : 0).map((badge) => (
+                {secondaryBadges.map((badge) => (
                   <BadgePill badge={badge} key={badge.label} />
                 ))}
                 {otherBadges.map((badge) => (
@@ -177,11 +181,13 @@ function ProfileFact({ label, value }: { label: string; value: string }) {
 }
 
 function badgeDisplayLabel(badge: { label: string; type?: string }) {
+  if (badge.type === "TEST_PRE_APPROVED") return "Test pre-approval — not verified";
   if (badge.type === "PRE_APPROVED") return "Pre-approved";
   return badge.label;
 }
 
-function badgeHelperText(badge: { expiresInDays?: number }) {
+function badgeHelperText(badge: { type?: string; expiresInDays?: number }) {
+  if (badge.type === "TEST_PRE_APPROVED") return "Testing only. Financing has not been verified.";
   if (typeof badge.expiresInDays === "number") {
     return `Expires in ${badge.expiresInDays} day${badge.expiresInDays === 1 ? "" : "s"}`;
   }
