@@ -27,7 +27,7 @@ export function GeneratedAvatar({ alt, className, decorative = false, name, seed
   const classes = ["generated-avatar", sizeClass[size], className || ""].filter(Boolean).join(" ");
   const accessibility = decorative
     ? { "aria-hidden": true as const }
-    : { "aria-label": alt || name || "Avatar", role: "img" as const };
+    : { "aria-label": alt || (initials ? `${initials} initials avatar` : "Avatar"), role: "img" as const };
 
   return (
     <span className={classes} data-avatar-color={avatarColorIndex(variant, seed)} {...accessibility}>
