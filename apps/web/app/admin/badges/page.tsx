@@ -13,7 +13,7 @@ export default async function AdminBadgesPage() {
 
   return (
     <div className="page stack">
-      <PageTitle eyebrow="Admin" title="Badges">
+      <PageTitle title="Badges">
         First approve the buyer’s document in <Link href="/admin/documents">Documents</Link>, then grant the matching badge here. Admins can review their own accounts using the same evidence requirements.
       </PageTitle>
       {testBadge.enabled && testBadge.buyerProfileId ? (

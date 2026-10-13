@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AuthShell } from "../../../components/auth-shell";
 import { Icon } from "../../../components/icon";
 import { safeInternalPath } from "../../../lib/redirect";
 import { resendSignupConfirmation } from "../../../server/auth-actions";
@@ -18,60 +19,50 @@ export default async function VerifySignupPage({
   const mailLink = emailProviderLink(email);
 
   return (
-    <div className="page narrow verify-page">
-      <section className="card stack verify-card">
-        <div className="verify-icon" aria-hidden="true">
-          <Icon name="mail" size={26} />
-        </div>
-        <div className="stack tight">
-          <p className="eyebrow">Account verification</p>
-          <h1>Confirm your email</h1>
-          <p className="muted">
-            {email
-              ? `We sent a verification link to ${email}. Click it to activate your account. We’ll take you to your next setup step automatically.`
-              : "We sent a verification link to your email. Click it to activate your account. We’ll take you to your next setup step automatically."}
-          </p>
-        </div>
-
+    <AuthShell
+      context={email ? (
+        <>We sent a verification link to <strong>{email}</strong>. Open it to activate your account.</>
+      ) : (
+        "We sent a verification link to your email. Open it to activate your account."
+      )}
+      title="Confirm your email"
+    >
+      <div className="auth-form">
         {resent === "1" ? (
-          <div className="auth-alert success">
-            <strong>Verification email resent</strong>
-            <span>Use the newest email if more than one message arrives.</span>
+          <div className="inline-alert success" role="status">
+            <Icon name="check" size={20} />
+            <p><strong>Verification email resent.</strong> Use the newest email if more than one message arrives.</p>
           </div>
         ) : null}
 
         {status === "rate-limited" ? (
-          <div className="auth-alert info">
-            <strong>Resend limit reached</strong>
-            <span>Wait before requesting another verification email.</span>
+          <div className="inline-alert warning" role="status">
+            <Icon name="info" size={20} />
+            <p><strong>Resend limit reached.</strong> Wait before requesting another verification email.</p>
           </div>
         ) : null}
 
-        <div className="actions">
-          {mailLink ? (
-            <a className="button primary" href={mailLink.href} rel="noreferrer" target="_blank">
-              <Icon name="arrow-right" size={15} />
-              Open {mailLink.label}
-            </a>
-          ) : null}
-          <Link className="button secondary" href="/login">Back to login</Link>
-        </div>
-
-        <form action={resendSignupConfirmation} className="verify-resend">
+        {mailLink ? (
+          <a className="button primary block lg" href={mailLink.href} rel="noreferrer" target="_blank">
+            Open {mailLink.label}
+          </a>
+        ) : null}
+        <form action={resendSignupConfirmation} className="auth-resend">
           <input name="email" type="hidden" value={email} />
           <input name="next" type="hidden" value={safeNext} />
-          <button className="link-button" disabled={!email} type="submit">
-            <Icon name="mail" size={14} />
+          <button className={`button ${mailLink ? "secondary" : "primary"} block`} disabled={!email} type="submit">
             Resend verification email
           </button>
         </form>
 
-        <p className="muted small">
-          If the email is not in your inbox, check spam or promotions. The confirmation link must be opened in the same Liber
-          environment you signed up from.
+        <p className="auth-fineprint">
+          Not in your inbox? Check spam or promotions. Open the link in the same Liber environment you signed up from.
         </p>
-      </section>
-    </div>
+        <p className="auth-switch">
+          Already confirmed? <Link href="/login">Log in</Link>
+        </p>
+      </div>
+    </AuthShell>
   );
 }
 

@@ -3,11 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PublicBuyerPreviewDTO } from "../lib/buyer-dtos";
 import { syncSelectedAreaLayer } from "../lib/map-boundary-layers";
-import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
+import { canHover, escapeHtml, quietBasemap } from "../lib/map-presentation";
+import { loadMapboxGl, type MapboxMap, type MapboxMarker, type MapboxPopup } from "../lib/mapbox-gl-loader";
 import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
 import { groupMapPoints } from "../lib/map-point-groups";
 import { mapboxStaticImageUrl } from "../lib/mapbox-static-image";
 import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
+import { criteriaFacts } from "../lib/listing-format";
+import { propertyArtworkSrc } from "./property-type-artwork";
 
 type Props = {
   market: MarketMapContext;
@@ -47,6 +50,8 @@ export function PublicDemandMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const markersRef = useRef<MapboxMarker[]>([]);
+  const popupRef = useRef<MapboxPopup | null>(null);
+  const pinnedPopupRef = useRef<number | null>(null);
   const [didFail, setDidFail] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [hasLiveMarkers, setHasLiveMarkers] = useState(false);
@@ -101,9 +106,18 @@ export function PublicDemandMap({
 
         let loaded = false;
         mapRef.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "bottom-right");
+        popupRef.current = new mapboxgl.Popup({
+          className: "liber-map-popup",
+          closeButton: false,
+          closeOnClick: true,
+          focusAfterOpen: false,
+          maxWidth: "300px",
+          offset: 14,
+        });
         mapRef.current.on("load", () => {
-          if (canceled) return;
+          if (canceled || !mapRef.current) return;
           loaded = true;
+          quietBasemap(mapRef.current);
           setIsReady(true);
         });
         // Only treat errors before first load as fatal; later tile hiccups are recoverable.
@@ -122,6 +136,8 @@ export function PublicDemandMap({
       canceled = true;
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
+      popupRef.current?.remove();
+      popupRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
     };
@@ -150,40 +166,58 @@ export function PublicDemandMap({
     markersRef.current = [];
     setHasLiveMarkers(false);
 
+    const map = mapRef.current;
+    const cta = {
+      primaryHref: primaryCtaHref,
+      primaryLabel: primaryCtaLabel,
+      secondaryHref: secondaryCtaHref,
+      secondaryLabel: secondaryCtaLabel,
+    };
+    function showPopup(group: { lat: number; lng: number; points: PreviewPoint[] }, pinned: boolean) {
+      if (!popupRef.current) return;
+      pinnedPopupRef.current = pinned ? group.points[0].index : null;
+      const html = group.points.length > 1
+        ? `<div class="buyer-map-popup-group">${group.points.map((item) => previewPopupHtml(item.preview, cta)).join("")}</div>`
+        : previewPopupHtml(group.points[0].preview, cta);
+      popupRef.current.setLngLat([group.lng, group.lat]).setHTML(html).addTo(map);
+    }
+
+    // Previews that share an area center share one pin; coordinates are never nudged.
     for (const group of groupMapPoints(points)) {
       const point = group.points[0];
       const markerNode = document.createElement("button");
       markerNode.type = "button";
-      markerNode.className = "buyer-map-marker public-demand-pin";
+      markerNode.className = "map-dot-pin public-demand-pin";
       markerNode.dataset.publicDemandPreviewIndexes = group.points.map((item) => item.index).join(",");
       markerNode.setAttribute("aria-label", `${group.points.length} ${group.points.length === 1 ? "buyer targeting" : "buyers targeting"} ${point.preview.area}`);
       markerNode.innerHTML = group.points.length > 1
         ? `<span class="public-demand-count" aria-hidden="true">${group.points.length}</span>`
         : `<span aria-hidden="true"></span>`;
+      markerNode.addEventListener("mouseenter", () => {
+        if (canHover() && pinnedPopupRef.current === null) showPopup(group, false);
+      });
+      markerNode.addEventListener("mouseleave", () => {
+        if (pinnedPopupRef.current === null) popupRef.current?.remove();
+      });
+      markerNode.addEventListener("click", (event) => {
+        event.stopPropagation();
+        showPopup(group, true);
+      });
 
-      const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(
-        `<div class="buyer-map-popup-group">${group.points.map((item) => previewPopupHtml(item.preview, {
-          primaryHref: primaryCtaHref,
-          primaryLabel: primaryCtaLabel,
-          secondaryHref: secondaryCtaHref,
-          secondaryLabel: secondaryCtaLabel,
-        })).join("")}</div>`,
-      );
-      const marker = new window.mapboxgl.Marker({ element: markerNode, anchor: "center" })
-        .setLngLat([point.lng, point.lat])
-        .setPopup(popup)
-        .addTo(mapRef.current);
+      const marker = new window.mapboxgl.Marker({ anchor: "center", element: markerNode })
+        .setLngLat([group.lng, group.lat])
+        .addTo(map);
 
       markersRef.current.push(marker);
     }
     setHasLiveMarkers(true);
 
     if (selectedArea) {
-      mapRef.current.fitBounds(selectedAreaBounds(selectedArea), { maxZoom: 12.6, padding: 92 });
+      map.fitBounds(selectedAreaBounds(selectedArea), { duration: 600, maxZoom: 12.6, padding: 72 });
     } else if (points.length > 1) {
       const bounds = new window.mapboxgl.LngLatBounds();
       points.forEach((point) => bounds.extend([point.lng, point.lat]));
-      mapRef.current.fitBounds(bounds, { maxZoom: 12, padding: 90 });
+      map.fitBounds(bounds, { duration: 600, maxZoom: 12, padding: 72 });
     }
   }, [
     isReady,
@@ -202,21 +236,29 @@ export function PublicDemandMap({
   return (
     <div
       aria-label={selectedAreaLabel ? `Buyer demand preview map around ${selectedAreaLabel}` : "Buyer demand preview map"}
-      className="public-map-shell"
+      className="map-shell"
+      role="region"
     >
-      {hasLiveMarkers ? null : <div className="public-map-loading">Loading map…</div>}
       <div className="map-canvas" ref={containerRef} />
-      <button
-        aria-label="Fit map to all of Los Angeles County"
-        className="map-view-all-control"
-        onClick={() => mapRef.current?.fitBounds(marketMapBounds(market), { padding: 64 })}
-        type="button"
-      >
-        View all LA County
-      </button>
-      <div className="public-map-note">
-        {selectedArea ? "Selected boundary · buyer target areas" : "Buyer target areas · not home addresses"}
+      <div className="map-overlay-top">
+        <button
+          aria-label="Fit map to all of Los Angeles County"
+          className="map-chip-button"
+          onClick={() => mapRef.current?.fitBounds(marketMapBounds(market), { duration: 700, padding: 48 })}
+          type="button"
+        >
+          View all LA County
+        </button>
       </div>
+      {hasLiveMarkers || isReady ? null : (
+        <div className="map-toast" role="status">
+          <span className="map-toast-spinner" aria-hidden="true" />
+          Loading map
+        </div>
+      )}
+      <p className="map-footnote">
+        {selectedArea ? "Selected boundary · buyer target areas" : "Buyer target areas · not home addresses"}
+      </p>
     </div>
   );
 }
@@ -233,9 +275,9 @@ function PublicStaticDemandMap({
   token: string;
 }) {
   return (
-    <div className="public-map-shell fallback" aria-label="Buyer demand preview map">
+    <div aria-label="Buyer demand preview map" className="map-shell fallback" role="region">
       <StaticDemandLayer market={market} points={points} selectedArea={selectedArea} token={token} />
-      <div className="public-map-note">Buyer target areas · not home addresses</div>
+      <p className="map-footnote">Buyer target areas · not home addresses</p>
     </div>
   );
 }
@@ -288,30 +330,20 @@ function previewPopupHtml(
     secondaryLabel?: string;
   },
 ) {
-  const facts = [
-    preview.bedroomsMin ? `${preview.bedroomsMin}+ bed` : null,
-    preview.bathroomsMin ? `${preview.bathroomsMin}+ bath` : null,
-    preview.squareFeetMin ? `${preview.squareFeetMin.toLocaleString()}+ sqft` : null,
-    preview.condition || null,
-  ].filter(Boolean) as string[];
+  const facts = criteriaFacts(preview).map((fact) => `<b>${escapeHtml(fact.value)}</b> ${escapeHtml(fact.label)}`);
 
   return `
-    <div class="buyer-map-popup">
-      ${facts.length > 0 ? `<span>${escapeHtml(facts.join(" - "))}</span>` : ""}
-      <span>${escapeHtml(preview.label)} - ${escapeHtml(preview.area)}</span>
-      <div>
-        <a href="${escapeHtml(cta.primaryHref)}">${escapeHtml(cta.primaryLabel)}</a>
-        ${cta.secondaryHref && cta.secondaryLabel ? `<a href="${escapeHtml(cta.secondaryHref)}">${escapeHtml(cta.secondaryLabel)}</a>` : ""}
-      </div>
+    <div class="map-card preview">
+      <span class="map-card-media"><img alt="" src="${escapeHtml(propertyArtworkSrc(preview.label))}" /></span>
+      <span class="map-card-body">
+        <strong class="map-card-price">${escapeHtml(preview.budgetLabel)}</strong>
+        ${facts.length > 0 ? `<span class="map-card-facts">${facts.join("<i></i>")}</span>` : ""}
+        <span class="map-card-address">${escapeHtml(preview.area)}</span>
+        <span class="map-card-actions">
+          <a class="map-card-cta" href="${escapeHtml(cta.primaryHref)}">${escapeHtml(cta.primaryLabel)}</a>
+          ${cta.secondaryHref && cta.secondaryLabel ? `<a class="map-card-link" href="${escapeHtml(cta.secondaryHref)}">${escapeHtml(cta.secondaryLabel)}</a>` : ""}
+        </span>
+      </span>
     </div>
   `;
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
 }

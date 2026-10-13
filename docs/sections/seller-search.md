@@ -9,8 +9,11 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - `apps/web/app/seller/search/page.tsx`
 - `apps/web/components/buyer-card.tsx`
 - `apps/web/components/public-buyer-preview-card.tsx`
-- `apps/web/components/search-filters-sidebar.tsx`
-- `apps/web/components/view-toggle.tsx`
+- `apps/web/components/search-filter-bar.tsx`
+- `apps/web/components/filter-popover.tsx`
+- `apps/web/components/search-view-toggle.tsx`
+- `apps/web/components/sort-select.tsx`
+- `apps/web/lib/listing-format.ts`
 - `apps/web/components/buyer-map.tsx`
 - `apps/web/components/interactive-buyer-map.tsx`
 - `apps/web/components/static-buyer-map.tsx`
@@ -26,10 +29,8 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 - Full map/list search, buyer-profile links, advanced filters, and invites require approved seller access.
 - Active `PENDING` and `REJECTED` sellers receive only the signed-in privacy-safe preview projection as a read-only list. An anomalous missing access row receives the same limited projection with distinct copy; `SUSPENDED` seller access receives no seller-route preview.
 - The pre-approval list reuses `getPublicBuyerPreviews`; it must not call `searchBuyers`, serialize buyer routing IDs or identities, or render profile/contact/invite actions.
-- Approved sellers land on the map view by default (`view=list` opts out); buyer cards render below the map from the same result set.
-- The filter form remounts when applied URL filters change, so clearing filters,
-  removing a chip, and browser history navigation reset the displayed controls.
-  Changing only the cursor or view preserves the form state.
+- Approved sellers land on a split map and results list built from the same result set. Filters live in the search toolbar: popovers on desktop and one Filters sheet below 1100px. Below 1007px the map stays sticky above a sliding results sheet with a floating List/Map toggle.
+- Filter popovers and the sheet edit a local draft. Only Apply (or "Show matching buyers") pushes a new URL, which keeps `market`, `serviceArea`, and `sort` and drops the cursor.
 - List and map use the same `items` from one paginated query contract; neither consumer performs its own filtering or sorting.
 - Map pins show coarse budget labels for buyer demand signals, not seller listings, identities, or exact buyer locations.
 - Location filtering requires market + service-area routing keys; the selected polygon and buyer list use the same resolved UUID.

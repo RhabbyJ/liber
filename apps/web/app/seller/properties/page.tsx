@@ -14,18 +14,14 @@ export default async function SellerPropertiesPage() {
   return (
     <div className="page wide stack loose">
       <PageTitle
-        eyebrow="Invite-only records"
         title="Your properties"
-        tone="seller"
         actions={
           <Link className="button primary" href="/seller/properties/new">
-            <Icon name="plus" size={14} />
+            <Icon name="plus" size={16} />
             Add property
           </Link>
         }
-      >
-        Listings are not public. Buyers only see a property when you invite them.
-      </PageTitle>
+      />
 
       {properties.length === 0 ? (
         <EmptyState
@@ -40,54 +36,51 @@ export default async function SellerPropertiesPage() {
           }
         />
       ) : (
-        <section className="grid two">
-          {properties.map((property) => {
+        <section className="listing-grid wide" aria-label="Your properties">
+          {properties.map((property, index) => {
             const verified = property.status === "Ownership verified";
             return (
-              <article className="property-card" key={property.id}>
-                <div className="media-preview">
+              <article className="listing-card static property-listing" key={property.id}>
+                <div className="listing-card-media">
                   <PropertyTypeArtwork
-                    className="property-card-artwork"
-                    sizes="(max-width: 760px) 100vw, 50vw"
+                    className="listing-card-art"
+                    motion="none"
+                    priority={index < 2}
+                    sizes="(max-width: 767px) 100vw, 360px"
                     value={property.propertyType}
                   />
-                  <span className="media-hint">
-                    <Icon name="home" size={12} />
-                    Invite only
-                  </span>
-                </div>
-                <div className="property-card-body">
-                  <div className="section-head compact">
-                    <div className="stack tight">
-                      <p className="eyebrow">{propertySubtypeLabel(property.propertyType)}</p>
-                      <h3>{property.title}</h3>
-                    </div>
-                    <span className={`status-dot ${verified ? "active" : "warning"}`}>
-                      <Icon name={verified ? "check-shield" : "info"} size={12} />
+                  <div className="listing-card-flags">
+                    <span className="listing-flag">
+                      <Icon name="lock" size={13} />
+                      Invite only
+                    </span>
+                    <span className={`listing-flag${verified ? "" : " pending"}`}>
+                      <Icon name={verified ? "check-shield" : "info"} size={13} />
                       {property.status}
                     </span>
                   </div>
-                  <p className="muted small">
-                    <Icon name="map-pin" size={12} /> {property.location}
-                  </p>
-                  <div className="property-card-stats">
-                    {property.beds ? <span className="pill"><Icon name="home" size={12} />{property.beds} beds</span> : null}
-                    {property.baths ? <span className="pill">{property.baths} baths</span> : null}
-                    {property.area ? <span className="pill">{property.area} sqft</span> : null}
-                  </div>
-                  <strong style={{ fontSize: 20 }}>{formatMoney(property.price)}</strong>
+                </div>
+                <div className="listing-card-body">
+                  <p className="listing-card-price">{property.price > 0 ? formatMoney(property.price) : "Price not set"}</p>
+                  <ul className="listing-card-facts" aria-label="Home facts">
+                    {property.beds ? <li><b>{property.beds}</b> bds</li> : null}
+                    {property.baths ? <li><b>{property.baths}</b> ba</li> : null}
+                    {property.area ? <li><b>{property.area.toLocaleString("en-US")}</b> sqft</li> : null}
+                    <li className="listing-card-kind">{propertySubtypeLabel(property.propertyType)}</li>
+                  </ul>
+                  <h2 className="listing-card-address">{property.title}, {property.location}</h2>
                   <PropertyFeatureSummary condition={property.condition} features={property.features} />
-                  {property.description ? <p className="muted small">{property.description}</p> : null}
-                  <div className="actions between">
-                    <Link className="button ghost" href={`/seller/properties/${property.id}/edit`}>
-                      <Icon name="pencil" size={13} />
-                      Edit
-                    </Link>
-                    <Link className="button primary" href="/seller/search">
-                      <Icon name="search" size={13} />
-                      Find buyers
-                    </Link>
-                  </div>
+                  {property.description ? <p className="listing-card-note">{property.description}</p> : null}
+                </div>
+                <div className="listing-card-actions">
+                  <Link className="button secondary sm" href={`/seller/properties/${property.id}/edit`}>
+                    <Icon name="pencil" size={13} />
+                    Edit
+                  </Link>
+                  <Link className="button primary sm" href="/seller/search">
+                    <Icon name="search" size={13} />
+                    Find buyers
+                  </Link>
                 </div>
               </article>
             );

@@ -15,6 +15,7 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - `apps/web/lib/buyer-map-point.ts`
 - `apps/web/lib/mapbox.ts`
 - `apps/web/lib/map-boundary-layers.ts`
+- `apps/web/lib/map-presentation.ts`
 - `apps/web/lib/use-keyed-geojson.ts`
 - `apps/web/lib/service-areas.ts`
 - `apps/web/components/service-area-suggestions.tsx`
@@ -27,6 +28,8 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - Map view and list view must reflect the same buyer results.
 - Seller search maps are buyer-demand maps; numbered pins/clusters represent buyers or buyer demand signals, not property listings.
 - Buyer map markers must preserve privacy and should not expose exact private addresses.
+- Seller pins are budget pills. When labels overlap at the current zoom, later pins in result order render as dots (`declutterPricePins`); there is no numeric clustering. Hovering a pin or its listing card raises both, and hover or click opens one shared mini-card popup that links to the buyer profile.
+- Interactive maps hide basemap POI, transit, and airport labels (`quietBasemap`) so buyer pins stay legible. A selected boundary renders as a 4% green fill with a 3px `#47a62f` outline.
 - Mapbox must be optional; local development should degrade gracefully. When WebGL initialization fails but a public token is configured, public and seller maps fall back to a Mapbox Static Images street map with the same area-center pins. Without a usable map provider, show an unavailable state and retain buyer cards; never position pins on decorative geography.
 - Interactive maps are clamped to the active market bbox, remain draggable/zoomable throughout Los Angeles County, and provide a View all LA County reset.
 - Maps do not draw ambient County, city, or ZCTA borders. They fetch and render a boundary only for the exact ZIP, city, or neighborhood selected through search, and remove it when the selection is cleared.

@@ -27,8 +27,8 @@ export default async function AdminReportsPage({
 
   return (
     <div className="page wide stack loose">
-      <PageTitle eyebrow="Admin" title="Message reports" tone="admin">
-        Review only conversations surfaced by a participant report. This is not a general message browser.
+      <PageTitle title="Message reports">
+        Only conversations a participant reported.
       </PageTitle>
       {reports.length === 0 ? (
         <section className="card stack">
@@ -42,8 +42,8 @@ export default async function AdminReportsPage({
               <article className="card stack message-admin-report" key={report.id}>
                 <div className="section-head compact">
                   <div>
-                    <p className="eyebrow admin">{report.category.replaceAll("_", " ")}</p>
                     <h2>{report.propertyTitle}</h2>
+                    <p className="meta-line sentence">{report.category.replaceAll("_", " ").toLowerCase()}</p>
                   </div>
                   <span className={`status-dot ${adminReportStatusTone(report.status)}`}>
                     {report.status.replaceAll("_", " ")}

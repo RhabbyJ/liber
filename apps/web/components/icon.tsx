@@ -1,18 +1,25 @@
 import type { ReactElement, SVGProps } from "react";
 
-type IconName =
+export type IconName =
   | "arrow-left"
   | "arrow-right"
+  | "bath"
+  | "bed"
   | "bell"
   | "bookmark"
   | "calendar"
   | "check"
   | "check-shield"
+  | "chevron-down"
+  | "chevron-left"
   | "chevron-right"
+  | "close"
   | "compass"
   | "diamond"
   | "doc"
+  | "expand"
   | "eye"
+  | "grid"
   | "home"
   | "info"
   | "key"
@@ -20,16 +27,20 @@ type IconName =
   | "lock"
   | "logout"
   | "mail"
+  | "map"
   | "map-pin"
   | "menu"
   | "message"
+  | "minus"
   | "money"
   | "people"
   | "pencil"
   | "plus"
+  | "ruler"
   | "search"
   | "settings"
   | "shield"
+  | "sliders"
   | "sparkle"
   | "star"
   | "tag"
@@ -44,6 +55,18 @@ type IconProps = SVGProps<SVGSVGElement> & {
 const paths: Record<IconName, ReactElement> = {
   "arrow-left": <path d="M20 12H5M12 5l-7 7 7 7" />,
   "arrow-right": <path d="M4 12h15M12 5l7 7-7 7" />,
+  bath: (
+    <>
+      <path d="M3.5 12h17v2.5a4.5 4.5 0 0 1-4.5 4.5H8a4.5 4.5 0 0 1-4.5-4.5V12z" />
+      <path d="M6 12V6.5A2.5 2.5 0 0 1 8.5 4h.2A2.3 2.3 0 0 1 11 6.3M7 19l-1 2M17 19l1 2" />
+    </>
+  ),
+  bed: (
+    <>
+      <path d="M3 18V6M3 14h18v4M21 14v-2.5A2.5 2.5 0 0 0 18.5 9H11v5" />
+      <circle cx="7" cy="11" r="2" />
+    </>
+  ),
   bell: (
     <>
       <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2H4.5L6 16z" />
@@ -64,7 +87,10 @@ const paths: Record<IconName, ReactElement> = {
       <path d="m8.5 12 2.5 2.5L15.5 10" />
     </>
   ),
+  "chevron-down": <path d="m6 9 6 6 6-6" />,
+  "chevron-left": <path d="m15 6-6 6 6 6" />,
   "chevron-right": <path d="m9 6 6 6-6 6" />,
+  close: <path d="M6 6l12 12M18 6 6 18" />,
   compass: (
     <>
       <circle cx="12" cy="12" r="8.5" />
@@ -78,10 +104,19 @@ const paths: Record<IconName, ReactElement> = {
       <path d="M14 3v4h4M9 11h6M9 15h6M9 19h4" />
     </>
   ),
+  expand: <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />,
   eye: (
     <>
       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
       <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  grid: (
+    <>
+      <rect x="4" y="4" width="6.5" height="6.5" rx="1.2" />
+      <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.2" />
+      <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.2" />
+      <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.2" />
     </>
   ),
   home: <path d="M4 11 12 4l8 7v9h-5v-6h-6v6H4z" />,
@@ -116,6 +151,7 @@ const paths: Record<IconName, ReactElement> = {
       <path d="m3.5 7 8.5 6 8.5-6" />
     </>
   ),
+  map: <path d="M9 4.5 3.5 6.5v13l5.5-2 6 2 5.5-2v-13l-5.5 2-6-2zM9 4.5v13M15 6.5v13" />,
   "map-pin": (
     <>
       <path d="M12 21s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z" />
@@ -129,6 +165,7 @@ const paths: Record<IconName, ReactElement> = {
       <path d="M8 11h8M8 14h5" />
     </>
   ),
+  minus: <path d="M5 12h14" />,
   money: (
     <>
       <rect x="3" y="6" width="18" height="12" rx="2" />
@@ -146,6 +183,12 @@ const paths: Record<IconName, ReactElement> = {
   ),
   pencil: <path d="m4 20 1-4L17 4l3 3L8 19l-4 1z" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  ruler: (
+    <>
+      <path d="M3.5 15.5 15.5 3.5l5 5-12 12-5-5z" />
+      <path d="m7.5 11.5 2 2M10.5 8.5l2 2M13.5 5.5l2 2" />
+    </>
+  ),
   search: (
     <>
       <circle cx="11" cy="11" r="6.5" />
@@ -159,6 +202,13 @@ const paths: Record<IconName, ReactElement> = {
     </>
   ),
   shield: <path d="M12 3.5 4.5 6v6.5c0 4.4 3 7.7 7.5 9 4.5-1.3 7.5-4.6 7.5-9V6L12 3.5z" />,
+  sliders: (
+    <>
+      <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
+      <circle cx="15" cy="7" r="2" />
+      <circle cx="9" cy="17" r="2" />
+    </>
+  ),
   sparkle: (
     <>
       <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.5 5.5l2 2M16.5 16.5l2 2M5.5 18.5l2-2M16.5 7.5l2-2" />

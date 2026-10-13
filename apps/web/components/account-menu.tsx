@@ -11,7 +11,7 @@ export function AccountMenu({
   userId,
 }: {
   avatarVariant?: string | null;
-  displayName?: string;
+  displayName: string;
   profileHref: string;
   userId: string;
 }) {
@@ -77,15 +77,15 @@ export function AccountMenu({
       <button
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        aria-label={isOpen ? "Close account menu" : "Open account menu"}
+        aria-label="Account menu"
         className="account-menu-trigger"
         onClick={() => setIsOpen((value) => !value)}
         ref={triggerRef}
         type="button"
       >
         <GeneratedAvatar
-          alt="Your profile"
           className="account-menu-avatar"
+          decorative
           name={displayName}
           seed={userId}
           size="sm"

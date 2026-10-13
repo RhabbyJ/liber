@@ -19,30 +19,21 @@ export function StaticBuyerMap({ buyers, label = "Area centers", market, selecte
   const imageUrl = mapboxStaticImageUrl({ market, points, selectedArea: selectedServiceArea, token });
   const [failedImageUrl, setFailedImageUrl] = useState("");
   return (
-    <aside className="map-shell fallback">
-      <div className="map-toolbar">
-        <div>
-          <strong>Map</strong>
-          <span className="muted">{buyers.length} active buyers in {market.label} service areas</span>
-        </div>
-        <div className="map-toolbar-pills">
-          <span>{selectedServiceArea?.label ?? label}</span>
-          <span>Buyer target areas · not home addresses</span>
-        </div>
-      </div>
+    <div className="map-shell fallback">
       <div className="seller-map-static">
         {imageUrl && failedImageUrl !== imageUrl ? (
           // The provider renders both streets and pins in one geographic projection.
           // eslint-disable-next-line @next/next/no-img-element
-          <img alt="Map of buyer target area centers" className="public-map-static-image"
+          <img alt={`Map of ${buyers.length} buyer target area centers in ${market.label}`} className="public-map-static-image"
             onError={() => setFailedImageUrl(imageUrl)} src={imageUrl} />
         ) : (
           <div className="public-map-static-empty">
             <strong>Map unavailable</strong>
-            <span>Use the buyer cards below to view profiles and send invites.</span>
+            <span>Use the buyer cards to view profiles and send invites.</span>
           </div>
         )}
       </div>
-    </aside>
+      <p className="map-footnote">{selectedServiceArea?.label ?? label} · Buyer target areas, not home addresses</p>
+    </div>
   );
 }

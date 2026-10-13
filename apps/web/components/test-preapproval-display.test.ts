@@ -18,13 +18,14 @@ function load<T>(file: string, mocks: Record<string, unknown>): T {
   return exports as T;
 }
 const icon = { Icon: ({ name }: { name: string }) => createElement("span", { "data-icon": name }) };
+const listingFormat = load<typeof import("../lib/listing-format")>("lib/listing-format.ts", {});
 const { BadgePill } = load<typeof import("./badge-pill")>("components/badge-pill.tsx", { "./icon": icon });
 const { BuyerCard } = load<typeof import("./buyer-card")>("components/buyer-card.tsx", {
   "./icon": icon,
   "./badge-pill": { BadgePill },
   "./generated-avatar": { GeneratedAvatar: () => createElement("span") },
   "./property-type-artwork": { PropertyTypeArtwork: () => createElement("span") },
-  "../lib/format": { formatRange: () => "$500,000 – $1,000,000" },
+  "../lib/listing-format": listingFormat,
   "next/link": { __esModule: true, default: ({ children, ...props }: { children: string }) => createElement("a", props, children) },
 });
 const testBadge: SellerBadgeDTO = { type: "TEST_PRE_APPROVED", label: "Accidental verified label", status: "active", expiresInDays: 1 };
@@ -59,14 +60,13 @@ describe("test pre-approval display", () => {
     expect(html).toContain("Test pre-approval — not verified");
     expect(html).not.toContain("Not lender-verified");
   });
-  it("keeps the test marker visible in home cards even after three verified badges", () => {
+  it("keeps the test marker visible on cards even after three verified badges", () => {
     const badges: SellerBadgeDTO[] = [realBadge,
       { type: "VERIFIED_IDENTITY", label: "Identity verified", status: "active" },
       { type: "VERIFIED_FUNDS", label: "Funds verified", status: "active" }, testBadge];
-    const html = renderToStaticMarkup(createElement(BuyerCard, { buyer: buyer(badges), variant: "home" }));
-    expect(html).toContain("Test pre-approval — not verified");
+    const html = renderToStaticMarkup(createElement(BuyerCard, { buyer: buyer(badges) }));
+    expect(html).toContain('class="listing-flag unverified">Test pre-approval — not verified');
     expect(html).toContain("Pre-approved");
-    expect(html).toContain("Identity verified");
     expect(html).toContain("Funds verified");
   });
   it("does not show an expired test badge as active in search rows", () => {
@@ -80,6 +80,7 @@ const { PublicBuyerPreviewCard } = load<typeof import("./public-buyer-preview-ca
   "./icon": icon,
   "./generated-avatar": { GeneratedAvatar: () => createElement("span") },
   "./property-type-artwork": { PropertyTypeArtwork: () => createElement("span") },
+  "../lib/listing-format": listingFormat,
   "../lib/public-demand-highlight": { syncPublicDemandPinHighlights: () => undefined },
   "../lib/test-preapproval": testPreapprovalLib,
 });
@@ -91,15 +92,15 @@ describe("public preview test pre-approval display", () => {
   it("labels a test-only or demo-only preview without claiming verified details", () => {
     for (const badges of [[testPreapprovalLib.TEST_PREAPPROVAL_LABEL], ["Demo buyer", testPreapprovalLib.TEST_PREAPPROVAL_LABEL]]) {
       const html = renderToStaticMarkup(createElement(PublicBuyerPreviewCard, { index: 0, preview: preview(badges) }));
-      expect(html).toContain("Test pre-approval — not verified");
-      expect(html).not.toContain("Verified details");
+      expect(html).toContain('class="listing-flag unverified">Test pre-approval — not verified');
+      expect(html).not.toMatch(/class="listing-flag">/);
       expect(html).not.toContain("check-shield");
     }
   });
-  it("keeps the verified indicator for real verification alongside a test marker", () => {
+  it("keeps the verified look for real verification alongside a test marker", () => {
     const html = renderToStaticMarkup(createElement(PublicBuyerPreviewCard, { index: 0, preview: preview([testPreapprovalLib.TEST_PREAPPROVAL_LABEL, "Pre-approved"]) }));
-    expect(html).toContain("Verified details");
-    expect(html).toContain("Test pre-approval — not verified");
+    expect(html).toContain('class="listing-flag">Pre-approved');
+    expect(html).toContain('class="listing-flag unverified">Test pre-approval — not verified');
   });
 });
 

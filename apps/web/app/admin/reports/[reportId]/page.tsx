@@ -28,23 +28,21 @@ export default async function AdminMessageReportPage({
     <div className="page stack loose">
       <PageTitle
         actions={
-          <Link className="button ghost" href="/admin/reports">
-            <Icon name="arrow-left" size={14} />
+          <Link className="button secondary" href="/admin/reports">
+            <Icon name="arrow-left" size={16} />
             Report queue
           </Link>
         }
-        eyebrow="Audited review"
         title="Message report"
-        tone="admin"
       >
-        This restricted context is available because a participant reported a specific message.
+        Shown because a participant reported a specific message.
       </PageTitle>
 
       <article className="card stack message-admin-report">
         <div className="section-head compact">
           <div>
-            <p className="eyebrow admin">{report.category.replaceAll("_", " ")}</p>
             <h2>{report.propertyTitle}</h2>
+            <p className="meta-line sentence">{report.category.replaceAll("_", " ").toLowerCase()}</p>
           </div>
           <span className={`status-dot ${adminReportStatusTone(report.status)}`}>
             {report.status.replaceAll("_", " ")}

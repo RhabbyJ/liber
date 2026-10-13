@@ -23,21 +23,3 @@ export function PropertyHeroIllustration({
     />
   );
 }
-
-export function OwnershipReviewIllustration({
-  className,
-  motion = "pulse",
-}: FlowIllustrationProps = {}) {
-  return (
-    <Image
-      alt=""
-      aria-hidden="true"
-      className={`ownership-review-illustration${className ? ` ${className}` : ""}`}
-      data-artwork-motion={motion}
-      height={420}
-      sizes="(max-width: 700px) 112px, 124px"
-      src="/images/flows/ownership-review-2d.webp"
-      width={420}
-    />
-  );
-}

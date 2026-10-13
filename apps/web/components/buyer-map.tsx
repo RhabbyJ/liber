@@ -5,10 +5,12 @@ import { StaticBuyerMap } from "./static-buyer-map";
 
 export function BuyerMap({
   buyers,
+  clearAreaHref,
   market,
   selectedServiceArea,
 }: {
   buyers: SellerBuyerSummaryDTO[];
+  clearAreaHref?: string;
   market: MarketMapContext;
   selectedServiceArea?: SelectedMapArea | null;
 }) {
@@ -18,6 +20,7 @@ export function BuyerMap({
     return (
       <InteractiveBuyerMap
         buyers={buyers}
+        clearAreaHref={clearAreaHref}
         market={market}
         selectedServiceArea={selectedServiceArea}
         token={token}

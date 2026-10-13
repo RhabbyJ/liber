@@ -124,37 +124,23 @@ export function BuyerProfileWizard({
   return (
     <form aria-busy={isPending} className="buyer-profile-form profile-reference-form" onSubmit={submitProfile}>
       <input name="profileIntent" type="hidden" value={isPublished ? "save" : "publish"} />
-      <ProfileFormSection eyebrow="Private by default" title="Buyer identity">
-        <div className="form-grid">
-          <div className="field">
-            <span className="field-label">Public identity</span>
-            <div className="buyer-alias-control">
-              <span className="buyer-alias-value">{buyer.name}</span>
-            </div>
-            <span className="field-hint">Your first name, last initial, and account code. Your full surname stays private.</span>
-          </div>
-          <div className="field buyer-generated-avatar-field">
-            <span className="field-label">Initials avatar</span>
-            <div className="buyer-generated-avatar-control">
-              <GeneratedAvatar
-                alt="Generated buyer avatar"
-                seed={avatarSeed}
-                name={buyer.name}
-                size="lg"
-                variant={buyer.avatarVariant}
-              />
-              <span className="field-hint">Choose a color after saving your profile.</span>
-            </div>
-          </div>
-          <div className="field full">
-            <span className="field-hint">
-              Sellers see your first name and last initial. Your full surname, photo, phone number, and uploaded documents stay private.
-            </span>
-          </div>
+      <ProfileFormSection title="Public identity">
+        <div className="identity-preview">
+          <GeneratedAvatar
+            decorative
+            name={buyer.name}
+            seed={avatarSeed}
+            size="md"
+            variant={buyer.avatarVariant}
+          />
+          <span>
+            <strong>{buyer.name}</strong>
+            <small>Sellers see your first name, last initial, and account code, never your full surname, photo, phone number, or documents.</small>
+          </span>
         </div>
       </ProfileFormSection>
 
-      <ProfileFormSection eyebrow="Core details" title="Budget & basics">
+      <ProfileFormSection title="Budget & basics">
         <div className="form-grid">
           <div className="field">
             <label htmlFor="buyerType">Purchase type</label>
@@ -206,7 +192,7 @@ export function BuyerProfileWizard({
         </div>
       </ProfileFormSection>
 
-      <ProfileFormSection eyebrow="Optional" title="Home & lot size">
+      <ProfileFormSection optional title="Home & lot size">
         <div className="form-grid">
           <NumberRangeField
             defaultMax={String(criteria?.squareFeetMax || "")}
@@ -243,7 +229,7 @@ export function BuyerProfileWizard({
         </div>
       </ProfileFormSection>
 
-      <ProfileFormSection eyebrow="Optional" title="Preferences">
+      <ProfileFormSection optional title="Preferences">
         <div className="form-grid">
           <div className="field full">
             <label htmlFor="condition">Condition</label>
@@ -282,7 +268,7 @@ export function BuyerProfileWizard({
         </div>
       </ProfileFormSection>
 
-      <ProfileFormSection eyebrow="Required" title="Target area">
+      <ProfileFormSection title="Target area">
         <div className="form-grid">
           <LocationLookupFields
             defaultLocation={buyer.location}
@@ -319,19 +305,19 @@ export function BuyerProfileWizard({
 
 function ProfileFormSection({
   children,
-  eyebrow,
+  optional = false,
   title,
 }: {
   children: ReactNode;
-  eyebrow: string;
+  optional?: boolean;
   title: string;
 }) {
   return (
     <section className="buyer-form-section">
-      <div className="buyer-form-section-label">
-        <h2>{title}</h2>
-        <p>{eyebrow}</p>
-      </div>
+      <h2>
+        {title}
+        {optional ? <span className="optional-tag"> (optional)</span> : null}
+      </h2>
       <div className="buyer-form-fields">{children}</div>
     </section>
   );

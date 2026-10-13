@@ -15,12 +15,12 @@ export function SortSelect({ value }: { value: string }) {
 
   return (
     <div className="sort-select-wrapper">
-      <span>Sort By</span>
-      <select value={value} onChange={handleChange} aria-label="Sort buyers list">
-        <option value="recommended">best match</option>
-        <option value="recently_active">recently active</option>
-        <option value="highest_budget">highest budget</option>
-        <option value="most_verified">most verified</option>
+      <span aria-hidden="true">Sort:</span>
+      <select value={value} onChange={handleChange} aria-label="Sort buyers">
+        <option value="recommended">Best match</option>
+        <option value="recently_active">Recently active</option>
+        <option value="highest_budget">Highest budget</option>
+        <option value="most_verified">Most verified</option>
       </select>
     </div>
   );

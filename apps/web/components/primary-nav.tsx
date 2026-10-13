@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AppRole } from "../server/authz";
 import { Icon } from "./icon";
 import { primaryNavItems } from "./primary-nav-items";
@@ -76,10 +76,22 @@ export function PrimaryNav({
     setIsOpen(false);
   }
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   return (
     <div
       className="nav-shell"
+      data-dense={items.length >= 7 || undefined}
       data-primary-nav
+      // The pre-hydration fallback script stamps a ready flag on this element.
+      suppressHydrationWarning
       onKeyDown={(event) => {
         if (event.key === "Escape") close();
       }}
@@ -92,42 +104,47 @@ export function PrimaryNav({
         onClick={() => setIsOpen((value) => !value)}
         type="button"
       >
-        <Icon name={isOpen ? "arrow-right" : "menu"} size={16} />
+        <span aria-hidden="true" className="mobile-menu-bars" />
       </button>
       <nav aria-label="Primary" className={`nav ${isOpen ? "open" : ""}`} data-primary-nav-menu>
-        {items.map((item) => {
-          const active = item.isActive(pathname);
-          const modeClass = item.mode ? ` ${item.mode}` : "";
+        {navGroups(items).map((group, groupIndex) => (
+          <div className={`nav-group${groupIndex === 1 ? " end" : ""}`} key={groupIndex}>
+            {group.map((item) => {
+              const active = item.isActive(pathname);
+              const modeClass = item.mode ? ` ${item.mode}` : "";
 
-          return (
-            <Link
-              aria-current={active ? "page" : undefined}
-              className={active ? `active${modeClass}` : undefined}
-              href={item.href}
-              key={`${item.href}-${item.label}`}
-              onClick={close}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
+              return (
+                <Link
+                  aria-current={active ? "page" : undefined}
+                  className={active ? `nav-link active${modeClass}` : "nav-link"}
+                  data-label={item.label}
+                  href={item.href}
+                  key={`${item.href}-${item.label}`}
+                  onClick={close}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
         <div className="mobile-nav-actions" data-mobile-nav-actions hidden={!isOpen} aria-hidden={isOpen ? "false" : "true"}>
           {isAuthenticated ? (
             <>
-              <Link className="mobile-account-link" href="/profile" onClick={close}>Your profile</Link>
+              <Link className="button secondary block" href="/profile" onClick={close}>Your profile</Link>
               <form action="/logout" method="post">
-                <button className="button ghost" type="submit">
-                  <Icon name="logout" size={15} />
+                <button className="button secondary block" type="submit">
+                  <Icon name="logout" size={16} />
                   Sign out
                 </button>
               </form>
             </>
           ) : (
             <>
-              <Link className="button ghost" href="/login" onClick={close}>Log in</Link>
-              <Link className="button primary" href="/signup" onClick={close}>
+              <Link className="button primary block" href="/signup" onClick={close}>
                 Get started
               </Link>
+              <Link className="button secondary block" href="/login" onClick={close}>Log in</Link>
             </>
           )}
         </div>
@@ -137,3 +154,8 @@ export function PrimaryNav({
   );
 }
 
+/** Zillow's split bar: short navs sit left of the centred logo; longer ones put their second half on the right. */
+function navGroups<T>(items: T[]) {
+  const splitAt = items.length <= 3 ? items.length : Math.ceil(items.length / 2);
+  return [items.slice(0, splitAt), items.slice(splitAt)];
+}

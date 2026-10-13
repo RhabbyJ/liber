@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { BuyerInviteCard } from "../../../components/buyer-invite-card";
 import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
@@ -16,19 +17,31 @@ export default async function BuyerInvitesPage({ searchParams }: {
 
   return (
     <div className="page stack loose buyer-invite-page">
-      <PageTitle eyebrow={awaitingReply ? `${awaitingReply} awaiting your reply` : "Your invite inbox"} title="A place worth a conversation" tone="buyer" actions={<Link className="button secondary" href="/messages"><Icon name="message" size={15} />Messages</Link>}>
-        Properties shared just with you. Ask a question, plan a tour, or prepare a non-binding LOI.
+      <PageTitle
+        actions={<Link className="button secondary" href="/messages"><Icon name="message" size={16} />Messages</Link>}
+        title="Received invites"
+      >
+        {awaitingReply ? `${awaitingReply} awaiting your reply` : "Properties shared just with you"}
       </PageTitle>
-      {status === "accepted" ? <p className="auth-alert success" role="status">Invite accepted. Continue in your private chat with the seller.</p> : null}
-      {status === "declined" ? <p className="auth-alert success" role="status">Invite declined. You can still receive invites from other sellers.</p> : null}
-      {status === "blocked" ? <p className="auth-alert success" role="status">Seller blocked. Future invites from this seller are unavailable.</p> : null}
-      {error === "invite-locked" ? <p className="auth-alert warning" role="alert">This invite has closed or changed. Refresh to see the latest status.</p> : null}
-      {error === "question" ? <p className="auth-alert warning" role="alert">Add a question of up to 500 characters. Keep personal information out of chat.</p> : null}
+      {status === "accepted" ? <Notice tone="success">Invite accepted. Continue in your private chat with the seller.</Notice> : null}
+      {status === "declined" ? <Notice tone="success">Invite declined. You can still receive invites from other sellers.</Notice> : null}
+      {status === "blocked" ? <Notice tone="success">Seller blocked. Future invites from this seller are unavailable.</Notice> : null}
+      {error === "invite-locked" ? <Notice tone="warning">This invite has closed or changed. Refresh to see the latest status.</Notice> : null}
+      {error === "question" ? <Notice tone="warning">Add a question of up to 500 characters. Keep personal information out of chat.</Notice> : null}
       {invites.length ? (
         <div className="buyer-invite-grid">
           {invites.map((invite) => <BuyerInviteCard action={respondToBuyerInvite} actionId={crypto.randomUUID()} invite={invite} key={invite.id} />)}
         </div>
-      ) : <EmptyState icon="mail" title="Your next conversation starts here" description="When a seller finds a match, their property invite will appear here. Keep your buyer profile current so they know what you’re looking for." actions={<Link className="button primary" href="/buyer/profile">Review your profile<Icon name="arrow-right" size={14} /></Link>} />}
+      ) : <EmptyState icon="mail" title="No invites yet" description="When a seller finds a match, their property invite appears here. Keep your buyer profile current so they know what you want." actions={<Link className="button primary" href="/buyer/profile">Review your profile</Link>} />}
+    </div>
+  );
+}
+
+function Notice({ children, tone }: { children: ReactNode; tone: "success" | "warning" }) {
+  return (
+    <div className={`inline-alert ${tone}`} role={tone === "success" ? "status" : "alert"}>
+      <Icon name={tone === "success" ? "check" : "info"} size={20} />
+      <p>{children}</p>
     </div>
   );
 }

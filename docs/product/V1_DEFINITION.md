@@ -149,9 +149,13 @@ session until verification succeeds. The verified callback reads the persisted
 database roles and goes directly to the matching workspace. V1 has no second
 post-signup role-selection page, and ADMIN remains impossible to self-assign.
 
-Account creation is presented in two clear steps: confirm buyer/seller intent,
-then enter full name, email, and password; the last surname stays private. A role-prefilled entry
-still begins on the intent step with that choice selected.
+Log in, account creation, and email confirmation use Zillow's split sign-in
+page: a narrow form panel beside a full-height Liber illustration (form only on
+phones), without the site header or footer. Log in asks for the email first and
+then the password. Account creation is one short form: an inline buyer / seller
+/ both choice with a one-line outcome for the selected role, then the full
+name (the surname stays private), email, and password fields. A role-prefilled entry opens with that choice
+selected.
 
 After email verification, buyer onboarding clearly hands off from account setup to the single buyer-profile form. The handoff explains that the profile is the next setup stage and that private account details remain hidden; it does not repeat role selection.
 

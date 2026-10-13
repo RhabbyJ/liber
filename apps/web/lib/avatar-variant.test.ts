@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  avatarColorCount,
+  avatarColorIndex,
+  avatarInitials,
   avatarVariantFromSeed,
   normalizeAvatarVariant,
   randomAvatarVariant,
@@ -42,11 +45,38 @@ describe("buyer avatar variants", () => {
       .toBe(resolveAvatarVariant(variant, "Bright Hearth").seed);
   });
 
-  it("does not return the excluded currently displayed avatar when shuffling", () => {
+  it("always lands on a different color when shuffling", () => {
     const current = avatarVariantFromSeed("buyer-user-id");
-    const shuffled = randomAvatarVariant(current);
 
-    expect(shuffled).not.toBe(current);
-    expect(normalizeAvatarVariant(shuffled)).toBe(shuffled);
+    for (let attempt = 0; attempt < 64; attempt += 1) {
+      const shuffled = randomAvatarVariant(current);
+      expect(normalizeAvatarVariant(shuffled)).toBe(shuffled);
+      expect(avatarColorIndex(shuffled, "")).not.toBe(avatarColorIndex(current, ""));
+    }
+  });
+
+  it("maps the 32 tokens evenly onto the palette", () => {
+    expect(32 % avatarColorCount).toBe(0);
+  });
+});
+
+describe("avatar initials", () => {
+  it.each([
+    ["Bluebell Porch", "BP"],
+    ["Julie P. #7C4E2A91B6D0", "JP"],
+    ["Member #13EBA1C854A3", "M"],
+    ["maple", "M"],
+    ["Mary-Jane van Dyke", "MD"],
+    ["Ana Ruiz (Contractor)", "AR"],
+    ["jane.doe@example.com", "JD"],
+    ["3rd Street Loft", "3L"],
+    ["Émile Zola", "ÉZ"],
+    ["E\u0301mile Zola", "ÉZ"],
+    ["山田 太郎", "山"],
+    ["محمد علي", "م"],
+    ["", ""],
+    [null, ""],
+  ])("%s -> %s", (name, initials) => {
+    expect(avatarInitials(name)).toBe(initials);
   });
 });

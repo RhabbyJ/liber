@@ -17,19 +17,7 @@ export default async function SellerInvitesPage() {
 
   return (
     <div className="page wide stack loose">
-      <PageTitle
-        eyebrow="Outreach log"
-        title="Sent invites"
-        tone="seller"
-        actions={
-          <Link className="button ghost" href="/seller/notifications">
-            <Icon name="bell" size={14} />
-            Notifications
-          </Link>
-        }
-      >
-        Track invite status without offer automation. Liber respects rate limits and never auto-resends.
-      </PageTitle>
+      <PageTitle title="Sent invites" />
 
       {invites.length === 0 ? (
         <EmptyState

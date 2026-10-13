@@ -18,33 +18,37 @@ export default async function AccountProfilePage() {
 
   return (
     <div className="page narrow stack loose">
-      <PageTitle eyebrow="Account" title="Your profile">
-        Your email and full surname stay private. Others see your first name, last initial, account code, and initials avatar.
+      <PageTitle title="Your profile">
+        Others see your first name, last initial, account code, and initials avatar.
       </PageTitle>
 
-      <section className="account-profile-card">
+      <section className="account-identity" aria-label="Account">
         <GeneratedAvatar
-          alt="Your account avatar"
+          decorative
           name={publicNameForDisplay(user.name, user.id)}
           seed={user.id}
           size="lg"
           variant={user.avatarVariant}
         />
-        <div className="account-profile-identity">
+        <div>
           <h2>{publicNameForDisplay(user.name, user.id)}</h2>
           <p>{user.email}</p>
+          <small>Only you can see your email and full surname.</small>
         </div>
-        {workspaces.length > 0 ? (
-          <div className="account-profile-links" aria-label="Your workspaces">
-            {workspaces.map((workspace) => (
-              <Link href={workspace.href} key={workspace.href}>
-                {workspace.label}
-                <Icon name="arrow-right" size={13} />
-              </Link>
-            ))}
-          </div>
-        ) : null}
       </section>
+
+      {workspaces.length > 0 ? (
+        <nav aria-label="Your workspaces" className="settings-list">
+          {workspaces.map((workspace) => (
+            <Link className="settings-row" href={workspace.href} key={workspace.href}>
+              <span className="settings-row-text">
+                <strong>{workspace.label}</strong>
+              </span>
+              <Icon className="settings-row-chevron" name="chevron-right" size={20} />
+            </Link>
+          ))}
+        </nav>
+      ) : null}
     </div>
   );
 }

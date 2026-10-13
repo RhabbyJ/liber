@@ -532,7 +532,7 @@ export function LoiWorkspace({ initialNegotiation, templateOwnerId }: { initialN
           <Link className="link-button" href={`/messages/${encodeURIComponent(negotiation.conversationId)}`} ref={fallbackFocus}>← Back to messages</Link>
           <p className="eyebrow">Non-binding term alignment</p>
           <h1>LOI workspace</h1>
-          <p>Version {negotiation.currentSequence || "draft"} · {negotiation.viewerRole === "BUYER" ? "Buyer" : "Seller"} view</p>
+          <p className="meta-line">Non-binding term alignment · Version {negotiation.currentSequence || "draft"} · {negotiation.viewerRole === "BUYER" ? "Buyer" : "Seller"} view</p>
         </div>
         <span className="status-dot info">{statusLabel(negotiation.status)}</span>
       </header>
@@ -827,10 +827,11 @@ function TermsReview({ computedSummary, heading, previousRevision = null, proper
 function PropertyIdentity({ property }: { property: ReturnType<typeof normalizePropertyIdentity> }) {
   return (
     <section className="loi-property-identity" aria-label="Immutable property identity">
-      <p className="eyebrow">Property captured with this negotiation</p>
       <strong>{property.title}</strong>
       {property.location ? <span>{property.location}</span> : null}
-      <span>{property.identityVersion === null ? "Captured invite property identity" : `Property identity version ${property.identityVersion}`}</span>
+      <span className="meta-line">
+        Captured with this negotiation{property.identityVersion === null ? "" : ` · identity version ${property.identityVersion}`}
+      </span>
     </section>
   );
 }

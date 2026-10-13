@@ -66,9 +66,7 @@ export default async function InviteBuyerPage({
   if (!canInvite) {
     return (
       <div className="page stack loose">
-        <PageTitle eyebrow="Manual outreach" title="Seller access pending" tone="seller">
-          Directory access is still under review.
-        </PageTitle>
+        <PageTitle title="Seller access pending">Directory access is still under review.</PageTitle>
         <EmptyState
           icon="shield"
           title="Invites are locked for now"
@@ -95,9 +93,7 @@ export default async function InviteBuyerPage({
   if (!buyer.canInvite) {
     return (
       <div className="page stack loose">
-        <PageTitle eyebrow="Manual outreach" title="This is your buyer profile" tone="seller">
-          Invites are only for outreach to other buyers.
-        </PageTitle>
+        <PageTitle title="This is your buyer profile">Invites are only for outreach to other buyers.</PageTitle>
         <EmptyState
           icon="people"
           title="Choose a different buyer"
@@ -109,7 +105,7 @@ export default async function InviteBuyerPage({
                 View profile
               </Link>
               <Link className="button secondary" href="/seller/search">
-                <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
+                <Icon name="arrow-left" size={14} />
                 Back to buyers
               </Link>
             </>
@@ -123,12 +119,12 @@ export default async function InviteBuyerPage({
   const propertyState = sellerInvitePropertyState(properties);
 
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
-  const buyerSummary = [buyer.type, buyer.purpose, buyer.location].filter(Boolean).join(" - ") || "Buyer";
+  const buyerSummary = [buyer.type, buyer.purpose, buyer.location].filter(Boolean).join(" · ") || "Buyer";
 
   if (propertyState.kind === "missing") {
     return (
       <div className="page stack loose">
-        <PageTitle eyebrow={`Invite ${buyer.name}`} title="Add a property first" tone="seller">
+        <PageTitle title="Add a property first">
           You need an ownership-approved property before inviting {buyer.name}.
         </PageTitle>
         <EmptyState
@@ -145,7 +141,7 @@ export default async function InviteBuyerPage({
                 Add property
               </Link>
               <Link className="button secondary" href="/seller/search">
-                <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
+                <Icon name="arrow-left" size={14} />
                 Back to buyers
               </Link>
             </>
@@ -161,7 +157,7 @@ export default async function InviteBuyerPage({
 
     return (
       <div className="page stack loose">
-        <PageTitle eyebrow={`Invite ${buyer.name}`} title={copy.title} tone="seller">
+        <PageTitle title={copy.title}>
           {property.title} · {property.location}
         </PageTitle>
         <EmptyState
@@ -179,7 +175,7 @@ export default async function InviteBuyerPage({
                 Manage properties
               </Link>
               <Link className="button ghost" href="/seller/search">
-                <Icon name="arrow-right" size={14} style={{ transform: "rotate(180deg)" }} />
+                <Icon name="arrow-left" size={14} />
                 Back to buyers
               </Link>
             </>
@@ -194,19 +190,11 @@ export default async function InviteBuyerPage({
 
   return (
     <div className="page wide stack loose invite-compose-page">
-      <PageTitle
-        eyebrow="Manual outreach"
-        title={`Invite ${buyer.name}`}
-        tone="seller"
-        actions={
-          <Link className="button ghost" href={`/buyers/${buyer.id}`}>
-            <Icon name="user" size={14} />
-            Back to profile
-          </Link>
-        }
-      >
-        Choose a property, send the invite, and continue in chat.
-      </PageTitle>
+      <Link className="page-back" href={`/buyers/${buyer.id}`}>
+        <Icon name="chevron-left" size={18} />
+        {buyer.name}
+      </Link>
+      <PageTitle title={`Invite ${buyer.name}`}>Choose a property, send the invite, and continue in chat.</PageTitle>
 
       <section className="invite-compose-grid">
         <SellerInviteForm
@@ -218,14 +206,13 @@ export default async function InviteBuyerPage({
         />
 
         <aside className="public-profile-aside invite-compose-aside">
-          <article className="card stack invite-recipient-card">
-            <p className="eyebrow">Recipient</p>
-            <div style={{ alignItems: "center", display: "flex", gap: 12 }}>
-              <GeneratedAvatar name={buyer.name} seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
+          <article className="invite-recipient-card">
+            <div className="invite-recipient">
+              <GeneratedAvatar decorative name={buyer.name} seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
               <div>
-                <h3 style={{ margin: 0 }}>{buyer.name}</h3>
+                <h2>{buyer.name}</h2>
                 {buyer.isDemo ? <span className="status-dot warning">Demo buyer</span> : null}
-                <p className="muted small" style={{ margin: "4px 0 0" }}>{buyerSummary}</p>
+                <p>{buyerSummary}</p>
               </div>
             </div>
             {activeBadges.length > 0 ? (
@@ -237,40 +224,41 @@ export default async function InviteBuyerPage({
             ) : null}
           </article>
 
-          <article className="property-card quick-overview-card">
-            <p className="eyebrow seller">Quick overview</p>
-            <div className="media-preview">
-              <PropertyTypeArtwork
-                className="property-card-artwork"
-                sizes="340px"
-                value={property.propertyType}
-              />
-              <span className="media-hint">
-                <Icon name="home" size={12} />
-                {propertySubtypeLabel(property.propertyType)}
-              </span>
-            </div>
-            <div className="property-card-body">
-              <div className="section-head compact">
-                <h3 style={{ margin: 0 }}>{property.title}</h3>
-                <span className={`status-dot ${verified ? "active" : "warning"}`}>
-                  <Icon name={verified ? "check-shield" : "info"} size={12} />
-                  {property.status}
-                </span>
+          <section className="quick-overview" aria-labelledby="quick-overview-title">
+            <h2 className="quick-overview-title" id="quick-overview-title">Property</h2>
+            <article className="listing-card static">
+              <div className="listing-card-media">
+                <PropertyTypeArtwork
+                  className="listing-card-art"
+                  motion="none"
+                  sizes="340px"
+                  value={property.propertyType}
+                />
+                <div className="listing-card-flags">
+                  <span className="listing-flag">
+                    <Icon name="lock" size={13} />
+                    Invite only
+                  </span>
+                  <span className={`listing-flag${verified ? "" : " pending"}`}>
+                    <Icon name={verified ? "check-shield" : "info"} size={13} />
+                    {property.status}
+                  </span>
+                </div>
               </div>
-              <p className="muted small" style={{ margin: 0 }}>
-                <Icon name="map-pin" size={12} /> {property.location}
-              </p>
-              <div className="property-card-stats">
-                {property.beds ? <span className="pill active">{property.beds} beds</span> : null}
-                {property.baths ? <span className="pill active">{property.baths} baths</span> : null}
-                {property.area ? <span className="pill active">{property.area} sqft</span> : null}
+              <div className="listing-card-body">
+                <p className="listing-card-price">{property.price > 0 ? formatMoney(property.price) : "Price not set"}</p>
+                <ul className="listing-card-facts" aria-label="Home facts">
+                  {property.beds ? <li><b>{property.beds}</b> bds</li> : null}
+                  {property.baths ? <li><b>{property.baths}</b> ba</li> : null}
+                  {property.area ? <li><b>{property.area.toLocaleString("en-US")}</b> sqft</li> : null}
+                  <li className="listing-card-kind">{propertySubtypeLabel(property.propertyType)}</li>
+                </ul>
+                <h3 className="listing-card-address">{property.title}, {property.location}</h3>
+                <PropertyFeatureSummary condition={property.condition} features={property.features} />
+                {property.description ? <p className="listing-card-note">{property.description}</p> : null}
               </div>
-              <strong style={{ fontSize: 20 }}>{formatMoney(property.price)}</strong>
-              <PropertyFeatureSummary condition={property.condition} features={property.features} />
-              {property.description ? <p className="muted small">{property.description}</p> : null}
-            </div>
-          </article>
+            </article>
+          </section>
         </aside>
       </section>
     </div>

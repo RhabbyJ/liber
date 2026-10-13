@@ -21,9 +21,14 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - `apps/web/app/api/auth/login/route.ts`
 - `apps/web/app/auth/callback/route.ts`
 - `apps/web/app/login/page.tsx`
+- `apps/web/app/login/login-view.tsx`
+- `apps/web/components/auth-shell.tsx`
+- `apps/web/components/login-form.tsx`
+- `apps/web/components/signup-form.tsx`
 - `apps/web/app/profile/page.tsx`
 - `apps/web/app/preview-tools/**`
 - `apps/web/app/signup/page.tsx`
+- `apps/web/app/signup/signup-view.tsx`
 - `apps/web/app/messages/**`
 
 ## Invariants
@@ -58,16 +63,20 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Signup full name stays database-controlled; public display includes first name, last initial, and stable account code only.
 - Signup role selection may initialize only BUYER/SELLER roles from the validated server form after Supabase creates the Auth UUID and before the email-verification redirect; admin remains server-controlled.
 - Signup asks for buyer, seller, or both exactly once. The verified callback reads the persisted database roles and never displays a second role-selection page.
-- Signup uses two presentation steps: confirm buyer/seller intent with outcome
-  microcopy on each role card, then enter the private name, email, and password
-  fields. A labeled Role → Account stepper replaces anonymous progress-only chrome.
-  Role-prefilled entry still opens on Step 1 with the role visibly selected;
-  field-level server-error recovery reopens Step 2.
+- Signup is one form on the shared split auth page: an inline buyer/seller/both
+  choice (one radio group, outcome microcopy for the selected role), then the
+  private name, email, and password fields. Role-prefilled entry opens with the
+  role selected; server-error recovery focuses the field or notice the status
+  names.
+- Log in asks for the email first and reveals the password field on the
+  client. Revealing it never asks the server whether an account exists; both
+  steps post the same native form, and an email-only post (no JavaScript)
+  returns with the password step open.
 - Signed-in users should continue only when they already have the role needed for the requested path; a role mismatch returns them to their existing default workspace.
 - Auth routes must not use `/login`, `/signup`, `/signup/*`, `/auth/callback`, or the removed legacy `/onboarding/role` path as post-login destinations; resolve stale auth-flow `next` values to the user's role-aware default.
 - Auth POST redirects and same-origin checks must use `request-origin.ts` to keep the incoming request host/protocol and avoid local `127.0.0.1`/`localhost` CSP and cookie mismatches. Mutations accept an exact matching `Origin`, or `Sec-Fetch-Site: same-origin` only when `Origin` is absent; missing both signals fails closed.
-- Password login has one write path: `POST /api/auth/login`. Do not reintroduce a duplicate login server action with separate identity checks.
-- Server-side signup errors should return to the relevant wizard pane instead of restarting the user at the role/name step. Do not put the private signup account name in URLs; same-browser draft recovery is acceptable for error recovery.
+- Password login has one write path: `POST /api/auth/login`. Do not reintroduce a duplicate login server action with separate identity checks. The log-in form is a native POST to that route; it never calls Supabase from the browser.
+- Server-side signup errors return to the signup form with the role and email restored instead of restarting the user. Do not put the private signup account name in URLs; same-browser draft recovery is acceptable for error recovery.
 - Logout is a POST-only auth action. Desktop and mobile logout controls must submit successfully under the CSP `form-action` policy, clear Supabase cookies, and land on `/login?status=signed-out`.
 - The owner-only `/profile` page is available to every active authenticated role and shows only that session user's private account identity plus workspace links. The header avatar menu links there and keeps logout POST-only.
 - Buyer-only users opening seller routes such as `/seller/search` or `/seller/properties` return to their buyer workspace; they must never reach seller access gating or approved seller search without a persisted SELLER role.

@@ -21,9 +21,7 @@ export default async function MessagesPage() {
 
   return (
     <div className="page stack loose message-inbox-page">
-      <PageTitle eyebrow="Your conversations" title="Messages">
-        A private place to talk about properties, ask questions, and plan a viewing.
-      </PageTitle>
+      <PageTitle title="Messages" />
       <ConversationInbox initialConversations={conversations} initialPageInfo={pageInfo} />
     </div>
   );

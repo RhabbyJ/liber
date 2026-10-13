@@ -1,137 +1,85 @@
 import Link from "next/link";
-import { formatRange } from "../lib/format";
-import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
-import { BadgePill } from "./badge-pill";
+import type { SellerBadgeDTO, SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
+import { compactBudgetRange, criteriaFacts, seekingLabel } from "../lib/listing-format";
 import { GeneratedAvatar } from "./generated-avatar";
 import { Icon } from "./icon";
 import { PropertyTypeArtwork } from "./property-type-artwork";
 
-export function BuyerCard({
-  buyer,
-  variant = "row",
-}: {
-  buyer: SellerBuyerSummaryDTO;
-  variant?: "home" | "row";
-}) {
+const flagOrder = ["PRE_APPROVED", "CASH_BUYER", "VERIFIED_FUNDS", "VERIFIED_IDENTITY"];
+const TEST_LABEL = "Test pre-approval — not verified";
+
+export function BuyerCard({ buyer, priority = false }: { buyer: SellerBuyerSummaryDTO; priority?: boolean }) {
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
   const testPreApproval = activeBadges.find((badge) => badge.type === "TEST_PRE_APPROVED");
-  const profileSummary = [buyer.type, buyer.purpose].filter(Boolean).join(" - ") || "Buyer";
-  const profileLocationSummary = [profileSummary, buyer.location].filter(Boolean).join(" - ");
-
-  if (variant === "home") {
-    return (
-      <article className="buyer-card" data-buyer-id={buyer.id}>
-        <div className="buyer-card-head">
-          <GeneratedAvatar name={buyer.name} seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
-          <div>
-            <h3>{buyer.name}</h3>
-            {buyer.isDemo ? <span className="status-dot warning">Demo buyer</span> : null}
-            <p className="muted small" style={{ marginTop: 2 }}>
-              {profileLocationSummary}
-            </p>
-          </div>
-          <PropertyTypeArtwork
-            className="buyer-card-property-art"
-            sizes="52px"
-            value={buyer.purpose}
-            variant="emoji"
-          />
-        </div>
-        <p className="muted">{buyer.bio}</p>
-        <div className="buyer-card-stats">
-          <div>
-            <span className="buyer-card-stat-label">Budget</span>
-            <span className="buyer-card-stat-value">{formatRange(buyer.budgetMin, buyer.budgetMax)}</span>
-          </div>
-          <div>
-            <span className="buyer-card-stat-label">Down</span>
-            <span className="buyer-card-stat-value">{formatRange(buyer.downPaymentMin, buyer.downPaymentMax)}</span>
-          </div>
-        </div>
-        {activeBadges.length > 0 ? (
-          <div className="pill-row">
-            {activeBadges.filter((badge) => badge.type !== "TEST_PRE_APPROVED").slice(0, 3).map((badge) => (
-              <BadgePill badge={badge} key={badge.label} />
-            ))}
-            {testPreApproval ? <BadgePill badge={testPreApproval} /> : null}
-          </div>
-        ) : null}
-        <div className="actions inline">
-          <Link className="button secondary block" href={`/buyers/${buyer.id}`}>
-            View profile
-            <Icon name="arrow-right" size={14} />
-          </Link>
-        </div>
-      </article>
-    );
-  }
-
-  const fitSummary = buyerFitSummary(buyer);
-  const preApprovalBadge = activeBadges.find((badge) => badge.type === "PRE_APPROVED");
+  const preApproval = activeBadges.find((badge) => badge.type === "PRE_APPROVED");
+  // Real badges first; a test badge always keeps its own marker so it can never hide behind them.
+  const flags = activeBadges
+    .filter((badge) => badge.type !== "TEST_PRE_APPROVED")
+    .sort((a, b) => flagRank(a.type) - flagRank(b.type))
+    .slice(0, 2);
+  const facts = criteriaFacts(buyer.criteriaDetails[0]);
+  const fineprint = [buyer.name, buyer.type].filter(Boolean).join(" · ");
 
   return (
-    <article className="buyer-row" data-buyer-id={buyer.id}>
-      <div className="buyer-row-profile">
-        <GeneratedAvatar name={buyer.name} seed={buyer.avatarSeed} size="lg" variant={buyer.avatarVariant} />
-        <div>
-          <h3>{buyer.name}</h3>
-          {buyer.isDemo ? <span className="status-dot warning">Demo buyer</span> : null}
-          <p>{profileSummary}</p>
-        </div>
+    <article className="listing-card" data-buyer-id={buyer.id}>
+      <div className="listing-card-media">
+        <PropertyTypeArtwork className="listing-card-art" motion="none" priority={priority} sizes="(max-width: 767px) 100vw, 360px" value={buyer.purpose} />
+        {flags.length > 0 || buyer.isDemo || testPreApproval ? (
+          <div className="listing-card-flags">
+            {buyer.isDemo ? <span className="listing-flag demo">Demo buyer</span> : null}
+            {flags.map((badge) => (
+              <span className="listing-flag" key={badge.type}>
+                {badge.type === "PRE_APPROVED" ? "Pre-approved" : badge.label}
+              </span>
+            ))}
+            {testPreApproval ? <span className="listing-flag unverified">{TEST_LABEL}</span> : null}
+          </div>
+        ) : null}
+        <GeneratedAvatar className="listing-card-avatar" decorative name={buyer.name} seed={buyer.avatarSeed} variant={buyer.avatarVariant} />
       </div>
-
-      <div className="buyer-row-status">
-        <div className={preApprovalBadge ? "buyer-row-status-label active" : "buyer-row-status-label"}>
-          {preApprovalBadge || testPreApproval ? (
-            <span className="buyer-row-status-icon">
-              <Icon name={preApprovalBadge ? "check-shield" : "info"} size={15} />
-            </span>
-          ) : null}
-          <strong>{preApprovalBadge ? "Pre-approved" : testPreApproval ? "Test pre-approval" : "Not pre-approved"}</strong>
-        </div>
-        <span>{!preApprovalBadge && testPreApproval ? "Not lender-verified" : buyerApprovalSummary(preApprovalBadge)}</span>
-        {preApprovalBadge && testPreApproval ? <BadgePill badge={testPreApproval} /> : null}
+      <div className="listing-card-body">
+        <p className="listing-card-price">{compactBudgetRange(buyer.budgetMin, buyer.budgetMax)}</p>
+        <ul className="listing-card-facts" aria-label="Home needs">
+          {facts.map((fact) => (
+            <li key={fact.label}>
+              <b>{fact.value}</b> {fact.label}
+            </li>
+          ))}
+          <li className="listing-card-kind">{seekingLabel(buyer.purpose)}</li>
+        </ul>
+        <p className="listing-card-address">{buyer.location || "Liber service area"}</p>
+        <FinancingLine preApproval={preApproval} testPreApproval={testPreApproval} />
+        <p className="listing-card-fineprint">{fineprint}</p>
       </div>
-
-      <div className="buyer-row-fit">
-        <div className="buyer-row-fit-heading">
-          <PropertyTypeArtwork
-            className="buyer-row-property-art"
-            sizes="36px"
-            value={buyer.purpose}
-            variant="emoji"
-          />
-          <strong>{formatRange(buyer.budgetMin, buyer.budgetMax)}</strong>
-        </div>
-        <span>{fitSummary}</span>
-      </div>
-
-      <Link className="buyer-row-see-more" href={`/buyers/${buyer.id}`}>
-        View profile
-      </Link>
+      <Link aria-label={`View ${buyer.isDemo ? "demo buyer " : ""}${buyer.name} buyer profile`} className="listing-card-link" href={`/buyers/${buyer.id}`} />
     </article>
   );
 }
 
-function buyerFitSummary(buyer: SellerBuyerSummaryDTO) {
-  const criteria = buyer.criteriaDetails[0];
-  const facts = [
-    criteria?.bedroomsMin ? `${criteria.bedroomsMin}+ bd` : null,
-    criteria?.bathroomsMin ? `${criteria.bathroomsMin}+ ba` : null,
-    criteria?.squareFeetMin ? `${criteria.squareFeetMin.toLocaleString()}+ sqft` : null,
-    criteria?.condition || null,
-    ...(criteria?.features ?? []),
-  ].filter((fact): fact is string => Boolean(fact));
-
-  if (facts.length > 0) return facts.slice(0, 4).join(" / ");
-  if (buyer.location) return `Target area: ${buyer.location}`;
-  return "Home fit criteria not set";
+function FinancingLine({ preApproval, testPreApproval }: { preApproval?: SellerBadgeDTO; testPreApproval?: SellerBadgeDTO }) {
+  if (preApproval) {
+    return (
+      <p className="listing-card-financing verified">
+        <Icon name="check-shield" size={14} />
+        Pre-approved
+        {typeof preApproval.expiresInDays === "number"
+          ? ` · Expires in ${preApproval.expiresInDays} day${preApproval.expiresInDays === 1 ? "" : "s"}`
+          : ""}
+      </p>
+    );
+  }
+  if (testPreApproval) {
+    return (
+      <p className="listing-card-financing unverified">
+        <Icon name="info" size={14} />
+        Test pre-approval · Not lender-verified
+      </p>
+    );
+  }
+  return <p className="listing-card-financing">Not pre-approved</p>;
 }
 
-function buyerApprovalSummary(badge?: { expiresInDays?: number }) {
-  if (!badge) return "No verified pre-approval";
-  if (typeof badge.expiresInDays === "number") {
-    return `Expires in ${badge.expiresInDays} day${badge.expiresInDays === 1 ? "" : "s"}`;
-  }
-  return "Verified by Liber";
+function flagRank(type: string) {
+  const rank = flagOrder.indexOf(type);
+  return rank === -1 ? flagOrder.length : rank;
 }

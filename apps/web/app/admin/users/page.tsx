@@ -9,11 +9,9 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="page stack">
-      <PageTitle eyebrow="Admin" title="Users" />
-      <div className="card flat stack tight">
-        <p>Seller approval enables buyer-directory access. Sending invites also requires separate ownership approval for each property.</p>
-        <p>Review the seller’s uploaded ID and matching property evidence in <Link href="/admin/documents">Document review</Link>.</p>
-      </div>
+      <PageTitle title="Users">
+        Seller approval opens the buyer directory; each property still needs its own ownership approval in <Link href="/admin/documents">Document review</Link>.
+      </PageTitle>
       <section className="card flat">
         <table className="table">
           <thead>

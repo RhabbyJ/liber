@@ -7,9 +7,11 @@ import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { publicNamePreview } from "../lib/public-identity";
 
+const read = (file: string) => readFileSync(path.resolve(file), "utf8");
+
 function renderIdentityPreview(name: string) {
-  const source = readFileSync(path.resolve("components/signup-wizard.tsx"), "utf8");
-  const parsed = ts.createSourceFile("signup-wizard.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const source = read("components/signup-form.tsx");
+  const parsed = ts.createSourceFile("signup-form.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const preview = parsed.statements.find((statement) => ts.isFunctionDeclaration(statement) && statement.name?.text === "SignupIdentityPreview");
   if (!preview) throw new Error("Missing signup identity preview");
   const compiled = ts.transpileModule(`export ${preview.getText(parsed)}`, {
@@ -48,52 +50,55 @@ describe("signup public identity preview", () => {
   });
 });
 
-describe("signup wizard interaction ownership", () => {
-  it("keeps React as the only signup state-machine owner", () => {
-    const source = readFileSync(path.resolve("components/signup-wizard.tsx"), "utf8");
+describe("signup form", () => {
+  it("keeps React as the only signup state owner", () => {
+    const source = read("components/signup-form.tsx");
 
-    expect(source).not.toContain("SIGNUP_WIZARD_FALLBACK");
     expect(source).not.toContain("dangerouslySetInnerHTML");
     expect(source).not.toMatch(/\.addEventListener\(/);
     expect(source).toContain("onSubmit={handleSubmit}");
-    expect(source).not.toContain("onKeyDown={handleKeyDown}");
-    expect(source).not.toContain("function handleKeyDown");
   });
 
-  it("starts role-prefilled buyer and seller entries on step one", () => {
-    const source = readFileSync(path.resolve("components/signup-wizard.tsx"), "utf8");
+  it("asks for buyer, seller, or both once, inline, and keeps a URL-prefilled role selected", () => {
+    const source = read("components/signup-form.tsx");
 
-    expect(source).toContain("const startingStep = initialStep ?? 0;");
-    expect(source).not.toContain("initialRole ? 1 : 0");
+    expect(source).toContain("How will you use Liber?");
     expect(source).toContain('const [role, setRole] = useState<Role>(initialRole ?? "buyer")');
+    expect(source.match(/name="role"/g)).toHaveLength(1);
+    expect(source).toContain("Publish demand sellers can find and invite.");
   });
 
-  it("uses two clear UI steps without changing the submitted account fields", () => {
-    const wizard = readFileSync(path.resolve("components/signup-wizard.tsx"), "utf8");
-    const page = readFileSync(path.resolve("app/signup/page.tsx"), "utf8");
+  it("submits the unchanged account fields through the signup server action", () => {
+    const source = read("components/signup-form.tsx");
 
-    expect(wizard).toContain("const total = 2;");
-    expect(wizard).toContain("How will you use Liber?");
-    expect(wizard).toContain("Create your account");
-    expect(wizard).toContain('name="name"');
-    expect(wizard).toContain('name="email"');
-    expect(wizard).toContain('name="password"');
-    expect(wizard).not.toContain("STEP_LABELS");
-    expect(wizard).not.toContain("signup-summary");
-    expect(page).toContain('notice && status !== "invalid-role" ? 1 : 0');
-    expect(page).not.toContain("parseStep(step)");
+    expect(source).toContain("action={signupWithPassword}");
+    expect(source).toContain('name="name"');
+    expect(source).toContain('name="email"');
+    expect(source).toContain('name="password"');
+    expect(source).toContain('name="next"');
+    expect(source).toContain("12+ characters");
   });
 
-  it("uses the generated flow artwork instead of generic buyer and seller icons", () => {
-    const wizard = readFileSync(path.resolve("components/signup-wizard.tsx"), "utf8");
-    const illustration = readFileSync(path.resolve("components/signup-illustration.tsx"), "utf8");
+  it("renders log in, signup, and email confirmation on the shared split auth page", () => {
+    expect(read("app/signup/signup-view.tsx")).toContain('<AuthShell title="Create account">');
+    expect(read("app/login/login-view.tsx")).toContain('<AuthShell context={context} title="Log in">');
+    expect(read("app/signup/verify/page.tsx")).toContain("<AuthShell");
+  });
 
-    expect(wizard).toContain("SignupHeroIllustration");
-    expect(wizard).toContain("SignupRoleIllustration");
-    expect(wizard).toContain("Publish demand sellers can find");
-    expect(wizard).toContain("signup-steps");
-    expect(illustration).toContain('src="/images/flows/signup-hero-2d.webp"');
-    expect(illustration).toContain("roleArtwork[role]");
-    expect(illustration).not.toContain("<svg");
+  it("keeps password login on the single native API post", () => {
+    const loginForm = read("components/login-form.tsx");
+
+    expect(loginForm).toContain('action="/api/auth/login"');
+    expect(loginForm).toContain('method="post"');
+    expect(loginForm).not.toContain("fetch(");
+    expect(loginForm).not.toContain("signInWithPassword");
+    expect(loginForm).not.toContain("server/");
+  });
+
+  it("reveals the password step on the client without asking whether an account exists", () => {
+    const loginForm = read("components/login-form.tsx");
+
+    expect(loginForm).toContain('setStep("password")');
+    expect(loginForm).not.toMatch(/\/api\/(auth|users?)\/(exists|lookup|check)/);
   });
 });

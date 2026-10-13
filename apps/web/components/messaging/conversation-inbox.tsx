@@ -179,7 +179,6 @@ export function ConversationInbox({
           >
             {conversation.counterpartAvatarVariant ? (
               <GeneratedAvatar
-                alt={`${conversation.counterpartLabel} avatar`}
                 className="message-inbox-avatar"
                 name={conversation.counterpartLabel}
                 seed={conversation.counterpartLabel}

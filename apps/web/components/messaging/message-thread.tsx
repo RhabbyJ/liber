@@ -831,8 +831,8 @@ export function MessageThread({
           <section className="card stack tight">
             <div className="section-head compact">
               <div>
-                <p className="eyebrow seller">{thread.viewerRole === "BUYER" ? "Seller's property" : "Your property"}</p>
                 <h2>{thread.propertySnapshot.title}</h2>
+                <p className="meta-line">{thread.viewerRole === "BUYER" ? "Seller's property" : "Your property"}</p>
               </div>
               <span className={`message-status-chip ${conversationStatusClassName(thread.status)}`}>{conversationStatusLabel(thread.status)}</span>
             </div>

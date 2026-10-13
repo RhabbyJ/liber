@@ -1,12 +1,14 @@
-import { createInitialsAvatar } from "../lib/initials-avatar";
-import { publicIdentityInitials } from "../lib/public-identity";
+import { avatarColorIndex, avatarInitials } from "../lib/avatar-variant";
+import { Icon } from "./icon";
 
 type Size = "sm" | "md" | "lg" | "xl";
 
 type Props = {
   alt?: string;
   className?: string;
-  name?: string | null;
+  /** Hide from assistive tech when a visible name or a labelled control already names the avatar. */
+  decorative?: boolean;
+  name: string | null | undefined;
   seed: string;
   size?: Size;
   variant?: string | null;
@@ -19,23 +21,21 @@ const sizeClass: Record<Size, string> = {
   xl: "xl",
 };
 
-export function GeneratedAvatar({ alt, className, name, seed, size = "md", variant }: Props) {
-  const letters = publicIdentityInitials(name);
-  const svg = createInitialsAvatar(name, seed, variant);
-  const src = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-  const classes = [
-    "generated-avatar",
-    sizeClass[size],
-    className || "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+/** Initials on a palette color chosen by the persisted avatar token (or a seed hash). */
+export function GeneratedAvatar({ alt, className, decorative = false, name, seed, size = "md", variant }: Props) {
+  const initials = avatarInitials(name);
+  const classes = ["generated-avatar", sizeClass[size], className || ""].filter(Boolean).join(" ");
+  const accessibility = decorative
+    ? { "aria-hidden": true as const }
+    : { "aria-label": alt || name || "Avatar", role: "img" as const };
 
   return (
-    <span aria-label={alt || `${letters} initials avatar`} className={classes} role="img">
-      {/* This generated data URI has no remote image for Next.js to optimize. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img alt="" aria-hidden="true" src={src} />
+    <span className={classes} data-avatar-color={avatarColorIndex(variant, seed)} {...accessibility}>
+      {initials ? (
+        <span aria-hidden="true" className="generated-avatar-initials">{initials}</span>
+      ) : (
+        <Icon aria-hidden="true" name="user" />
+      )}
     </span>
   );
 }
