@@ -81,6 +81,7 @@ export default async function SellerSearchPage({
               <SellerMapLocationSearch
                 defaultArea={selectedServiceAreaLabel}
                 defaultServiceArea={requestedServiceArea || ""}
+                marketLabel={market.label}
                 marketSlug={market.slug}
               />
             </div>
@@ -169,6 +170,7 @@ export default async function SellerSearchPage({
           <SellerMapLocationSearch
             defaultArea={selectedServiceAreaLabel}
             defaultServiceArea={requestedServiceArea || ""}
+            marketLabel={market.label}
             marketSlug={market.slug}
           />
         )}

@@ -1,11 +1,21 @@
 "use client";
 
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PublicBuyerPreviewDto } from "../lib/buyer-dto-types";
 import { syncSelectedAreaLayer } from "../lib/map-boundary-layers";
-import { canHover, escapeHtml, quietBasemap } from "../lib/map-presentation";
-import { loadMapboxGl, type MapboxMap, type MapboxMarker, type MapboxPopup } from "../lib/mapbox-gl-loader";
-import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
+import {
+  isFatalMapError,
+  liberMapOptions,
+  mapCameraTarget,
+  mapFitPadding,
+  readMapView,
+  saveMapView,
+  type MapCameraTarget,
+} from "../lib/map-camera";
+import { canHover, escapeHtml, lockMapOrientation, quietBasemap, wirePopupInteractions } from "../lib/map-presentation";
+import { loadMapboxGl, preloadMapboxGl, type MapboxMap, type MapboxMarker, type MapboxPopup } from "../lib/mapbox-gl-loader";
+import { marketMapBounds, marketMapInstanceKey, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
 import { mapboxStaticImageUrl } from "../lib/mapbox-static-image";
 import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
 import { criteriaFacts } from "../lib/listing-format";
@@ -46,15 +56,20 @@ export function PublicDemandMap({
   selectedAreaLabel,
   token,
 }: Props) {
+  const mapboxToken = token?.trim() ?? "";
+  if (mapboxToken) preloadMapboxGl();
+  const router = useRouter();
+  const viewScope = `${usePathname()}?${useSearchParams().toString()}`;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const markersRef = useRef<MapboxMarker[]>([]);
   const popupRef = useRef<MapboxPopup | null>(null);
   const pinnedPopupRef = useRef<number | null>(null);
+  const cameraKeyRef = useRef<string | null>(null);
+  const latestCameraRef = useRef<{ target: MapCameraTarget; viewScope: string } | null>(null);
   const [didFail, setDidFail] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [hasLiveMarkers, setHasLiveMarkers] = useState(false);
-  const mapboxToken = token?.trim() ?? "";
   const shouldUseMapbox = Boolean(mapboxToken);
   const selectedAreaGeojson = useKeyedGeoJson(shouldUseMapbox ? selectedArea?.geojsonPath : undefined);
 
@@ -72,16 +87,24 @@ export function PublicDemandMap({
   );
   const mapInstanceKey = marketMapInstanceKey(market, mapboxToken);
   const [marketWest, marketSouth, marketEast, marketNorth] = market.bbox;
-  const marketCenterLat = market.center.lat;
-  const marketCenterLng = market.center.lng;
+  const marketBoundsContext = useMemo(
+    () => ({ bbox: [marketWest, marketSouth, marketEast, marketNorth] as [number, number, number, number] }),
+    [marketEast, marketNorth, marketSouth, marketWest],
+  );
+  const cameraTarget = useMemo(() => mapCameraTarget(market, selectedArea, points), [market, points, selectedArea]);
 
   useEffect(() => {
     setDidFail(false);
   }, [mapInstanceKey]);
 
   useEffect(() => {
+    latestCameraRef.current = { target: cameraTarget, viewScope };
+  }, [cameraTarget, viewScope]);
+
+  useEffect(() => {
     if (didFail) return;
     let canceled = false;
+    let resizeObserver: ResizeObserver | null = null;
     setIsReady(false);
 
     async function setupMap() {
@@ -92,19 +115,15 @@ export function PublicDemandMap({
         if (canceled || !containerRef.current) return;
 
         mapboxgl.accessToken = mapboxToken;
-        mapRef.current = new mapboxgl.Map({
-          antialias: true,
-          attributionControl: true,
-          center: [marketCenterLng, marketCenterLat],
-          container: containerRef.current,
-          cooperativeGestures: false,
-          maxBounds: [[marketWest, marketSouth], [marketEast, marketNorth]],
-          style: "mapbox://styles/mapbox/streets-v12",
-          zoom: 10.6,
-        });
+        const camera = latestCameraRef.current;
+        const savedView = camera ? readMapView(camera.viewScope, marketBoundsContext) : null;
+        cameraKeyRef.current = camera?.target.key ?? null;
+        const map = new mapboxgl.Map(liberMapOptions(containerRef.current, marketBoundsContext, savedView, camera?.target));
+        mapRef.current = map;
+        lockMapOrientation(map);
 
         let loaded = false;
-        mapRef.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "bottom-right");
+        map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "bottom-right");
         popupRef.current = new mapboxgl.Popup({
           className: "liber-map-popup",
           closeButton: false,
@@ -113,16 +132,27 @@ export function PublicDemandMap({
           maxWidth: "300px",
           offset: 14,
         });
-        mapRef.current.on("load", () => {
-          if (canceled || !mapRef.current) return;
-          loaded = true;
-          quietBasemap(mapRef.current);
+        popupRef.current.on("close", () => {
+          pinnedPopupRef.current = null;
+        });
+        map.on("style.load", () => {
+          if (canceled) return;
+          quietBasemap(map);
           setIsReady(true);
         });
-        // Only treat errors before first load as fatal; later tile hiccups are recoverable.
-        mapRef.current.on("error", () => {
-          if (!canceled && !loaded) setDidFail(true);
+        map.on("load", () => {
+          loaded = true;
         });
+        map.on("moveend", () => {
+          const scope = latestCameraRef.current?.viewScope;
+          if (!canceled && scope) saveMapView(scope, { center: [map.getCenter().lng, map.getCenter().lat], zoom: map.getZoom() });
+        });
+        // Style, auth, or network failure before first render is fatal; a failed tile is not.
+        map.on("error", (event) => {
+          if (!canceled && !loaded && isFatalMapError(event)) setDidFail(true);
+        });
+        resizeObserver = new ResizeObserver(() => mapRef.current?.resize());
+        resizeObserver.observe(containerRef.current);
       } catch {
         if (!canceled) setDidFail(true);
       }
@@ -133,6 +163,7 @@ export function PublicDemandMap({
 
     return () => {
       canceled = true;
+      resizeObserver?.disconnect();
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
       popupRef.current?.remove();
@@ -140,18 +171,19 @@ export function PublicDemandMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [
-    didFail,
-    mapInstanceKey,
-    mapboxToken,
-    marketCenterLat,
-    marketCenterLng,
-    marketEast,
-    marketNorth,
-    marketSouth,
-    marketWest,
-    shouldUseMapbox,
-  ]);
+  }, [didFail, mapInstanceKey, mapboxToken, marketBoundsContext, shouldUseMapbox]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!isReady || !map || cameraKeyRef.current === cameraTarget.key) return;
+    cameraKeyRef.current = cameraTarget.key;
+    const savedView = readMapView(viewScope, marketBoundsContext);
+    if (savedView) {
+      map.jumpTo(savedView);
+      return;
+    }
+    map.fitBounds(cameraTarget.bounds, { duration: 600, maxZoom: cameraTarget.maxZoom, padding: mapFitPadding });
+  }, [cameraTarget, isReady, marketBoundsContext, viewScope]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current) return;
@@ -161,6 +193,7 @@ export function PublicDemandMap({
   useEffect(() => {
     if (!isReady || !mapRef.current || !window.mapboxgl) return;
 
+    popupRef.current?.remove();
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
     setHasLiveMarkers(false);
@@ -172,28 +205,33 @@ export function PublicDemandMap({
       secondaryHref: secondaryCtaHref,
       secondaryLabel: secondaryCtaLabel,
     };
-    function showPopup(point: PreviewPoint, pinned: boolean) {
-      if (!popupRef.current) return;
+    function showPopup(point: PreviewPoint, pinned: boolean, markerNode: HTMLElement, viaKeyboard = false) {
+      const popup = popupRef.current;
+      if (!popup) return;
+      popup.setLngLat([point.lng, point.lat]).setHTML(previewPopupHtml(point.preview, cta)).addTo(map);
+      // addTo() closes an already-open popup first, which clears the pin; record the new state after it.
       pinnedPopupRef.current = pinned ? point.index : null;
-      popupRef.current.setLngLat([point.lng, point.lat]).setHTML(previewPopupHtml(point.preview, cta)).addTo(map);
+      wirePopupInteractions(popup, { focusLink: viaKeyboard, navigate: (href) => router.push(href), returnFocusTo: markerNode });
     }
 
     for (const point of points) {
       const markerNode = document.createElement("button");
       markerNode.type = "button";
+      // Mapbox gives custom marker elements role="img" unless they already declare a role.
+      markerNode.setAttribute("role", "button");
       markerNode.className = "map-dot-pin public-demand-pin";
       markerNode.dataset.publicDemandPreviewIndex = String(point.index);
       markerNode.setAttribute("aria-label", `Buyer demand around ${point.preview.area}`);
       markerNode.innerHTML = `<span aria-hidden="true"></span>`;
       markerNode.addEventListener("mouseenter", () => {
-        if (canHover() && pinnedPopupRef.current === null) showPopup(point, false);
+        if (canHover() && pinnedPopupRef.current === null) showPopup(point, false, markerNode);
       });
       markerNode.addEventListener("mouseleave", () => {
         if (pinnedPopupRef.current === null) popupRef.current?.remove();
       });
       markerNode.addEventListener("click", (event) => {
         event.stopPropagation();
-        showPopup(point, true);
+        showPopup(point, true, markerNode, event.detail === 0);
       });
 
       const marker = new window.mapboxgl.Marker({ element: markerNode })
@@ -203,22 +241,14 @@ export function PublicDemandMap({
       markersRef.current.push(marker);
     }
     setHasLiveMarkers(points.length > 0);
-
-    if (selectedArea) {
-      map.fitBounds(selectedAreaBounds(selectedArea), { duration: 600, maxZoom: 12.6, padding: 72 });
-    } else if (points.length > 1) {
-      const bounds = new window.mapboxgl.LngLatBounds();
-      points.forEach((point) => bounds.extend([point.lng, point.lat]));
-      map.fitBounds(bounds, { duration: 600, maxZoom: 12, padding: 72 });
-    }
   }, [
     isReady,
     points,
     primaryCtaHref,
     primaryCtaLabel,
+    router,
     secondaryCtaHref,
     secondaryCtaLabel,
-    selectedArea,
   ]);
 
   if (!shouldUseMapbox || didFail) {

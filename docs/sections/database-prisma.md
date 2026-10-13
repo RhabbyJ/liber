@@ -12,6 +12,8 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - `packages/db/prisma/current-baseline/migrations/20260717023000_grant_authenticated_app_private_usage/migration.sql`
 - `packages/db/prisma/migrations/20260717033000_harden_app_private_function_defaults/migration.sql`
 - `packages/db/prisma/current-baseline/migrations/20260717033000_harden_app_private_function_defaults/migration.sql`
+- `packages/db/prisma/migrations/20261013120000_activate_la_county_communities/migration.sql`
+- `packages/db/prisma/current-baseline/migrations/20261013120000_activate_la_county_communities/migration.sql`
 - `packages/db/src/**`
 - `prisma.config.ts`
 - `apps/web/public/geo/service-areas/**`
@@ -58,6 +60,14 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
   remain owner-only unless a reviewed migration opts them in. Its byte-identical
   copies have SHA-256
   `d1495a84e4f547da535ace05211fe4956624696995da777b83f8cec34cf3615f`.
+- Forward migration `20261013120000_activate_la_county_communities` installs
+  `pg_trgm` in `extensions` (failing if it lives elsewhere), replaces
+  `geography_admin.search_active_service_areas` with word-prefix and typo
+  suggestions while keeping the indexed prefix branch and exact ladder, and adds
+  the owner-only community-layer activate/rollback/alias functions plus the
+  layer-aware County assertion. It changes no rows; activation is a separate
+  guarded release action. Its byte-identical copies have SHA-256
+  `b8a5a632183733534f290923de3c5b2730cbe03283148da6ebf338879bca9cbd`.
 - LOI relational columns own authorization and lifecycle. Versioned strict JSON
   owns proposed term snapshots only. Submitted revisions and events are
   append-only. Each revision stores a calculation-version-matched summary;

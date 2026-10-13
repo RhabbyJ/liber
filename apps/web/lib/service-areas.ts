@@ -420,7 +420,8 @@ function resolutionFromMatches(matches: ServiceArea[]): ServiceAreaResolution {
 }
 
 export function normalizeServiceAreaSearchTerm(value: string) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  // Fold accents first so "La Cañada" matches the reviewed ASCII term "la canada".
+  return value.normalize("NFKD").replace(/\p{M}+/gu, "").trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 function marketFromServiceAreas({

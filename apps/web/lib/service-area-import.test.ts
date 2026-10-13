@@ -207,6 +207,51 @@ describe("reviewed LA County service-area dataset", () => {
     })).toThrow("separate destructive confirmation");
   });
 
+  it("pins community-layer writes to the exact layer confirmation and project", () => {
+    const layerVersion = "la-county-06037-2026-10-13-communities-v1";
+    const databaseUrl = "postgresql://postgres.qfjcrhkjlczvzakxives@aws-0-us-east-2.pooler.supabase.com:5432/postgres";
+    const base = {
+      allowWrites: "true",
+      databaseUrl,
+      datasetVersion: layerVersion,
+      expectedProjectRef: "qfjcrhkjlczvzakxives",
+    };
+    expect(() => assertLaReleaseWriteConfiguration({
+      ...base,
+      action: "activate-communities",
+      confirmation: "la-county-06037-2026-07-12-v2",
+    })).toThrow("exact dataset confirmation");
+    expect(() => assertLaReleaseWriteConfiguration({
+      ...base,
+      action: "activate-communities",
+      confirmation: layerVersion,
+    })).not.toThrow();
+    expect(() => assertLaReleaseWriteConfiguration({
+      ...base,
+      action: "rollback-communities",
+      confirmation: layerVersion,
+    })).toThrow("separate destructive confirmation");
+    expect(() => assertLaReleaseWriteConfiguration({
+      ...base,
+      action: "rollback-communities",
+      allowRollback: "true",
+      confirmation: layerVersion,
+      rollbackConfirmation: "la-county-06037-2026-07-12-v2:rollback",
+    })).toThrow("separate destructive confirmation");
+    expect(() => assertLaReleaseWriteConfiguration({
+      ...base,
+      action: "rollback-communities",
+      allowRollback: "true",
+      confirmation: layerVersion,
+      rollbackConfirmation: `${layerVersion}:rollback`,
+    })).not.toThrow();
+    expect(() => assertLaReleaseWriteConfiguration({
+      ...base,
+      action: "status-communities",
+      confirmation: layerVersion,
+    })).toThrow("Unsupported LA geography release action");
+  });
+
   it("binds release writes to the deployed Prisma migration and stable source identity", async () => {
     const importer = await readFile(path.resolve(process.cwd(), "../../scripts/import-service-areas.mjs"), "utf8");
     const releaseManager = await readFile(path.resolve(process.cwd(), "../../scripts/manage-la-geography-release.mjs"), "utf8");

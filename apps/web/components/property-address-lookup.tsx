@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { apiResultToServiceArea, type ServiceAreaSearchResponse } from "../lib/service-area-api";
-import { serviceAreaDisplayLabel, type ServiceArea } from "../lib/service-areas";
+import { useRef, useState, type KeyboardEvent } from "react";
+import { apiResultToServiceArea } from "../lib/service-area-api";
+import { useServiceAreaSearch } from "../lib/service-area-search-client";
+import { serviceAreaDisplayLabel } from "../lib/service-areas";
 
 type PropertyDefaults = {
   addressLine1?: string;
@@ -46,40 +47,16 @@ export function PropertyAddressLookup({
   const [messageTone, setMessageTone] = useState<"error" | "success" | "">("");
   const [invalidField, setInvalidField] = useState<"address" | "zip" | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
-  const [zipSuggestions, setZipSuggestions] = useState<ServiceArea[]>([]);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const detailsHeadingRef = useRef<HTMLHeadingElement>(null);
   const identityRevisionRef = useRef(0);
   const lookupInFlightRef = useRef(false);
   const zipInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    let canceled = false;
-    setZipSuggestions([]);
-
-    async function loadZipSuggestions() {
-      try {
-        const params = new URLSearchParams({ market: marketSlug, q: zip.trim() });
-        const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
-        if (!response.ok) {
-          if (!canceled) setZipSuggestions([]);
-          return;
-        }
-        const payload = await response.json() as ServiceAreaSearchResponse;
-        const suggestions = payload.suggestions
-          .map(apiResultToServiceArea)
-          .filter((area) => area.type === "zip" && area.postalCode);
-        if (!canceled) setZipSuggestions(suggestions);
-      } catch {
-        if (!canceled) setZipSuggestions([]);
-      }
-    }
-
-    void loadZipSuggestions();
-    return () => {
-      canceled = true;
-    };
-  }, [marketSlug, zip]);
+  const zipSearch = useServiceAreaSearch(marketSlug, zip);
+  const zipSuggestions = (zipSearch.payload?.suggestions ?? [])
+    .map(apiResultToServiceArea)
+    .filter((area) => area.type === "zip" && area.postalCode);
 
   function focusPropertyDetails() {
     if (presentation !== "intake") return;

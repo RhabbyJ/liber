@@ -43,6 +43,13 @@ the approved product scope.
   hardening does not clear the remaining Supabase-owned PostGIS or Auth gates.
 - LA County geography activation is a coverage decision, not authorization to
   describe the entire product as publicly launched.
+- Approved 2026-10-13: the 266 remaining reviewed County statistical
+  communities may be activated as the separate, reversible community layer
+  `la-county-06037-2026-10-13-communities-v1` (migration
+  `20261013120000_activate_la_county_communities`), with 13 reviewed colloquial
+  aliases. Deploying the migration changes search ranking only; activation
+  happens only through the guarded release command after an exact-hash
+  rehearsal on a production-equivalent Supabase target.
 
 ## Architecture-boundary implementation status
 
@@ -239,7 +246,8 @@ the existing invite quota.
 - LA County coverage uses deterministic versioned data, not runtime provider
   lookups: one County outline, 88 city service areas, 304 approximate ZCTA
   service areas, and three existing reviewed neighborhoods. The 266 remaining
-  statistical communities stay inactive.
+  statistical communities stay inactive until the community-layer release is
+  activated; rehearse it first with `npm run db:rehearse-la-communities`.
 
 ### Public-launch blocker: restore scheduled maintenance
 

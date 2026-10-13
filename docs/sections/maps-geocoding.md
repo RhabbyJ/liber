@@ -15,10 +15,15 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - `apps/web/lib/buyer-map-point.ts`
 - `apps/web/lib/mapbox.ts`
 - `apps/web/lib/map-boundary-layers.ts`
+- `apps/web/lib/map-camera.ts`
 - `apps/web/lib/map-presentation.ts`
+- `apps/web/lib/mapbox-gl-loader.ts`
 - `apps/web/lib/use-keyed-geojson.ts`
 - `apps/web/lib/service-areas.ts`
-- `apps/web/components/service-area-suggestions.tsx`
+- `apps/web/components/service-area-combobox.tsx`
+- `apps/web/components/seller-map-location-search.tsx`
+- `apps/web/components/location-lookup-fields.tsx`
+- `apps/web/lib/service-area-search-client.ts`
 - `apps/web/app/api/geo/geocode/route.ts`
 - `apps/web/app/api/service-areas/**/route.ts`
 - `apps/web/server/service-area-matching.ts`
@@ -28,13 +33,20 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - Map view and list view must reflect the same buyer results.
 - Seller search maps are buyer-demand maps; numbered pins/clusters represent buyers or buyer demand signals, not property listings.
 - Buyer map markers must preserve privacy and should not expose exact private addresses.
-- Seller pins are budget pills. When labels overlap at the current zoom, later pins in result order render as dots (`declutterPricePins`); there is no numeric clustering. Hovering a pin or its listing card raises both, and hover or click opens one shared mini-card popup that links to the buyer profile.
+- Seller pins are budget pills. When labels overlap at the current view, later pins in result order render as dots (`declutterPricePins`, re-run on every `moveend`); there is no numeric clustering. Hovering a pin or its listing card raises both, and hover or click opens one shared mini-card popup that links to the buyer profile in-app. Pins keep `role="button"` (set before Mapbox would assign `role="img"`) and a 24px+ invisible hit area.
+- A clicked (pinned) card closes on map click; hover cards must keep working afterwards. Opening a card from the keyboard focuses its link; Escape closes it and returns focus to the pin. Changing results removes any open card.
+- Maps refit only when the selected area or market changes. Results, filters, sort, and paging keep the user's camera. The last view is saved per URL in `sessionStorage` so Back restores it; that storage is optional.
 - Interactive maps hide basemap POI, transit, and airport labels (`quietBasemap`) so buyer pins stay legible. A selected boundary renders as a 4% green fill with a 3px `#47a62f` outline.
 - Mapbox must be optional; local development should degrade gracefully. When WebGL initialization fails but a public token is configured, the public demand map falls back to a Mapbox Static Images street map with the same privacy-safe approximate pins.
-- Interactive maps are clamped to the active market bbox, remain draggable/zoomable throughout Los Angeles County, and provide a View all LA County reset.
+- Interactive maps use flat Mercator, stay north-up, pan within the market plus half its size on each side (minimum zoom 7), remain draggable/zoomable throughout Los Angeles County, and provide a View all LA County reset.
+- Maps open directly on the target view, preload the pinned Mapbox script and stylesheet during render, style layers on `style.load`, and fall back only for fatal errors before first load (style, auth, network); a single failed tile is not fatal. A failed script tag is removed so the next mount retries.
+- The Mapbox wordmark must stay visible; the footnote sits to its right and status toasts sit bottom-center, clear of the map buttons.
+- Selected boundaries are drawn beneath the basemap's first label layer.
 - Maps do not draw ambient County, city, or ZCTA borders. They fetch and render a boundary only for the exact ZIP, city, or neighborhood selected through search, and remove it when the selection is cleared.
 - Customer-facing maps support direct wheel and touch gestures without requiring a modifier key.
-- Geocoding endpoints need validation and rate limits.
+- Geocoding endpoints need validation and rate limits. `/api/service-areas/search` allows 120 lookups per IP per minute; cache-eligible responses are public CDN-cacheable, and throttled, invalid, or failed responses are `no-store`.
+- Location inputs share one ARIA combobox (`useServiceAreaCombobox`): 150ms debounce, abort of stale requests, a shared in-memory response cache, arrow-key navigation, Escape to close, highlighted matches, two-line type/parent labels, loading/no-result/error states, and up to five per-market recent selections in `localStorage`. Choosing a suggestion selects that canonical area; Enter on typed text still goes through exact resolution.
+- Search suggestions include word prefixes and typo matches; only exact matches resolve. See `docs/engineering/SERVICE_AREA_BOUNDARIES.md` for ranking.
 - Public homepage area selection is limited to known active service areas; it draws approximate Liber-owned polygons and scopes the limited preview cards only, and must not become unauthenticated buyer search.
 - Hovering or keyboard-focusing a public preview card highlights only its corresponding privacy-safe map pin and does not move the map.
 - ZIP/city/neighborhood selection must render service-area polygons from GeoJSON, not radius circles.

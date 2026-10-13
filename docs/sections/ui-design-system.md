@@ -103,6 +103,13 @@ Liber's own features and palette. Keep new surfaces inside this system:
   side (list 750px, 390px below 1280px). Below 1007px the map stays sticky, the
   results slide over it as a sheet, and a floating List/Map pill jumps between
   them. Search pages use the compact footer; other pages use the full footer.
+- Location search dropdowns (`.service-area-suggestions`) follow Zillow's
+  autocomplete: a popover under the 40px input, one 52px row per place with a
+  20px type icon (pin for neighborhoods, building for cities, `#` for ZIPs,
+  clock for recent searches, map for "All of Los Angeles County"), the place
+  name with the typed part in bold, and a grey `Kind · Parent, CA` line. The
+  active row uses the `#e0f6d8` tint. Empty, loading, no-match, and "choose a
+  specific area" states render inside the same popover.
 - Listing cards (`.listing-card`): 12px radius, 177px media with at most two
   trust tags (Zillow's white photo tags with dark bold text) and the generated
   avatar, a 24/32 budget or price headline, `|`-separated facts ending in the

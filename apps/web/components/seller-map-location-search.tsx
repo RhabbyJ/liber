@@ -9,24 +9,35 @@ import {
 import {
   hasSearchSuggestions,
   resolvedAreaFromSearchPayload,
-  type ServiceAreaSearchResponse,
 } from "../lib/service-area-api";
+import { fetchServiceAreaSearch, rememberRecentServiceArea } from "../lib/service-area-search-client";
 import { Icon } from "./icon";
-import { ServiceAreaSuggestions } from "./service-area-suggestions";
+import { useServiceAreaCombobox } from "./service-area-combobox";
 
 type Props = {
   defaultArea?: string;
   defaultServiceArea?: string;
+  marketLabel?: string;
   marketSlug: string;
 };
 
-export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea = "", marketSlug }: Props) {
+export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea = "", marketLabel, marketSlug }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(defaultArea);
   const [message, setMessage] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const combobox = useServiceAreaCombobox({
+    isOpen: isSuggestionsOpen,
+    marketLabel,
+    marketSlug,
+    notice: message,
+    onChooseMarket: clearArea,
+    onOpenChange: setIsSuggestionsOpen,
+    onSelect: pushArea,
+    query,
+  });
 
   useEffect(() => {
     setQuery(defaultArea);
@@ -41,23 +52,17 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
     setMessage("");
     setIsSuggestionsOpen(false);
 
-    if (value.length < 3) {
+    if (value.length < 2) {
       setMessage("Enter a supported city, neighborhood, or ZIP.");
       return;
     }
 
     setIsLookingUp(true);
     try {
-      const params = new URLSearchParams({ market: marketSlug, q: value });
-      const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
-      const payload = await response.json() as ServiceAreaSearchResponse;
-
-      if (!response.ok) {
-        setMessage("We're not active there yet.");
-        return;
-      }
+      const payload = await fetchServiceAreaSearch(marketSlug, value);
       const resolvedArea = resolvedAreaFromSearchPayload(payload);
       if (resolvedArea) {
+        rememberRecentServiceArea(marketSlug, resolvedArea);
         pushArea(resolvedArea);
         return;
       }
@@ -101,7 +106,6 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
 
   return (
     <div
-      aria-label="Search buyer demand by city, neighborhood, or ZIP"
       className="seller-map-search"
       onBlurCapture={(event) => {
         const nextTarget = event.relatedTarget;
@@ -110,15 +114,13 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
         }
       }}
       onFocusCapture={() => setIsSuggestionsOpen(true)}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") setIsSuggestionsOpen(false);
-      }}
     >
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} role="search">
         <div className="seller-map-search-field">
           <Icon name="search" size={15} />
           <input
-            autoComplete="off"
+            {...combobox.inputProps}
+            aria-label="Search buyer demand by city, neighborhood, or ZIP"
             onClick={() => setIsSuggestionsOpen(true)}
             onChange={(event) => {
               setQuery(event.target.value);
@@ -134,12 +136,12 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
             </button>
           ) : null}
         </div>
-        <button className="button primary" disabled={isLookingUp || query.trim().length < 3} type="submit">
+        <button className="button primary" disabled={isLookingUp || query.trim().length < 2} type="submit">
           {isLookingUp ? "Checking" : "Search"}
         </button>
       </form>
-      {isSuggestionsOpen ? <ServiceAreaSuggestions marketSlug={marketSlug} onSelect={pushArea} query={query} /> : null}
-      {message ? <span className="seller-map-search-message">{message}</span> : null}
+      {combobox.listbox}
+      {message && !isSuggestionsOpen ? <span className="seller-map-search-message" role="status">{message}</span> : null}
     </div>
   );
 }

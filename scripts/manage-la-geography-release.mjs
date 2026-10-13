@@ -17,14 +17,32 @@ const releaseMigrationPath = path.resolve("packages/db/prisma/migrations", relea
 const expectedMigrationChecksum = createHash("sha256")
   .update(await readFile(releaseMigrationPath))
   .digest("hex");
+const communityLayerVersion = "la-county-06037-2026-10-13-communities-v1";
+const communityMigrationName = "20261013120000_activate_la_county_communities";
+const communityMigrationPath = path.resolve("packages/db/prisma/migrations", communityMigrationName, "migration.sql");
+const expectedCommunityMigrationChecksum = createHash("sha256")
+  .update(await readFile(communityMigrationPath))
+  .digest("hex");
 const args = process.argv.slice(2);
 const actions = args.filter((value) => value.startsWith("--"));
 const positionalArgs = args.filter((value) => !value.startsWith("--"));
 const manifestArg = positionalArgs[0];
 const action = actions.length === 1 ? actions[0].slice(2) : "";
-if (positionalArgs.length !== 1 || !new Set(["status", "stage", "activate", "rollback"]).has(action)) {
-  throw new Error("Usage: npm run db:release-la-geography -- <manifest.json> --status|--stage|--activate|--rollback");
+const supportedActions = new Set([
+  "status",
+  "stage",
+  "activate",
+  "rollback",
+  "activate-communities",
+  "rollback-communities",
+]);
+if (positionalArgs.length !== 1 || !supportedActions.has(action)) {
+  throw new Error(
+    "Usage: npm run db:release-la-geography -- <manifest.json> "
+      + "--status|--stage|--activate|--rollback|--activate-communities|--rollback-communities",
+  );
 }
+const communityAction = action === "activate-communities" || action === "rollback-communities";
 
 const dataset = await loadAndValidateDataset(path.resolve(manifestArg));
 if (dataset.manifest.datasetVersion !== expectedDatasetVersion
@@ -41,7 +59,7 @@ if (action !== "status") {
     allowWrites: process.env.LA_GEOGRAPHY_RELEASE_ALLOW_WRITES,
     confirmation: process.env.LA_GEOGRAPHY_RELEASE_CONFIRM,
     databaseUrl: connectionString,
-    datasetVersion: expectedDatasetVersion,
+    datasetVersion: communityAction ? communityLayerVersion : expectedDatasetVersion,
     expectedProjectRef: process.env.LA_GEOGRAPHY_RELEASE_PROJECT_REF,
     rollbackConfirmation: process.env.LA_GEOGRAPHY_RELEASE_ROLLBACK_CONFIRM,
   });
@@ -63,9 +81,12 @@ try {
       [`la-geography-release:${expectedDatasetVersion}`],
     );
     await assertMigrationLedger(client);
+    if (communityAction) await assertCommunityMigrationLedger(client);
     if (action === "stage") result = await stageDataset(client, dataset);
     if (action === "activate") result = await activateDataset(client, dataset);
     if (action === "rollback") result = await rollbackDataset(client, dataset);
+    if (action === "activate-communities") result = await activateCommunities(client, dataset);
+    if (action === "rollback-communities") result = await rollbackCommunities(client);
     commitAttempted = true;
     await client.query("COMMIT");
     committed = true;
@@ -104,6 +125,21 @@ async function assertMigrationLedger(db) {
     || response.rows[0]?.unresolved !== 0
     || response.rows[0]?.checksum !== expectedMigrationChecksum) {
     throw new Error("Prisma migration history is not ready for the LA geography release.");
+  }
+}
+
+async function assertCommunityMigrationLedger(db) {
+  const response = await db.query(`
+    SELECT
+      count(*)::int AS successful,
+      max(checksum) AS checksum
+    FROM public._prisma_migrations
+    WHERE migration_name = $1
+      AND finished_at IS NOT NULL AND rolled_back_at IS NULL
+  `, [communityMigrationName]);
+  if (response.rows[0]?.successful !== 1
+    || response.rows[0]?.checksum !== expectedCommunityMigrationChecksum) {
+    throw new Error("Prisma migration history is not ready for the LA community layer.");
   }
 }
 
@@ -148,6 +184,26 @@ async function rollbackDataset(db, reviewedDataset) {
   return response.rows[0]?.result ?? null;
 }
 
+async function activateCommunities(db, reviewedDataset) {
+  const response = await db.query(
+    "SELECT geography_admin.activate_la_county_communities($1::text,$2::text,$3::text) AS result",
+    [
+      communityLayerVersion,
+      reviewedDataset.checksums["manifest.json"],
+      reviewedDataset.checksums["relationships.json"],
+    ],
+  );
+  return response.rows[0]?.result ?? null;
+}
+
+async function rollbackCommunities(db) {
+  const response = await db.query(
+    "SELECT geography_admin.rollback_la_county_communities($1::text) AS result",
+    [communityLayerVersion],
+  );
+  return response.rows[0]?.result ?? null;
+}
+
 async function releaseStatus(db) {
   const response = await db.query(`
     SELECT
@@ -155,6 +211,13 @@ async function releaseStatus(db) {
       (SELECT count(*)::int FROM public.service_areas WHERE active) AS active_service_areas,
       (SELECT count(*)::int FROM public.service_areas WHERE active AND type = 'city') AS active_cities,
       (SELECT count(*)::int FROM public.service_areas WHERE active AND type = 'zip') AS active_zctas,
+      (SELECT count(*)::int FROM public.service_areas WHERE active AND type = 'neighborhood') AS active_neighborhoods,
+      (SELECT count(*)::int FROM public.geography_activation_snapshots
+        WHERE dataset_version = $4 AND rolled_back_at IS NULL) AS active_community_layers,
+      (SELECT count(*)::int FROM public.service_area_search_terms WHERE source = $4) AS community_layer_aliases,
+      (SELECT count(*)::int FROM public._prisma_migrations
+        WHERE migration_name = $5
+          AND finished_at IS NOT NULL AND rolled_back_at IS NULL) AS successful_community_migrations,
       (SELECT count(*)::int FROM public.service_area_geometry_versions WHERE dataset_version = $1) AS geometry_versions,
       (SELECT count(*)::int FROM public.market_display_geometry_versions WHERE dataset_version = $1) AS display_versions,
       (SELECT count(*)::int FROM public.geography_dataset_versions WHERE dataset_version = $1) AS dataset_ledgers,
@@ -183,6 +246,12 @@ async function releaseStatus(db) {
         'hasCountyBoundary', market.current_boundary_id IS NOT NULL,
         'hasDisplayBoundaries', market.current_display_geometry_id IS NOT NULL
       ) FROM public.markets market WHERE market.slug = 'los-angeles') AS market
-  `, [expectedDatasetVersion, releaseMigrationName, expectedMigrationChecksum]);
+  `, [
+    expectedDatasetVersion,
+    releaseMigrationName,
+    expectedMigrationChecksum,
+    communityLayerVersion,
+    communityMigrationName,
+  ]);
   return response.rows[0] ?? null;
 }

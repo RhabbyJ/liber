@@ -310,7 +310,9 @@ export function assertLaReleaseWriteConfiguration({
   expectedProjectRef,
   rollbackConfirmation,
 }) {
-  if (!new Set(["stage", "activate", "rollback"]).has(action)) throw new Error("Unsupported LA geography release action.");
+  if (!new Set(["stage", "activate", "rollback", "activate-communities", "rollback-communities"]).has(action)) {
+    throw new Error("Unsupported LA geography release action.");
+  }
   if (allowWrites !== "true" || confirmation !== datasetVersion) {
     throw new Error("LA geography writes require the exact dataset confirmation and write opt-in.");
   }
@@ -328,7 +330,7 @@ export function assertLaReleaseWriteConfiguration({
     || actualProjectRef !== expectedProjectRef) {
     throw new Error("LA geography release database does not match the confirmed Supabase project.");
   }
-  if (action === "rollback"
+  if ((action === "rollback" || action === "rollback-communities")
     && (allowRollback !== "true" || rollbackConfirmation !== `${datasetVersion}:rollback`)) {
     throw new Error("LA geography rollback requires its separate destructive confirmation.");
   }

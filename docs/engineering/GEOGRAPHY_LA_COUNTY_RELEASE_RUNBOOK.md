@@ -8,7 +8,7 @@ This runbook owns the deterministic Los Angeles County v1 geography release.
 - County: Census GEOID `06037`
 - Active allowlist: 88 incorporated cities and 304 approximate 2020 Census ZCTAs
 - Preserved active neighborhoods: Encino, Northridge, and Tarzana
-- Inactive retained communities: 266 additional County statistical communities
+- Inactive retained communities: 266 additional County statistical communities, activated only by the separate community layer below
 - Display bundle: one County outline, 88 legal-city outlines, and 304 approximate ZCTA outlines
 - ZIP-to-city inference: none
 
@@ -115,3 +115,61 @@ Rollback restores prior active flags, current pointers, complete service-area me
 Rollback fails before mutation if any `ACTIVE` buyer depends on an area that the rollback would deactivate. Move each affected profile through the supported draft and service-area reselection workflow, then retry; rollback never silently drafts or republishes a buyer.
 
 After rollback, deploy the prior compatible application version and verify the 15-area pilot. Never delete retained versions or rewrite an applied migration.
+
+## Community layer release
+
+Layer `la-county-06037-2026-10-13-communities-v1` activates the 266 staged communities from the same v2 dataset (no new geometry) and adds 13 reviewed colloquial aliases. It requires the v2 County release to be active and unchanged. Migration `20261013120000_activate_la_county_communities` only defines functions and the `pg_trgm` extension; deploying it changes search ranking but activates nothing.
+
+### Rehearsal
+
+Run against a production-equivalent Supabase target (the active v2 release, before the community migration) so the exact display hash and production PostGIS/GEOS versions are proven. The script applies the migration body inside one outer transaction, exercises every guard, and rolls everything back.
+
+```text
+LA_GEOGRAPHY_REHEARSAL_DATABASE_URL=<guarded Supabase database URL>
+LA_GEOGRAPHY_REHEARSAL_ALLOW_ROLLBACK_ONLY=true
+LA_GEOGRAPHY_REHEARSAL_CONFIRM=la-county-06037-2026-10-13-communities-v1
+LA_GEOGRAPHY_REHEARSAL_PROJECT_REF=<exact project ref>
+```
+
+```bash
+npm run db:rehearse-la-communities
+```
+
+The evidence must show: exact layer/checksum guards; pre-owned layer rows rejected; activation 88 cities, 304 ZCTAs, 269 communities, 266 newly activated, 13 aliases; idempotent second activation; `granada hills` resolving exactly, `granda hils` suggesting Granada Hills, `hills` including it, `noho` resolving to North Hollywood, `downtown` ambiguous, `arcadia` resolving to the city; Los Angeles rollup covering 139 communities; County rollback blocked while the layer is live; alias provenance, additive alias, and community active-flag drift rejected; buyer-invalidating rollback rejected; rollback restoring three active communities and zero layer aliases; re-activation rejected; outer rollback restoring the baseline.
+
+### Production sequence
+
+1. Apply `20261013120000_activate_la_county_communities` through Prisma.
+2. Run `--status`; confirm 88/304/3, one live County snapshot, zero invalid active buyers, and `successful_community_migrations: 1`.
+3. Deploy the application that ships the new search UI (it works before and after activation).
+4. Activate with the standard write settings and the layer confirmation:
+
+```text
+LA_GEOGRAPHY_RELEASE_ALLOW_WRITES=true
+LA_GEOGRAPHY_RELEASE_CONFIRM=la-county-06037-2026-10-13-communities-v1
+LA_GEOGRAPHY_RELEASE_PROJECT_REF=<exact project ref>
+```
+
+```bash
+npm run db:release-la-geography -- data/geography/los-angeles-county/la-county-06037-2026-07-12-v2/manifest.json --activate-communities
+```
+
+5. Confirm `active_neighborhoods: 269`, `active_community_layers: 1`, `community_layer_aliases: 13`, and zero invalid active buyers. Search `Granada Hills`, `91344`, `noho`, and `downtown` through the public API, and select Granada Hills on desktop and mobile maps.
+6. Re-run Supabase security and performance advisors.
+
+Search responses are CDN-cached for up to five minutes, so a community can take that long to appear in suggestions after activation.
+
+### Community rollback
+
+Rollback requires the write settings above plus:
+
+```text
+LA_GEOGRAPHY_RELEASE_ALLOW_ROLLBACK=true
+LA_GEOGRAPHY_RELEASE_ROLLBACK_CONFIRM=la-county-06037-2026-10-13-communities-v1:rollback
+```
+
+```bash
+npm run db:release-la-geography -- data/geography/los-angeles-county/la-county-06037-2026-07-12-v2/manifest.json --rollback-communities
+```
+
+It fails before mutation if any `ACTIVE` buyer's primary area is a community it would deactivate; move those buyers through the draft/reselection workflow first. It removes only the layer's alias rows, restores each community's prior active flag, and re-validates the v2 County release. A rolled-back layer cannot be reactivated; ship a new reviewed layer version instead. County rollback stays blocked until the community layer is rolled back.

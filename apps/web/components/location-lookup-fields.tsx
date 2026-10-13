@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   serviceAreaDisplayLabel,
   type ServiceArea,
 } from "../lib/service-areas";
 import {
-  apiResultToServiceArea,
   hasSearchSuggestions,
   resolvedAreaFromSearchPayload,
-  type ServiceAreaSearchResponse,
 } from "../lib/service-area-api";
+import { fetchServiceAreaSearch } from "../lib/service-area-search-client";
 import { Icon } from "./icon";
+import { useServiceAreaCombobox } from "./service-area-combobox";
 
 type Props = {
   defaultLocation?: string;
@@ -32,59 +32,33 @@ export function LocationLookupFields({
   const [serviceAreaSlug, setServiceAreaSlug] = useState(defaultServiceAreaSlug);
   const [message, setMessage] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
-  const [suggestedAreas, setSuggestedAreas] = useState<ServiceArea[]>([]);
-
-  useEffect(() => {
-    let canceled = false;
-    setSuggestedAreas([]);
-
-    async function loadSuggestions() {
-      try {
-        const params = new URLSearchParams({ market: marketSlug, q: query.trim() });
-        const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
-        if (!response.ok) {
-          if (!canceled) setSuggestedAreas([]);
-          return;
-        }
-        const payload = await response.json() as ServiceAreaSearchResponse;
-        const suggestions = payload.suggestions.map(apiResultToServiceArea);
-        if (!canceled) setSuggestedAreas(suggestions);
-      } catch {
-        if (!canceled) setSuggestedAreas([]);
-      }
-    }
-
-    void loadSuggestions();
-    return () => {
-      canceled = true;
-    };
-  }, [marketSlug, query]);
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const combobox = useServiceAreaCombobox({
+    isOpen: isSuggestionsOpen,
+    marketSlug,
+    onOpenChange: setIsSuggestionsOpen,
+    onSelect: applyArea,
+    query,
+  });
 
   async function lookup() {
     setMessage("");
-    if (query.trim().length < 3) {
+    if (query.trim().length < 2) {
       setMessage("Enter a supported city, neighborhood, or ZIP before lookup.");
       return;
     }
 
     setIsLookingUp(true);
     try {
-      const params = new URLSearchParams({ market: marketSlug, q: query });
-      const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
-      const payload = await response.json() as ServiceAreaSearchResponse;
-
-      if (!response.ok) {
-        setMessage("We're not active there yet.");
-        return;
-      }
+      const payload = await fetchServiceAreaSearch(marketSlug, query);
       const resolvedArea = resolvedAreaFromSearchPayload(payload);
       if (resolvedArea) {
         applyArea(resolvedArea);
-        setMessage(`${serviceAreaDisplayLabel(resolvedArea)} is a supported Liber service area.`);
         return;
       }
       if (hasSearchSuggestions(payload)) {
         setMessage("Choose a specific supported city, neighborhood, or ZIP.");
+        setIsSuggestionsOpen(true);
         return;
       }
 
@@ -99,13 +73,15 @@ export function LocationLookupFields({
   function handleQueryChange(value: string) {
     setQuery(value);
     setMessage("");
-
     setServiceAreaSlug("");
+    setIsSuggestionsOpen(true);
   }
 
   function applyArea(area: ServiceArea) {
     setQuery(serviceAreaDisplayLabel(area));
     setServiceAreaSlug(area.slug);
+    setMessage("");
+    setIsSuggestionsOpen(false);
   }
 
   return (
@@ -113,29 +89,44 @@ export function LocationLookupFields({
       <div className="field full">
         <label htmlFor={inputId}>{label}</label>
         <div className="lookup-row">
-          <input
-            autoComplete="off"
-            id={inputId}
-            list={`${inputId}-service-areas`}
-            onChange={(event) => handleQueryChange(event.target.value)}
-            placeholder="Search city, neighborhood, or ZIP"
-            value={query}
-          />
+          <div
+            className="lookup-combobox"
+            onBlurCapture={(event) => {
+              const nextTarget = event.relatedTarget;
+              if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) {
+                setIsSuggestionsOpen(false);
+              }
+            }}
+          >
+            <input
+              {...combobox.inputProps}
+              id={inputId}
+              onChange={(event) => handleQueryChange(event.target.value)}
+              onClick={() => setIsSuggestionsOpen(true)}
+              onFocus={() => setIsSuggestionsOpen(true)}
+              onKeyDown={(event) => {
+                combobox.inputProps.onKeyDown(event);
+                // Enter on typed text resolves the area instead of submitting the whole profile form.
+                if (!event.defaultPrevented && event.key === "Enter") {
+                  event.preventDefault();
+                  void lookup();
+                }
+              }}
+              placeholder="Search city, neighborhood, or ZIP"
+              value={query}
+            />
+            {combobox.listbox}
+          </div>
           <button className="button secondary" disabled={isLookingUp} onClick={lookup} type="button">
             {isLookingUp ? "Checking" : "Use area"}
           </button>
         </div>
-        <datalist id={`${inputId}-service-areas`}>
-          {suggestedAreas.map((area) => (
-            <option key={area.slug} value={serviceAreaDisplayLabel(area)} />
-          ))}
-        </datalist>
         <span
           aria-live="polite"
           className={`location-selection-status ${serviceAreaSlug ? "selected" : ""}`}
         >
           {serviceAreaSlug ? <Icon name="check" size={12} /> : null}
-          {serviceAreaSlug ? `Selected area: ${query}` : message || "Choose a suggestion, then select Use area."}
+          {serviceAreaSlug ? `Selected area: ${query}` : message || "Choose a suggestion, or type an exact name and select Use area."}
         </span>
       </div>
       <input name="desiredServiceAreaSlug" type="hidden" value={serviceAreaSlug} />

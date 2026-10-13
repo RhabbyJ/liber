@@ -49,6 +49,7 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `engineering/GEOGRAPHY_LA_COUNTY_RELEASE_RUNBOOK.md` — exact-hash LA County staging, activation, production reconciliation, and rollback.
 - `engineering/GEOGRAPHY_LA_COUNTY_RELEASE_EVIDENCE_2026-07-12.md` — pinned source, transaction rehearsal, verification, and production reconciliation evidence for the active County release.
 - `engineering/GEOGRAPHY_LA_SECURITY_HARDENING_EVIDENCE_2026-07-13.md` — applied raw-access/default-privilege hardening, prefix-index and migration-ledger proof, plus the remaining Supabase-owned launch blockers.
+- `engineering/GEOGRAPHY_LA_COMMUNITY_LAYER_EVIDENCE_2026-10-13.md` — why Granada Hills was missing, the reversible community-layer release, local rehearsal results, search quality/performance, and the remaining exact-hash Supabase gate.
 
 ## Section micro-docs
 

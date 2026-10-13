@@ -9,18 +9,19 @@ import {
 import {
   hasSearchSuggestions,
   resolvedAreaFromSearchPayload,
-  type ServiceAreaSearchResponse,
 } from "../lib/service-area-api";
+import { fetchServiceAreaSearch, rememberRecentServiceArea } from "../lib/service-area-search-client";
 import { Icon } from "./icon";
-import { ServiceAreaSuggestions } from "./service-area-suggestions";
+import { useServiceAreaCombobox } from "./service-area-combobox";
 import { UnsupportedAreaState } from "./unsupported-area-state";
 
 type Props = {
   defaultArea?: string;
+  marketLabel?: string;
   marketSlug: string;
 };
 
-export function PublicMapLocationSearch({ defaultArea = "", marketSlug }: Props) {
+export function PublicMapLocationSearch({ defaultArea = "", marketLabel, marketSlug }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const unsupportedArea = searchParams.get("unsupported") ?? "";
@@ -29,6 +30,16 @@ export function PublicMapLocationSearch({ defaultArea = "", marketSlug }: Props)
   const [isUnsupported, setIsUnsupported] = useState(Boolean(unsupportedArea));
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
   const previousMarketRef = useRef(marketSlug);
+  const combobox = useServiceAreaCombobox({
+    isOpen: isSuggestionsOpen,
+    marketLabel,
+    marketSlug,
+    notice: message,
+    onChooseMarket: clearArea,
+    onOpenChange: setIsSuggestionsOpen,
+    onSelect: pushArea,
+    query,
+  });
 
   useEffect(() => {
     if (previousMarketRef.current === marketSlug) return;
@@ -59,22 +70,16 @@ export function PublicMapLocationSearch({ defaultArea = "", marketSlug }: Props)
     setMessage("");
     setIsUnsupported(false);
 
-    if (value.length < 3) {
+    if (value.length < 2) {
       setMessage("Enter a supported city, neighborhood, or ZIP.");
       return;
     }
 
     try {
-      const params = new URLSearchParams({ market: marketSlug, q: value });
-      const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
-      const payload = await response.json() as ServiceAreaSearchResponse;
-
-      if (!response.ok) {
-        pushUnsupportedArea(value);
-        return;
-      }
+      const payload = await fetchServiceAreaSearch(marketSlug, value);
       const resolvedArea = resolvedAreaFromSearchPayload(payload);
       if (resolvedArea) {
+        rememberRecentServiceArea(marketSlug, resolvedArea);
         pushArea(resolvedArea);
         return;
       }
@@ -136,15 +141,12 @@ export function PublicMapLocationSearch({ defaultArea = "", marketSlug }: Props)
         }
       }}
       onFocusCapture={() => setIsSuggestionsOpen(true)}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") setIsSuggestionsOpen(false);
-      }}
     >
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} role="search">
         <Icon name="search" size={17} />
         <input
+          {...combobox.inputProps}
           aria-label="Search preview area by city, neighborhood, or ZIP"
-          autoComplete="off"
           onClick={() => setIsSuggestionsOpen(true)}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -164,8 +166,8 @@ export function PublicMapLocationSearch({ defaultArea = "", marketSlug }: Props)
           Search
         </button>
       </form>
-      {isSuggestionsOpen ? <ServiceAreaSuggestions marketSlug={marketSlug} onSelect={pushArea} query={query} /> : null}
-      {message ? <span className="public-map-search-message">{message}</span> : null}
+      {combobox.listbox}
+      {message && !isSuggestionsOpen ? <span className="public-map-search-message" role="status">{message}</span> : null}
       {isUnsupported ? <UnsupportedAreaState onSearchAnother={clearArea} /> : null}
     </div>
   );

@@ -56,7 +56,7 @@ export default async function HomePage({
     <div className="search-page home-search-page">
       <div className="search-toolbar public">
         <div className="search-toolbar-location">
-          <PublicMapLocationSearch defaultArea={selectedAreaLabel} marketSlug={market.slug} />
+          <PublicMapLocationSearch defaultArea={selectedAreaLabel} marketLabel={market.label} marketSlug={market.slug} />
         </div>
         <div className="search-toolbar-actions">
           <Link className="button primary" href={mapPrimaryHref}>

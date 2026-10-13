@@ -1,4 +1,4 @@
-import type { MapboxMap } from "./mapbox-gl-loader";
+import type { MapboxMap, MapboxPopup } from "./mapbox-gl-loader";
 
 // Real-estate maps read cleaner without business POIs and transit labels competing with pins.
 const quietLayerPattern = /(poi-label|transit-label|airport-label)/;
@@ -7,6 +7,44 @@ export function quietBasemap(map: MapboxMap) {
   for (const layer of map.getStyle()?.layers ?? []) {
     if (quietLayerPattern.test(layer.id)) map.setLayoutProperty(layer.id, "visibility", "none");
   }
+}
+
+/** Rotation has no compass to undo it here, so keep every map north-up. */
+export function lockMapOrientation(map: MapboxMap) {
+  map.touchZoomRotate.disableRotation();
+  map.keyboard.disableRotation();
+}
+
+/**
+ * Popup cards: Escape closes and returns focus to the pin, keyboard-opened cards take focus,
+ * and internal links navigate in-app so the map and its view survive the round trip.
+ */
+export function wirePopupInteractions(
+  popup: MapboxPopup,
+  {
+    focusLink = false,
+    navigate,
+    returnFocusTo,
+  }: { focusLink?: boolean; navigate?: (href: string) => void; returnFocusTo?: HTMLElement },
+) {
+  const element = popup.getElement();
+  if (!element) return;
+  element.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.stopPropagation();
+    popup.remove();
+    returnFocusTo?.focus();
+  });
+  if (navigate) {
+    for (const link of element.querySelectorAll<HTMLAnchorElement>("a[href^='/']")) {
+      link.addEventListener("click", (event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        navigate(link.getAttribute("href") ?? "/");
+      });
+    }
+  }
+  if (focusLink) element.querySelector<HTMLElement>("a[href]")?.focus();
 }
 
 export function canHover() {

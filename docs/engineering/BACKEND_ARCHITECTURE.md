@@ -534,6 +534,8 @@ Canonical geography is server-mediated. Browser roles have no direct table privi
 
 Service-area prefix lookup uses C-collated lower/upper lexical bounds plus the prefix predicate. Migration `20260713054720_consolidate_service_area_prefix_index` removes the redundant larger index and names the composite unique covering index `service_area_search_terms_market_term_prefix_idx`. The default production planner must select it; do not remove the range bounds or rely on a forced planner setting in proof.
 
+Migration `20261013120000_activate_la_county_communities` keeps that indexed branch and adds display-name prefix, later-word prefix, and (only when nothing matched lexically) `extensions.pg_trgm` typo suggestions over the market's searchable areas. Exact resolution keeps the slug > ZIP > label > reviewed-term ladder; typo rows are never exact. The same migration adds the reversible LA County community layer (`la-county-06037-2026-10-13-communities-v1`): owner-only `activate_la_county_communities` and `rollback_la_county_communities`, reviewed aliases from `la_county_community_aliases()`, and a County assertion that validates the layer while it is live. The release command exposes `--activate-communities` and `--rollback-communities` behind the layer-key confirmation, project-ref pin, community migration checksum, and the separate rollback confirmation. Details live in `SERVICE_AREA_BOUNDARIES.md` and `GEOGRAPHY_LA_COUNTY_RELEASE_RUNBOOK.md`.
+
 Budget filters are treated as range-overlap filters: a buyer matches when the buyer's max budget is at or above the seller's minimum and the buyer's min budget is at or below the seller's maximum. The persisted seller-search path applies geography, budget, property-fit criteria, condition, canonical amenities, active badges, and sorting in `apps/web/server/seller-search-query.ts`; `apps/web/server/domain.ts` remains fixture-only test behavior. Amenity filters match the canonical criteria feature tokens (Pool, Parking, ADU, Yard, Garage).
 
 Persisted seller search uses keyset pagination rather than an offset or fixed pre-filter cap. The result contract returns unchanged seller-safe buyer DTO items plus page metadata. Each opaque cursor is bound to the current filter/sort fingerprint, the first-page snapshot, the last SQL sort key, and buyer id. Ordering always includes buyer id as a unique tiebreaker. Cursors expire after 30 minutes and reject future snapshots; new profiles created after the first-page snapshot do not enter later pages. List and map receive the same page items. Cursor snapshots do not recreate historical values for profiles edited between requests, so mutable-sort updates remain eventually consistent.
@@ -570,6 +572,7 @@ Abuse-prone actions should be rate-limited:
 - invite send,
 - uploads,
 - geocode/property enrichment,
+- service-area search (120 per IP per minute; successful public responses are CDN-cacheable so cache hits bypass the limiter and database),
 - admin-sensitive actions.
 
 Important actions should write `AdminAuditLog` or equivalent operational events where supported.

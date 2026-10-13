@@ -7,6 +7,7 @@ import {
   defaultMarket,
   findServiceArea,
   marketBboxString,
+  normalizeServiceAreaSearchTerm,
   normalizeZip,
   resolveServiceArea,
   searchServiceAreas,
@@ -19,6 +20,13 @@ describe("service area metadata", () => {
   it("normalizes only typed ZIP values, not five-digit address substrings", () => {
     expect(normalizeZip("91604-1234")).toBe("91604");
     expect(normalizeZip("12345 Ventura Blvd, CA 91604")).toBe("");
+  });
+
+  it("folds accents and punctuation into the reviewed ASCII search form", () => {
+    expect(normalizeServiceAreaSearchTerm("  La Cañada-Flintridge ")).toBe("la canada flintridge");
+    expect(normalizeServiceAreaSearchTerm("L.A.")).toBe("l a");
+    expect(normalizeServiceAreaSearchTerm("Mt. Washington")).toBe("mt washington");
+    expect(normalizeServiceAreaSearchTerm("—")).toBe("");
   });
 
   it("finds ZIP, neighborhood, and city service areas", () => {

@@ -1,13 +1,30 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { approximateBuyerPoint } from "../lib/buyer-map-point";
 import { compactBudgetRange, criteriaFacts, pinBudgetLabel } from "../lib/listing-format";
 import { syncSelectedAreaLayer } from "../lib/map-boundary-layers";
-import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
-import { canHover, declutterPricePins, escapeHtml, quietBasemap } from "../lib/map-presentation";
-import { loadMapboxGl, type MapboxMap, type MapboxMarker, type MapboxPopup } from "../lib/mapbox-gl-loader";
+import { marketMapBounds, marketMapInstanceKey, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
+import {
+  isFatalMapError,
+  liberMapOptions,
+  mapCameraTarget,
+  mapFitPadding,
+  readMapView,
+  saveMapView,
+  type MapCameraTarget,
+} from "../lib/map-camera";
+import {
+  canHover,
+  declutterPricePins,
+  escapeHtml,
+  lockMapOrientation,
+  quietBasemap,
+  wirePopupInteractions,
+} from "../lib/map-presentation";
+import { loadMapboxGl, preloadMapboxGl, type MapboxMap, type MapboxMarker, type MapboxPopup } from "../lib/mapbox-gl-loader";
 import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
 import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
 import { propertyArtworkSrc } from "./property-type-artwork";
@@ -32,12 +49,17 @@ type MarkerBuyerPoint = BuyerPoint & {
 };
 
 export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedServiceArea: selectedArea = null, token }: Props) {
+  if (token) preloadMapboxGl();
+  const router = useRouter();
+  const viewScope = `${usePathname()}?${useSearchParams().toString()}`;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const popupRef = useRef<MapboxPopup | null>(null);
   const pinnedPopupRef = useRef<string | null>(null);
   const markersRef = useRef<Map<string, MapboxMarker>>(new Map());
   const markerNodesRef = useRef<Map<string, HTMLElement>>(new Map());
+  const cameraKeyRef = useRef<string | null>(null);
+  const latestCameraRef = useRef<{ target: MapCameraTarget; viewScope: string } | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [didFail, setDidFail] = useState(false);
@@ -54,7 +76,7 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
     [buyers],
   );
   const markerPoints = useMemo(() => withMarkerOffsets(buyerPoints), [buyerPoints]);
-  const initialCenter = useMemo(() => mapCenter(buyerPoints, selectedArea, market), [buyerPoints, selectedArea, market]);
+  const cameraTarget = useMemo(() => mapCameraTarget(market, selectedArea, buyerPoints), [buyerPoints, market, selectedArea]);
   const highlightBuyer = useCallback((buyerId: string, active: boolean) => {
     const marker = markerNodesRef.current.get(buyerId);
     marker?.classList.toggle("active", active);
@@ -65,16 +87,23 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
   }, []);
   const mapInstanceKey = marketMapInstanceKey(market, token);
   const [marketWest, marketSouth, marketEast, marketNorth] = market.bbox;
-  const marketCenterLat = market.center.lat;
-  const marketCenterLng = market.center.lng;
+  const marketBoundsContext = useMemo(
+    () => ({ bbox: [marketWest, marketSouth, marketEast, marketNorth] as [number, number, number, number] }),
+    [marketEast, marketNorth, marketSouth, marketWest],
+  );
 
   useEffect(() => {
     setDidFail(false);
   }, [mapInstanceKey]);
 
   useEffect(() => {
+    latestCameraRef.current = { target: cameraTarget, viewScope };
+  }, [cameraTarget, viewScope]);
+
+  useEffect(() => {
     if (didFail) return;
     let canceled = false;
+    let resizeObserver: ResizeObserver | null = null;
     setIsReady(false);
     setIsLoading(true);
 
@@ -96,19 +125,15 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
         if (canceled || !containerRef.current) return;
 
         let loaded = false;
+        const camera = latestCameraRef.current;
+        const savedView = camera ? readMapView(camera.viewScope, marketBoundsContext) : null;
+        cameraKeyRef.current = camera?.target.key ?? null;
         mapboxgl.accessToken = token;
-        mapRef.current = new mapboxgl.Map({
-          antialias: true,
-          attributionControl: true,
-          center: [marketCenterLng, marketCenterLat],
-          cooperativeGestures: false,
-          container: containerRef.current,
-          maxBounds: [[marketWest, marketSouth], [marketEast, marketNorth]],
-          style: "mapbox://styles/mapbox/streets-v12",
-          zoom: 10.4,
-        });
+        const map = new mapboxgl.Map(liberMapOptions(containerRef.current, marketBoundsContext, savedView, camera?.target));
+        mapRef.current = map;
+        lockMapOrientation(map);
 
-        mapRef.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "bottom-right");
+        map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "bottom-right");
         popupRef.current = new mapboxgl.Popup({
           className: "liber-map-popup",
           closeButton: false,
@@ -116,16 +141,29 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
           focusAfterOpen: false,
           maxWidth: "300px",
         });
-        mapRef.current.on("load", () => {
-          if (canceled || !mapRef.current) return;
-          loaded = true;
-          quietBasemap(mapRef.current);
+        popupRef.current.on("close", () => {
+          pinnedPopupRef.current = null;
+        });
+        // Labels and layers can be styled as soon as the style arrives; tiles keep streaming in.
+        map.on("style.load", () => {
+          if (canceled) return;
+          quietBasemap(map);
           setIsReady(true);
+        });
+        map.on("load", () => {
+          if (canceled) return;
+          loaded = true;
           setIsLoading(false);
         });
-        mapRef.current.on("error", () => {
-          if (!loaded) fallBackToStaticMap();
+        map.on("moveend", () => {
+          const scope = latestCameraRef.current?.viewScope;
+          if (!canceled && scope) saveMapView(scope, { center: [map.getCenter().lng, map.getCenter().lat], zoom: map.getZoom() });
         });
+        map.on("error", (event) => {
+          if (!loaded && isFatalMapError(event)) fallBackToStaticMap();
+        });
+        resizeObserver = new ResizeObserver(() => mapRef.current?.resize());
+        resizeObserver.observe(containerRef.current);
       } catch {
         fallBackToStaticMap();
       }
@@ -137,6 +175,7 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
     const markerNodes = markerNodesRef.current;
     return () => {
       canceled = true;
+      resizeObserver?.disconnect();
       markers.forEach((marker) => marker.remove());
       markers.clear();
       markerNodes.clear();
@@ -145,17 +184,19 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [
-    didFail,
-    mapInstanceKey,
-    marketCenterLat,
-    marketCenterLng,
-    marketEast,
-    marketNorth,
-    marketSouth,
-    marketWest,
-    token,
-  ]);
+  }, [didFail, mapInstanceKey, marketBoundsContext, token]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!isReady || !map || cameraKeyRef.current === cameraTarget.key) return;
+    cameraKeyRef.current = cameraTarget.key;
+    const savedView = readMapView(viewScope, marketBoundsContext);
+    if (savedView) {
+      map.jumpTo(savedView);
+      return;
+    }
+    map.fitBounds(cameraTarget.bounds, { duration: 600, maxZoom: cameraTarget.maxZoom, padding: mapFitPadding });
+  }, [cameraTarget, isReady, marketBoundsContext, viewScope]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current) return;
@@ -166,24 +207,30 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
     if (!isReady || !mapRef.current || !window.mapboxgl) return;
     const map = mapRef.current;
 
+    // A pinned card for a buyer who left the results must not linger.
+    popupRef.current?.remove();
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current.clear();
     markerNodesRef.current.clear();
 
-    function showPopup(point: MarkerBuyerPoint, pinned: boolean) {
+    function showPopup(point: MarkerBuyerPoint, pinned: boolean, markerNode: HTMLElement, viaKeyboard = false) {
       const popup = popupRef.current;
       if (!popup) return;
-      pinnedPopupRef.current = pinned ? point.buyer.id : null;
       popup
         .setLngLat([point.lng, point.lat])
         .setOffset(popupOffsets(point.markerOffset))
         .setHTML(popupHtml(point.buyer))
         .addTo(map);
+      // addTo() closes an already-open popup first, which clears the pin; record the new state after it.
+      pinnedPopupRef.current = pinned ? point.buyer.id : null;
+      wirePopupInteractions(popup, { focusLink: viaKeyboard, navigate: (href) => router.push(href), returnFocusTo: markerNode });
     }
 
     for (const point of markerPoints) {
       const markerNode = document.createElement("button");
       markerNode.type = "button";
+      // Mapbox gives custom marker elements role="img" unless they already declare a role.
+      markerNode.setAttribute("role", "button");
       markerNode.className = "map-price-pin";
       markerNode.setAttribute("aria-label", `${point.buyer.isDemo ? "Demo buyer " : ""}${point.buyer.name}, budget ${compactBudgetRange(point.buyer.budgetMin, point.buyer.budgetMax)}`);
       markerNode.dataset.buyerId = point.buyer.id;
@@ -191,7 +238,7 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
       markerNode.innerHTML = `<span>${escapeHtml(pinBudgetLabel(point.buyer.budgetMin, point.buyer.budgetMax))}</span>`;
       markerNode.addEventListener("mouseenter", () => {
         highlightBuyer(point.buyer.id, true);
-        if (canHover() && !pinnedPopupRef.current) showPopup(point, false);
+        if (canHover() && !pinnedPopupRef.current) showPopup(point, false, markerNode);
       });
       markerNode.addEventListener("mouseleave", () => {
         highlightBuyer(point.buyer.id, false);
@@ -201,7 +248,7 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
       markerNode.addEventListener("blur", () => highlightBuyer(point.buyer.id, false));
       markerNode.addEventListener("click", (event) => {
         event.stopPropagation();
-        showPopup(point, true);
+        showPopup(point, true, markerNode, event.detail === 0);
       });
 
       const marker = new window.mapboxgl.Marker({ anchor: "bottom", element: markerNode, offset: point.markerOffset })
@@ -219,25 +266,15 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
       return [{ lat: point.lat, lng: point.lng, node, offset: point.markerOffset }];
     });
     const declutter = () => declutterPricePins(map, pinLayout);
-    map.on("zoomend", declutter);
+    map.on("moveend", declutter);
     map.on("resize", declutter);
     declutter();
 
-    if (selectedArea) {
-      map.fitBounds(selectedAreaBounds(selectedArea), { duration: 600, maxZoom: 12.6, padding: 72 });
-    } else if (buyerPoints.length > 1) {
-      const bounds = new window.mapboxgl.LngLatBounds();
-      buyerPoints.forEach((point) => bounds.extend([point.lng, point.lat]));
-      map.fitBounds(bounds, { duration: 600, maxZoom: 12.4, padding: 72 });
-    } else {
-      map.flyTo({ center: [initialCenter.lng, initialCenter.lat], zoom: buyerPoints.length === 1 ? 11.5 : 10.4 });
-    }
-
     return () => {
-      map.off("zoomend", declutter);
+      map.off("moveend", declutter);
       map.off("resize", declutter);
     };
-  }, [buyerPoints, highlightBuyer, initialCenter.lat, initialCenter.lng, isReady, markerPoints, selectedArea]);
+  }, [highlightBuyer, isReady, markerPoints, router]);
 
   useEffect(() => {
     const cards = Array.from(document.querySelectorAll<HTMLElement>(".listing-card[data-buyer-id]"));
@@ -296,19 +333,6 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
       <p className="map-footnote">Approximate service-area pins · exact locations stay private</p>
     </div>
   );
-}
-
-function mapCenter(points: BuyerPoint[], selectedArea: SelectedMapArea | null, market: MarketMapContext) {
-  if (selectedArea) {
-    return selectedArea.center;
-  }
-
-  if (points.length > 0) {
-    const total = points.reduce((sum, point) => ({ lat: sum.lat + point.lat, lng: sum.lng + point.lng }), { lat: 0, lng: 0 });
-    return { lat: total.lat / points.length, lng: total.lng / points.length };
-  }
-
-  return market.center;
 }
 
 function withMarkerOffsets(points: BuyerPoint[]): MarkerBuyerPoint[] {

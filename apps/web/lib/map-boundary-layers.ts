@@ -45,8 +45,11 @@ export function syncSelectedAreaLayer(map: MapboxMap, data: Record<string, unkno
   });
 }
 
+// Draw beneath the basemap's first label layer so street and place names stay readable.
 function addLayerIfMissing(map: MapboxMap, layer: Record<string, unknown>) {
-  if (!map.getLayer(String(layer.id))) map.addLayer(layer);
+  if (map.getLayer(String(layer.id))) return;
+  const firstLabelLayerId = map.getStyle()?.layers?.find((candidate) => candidate.type === "symbol")?.id;
+  map.addLayer(layer, firstLabelLayerId);
 }
 
 function removeSelectedAreaLayer(map: MapboxMap) {

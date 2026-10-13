@@ -564,48 +564,23 @@ describe.skipIf(!enabled)("database-backed canonical service areas", () => {
       `;
       await prisma.$executeRawUnsafe("ANALYZE public.service_area_search_terms");
 
-      const planRows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
-        EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
-        WITH input AS (
-          SELECT lower(btrim(regexp_replace(coalesce($2::text, ''), '[^a-zA-Z0-9]+', ' ', 'g'))) COLLATE "C" AS term,
-                 least(greatest(coalesce($3::integer, 8), 1), 8) AS row_limit
-        ), selected_market AS (
-          SELECT market.id FROM public.markets market
-          WHERE market.slug = $1 AND market.active = true
-        ), matches AS (
-          SELECT search_term.service_area_id,
-                 min(CASE
-                   WHEN replace(area.slug, '-', ' ') = input.term THEN 1
-                   WHEN area.postal_code = input.term THEN 2
-                   WHEN lower(btrim(regexp_replace(area.label, '[^a-zA-Z0-9]+', ' ', 'g'))) COLLATE "C" = input.term THEN 3
-                   WHEN search_term.term_normalized = input.term THEN 4
-                   ELSE 99
-                 END) AS exact_rank,
-                 min(search_term.term_normalized) AS matched_term
-          FROM input
-          JOIN selected_market ON true
-          JOIN public.service_area_search_terms search_term
-            ON search_term.market_id = selected_market.id
-           AND search_term.term_normalized >= input.term
-           AND search_term.term_normalized < input.term || U&'\\FFFF'
-           AND search_term.term_normalized LIKE input.term || '%'
-          JOIN public.service_areas area
-            ON area.id = search_term.service_area_id
-           AND area.market_id = selected_market.id
-           AND area.active = true
-          WHERE input.term <> ''
-          GROUP BY search_term.service_area_id
-        ), ranked AS (
-          SELECT matches.*,
-                 min(matches.exact_rank) FILTER (WHERE matches.exact_rank < 99) OVER () AS best_exact_rank
-          FROM matches
-        )
-        SELECT ranked.service_area_id,
-               ranked.exact_rank < 99 AND ranked.exact_rank = ranked.best_exact_rank AS exact_match
-        FROM ranked, input
-        ORDER BY exact_match DESC, ranked.exact_rank, ranked.matched_term, ranked.service_area_id
-        LIMIT (SELECT row_limit FROM input)
-      `, market.slug, "91325", 8);
+      // Plan the deployed function body itself so the proof cannot drift from the migration.
+      const deployed = await prisma.$queryRaw<Array<{ body: string }>>`
+        SELECT prosrc AS body FROM pg_proc
+        WHERE oid = 'geography_admin.search_active_service_areas(text,text,integer)'::regprocedure
+      `;
+      const body = deployed[0]?.body
+        ?.replace(/;\s*$/, "")
+        .replaceAll("requested_market_slug", "$1::text")
+        .replaceAll("requested_term", "$2::text")
+        .replaceAll("requested_limit", "$3::integer");
+      expect(body).toContain("search_term.term_normalized >= input.term");
+      const planRows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
+        `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${body}`,
+        market.slug,
+        "91325",
+        8,
+      );
       const indexPlan = findPlanNode(planRows[0]?.["QUERY PLAN"], (node) =>
         node["Index Name"] === "service_area_search_terms_market_term_prefix_idx",
       );

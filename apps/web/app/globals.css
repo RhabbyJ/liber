@@ -1572,10 +1572,6 @@ input[type="radio"]:disabled {
   color: var(--ink-strong);
 }
 
-.buyer-location-lookup .service-area-suggestions-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 .service-area-suggestions-empty {
   color: var(--ink-meta);
   font-size: 14px;
@@ -4957,13 +4953,6 @@ input[type="radio"]:disabled {
   }
 }
 
-@media (max-width: 640px) {
-
-  .service-area-suggestions-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 .loi-lock {
   border: 0;
   margin: 0;
@@ -5821,17 +5810,13 @@ body:has(.search-page) .site-footer:not(.compact) {
   border-radius: var(--r-xs);
   box-shadow: var(--shadow-popover);
   left: 0;
-  max-height: 360px;
+  max-height: min(440px, 60vh);
   overflow-y: auto;
   padding: 8px 0;
   position: absolute;
   top: calc(100% + 4px);
   width: max(100%, 340px);
   z-index: 1013;
-}
-
-.service-area-suggestions:not(:has(.service-area-suggestion)) {
-  display: none;
 }
 
 .service-area-suggestions-head {
@@ -5844,51 +5829,101 @@ body:has(.search-page) .site-footer:not(.compact) {
   text-transform: uppercase;
 }
 
-.service-area-suggestions-grid {
-  display: grid;
+.service-area-suggestions-notice,
+.service-area-suggestions-status {
+  color: var(--ink-meta);
+  font-size: 14px;
+  line-height: 20px;
+  margin: 0;
+  padding: 8px 16px;
 }
 
-.service-area-suggestion {
+.service-area-suggestions-notice {
+  color: var(--ink-strong);
+  font-weight: 700;
+}
+
+.service-area-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.service-area-option {
   align-items: center;
-  background: transparent;
-  border: 0;
   cursor: pointer;
   display: grid;
   gap: 0 12px;
-  grid-template-columns: 18px minmax(0, 1fr);
-  padding: 8px 16px;
-  text-align: left;
-  width: 100%;
+  grid-template-columns: 20px minmax(0, 1fr);
+  min-height: 52px;
+  padding: 6px 16px;
 }
 
-.service-area-suggestion::before {
+.service-area-option.active {
+  background: var(--sage-tint-strong);
+}
+
+.service-area-option-icon {
   background: var(--ink-soft);
-  content: "";
-  grid-row: span 2;
-  height: 18px;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M12 21s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z'/%3E%3Ccircle cx='12' cy='9' r='2.5'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M12 21s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z'/%3E%3Ccircle cx='12' cy='9' r='2.5'/%3E%3C/svg%3E") center / contain no-repeat;
-  width: 18px;
+  height: 20px;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z'/%3E%3Ccircle cx='12' cy='9' r='2.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z'/%3E%3Ccircle cx='12' cy='9' r='2.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  width: 20px;
 }
 
-.service-area-suggestion strong {
+.service-area-option[data-kind="city"] .service-area-option-icon {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 21V6l8-3v18M12 9h8v12M3 21h18M7.5 8h1M7.5 12h1M7.5 16h1M15.5 13h1M15.5 17h1'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 21V6l8-3v18M12 9h8v12M3 21h18M7.5 8h1M7.5 12h1M7.5 16h1M15.5 13h1M15.5 17h1'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.service-area-option[data-kind="zip"] .service-area-option-icon {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 9h14M5 15h14M10 4 8 20M16 4l-2 16'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 9h14M5 15h14M10 4 8 20M16 4l-2 16'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.service-area-option[data-kind="recent"] .service-area-option-icon {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M12 7.5V12l3 2'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M12 7.5V12l3 2'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.service-area-option[data-kind="market"] .service-area-option-icon {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.service-area-option-text {
+  display: grid;
+  min-width: 0;
+}
+
+.service-area-option-primary,
+.service-area-option-secondary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service-area-option-primary {
   color: var(--ink-strong);
   font-size: 16px;
-  font-weight: 700;
   line-height: 24px;
 }
 
-.service-area-suggestion span {
+.service-area-option-primary mark {
+  background: none;
+  color: inherit;
+  font-weight: 700;
+}
+
+.service-area-option-secondary {
   color: var(--ink-meta);
   font-size: 14px;
   line-height: 20px;
 }
 
-.service-area-suggestion:hover,
-.service-area-suggestion:focus-visible {
-  background: var(--sage-tint-strong);
-  border-radius: 0;
-  box-shadow: none;
+.lookup-combobox {
+  min-width: 0;
+  position: relative;
 }
 
 .unsupported-area-state {
@@ -6464,7 +6499,8 @@ body:has(.search-page) .site-footer:not(.compact) {
   padding: 6px 12px;
   pointer-events: none;
   position: absolute;
-  top: 16px;
+  /* Bottom-center keeps the map buttons along the top edge clickable. */
+  bottom: 64px;
   transform: translateX(-50%);
   white-space: nowrap;
   z-index: 6;
@@ -6479,15 +6515,16 @@ body:has(.search-page) .site-footer:not(.compact) {
   width: 14px;
 }
 
+/* Sits right of the Mapbox wordmark, which must stay visible. */
 .map-footnote {
   background: rgba(255, 255, 255, 0.9);
   border-radius: var(--r-xs);
-  bottom: 34px;
+  bottom: 28px;
   color: var(--ink-soft);
   font-size: 12px;
-  left: 8px;
+  left: 104px;
   line-height: 16px;
-  max-width: calc(100% - 140px);
+  max-width: calc(100% - 172px);
   overflow: hidden;
   padding: 2px 6px;
   pointer-events: none;
@@ -6584,6 +6621,13 @@ body:has(.search-page) .site-footer:not(.compact) {
   position: relative;
   transition: min-width var(--dur-fast) var(--ease), font-size var(--dur-fast) var(--ease), padding var(--dur-fast) var(--ease), border-radius var(--dur) var(--ease), box-shadow var(--dur-fast) var(--ease), line-height var(--dur-fast) var(--ease), height var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
   white-space: nowrap;
+}
+
+/* Invisible hit area keeps compact pills and collapsed dots at least 24px for touch. */
+.map-price-pin::before {
+  content: "";
+  inset: -6px;
+  position: absolute;
 }
 
 .map-price-pin::after {
@@ -7907,10 +7951,6 @@ a.map-card:focus-visible {
   .buyer-form-section {
     gap: 14px;
     padding: 24px 0;
-  }
-
-  .buyer-location-lookup .service-area-suggestions-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .lookup-row {

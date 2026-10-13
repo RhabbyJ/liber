@@ -66,9 +66,11 @@ The approved v1 launch market is Los Angeles County, California (County GEOID `0
 
 - all 88 incorporated cities;
 - 304 County-associated 2020 Census ZCTAs, labeled as approximate ZIP service areas rather than official USPS ZIP boundaries;
-- the three previously reviewed pilot neighborhoods: Encino, Northridge, and Tarzana.
+- all 269 reviewed County statistical communities (neighborhoods such as Granada Hills, Silver Lake, and North Hollywood, plus unincorporated communities such as East Los Angeles and Altadena), once the guarded community-layer release `la-county-06037-2026-10-13-communities-v1` is activated. Until then only the three pilot neighborhoods (Encino, Northridge, and Tarzana) are selectable.
 
-The remaining County statistical communities are retained as inactive reviewed geography and are not public selection options. Liber does not infer ZIP-to-city or ZIP-to-neighborhood membership at runtime; only explicit reviewed relationships may broaden a seller search.
+The community layer activates geography that is already staged and reviewed in the v2 release; it adds no new geometry. A buyer who chooses a Los Angeles or Long Beach neighborhood is included when a seller searches that city through the reviewed city-to-community relationships. Liber does not infer ZIP-to-city or ZIP-to-neighborhood membership at runtime; only explicit reviewed relationships may broaden a seller search.
+
+Location search behaves like a listing portal: suggestions appear as the user types, match the start of any word in a place name ("hills" finds Granada Hills), tolerate small typos ("granda hils"), and recognize a short reviewed list of colloquial names (for example NoHo, DTLA, K-Town, WeHo, Silver Lake). Suggestions never select an area on their own. Submitting typed text selects an area only when it exactly names one reviewed area; a name shared by several areas, such as "Downtown", asks the user to choose.
 
 Interactive Mapbox maps may pan and zoom throughout the County bounds, but they do not show ambient County, city, or ZCTA borders. Selecting a supported ZIP, city, or neighborhood draws only that canonical service-area polygon and scopes the same privacy-safe or seller-authorized result set. Clearing the selection removes the polygon.
 
