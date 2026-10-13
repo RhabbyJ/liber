@@ -18,10 +18,15 @@ export type MapboxMap = {
   flyTo(options: Record<string, unknown>): void;
   getLayer(id: string): unknown;
   getSource(id: string): MapboxGeoJsonSource | undefined;
+  getStyle(): { layers?: Array<{ id: string; type: string }> } | undefined;
+  getZoom(): number;
+  off(event: string, listener: () => void): void;
+  project(coordinates: [number, number]): { x: number; y: number };
   on(event: string, listener: () => void): void;
   remove(): void;
   removeLayer(id: string): void;
   removeSource(id: string): void;
+  setLayoutProperty(layerId: string, name: string, value: unknown): void;
 };
 
 export type MapboxMarker = {
@@ -32,7 +37,13 @@ export type MapboxMarker = {
 };
 
 export type MapboxPopup = {
+  addTo(map: MapboxMap): MapboxPopup;
+  getElement(): HTMLElement | undefined;
+  isOpen(): boolean;
+  remove(): MapboxPopup;
   setHTML(html: string): MapboxPopup;
+  setLngLat(coordinates: [number, number]): MapboxPopup;
+  setOffset(offset: Record<string, [number, number]>): MapboxPopup;
 };
 
 export type MapboxLngLatBounds = {

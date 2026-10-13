@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Icon } from "../../components/icon";
-import { PageTitle } from "../../components/page-title";
 import { safeInternalPath } from "../../lib/redirect";
 import { getSessionUser, pathForSignedInAuthIntent } from "../../server/session";
 
@@ -19,38 +17,38 @@ export default async function LoginPage({
   const notice = authNotice(status, email);
 
   return (
-    <div className="page narrow stack loose">
-      <PageTitle
-        eyebrow="Welcome back"
-        title={context.loginTitle}
-        tone={context.tone}
-      >
-        {context.description}
-      </PageTitle>
-      <section className="card stack">
+    <div className="auth-page">
+      <section className="auth-card" aria-labelledby="auth-title">
+        <div className="auth-card-head">
+          <span className="brand-mark" aria-hidden="true" />
+          <h1 id="auth-title">{context.loginTitle}</h1>
+          <p>{context.description}</p>
+        </div>
+        <nav className="auth-tabs" aria-label="Account access">
+          <span aria-current="page" className="auth-tab active">Log in</span>
+          <Link className="auth-tab" href={context.signupHref}>New account</Link>
+        </nav>
         {notice ? (
-          <div className={`auth-alert ${notice.tone}`}>
+          <div className={`auth-alert ${notice.tone}`} role="status">
             <strong>{notice.title}</strong>
             <span>{notice.body}</span>
           </div>
         ) : null}
-        <form action="/api/auth/login" className="form-grid" method="post">
+        <form action="/api/auth/login" className="auth-form" method="post">
           <input name="next" type="hidden" value={safeNext} />
-          <div className="field full">
+          <div className="field">
             <label htmlFor="email">Email</label>
-            <input id="email" name="email" type="email" placeholder="you@example.com" defaultValue={email} required />
+            <input autoComplete="email" id="email" name="email" type="email" placeholder="you@example.com" defaultValue={email} required />
           </div>
-          <div className="field full">
+          <div className="field">
             <label htmlFor="password">Password</label>
-            <input id="password" name="password" type="password" required />
+            <input autoComplete="current-password" id="password" name="password" type="password" required />
           </div>
-          <button className="button primary block" type="submit">
-            <Icon name="key" size={15} />
+          <button className="button primary block lg" type="submit">
             Continue
           </button>
         </form>
-        <div className="divider" />
-        <p className="muted small">
+        <p className="auth-switch">
           New to Liber? <Link href={context.signupHref}>Create {context.signupLabel}</Link>.
         </p>
       </section>
@@ -141,7 +139,6 @@ type LoginContext = {
   loginTitle: string;
   signupHref: string;
   signupLabel: string;
-  tone?: "buyer" | "seller" | "admin";
 };
 
 function authContextFromNext(next: string): LoginContext {
@@ -151,7 +148,6 @@ function authContextFromNext(next: string): LoginContext {
       loginTitle: "Log in to view buyer profile",
       signupHref: `/signup?role=seller&next=${encodeURIComponent(next)}`,
       signupLabel: "a seller account",
-      tone: "seller",
     };
   }
 
@@ -161,7 +157,6 @@ function authContextFromNext(next: string): LoginContext {
       loginTitle: "Log in as a seller",
       signupHref: `/signup?role=seller&next=${encodeURIComponent(next)}`,
       signupLabel: "a seller account",
-      tone: "seller",
     };
   }
 
@@ -171,7 +166,6 @@ function authContextFromNext(next: string): LoginContext {
       loginTitle: "Log in as a buyer",
       signupHref: `/signup?role=buyer&next=${encodeURIComponent(next)}`,
       signupLabel: "a buyer account",
-      tone: "buyer",
     };
   }
 
@@ -181,7 +175,6 @@ function authContextFromNext(next: string): LoginContext {
       loginTitle: "Log in for admin",
       signupHref: "/signup",
       signupLabel: "a buyer or seller account",
-      tone: "admin",
     };
   }
 

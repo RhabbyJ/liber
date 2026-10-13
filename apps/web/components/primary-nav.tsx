@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AppRole } from "../server/authz";
 import { Icon } from "./icon";
 import { primaryNavItems } from "./primary-nav-items";
@@ -74,10 +74,21 @@ export function PrimaryNav({
     setIsOpen(false);
   }
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   return (
     <div
       className="nav-shell"
       data-primary-nav
+      // The pre-hydration fallback script stamps a ready flag on this element.
+      suppressHydrationWarning
       onKeyDown={(event) => {
         if (event.key === "Escape") close();
       }}
@@ -90,7 +101,8 @@ export function PrimaryNav({
         onClick={() => setIsOpen((value) => !value)}
         type="button"
       >
-        <Icon name={isOpen ? "arrow-right" : "menu"} size={16} />
+        <Icon className="mobile-menu-icon-open" name="menu" size={22} />
+        <Icon className="mobile-menu-icon-close" name="close" size={22} />
       </button>
       <nav aria-label="Primary" className={`nav ${isOpen ? "open" : ""}`} data-primary-nav-menu>
         {items.map((item) => {
@@ -112,20 +124,20 @@ export function PrimaryNav({
         <div className="mobile-nav-actions" data-mobile-nav-actions hidden={!isOpen} aria-hidden={isOpen ? "false" : "true"}>
           {isAuthenticated ? (
             <>
-              <Link className="mobile-account-link" href="/profile" onClick={close}>Your profile</Link>
+              <Link className="button secondary block" href="/profile" onClick={close}>Your profile</Link>
               <form action="/logout" method="post">
-                <button className="button ghost" type="submit">
-                  <Icon name="logout" size={15} />
+                <button className="button ghost block" type="submit">
+                  <Icon name="logout" size={16} />
                   Sign out
                 </button>
               </form>
             </>
           ) : (
             <>
-              <Link className="button ghost" href="/login" onClick={close}>Log in</Link>
-              <Link className="button primary" href="/signup" onClick={close}>
+              <Link className="button primary block" href="/signup" onClick={close}>
                 Get started
               </Link>
+              <Link className="button secondary block" href="/login" onClick={close}>Log in</Link>
             </>
           )}
         </div>

@@ -23,18 +23,21 @@ export function syncSelectedAreaLayer(map: MapboxMap, data: Record<string, unkno
   addLayerIfMissing(map, {
     id: selectedAreaFillLayerId,
     paint: {
-      "fill-color": "#16834c",
-      "fill-opacity": 0.08,
+      "fill-color": "#47a62f",
+      "fill-opacity": 0.04,
     },
     source: selectedAreaSourceId,
     type: "fill",
   });
   addLayerIfMissing(map, {
     id: selectedAreaLineLayerId,
+    layout: {
+      "line-cap": "round",
+      "line-join": "round",
+    },
     paint: {
-      "line-color": "#0e5f38",
-      "line-dasharray": [2, 1],
-      "line-opacity": 0.86,
+      "line-color": "#47a62f",
+      "line-opacity": 0.85,
       "line-width": 3,
     },
     source: selectedAreaSourceId,

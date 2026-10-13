@@ -16,6 +16,12 @@ Owns shared visual language, navigation, layouts, reusable components, and globa
 - `apps/web/components/empty-state.tsx`
 - `apps/web/components/icon.tsx`
 - `apps/web/components/stat.tsx`
+- `apps/web/components/site-footer.tsx`
+- `apps/web/components/filter-popover.tsx`
+- `apps/web/components/search-view-toggle.tsx`
+- `apps/web/components/sort-select.tsx`
+- `apps/web/lib/listing-format.ts`
+- `apps/web/app/fonts/open-sans-latin-wght-normal.woff2` (OFL license in `apps/web/app/fonts/OFL-open-sans.txt`)
 
 ## Invariants
 
@@ -61,6 +67,47 @@ Owns shared visual language, navigation, layouts, reusable components, and globa
 - LOI copy must say "Submit LOI", "Submit counter", "Agree to terms for
   contract preparation", and "Terms aligned". Do not use sign, execute, accept
   offer, open escrow, or deposit-received language.
+
+## Search-portal grammar
+
+The UI follows the interaction grammar of the large listing portals, mapped onto
+Liber's own features and palette. Keep new surfaces inside this system:
+
+- Type and surfaces: Open Sans (variable, self-hosted through `next/font/local`)
+  at 16/24 on `#2a2a33`, secondary text `#54545a`/`#596b82`, `#d1d1d5`
+  hairlines, `#f6f6fa` inputs, a 4px control radius (8px for large cards and
+  sheets), and three 30%-black elevations (`--shadow-card`, `--shadow-popover`,
+  `--shadow-modal`). Focus is the two-ring `--focus-ring` box-shadow. Motion
+  stays between 0.1s and 0.3s with `ease`.
+- Hover styling lives inside `@media (hover: hover) and (pointer: fine)`.
+  Buttons keep a 44px touch target through `.button::after` whatever their
+  visual size.
+- Search pages (`.search-page` on `/` and `/seller/search`): a toolbar with the
+  location search, then filter popovers that edit a draft and commit on Apply.
+  Below 1100px the popovers collapse into one Filters sheet, portaled to
+  `document.body` so it covers the header. The map and results list sit side by
+  side (list 750px, 390px below 1280px). Below 1007px the map stays sticky, the
+  results slide over it as a sheet, and a floating List/Map pill jumps between
+  them. Search pages use the compact footer; other pages use the full footer.
+- Listing cards (`.listing-card`): 177px media with at most two trust flags and
+  the generated avatar, a budget or price headline, `|`-separated facts ending
+  in the home kind, an address line, and uppercase fine print. The whole card
+  is one stretched link. `.listing-card.static` (seller properties, invite
+  overview) drops the stretched link and adds a bottom actions row.
+- Map pins are buyer-budget pills, not property prices. A pin pops when it is
+  hovered or focused, or when its card is hovered. Overlapping labels collapse
+  to dots instead of clustering. Hovering or clicking a pin opens one shared
+  mini-card popup. Public homepage pins stay unlabeled dots.
+- `/buyers/[buyerProfileId]` uses a home-details layout: sticky action bar,
+  media collage (property-type artwork, generated avatar, approximate area
+  tile), budget headline with stat dividers, glance tiles, divided sections, a
+  sticky contact rail at 900px and wider, and a sticky bottom CTA below 900px.
+  The invite disclaimer sits directly under Send invite in the rail.
+- `/login` uses the sign-in dialog layout: Log in / New account tabs and a
+  full-width Continue button.
+- Known gap: white text measures about 2.4:1 on `#5fbe43` and about 3.1:1 on
+  `#47a62f`, below WCAG AA for 16px text. The palette above is mandated, so
+  changing it needs an explicit brand decision.
 
 ## Agent notes
 

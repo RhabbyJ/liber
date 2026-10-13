@@ -2,15 +2,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BuyerCard } from "../../../components/buyer-card";
 import { BuyerMap } from "../../../components/buyer-map";
-import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
-import { PageTitle } from "../../../components/page-title";
 import { PublicBuyerPreviewCard } from "../../../components/public-buyer-preview-card";
-import { SearchFiltersSidebar } from "../../../components/search-filters-sidebar";
+import { SearchFilterBar } from "../../../components/search-filter-bar";
 import { SellerMapLocationSearch } from "../../../components/seller-map-location-search";
+import { SearchViewToggle } from "../../../components/search-view-toggle";
+import { SiteFooter } from "../../../components/site-footer";
 import { SortSelect } from "../../../components/sort-select";
 import { selectedMapArea } from "../../../lib/map-area";
-import { propertySubtypeLabel } from "../../../lib/property-types";
 import { DEFAULT_MARKET_SLUG, serviceAreaDisplayLabel } from "../../../lib/service-areas";
 import { canViewBuyerDirectory } from "../../../server/access";
 import { getPublicBuyerPreviews } from "../../../server/buyer-preview";
@@ -53,21 +52,23 @@ export default async function SellerSearchPage({
     : null;
   const selectedMapServiceArea = selectedMapArea(selectedServiceArea);
   const selectedServiceAreaLabel = selectedServiceArea ? serviceAreaDisplayLabel(selectedServiceArea) : "";
+  const areaTitle = selectedServiceAreaLabel || market.label;
 
   if (!canSearch) {
     const accessState = sellerAccessState(sellerAccess.status);
 
     if (sellerAccess.status === "SUSPENDED") {
       return (
-        <div className="page stack loose">
-          <PageTitle eyebrow="Seller directory" title="Directory access unavailable" tone="seller" />
-          <section className="seller-access-bar suspended" aria-label="Seller directory status">
-            <div className="seller-access-main">
-              <div className="seller-access-copy">
-                <span>Directory status</span>
-                <strong>Suspended</strong>
-                <p>Contact Liber support if you believe this restriction was applied in error.</p>
-              </div>
+        <div className="page narrow stack loose">
+          <header className="page-header">
+            <p className="page-kicker">Seller directory</p>
+            <h1>Directory access unavailable</h1>
+          </header>
+          <section className="status-banner danger" aria-label="Seller directory status">
+            <span className="status-banner-icon" aria-hidden="true"><Icon name="lock" size={20} /></span>
+            <div>
+              <strong>Suspended</strong>
+              <p>Contact Liber support if you believe this restriction was applied in error.</p>
             </div>
           </section>
         </div>
@@ -78,54 +79,46 @@ export default async function SellerSearchPage({
 
     return (
       <div className="page wide seller-preview-page stack loose">
-        <PageTitle
-          eyebrow="Seller directory"
-          title="Buyer demand"
-          tone="seller"
-        />
+        <header className="page-header split">
+          <div>
+            <p className="page-kicker">Seller directory</p>
+            <h1>{selectedServiceAreaLabel ? `Buyer demand near ${selectedServiceAreaLabel}` : `${market.label} buyer demand`}</h1>
+            <p className="page-subtitle">{previews.length} anonymized {previews.length === 1 ? "buyer summary" : "buyer summaries"}</p>
+          </div>
+          <div className="seller-preview-location-search">
+            <SellerMapLocationSearch
+              defaultArea={selectedServiceAreaLabel}
+              defaultServiceArea={requestedServiceArea || ""}
+              marketSlug={market.slug}
+            />
+          </div>
+        </header>
 
-        <section className={`seller-access-bar ${accessState.tone}`} aria-label="Seller directory review status">
-          <div className="seller-access-main">
-            <div className="seller-access-copy">
-              <span>Directory review</span>
-              <strong>{accessState.label}</strong>
-              <p>{accessState.description}</p>
-            </div>
+        <section className={`status-banner ${accessState.tone}`} aria-label="Seller directory review status">
+          <span className="status-banner-icon" aria-hidden="true"><Icon name={accessState.tone === "rejected" ? "lock" : "shield"} size={20} /></span>
+          <div>
+            <span className="status-banner-kicker">Directory review</span>
+            <strong>{accessState.label}</strong>
+            <p>{accessState.description}</p>
           </div>
           <Link className="button secondary" href="/seller/properties">
             Manage properties
           </Link>
         </section>
 
-        <section className="seller-preview-directory">
-          <header className="seller-preview-header">
-            <div>
-              <h2>{selectedServiceAreaLabel ? `Buyer demand near ${selectedServiceAreaLabel}` : `${market.label} buyer demand`}</h2>
-              <p>{previews.length} anonymized {previews.length === 1 ? "buyer summary" : "buyer summaries"}</p>
-            </div>
-            <div className="seller-preview-location-search">
-              <SellerMapLocationSearch
-                defaultArea={selectedServiceAreaLabel}
-                defaultServiceArea={requestedServiceArea || ""}
-                marketSlug={market.slug}
-              />
-            </div>
-          </header>
-
-          {previews.length > 0 ? (
-            <div className="preview-directory-grid">
-              {previews.map((preview, index) => (
-                <PublicBuyerPreviewCard index={index} key={`${preview.area}-${index}`} preview={preview} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              icon="people"
-              title="No buyer demand to show here yet"
-              description="Try another supported city, neighborhood, or ZIP."
-            />
-          )}
-        </section>
+        {previews.length > 0 ? (
+          <div className="listing-grid wide">
+            {previews.map((preview, index) => (
+              <PublicBuyerPreviewCard index={index} key={`${preview.area}-${index}`} preview={preview} />
+            ))}
+          </div>
+        ) : (
+          <div className="search-empty">
+            <span className="search-empty-icon" aria-hidden="true"><Icon name="people" size={26} /></span>
+            <h2>No buyer demand to show here yet</h2>
+            <p>Try another supported city, neighborhood, or ZIP.</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -157,108 +150,104 @@ export default async function SellerSearchPage({
     throw error;
   }
   const results = resultPage.items;
-
-  const activeFilters = buildActiveFilters(
-    { ...params, market: market.slug },
-    badges,
-    amenities,
-    selectedServiceAreaLabel,
+  const hasFilters = Boolean(
+    params.budgetMin || params.budgetMax || params.bedrooms || params.bathrooms || params.squareFeet
+      || params.condition || params.propertySubtype || amenities.length || badges.length,
   );
-  const locationLabel = selectedServiceArea?.label ?? "Matched";
+  const resultLabel = `${results.length}${resultPage.pageInfo.nextCursor ? "+" : ""} ${results.length === 1 ? "buyer" : "buyers"}`;
 
   return (
-    <div className="page wide seller-profile-search-page">
-      <div className="seller-profile-top-action">
-        <Link className="button primary" href="/seller/properties/new">
-          Add property
-        </Link>
-      </div>
-
-      <section className="seller-profile-search-grid">
-        <div className="seller-profile-map-column">
-          <h1>Showing {results.length} buyers</h1>
+    <div className="search-page">
+      <SearchFilterBar
+        actions={(
+          <Link className="button primary" href="/seller/properties/new">
+            <Icon name="plus" size={16} />
+            Add property
+          </Link>
+        )}
+        filters={{
+          amenities,
+          badges,
+          bathrooms: params.bathrooms || "",
+          bedrooms: params.bedrooms || "",
+          budgetMax: params.budgetMax || "",
+          budgetMin: params.budgetMin || "",
+          condition: params.condition || "",
+          propertySubtype: params.propertySubtype || "",
+          squareFeet: params.squareFeet || "",
+        }}
+        location={(
           <SellerMapLocationSearch
             defaultArea={selectedServiceAreaLabel}
             defaultServiceArea={requestedServiceArea || ""}
             marketSlug={market.slug}
           />
-          <div className="interactive-map-container seller-profile-map-frame">
-            <BuyerMap
-              buyers={results}
-              market={market}
-              selectedServiceArea={selectedMapServiceArea}
-            />
-          </div>
-        </div>
+        )}
+      />
 
-        <div className="seller-profile-results-column">
-          <div className="seller-profile-results-header">
+      <div className="search-layout">
+        <section aria-label="Buyer demand map" className="search-map">
+          <BuyerMap
+            buyers={results}
+            clearAreaHref={selectedServiceArea ? sellerSearchHrefWithout(params, ["serviceArea"]) : undefined}
+            market={market}
+            selectedServiceArea={selectedMapServiceArea}
+          />
+        </section>
+
+        <section aria-labelledby="search-results-title" className="search-results" id="buyer-results">
+          <span aria-hidden="true" className="search-results-handle" />
+          <header className="search-results-head">
             <div>
-              <h2>{locationLabel} buyers for your property</h2>
-              <p>{results.length} active buyer {results.length === 1 ? "profile matches" : "profiles match"} your filters.</p>
+              <h1 id="search-results-title">{areaTitle} buyer demand</h1>
+              <p>
+                <strong>{resultLabel}</strong>
+                <span> matched to your filters</span>
+              </p>
             </div>
-            <div className="header-controls">
-              <SortSelect value={sort} />
-              <details className="seller-inline-filters">
-                <summary>All Filters</summary>
-                <SearchFiltersSidebar
-                  defaultArea={selectedServiceAreaLabel}
-                  defaultServiceArea={requestedServiceArea || ""}
-                  defaultBudgetMin={params.budgetMin || ""}
-                  defaultBudgetMax={params.budgetMax || ""}
-                  defaultBadges={badges}
-                  defaultSort={sort}
-                  defaultBedrooms={params.bedrooms || ""}
-                  defaultBathrooms={params.bathrooms || ""}
-                  defaultSquareFeet={params.squareFeet || ""}
-                  defaultCondition={params.condition || ""}
-                  defaultPropertySubtype={params.propertySubtype || ""}
-                  defaultAmenities={amenities}
-                  marketSlug={market.slug}
-                />
-              </details>
-            </div>
-          </div>
+            <SortSelect value={sort} />
+          </header>
 
-          {activeFilters.length > 0 ? (
-            <div className="active-filter-row" aria-label="Active filters">
-              {activeFilters.map((filter) => (
-                <Link className="filter-chip" href={filter.href} key={filter.label}>
-                  {filter.label}
-                  <span aria-hidden="true">&times;</span>
+          {results.length === 0 ? (
+            <div className="search-empty">
+              <span className="search-empty-icon" aria-hidden="true"><Icon name="search" size={26} /></span>
+              <h2>No buyers match these filters</h2>
+              <p>Try another supported area, widening the budget range, or removing trust filters.</p>
+              {hasFilters || selectedServiceArea ? (
+                <Link className="button secondary" href={`/seller/search?market=${encodeURIComponent(market.slug)}`}>
+                  Reset search
                 </Link>
+              ) : null}
+            </div>
+          ) : (
+            <div className="listing-grid">
+              {results.map((buyer, index) => (
+                <BuyerCard buyer={buyer} key={buyer.id} priority={index < 2} />
               ))}
             </div>
+          )}
+
+          {resultPage.pageInfo.nextCursor || params.cursor ? (
+            <nav aria-label="Buyer result pages" className="search-pagination">
+              {params.cursor ? (
+                <Link className="pagination-button" href={sellerSearchHrefWithout(params, ["cursor"])}>
+                  <Icon name="chevron-left" size={16} />
+                  First page
+                </Link>
+              ) : <span />}
+              {resultPage.pageInfo.nextCursor ? (
+                <Link className="pagination-button primary" href={sellerSearchHrefWithCursor(params, resultPage.pageInfo.nextCursor)}>
+                  Next buyers
+                  <Icon name="chevron-right" size={16} />
+                </Link>
+              ) : null}
+            </nav>
           ) : null}
 
-          <div className="buyer-cards-list seller-profile-buyer-list">
-            {results.length === 0 ? (
-              <div style={{ padding: 24 }}>
-                <EmptyState
-                  icon="search"
-                  title="No buyers match these filters"
-                  description="Try another supported area, raising the budget ceiling, or removing badge filters."
-                />
-              </div>
-            ) : (
-              results.map((buyer) => (
-                <BuyerCard buyer={buyer} key={buyer.id} variant="row" />
-              ))
-            )}
-          </div>
-          {resultPage.pageInfo.nextCursor ? (
-            <div className="actions" style={{ justifyContent: "flex-end", paddingTop: 16 }}>
-              <Link
-                className="button secondary"
-                href={sellerSearchHrefWithCursor(params, resultPage.pageInfo.nextCursor)}
-              >
-                Next buyers
-                <Icon name="arrow-right" size={14} />
-              </Link>
-            </div>
-          ) : null}
-        </div>
-      </section>
+          <SiteFooter variant="compact" />
+        </section>
+      </div>
+      <SearchViewToggle resultsId="buyer-results" />
     </div>
   );
 }
@@ -301,71 +290,6 @@ function sellerSortParam(value?: string) {
 function serviceAreaParam(value?: string) {
   if (!value) return undefined;
   return /^[a-z0-9-]+$/.test(value) ? value : undefined;
-}
-
-function buildActiveFilters(
-  params: SellerSearchParams,
-  badges: string[],
-  amenities: string[],
-  selectedServiceAreaLabel: string,
-) {
-  const filters: Array<{ href: string; label: string }> = [];
-
-  if (params.serviceArea && selectedServiceAreaLabel) {
-    filters.push({
-      href: sellerSearchHrefWithout(params, ["serviceArea"]),
-      label: `Location: ${selectedServiceAreaLabel}`,
-    });
-  }
-
-  if (params.budgetMin || params.budgetMax) {
-    filters.push({
-      href: sellerSearchHrefWithout(params, ["budgetMin", "budgetMax"]),
-      label: `Budget: ${moneyLabel(params.budgetMin) || "Any"} to ${moneyLabel(params.budgetMax) || "Any"}`,
-    });
-  }
-
-  if (params.bedrooms) {
-    filters.push({ href: sellerSearchHrefWithout(params, ["bedrooms"]), label: `${params.bedrooms}+ beds` });
-  }
-
-  if (params.bathrooms) {
-    filters.push({ href: sellerSearchHrefWithout(params, ["bathrooms"]), label: `${params.bathrooms}+ baths` });
-  }
-
-  if (params.squareFeet) {
-    filters.push({
-      href: sellerSearchHrefWithout(params, ["squareFeet"]),
-      label: `${Number(params.squareFeet).toLocaleString()}+ sqft`,
-    });
-  }
-
-  if (params.condition) {
-    filters.push({ href: sellerSearchHrefWithout(params, ["condition"]), label: params.condition });
-  }
-
-  if (params.propertySubtype) {
-    filters.push({
-      href: sellerSearchHrefWithout(params, ["propertySubtype"]),
-      label: `Type: ${propertySubtypeLabel(params.propertySubtype)}`,
-    });
-  }
-
-  if (amenities.length > 0) {
-    filters.push({
-      href: sellerSearchHrefWithout(params, ["amenities"]),
-      label: `Amenities: ${amenities.join(", ")}`,
-    });
-  }
-
-  if (badges.length > 0) {
-    filters.push({
-      href: sellerSearchHrefWithout(params, ["badges"]),
-      label: `Trust: ${badges.map(badgeFilterLabel).join(", ")}`,
-    });
-  }
-
-  return filters;
 }
 
 function sellerSearchHrefWithout(params: SellerSearchParams, remove: string[]) {
@@ -413,19 +337,3 @@ const sellerSearchParamKeys = [
   "squareFeet",
   "view",
 ] as const satisfies readonly (keyof SellerSearchParams)[];
-
-function moneyLabel(value?: string) {
-  const amount = Number(value);
-  if (!Number.isFinite(amount) || amount <= 0) return "";
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1).replace(".0", "")}M`;
-  return `$${Math.round(amount / 1000)}k`;
-}
-
-function badgeFilterLabel(value: string) {
-  const labels: Record<string, string> = {
-    CASH_BUYER: "Cash buyer",
-    PRE_APPROVED: "Pre-approved",
-    VERIFIED_FUNDS: "Verified funds",
-  };
-  return labels[value] ?? value;
-}

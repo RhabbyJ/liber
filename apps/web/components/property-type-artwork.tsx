@@ -23,21 +23,28 @@ const propertyEmoji: Record<PropertySubtype, string> = {
 export type ArtworkMotion = "float" | "lift" | "none" | "pulse";
 export type PropertyArtworkVariant = "emoji" | "illustration";
 
+export function propertyArtworkSrc(value: unknown, variant: PropertyArtworkVariant = "illustration") {
+  const subtype = propertySubtypeFromSeekingPropertyType(value);
+  return variant === "emoji" ? propertyEmoji[subtype] : propertyArtwork[subtype];
+}
+
 export function PropertyTypeArtwork({
   className,
   motion = "lift",
+  priority = false,
   sizes = "64px",
   value,
   variant = "illustration",
 }: {
   className?: string;
   motion?: ArtworkMotion;
+  priority?: boolean;
   sizes?: string;
   value?: unknown;
   variant?: PropertyArtworkVariant;
 }) {
   const subtype = propertySubtypeFromSeekingPropertyType(value);
-  const source = variant === "emoji" ? propertyEmoji[subtype] : propertyArtwork[subtype];
+  const source = propertyArtworkSrc(value, variant);
 
   return (
     <span
@@ -51,6 +58,7 @@ export function PropertyTypeArtwork({
         alt=""
         className="property-type-artwork-image"
         fill
+        priority={priority}
         sizes={sizes}
         src={source}
       />

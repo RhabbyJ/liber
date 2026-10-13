@@ -294,39 +294,40 @@ export default async function InviteBuyerPage({
             ) : null}
           </article>
 
-          <article className="property-card quick-overview-card">
-            <p className="eyebrow seller">Quick overview</p>
-            <div className="media-preview">
-              <PropertyTypeArtwork
-                className="property-card-artwork"
-                sizes="340px"
-                value={property.propertyType}
-              />
-              <span className="media-hint">
-                <Icon name="home" size={12} />
-                {propertySubtypeLabel(property.propertyType)}
-              </span>
-            </div>
-            <div className="property-card-body">
-              <div className="section-head compact">
-                <h3 style={{ margin: 0 }}>{property.title}</h3>
-                <span className={`status-dot ${verified ? "active" : "warning"}`}>
-                  <Icon name={verified ? "check-shield" : "info"} size={12} />
-                  {verified ? "Verified" : "Pending"}
-                </span>
+          <section className="quick-overview" aria-labelledby="quick-overview-title">
+            <p className="eyebrow seller" id="quick-overview-title">Quick overview</p>
+            <article className="listing-card static">
+              <div className="listing-card-media">
+                <PropertyTypeArtwork
+                  className="listing-card-art"
+                  motion="none"
+                  sizes="340px"
+                  value={property.propertyType}
+                />
+                <div className="listing-card-flags">
+                  <span className="listing-flag">
+                    <Icon name="lock" size={13} />
+                    Invite only
+                  </span>
+                  <span className={`listing-flag${verified ? "" : " pending"}`}>
+                    <Icon name={verified ? "check-shield" : "info"} size={13} />
+                    {verified ? "Verified" : "Pending"}
+                  </span>
+                </div>
               </div>
-              <p className="muted small" style={{ margin: 0 }}>
-                <Icon name="map-pin" size={12} /> {property.location}
-              </p>
-              <div className="property-card-stats">
-                {property.beds ? <span className="pill active">{property.beds} beds</span> : null}
-                {property.baths ? <span className="pill active">{property.baths} baths</span> : null}
-                {property.area ? <span className="pill active">{property.area} sqft</span> : null}
+              <div className="listing-card-body">
+                <p className="listing-card-price">{property.price > 0 ? formatMoney(property.price) : "Price not set"}</p>
+                <ul className="listing-card-facts" aria-label="Home facts">
+                  {property.beds ? <li><b>{property.beds}</b> bds</li> : null}
+                  {property.baths ? <li><b>{property.baths}</b> ba</li> : null}
+                  {property.area ? <li><b>{property.area.toLocaleString("en-US")}</b> sqft</li> : null}
+                  <li className="listing-card-kind">{propertySubtypeLabel(property.propertyType)}</li>
+                </ul>
+                <h3 className="listing-card-address">{property.title}, {property.location}</h3>
+                {property.description ? <p className="listing-card-note">{property.description}</p> : null}
               </div>
-              <strong style={{ fontSize: 20 }}>{formatMoney(property.price)}</strong>
-              {property.description ? <p className="muted small">{property.description}</p> : null}
-            </div>
-          </article>
+            </article>
+          </section>
         </aside>
       </section>
     </div>

@@ -3,6 +3,8 @@ import { Icon } from "../components/icon";
 import { PublicMapLocationSearch } from "../components/public-map-location-search";
 import { PublicBuyerPreviewCard } from "../components/public-buyer-preview-card";
 import { PublicDemandMap } from "../components/public-demand-map";
+import { SearchViewToggle } from "../components/search-view-toggle";
+import { SiteFooter } from "../components/site-footer";
 import { DEFAULT_MARKET_SLUG, serviceAreaDisplayLabel } from "../lib/service-areas";
 import { selectedMapArea } from "../lib/map-area";
 import { getPublicBuyerPreviews, hasControlledDemoBuyerPreviews } from "../server/buyer-preview";
@@ -51,50 +53,62 @@ export default async function HomePage({
   const activePreviewLabel = `${buyerPreviews.length} active preview${buyerPreviews.length === 1 ? "" : "s"}`;
 
   return (
-    <div className="map-landing">
-      <section className="map-search-rail" aria-label="Buyer demand preview controls">
-        <div className="map-search-intro">
-          <span>MAP</span>
-          <strong>See where buyers are looking</strong>
+    <div className="search-page home-search-page">
+      <div className="search-toolbar public">
+        <div className="search-toolbar-location">
+          <PublicMapLocationSearch defaultArea={selectedAreaLabel} marketSlug={market.slug} />
         </div>
-        <PublicMapLocationSearch defaultArea={selectedAreaLabel} marketSlug={market.slug} />
-      </section>
+        <p className="search-toolbar-note">
+          <Icon name="lock" size={14} />
+          Anonymized preview · exact locations stay private
+        </p>
+        <div className="search-toolbar-actions">
+          <Link className="button primary" href={mapPrimaryHref}>
+            {mapPrimaryLabel}
+          </Link>
+        </div>
+      </div>
 
-      <section className="map-landing-body" aria-label="Buyer demand preview">
-        <PublicDemandMap
-          market={market}
-          previews={buyerPreviews}
-          primaryCtaHref={mapPrimaryHref}
-          primaryCtaLabel={mapPrimaryLabel}
-          secondaryCtaHref={user ? undefined : homepageLoginHref}
-          secondaryCtaLabel={user ? undefined : "Sign in to see more"}
-          selectedArea={selectedArea}
-          selectedAreaLabel={selectedAreaLabel}
-          token={mapboxToken}
-        />
+      <div className="search-layout">
+        <section aria-label="Buyer demand preview map" className="search-map">
+          <PublicDemandMap
+            market={market}
+            previews={buyerPreviews}
+            primaryCtaHref={mapPrimaryHref}
+            primaryCtaLabel={mapPrimaryLabel}
+            secondaryCtaHref={user ? undefined : homepageLoginHref}
+            secondaryCtaLabel={user ? undefined : "Sign in to see more"}
+            selectedArea={selectedArea}
+            selectedAreaLabel={selectedAreaLabel}
+            token={mapboxToken}
+          />
+        </section>
 
-        <aside className="demand-panel">
-          <header className="demand-panel-head">
+        <section aria-labelledby="demand-results-title" className="search-results" id="demand-results">
+          <span aria-hidden="true" className="search-results-handle" />
+          <header className="search-results-head">
             <div>
-              <h1>{selectedAreaLabel ? `${selectedAreaLabel} Buyer Demand` : `${market.label} Buyer Demand`}</h1>
-              <p>{selectedArea ? "Preview cards in this selected area" : activePreviewLabel}</p>
-              {hasDemoPreviews && buyerPreviews.length > 0 ? (
-                <span className="demand-data-note">Includes clearly labeled demo profiles.</span>
-              ) : null}
+              <h1 id="demand-results-title">
+                {selectedAreaLabel ? `${selectedAreaLabel} buyer demand` : `${market.label} buyer demand`}
+              </h1>
+              <p>
+                <strong>{selectedArea ? `${buyerPreviews.length} in this area` : activePreviewLabel}</strong>
+                {hasDemoPreviews && buyerPreviews.length > 0 ? <span> · Includes clearly labeled demo profiles</span> : null}
+              </p>
             </div>
           </header>
 
-          <div className="demand-card-grid">
+          <div className="listing-grid">
             {buyerPreviews.length > 0 ? (
               buyerPreviews.map((preview, index) => (
                 <PublicBuyerPreviewCard index={index} key={index} preview={preview} />
               ))
             ) : selectedArea ? (
-              <article className="demand-card demand-empty-card">
-                <span className="empty-icon"><Icon name="search" size={20} /></span>
-                <h3>No preview cards here yet</h3>
+              <div className="search-empty compact">
+                <span className="search-empty-icon" aria-hidden="true"><Icon name="search" size={24} /></span>
+                <h2>No preview cards here yet</h2>
                 <p>No privacy-safe buyer previews match this selected area.</p>
-              </article>
+              </div>
             ) : null}
 
             <HomepageNextStep
@@ -108,9 +122,10 @@ export default async function HomePage({
             />
           </div>
 
-          <p className="demand-privacy">Anonymized preview - exact locations stay private</p>
-        </aside>
-      </section>
+          <SiteFooter variant="compact" />
+        </section>
+      </div>
+      <SearchViewToggle resultsId="demand-results" />
     </div>
   );
 }
@@ -134,9 +149,9 @@ function HomepageNextStep({
 }) {
   if (isAdmin) {
     return (
-      <article className="demand-card signup-wall">
-        <span className="demand-lock" aria-hidden="true"><Icon name="shield" size={18} /></span>
-        <h3>Continue in your admin workspace</h3>
+      <article className="promo-card">
+        <span className="promo-card-icon" aria-hidden="true"><Icon name="shield" size={18} /></span>
+        <h2>Continue in your admin workspace</h2>
         <p>Review marketplace access, evidence, and activity.</p>
         <Link className="button primary" href="/admin">
           Open admin workspace
@@ -148,9 +163,9 @@ function HomepageNextStep({
 
   if (isSeller) {
     return (
-      <article className="demand-card signup-wall">
-        <span className="demand-lock" aria-hidden="true"><Icon name="search" size={18} /></span>
-        <h3>Continue in your seller workspace</h3>
+      <article className="promo-card">
+        <span className="promo-card-icon" aria-hidden="true"><Icon name="search" size={18} /></span>
+        <h2>Continue in your seller workspace</h2>
         <p>Check your access and open buyer search when approved.</p>
         <Link className="button primary" href={sellerSearchHref}>
           Open seller workspace
@@ -162,9 +177,9 @@ function HomepageNextStep({
 
   if (isBuyer) {
     return (
-      <article className="demand-card signup-wall">
-        <span className="demand-lock" aria-hidden="true"><Icon name="user" size={18} /></span>
-        <h3>Your buyer profile puts you on the map</h3>
+      <article className="promo-card">
+        <span className="promo-card-icon" aria-hidden="true"><Icon name="user" size={18} /></span>
+        <h2>Your buyer profile puts you on the map</h2>
         <p>Keep your criteria current so matching sellers can find you.</p>
         <Link className="button primary" href={buyerProfileHref}>
           Manage buyer profile
@@ -177,16 +192,16 @@ function HomepageNextStep({
   if (isSignedIn) return null;
 
   return (
-    <article className="demand-card signup-wall">
-      <span className="demand-lock" aria-hidden="true"><Icon name="lock" size={18} /></span>
-      <h3>Sign in to see more buyers</h3>
+    <article className="promo-card">
+      <span className="promo-card-icon" aria-hidden="true"><Icon name="lock" size={18} /></span>
+      <h2>Sign in to see more buyers</h2>
       <p>Preview up to four buyers now, then sign in to see the rest of the privacy-safe demand map.</p>
       <Link className="button primary" href={homepageLoginHref}>
         Sign in to see more
         <Icon name="arrow-right" size={14} />
       </Link>
-      <Link className="demand-buyer-link" href={sellerSearchHref}>Create a seller account</Link>
-      <Link className="demand-buyer-link" href={buyerProfileHref}>Create a buyer profile</Link>
+      <Link className="promo-card-link" href={sellerSearchHref}>Create a seller account</Link>
+      <Link className="promo-card-link" href={buyerProfileHref}>Create a buyer profile</Link>
     </article>
   );
 }

@@ -30,6 +30,7 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - No auth-bypass strings should be reintroduced.
 - Protected routes should redirect/reject unauthenticated users.
 - Visual smoke is for public/non-auth pages unless test auth is explicitly available.
+- Headless Chromium lays pages out at least 500px wide, so the 390px "mobile" visual-smoke captures are 500px layouts cropped to 390px. Review real mobile layouts with a true 390px viewport (for example Playwright `viewport`).
 - Do not weaken tests to make a bad change pass.
 - Demo/test buyer data may be used for smoke and CEO demo verification only when clearly seeded and removable.
 - Tests and smoke scripts must not depend on fake data being present in true production.

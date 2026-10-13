@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { MarketMapContext, SelectedMapArea } from "../lib/map-area";
 import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
+import { pinBudgetLabel } from "../lib/listing-format";
 import { mapPinPosition } from "../lib/mapbox";
 import { DemandAtlasBackdrop } from "./demand-atlas";
 
@@ -12,21 +13,11 @@ type Props = {
 };
 
 export function StaticBuyerMap({ buyers, label = "Approximate pins", market, selectedServiceArea = null }: Props) {
-  const areaLabel = selectedServiceArea ? selectedServiceArea.label : label;
+  const areaLabel = selectedServiceArea ? selectedServiceArea.label : market.label;
 
   return (
-    <aside className="map-shell fallback">
-      <div className="map-toolbar">
-        <div>
-          <strong>Buyer demand map</strong>
-          <span className="muted">{buyers.length} active buyers in {market.label} service areas</span>
-        </div>
-        <div className="map-toolbar-pills">
-          <span>{areaLabel}</span>
-          <span>Seller safe view</span>
-        </div>
-      </div>
-      <div className="map-pins">
+    <div className="map-shell fallback">
+      <div className="map-static-pins">
         <DemandAtlasBackdrop />
         {buyers.map((buyer) => {
           const position = mapPinPosition(buyer, buyers);
@@ -34,16 +25,17 @@ export function StaticBuyerMap({ buyers, label = "Approximate pins", market, sel
           return (
             <Link
               aria-label={`Open ${buyer.isDemo ? "demo buyer " : ""}${buyer.name}`}
-              className="map-pin"
+              className="map-price-pin static"
               href={`/buyers/${buyer.id}`}
               key={buyer.id}
               style={{ left: `${position.left}%`, top: `${position.top}%` }}
             >
-              <span>{buyer.name.slice(0, 1)}</span>
+              <span>{pinBudgetLabel(buyer.budgetMin, buyer.budgetMax)}</span>
             </Link>
           );
         })}
       </div>
-    </aside>
+      <p className="map-footnote">{label} · {areaLabel}</p>
+    </div>
   );
 }
