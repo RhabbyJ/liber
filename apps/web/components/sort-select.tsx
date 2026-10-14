@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { demandSearchPath } from "../lib/demand-search-href";
 
 export function SortSelect({ value }: { value: string }) {
   const router = useRouter();
@@ -10,7 +11,7 @@ export function SortSelect({ value }: { value: string }) {
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.set("sort", e.target.value);
     nextParams.delete("cursor");
-    router.push(`/seller/search?${nextParams.toString()}`);
+    router.push(demandSearchPath(nextParams));
   };
 
   return (

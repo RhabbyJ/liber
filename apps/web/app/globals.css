@@ -5553,6 +5553,20 @@ body:has(.search-page) .site-footer:not(.compact) {
 
 /* Toolbar ----------------------------------------------------------------- */
 
+/* Seller-access status on the shared map: one alert under the filter bar. */
+.search-notice {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+  padding: 8px 16px;
+}
+
+.search-notice .inline-alert {
+  align-items: center;
+  margin: 0 auto;
+  max-width: var(--container-wide);
+}
+
 .search-toolbar {
   align-items: center;
   background: var(--surface);

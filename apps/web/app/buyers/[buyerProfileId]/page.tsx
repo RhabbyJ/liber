@@ -34,7 +34,7 @@ export default async function PublicBuyerProfilePage({
           <span className="access-panel-icon" aria-hidden="true"><Icon name="lock" size={24} /></span>
           <h1>Buyer profile unavailable</h1>
           <p>Buyer profiles are only available to approved sellers, admins, or the buyer who owns the profile.</p>
-          <Link className="button primary" href="/seller/search">
+          <Link className="button primary" href="/">
             View seller access status
           </Link>
         </section>
@@ -74,7 +74,7 @@ export default async function PublicBuyerProfilePage({
     },
     { icon: "calendar", label: "Profile updated", value: formatUpdated(buyer.refreshedAt) },
   ];
-  const backHref = isOwner ? "/buyer/profile" : "/seller/search";
+  const backHref = isOwner ? "/buyer/profile" : "/";
   const areaMapUrl = mapboxAreaImageUrl({
     point: approximateBuyerPoint(buyer),
     token: process.env.NEXT_PUBLIC_MAPBOX_TOKEN,

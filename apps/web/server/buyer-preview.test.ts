@@ -27,21 +27,21 @@ describe("public buyer preview service-area filters", () => {
     expect(approximatePreviewPoint(null)).toBeNull();
   });
 
-  it("wires only the validated server session UUID into the homepage preview query", () => {
+  it("wires only the validated server session UUID into the one map and gates full results on directory access", () => {
     const homepage = readFileSync(path.resolve("app/page.tsx"), "utf8");
 
     expect(homepage).toContain("const user = await getSessionUser();");
-    expect(homepage).toContain("getPublicBuyerPreviews(market.slug, selectedServiceArea, user?.id)");
-    expect(homepage).toContain("isSignedIn={Boolean(user)}");
-    expect(homepage).toContain("if (isSignedIn) return null;");
+    expect(homepage).toContain("const canSearch = user ? await canViewBuyerDirectory(user) : false;");
+    expect(homepage).toContain("searchDemandPreviews(input, user?.id)");
+    expect(homepage).toMatch(/if \(canSearch\) \{\s+const \{ data \} = await searchBuyers\(input\);/);
+    expect(homepage).toMatch(/canSearch\s+\? buyers\.map\(\(buyer, index\) => <BuyerCard/);
+    expect(homepage).toContain("{user ? null : <GuestTeaser");
   });
 
-  it("uses the privacy-safe preview query for sellers awaiting full directory access", () => {
+  it("keeps seller search links working by redirecting them to the one map", () => {
     const sellerSearch = readFileSync(path.resolve("app/seller/search/page.tsx"), "utf8");
 
-    expect(sellerSearch).toContain("if (!canSearch)");
-    expect(sellerSearch).toContain("getPublicBuyerPreviews(market.slug, selectedServiceArea, user?.id)");
-    expect(sellerSearch).toContain("Full profiles and invites unlock after review.");
-    expect(sellerSearch).toContain('sellerAccess.status === "SUSPENDED"');
+    expect(sellerSearch).toContain("redirect(demandSearchHref(await searchParams));");
+    expect(sellerSearch).not.toContain("searchBuyers");
   });
 });

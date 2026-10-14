@@ -1,11 +1,10 @@
 import { Prisma, prisma } from "@liber/db";
-import { searchBuyersSchema, seekingPropertyTypeSchema } from "@liber/validators";
+import { searchBuyersSchema, seekingPropertyTypeSchema, type SearchBuyersInput } from "@liber/validators";
 import { resolveAvatarVariant } from "../lib/avatar-variant";
 import { publicNameForDisplay } from "./public-identity";
 import type { PublicBuyerPreviewDTO } from "../lib/buyer-dtos";
-import type { ServiceAreaResult } from "./service-areas";
-import { getSearchCoverageServiceAreaIds } from "./service-areas";
 import { activePrimaryServiceAreaWhere } from "./service-area-matching";
+import { querySellerSearchIds, SellerSearchCursorError } from "./seller-search-query";
 import { syntheticJourneyBuyerProfileIds } from "./synthetic-property-review";
 import { activeTestPreapprovalProfileIds } from "./test-preapproval";
 import { TEST_PREAPPROVAL_LABEL } from "../lib/test-preapproval";
@@ -21,125 +20,145 @@ export const PUBLIC_PREVIEW_LIMIT = 4;
 
 const previewAmenities = ["Pool", "Parking", "ADU", "Yard", "Garage"];
 
+// The narrow projection every preview is built from; nothing else leaves the database.
+// A function so badge expiry is checked against the time of each query.
+const previewProfileSelect = (now = new Date()) => ({
+  id: true,
+  userId: true,
+  displayName: true,
+  badges: {
+    where: {
+      badgeType: { in: ["PRE_APPROVED", "VERIFIED_IDENTITY", "VERIFIED_FUNDS"] },
+      status: "ACTIVE",
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    },
+    select: { badgeType: true },
+  },
+  budgetMax: true,
+  budgetMin: true,
+  buyingPurpose: true,
+  buyerType: true,
+  criteria: {
+    select: {
+      bathroomsMin: true,
+      bedroomsMin: true,
+      condition: true,
+      features: true,
+      squareFeetMin: true,
+    },
+  },
+  desiredServiceAreas: {
+    where: { isPrimary: true, source: "SELECTED" },
+    take: 1,
+    select: {
+      serviceArea: {
+        select: {
+          centerLat: true,
+          centerLng: true,
+          city: true,
+          label: true,
+          state: true,
+          type: true,
+        },
+      },
+    },
+  },
+  user: { select: { avatarVariant: true, name: true } },
+}) satisfies Prisma.BuyerProfileSelect;
+
+type PreviewProfileRow = Prisma.BuyerProfileGetPayload<{ select: ReturnType<typeof previewProfileSelect> }>;
+
+export type DemandPreviewPage = {
+  /** More previews match than were returned; for guests this is where the teaser stops. */
+  hasMore: boolean;
+  items: PublicBuyerPreviewDTO[];
+  nextCursor: string | null;
+};
+
 /**
- * Privacy-safe homepage preview of buyer demand (V1 preview rules).
- * Guests receive a capped teaser; a validated signed-in viewer receives the
- * same DTO for every eligible profile except their own.
+ * Privacy-safe buyer demand for everyone who is not an approved seller (V1 preview rules).
+ * Filters, sort, block exclusions and cursors are the approved seller search's own SQL
+ * (`querySellerSearchIds`), so the one map behaves the same for every viewer; only the
+ * projection differs. Guests receive a capped teaser and no cursor; a validated signed-in
+ * viewer pages through every eligible profile except their own.
  * No ids, full private names, documents, exact locations, or profile links.
  * Identity includes only first name, last initial, and a stable account code.
- * Account ids and private names are used internally and never serialized.
  * Coordinates use the buyer's selected public service-area center only.
- * Shared centers are grouped without moving pins or reading private locations.
  */
-export async function getPublicBuyerPreviews(
-  marketSlug: string,
-  serviceArea?: ServiceAreaResult | null,
-  viewerUserId?: string,
-): Promise<PublicBuyerPreviewDTO[]> {
+export async function searchDemandPreviews(input: SearchBuyersInput, viewerUserId?: string): Promise<DemandPreviewPage> {
+  const filters: SearchBuyersInput = viewerUserId
+    ? input
+    : { ...input, cursor: undefined, pageSize: PUBLIC_PREVIEW_LIMIT };
   try {
-    const coverageAreaIds = serviceArea
-      ? await getSearchCoverageServiceAreaIds(serviceArea.id, marketSlug)
-      : [];
-    const profiles = await prisma.buyerProfile.findMany({
+    const page = await querySellerSearchIds(prisma, filters, new Date(), undefined, viewerUserId);
+    if (page.ids.length === 0) return { hasMore: false, items: [], nextCursor: null };
+    const rows = await prisma.buyerProfile.findMany({
       where: {
+        id: { in: page.ids },
         visibilityStatus: "ACTIVE",
         user: { status: "ACTIVE" },
         ...(viewerUserId ? { userId: { not: viewerUserId } } : {}),
-        ...activePrimaryServiceAreaWhere(marketSlug, serviceArea ? coverageAreaIds : undefined),
+        ...activePrimaryServiceAreaWhere(filters.market),
       },
-      orderBy: { lastRefreshedAt: "desc" },
-      ...(viewerUserId ? {} : { take: PUBLIC_PREVIEW_LIMIT }),
-      select: {
-        id: true,
-        userId: true,
-        displayName: true,
-        badges: {
-          where: {
-            badgeType: { in: ["PRE_APPROVED", "VERIFIED_IDENTITY", "VERIFIED_FUNDS"] },
-            status: "ACTIVE",
-            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-          },
-          select: { badgeType: true },
-        },
-        budgetMax: true,
-        budgetMin: true,
-        buyingPurpose: true,
-        buyerType: true,
-        criteria: {
-          select: {
-            bathroomsMin: true,
-            bedroomsMin: true,
-            condition: true,
-            features: true,
-            squareFeetMin: true,
-          },
-        },
-        desiredServiceAreas: {
-          where: { isPrimary: true, source: "SELECTED" },
-          take: 1,
-          select: {
-            serviceArea: {
-              select: {
-                centerLat: true,
-                centerLng: true,
-                city: true,
-                label: true,
-                state: true,
-                type: true,
-              },
-            },
-          },
-        },
-        user: { select: { avatarVariant: true, name: true } },
-      },
+      select: previewProfileSelect(),
     });
-
-    const syntheticProfiles = await syntheticJourneyBuyerProfileIds(prisma, profiles.map((profile) => profile.id));
-    const testPreapprovalIds = await activeTestPreapprovalProfileIds(prisma, profiles.map((profile) => profile.id));
-    return profiles.map((profile) => {
-      const criteria = profile.criteria[0];
-      const condition = searchBuyersSchema.shape.condition.safeParse(criteria?.condition);
-      const amenitySet = new Set(
-        profile.criteria.flatMap((item) => item.features).map((feature) => feature.trim().toLowerCase()),
-      );
-      const primaryArea = profile.desiredServiceAreas[0]?.serviceArea;
-      const point = approximatePreviewPoint(
-        primaryArea ? { lat: primaryArea.centerLat, lng: primaryArea.centerLng } : null,
-      );
-      const areaLabel = primaryArea
-        ? [primaryArea.type === "zip" || primaryArea.type === "neighborhood" ? primaryArea.label : primaryArea.city ?? primaryArea.label, primaryArea.state]
-            .filter(Boolean)
-            .join(", ")
-        : "Liber service area";
-      const alias = publicNameForDisplay(profile.user.name, profile.userId);
-
-      return {
-        alias,
-        amenities: previewAmenities.filter((amenity) => amenitySet.has(amenity.toLowerCase())),
-        area: areaLabel,
-        avatarVariant: resolveAvatarVariant(profile.user.avatarVariant, profile.id).value,
-        badges: [
-          ...(syntheticProfiles.has(profile.id) ? ["Demo buyer"] : []),
-          ...(testPreapprovalIds.has(profile.id) ? [TEST_PREAPPROVAL_LABEL] : []),
-          ...profile.badges.map((badge) => previewBadgeLabels[badge.badgeType] ?? "Verified"),
-          ...(profile.buyerType === "Cash" && profile.badges.some((badge) => badge.badgeType === "VERIFIED_FUNDS")
-            ? ["Cash buyer"]
-            : []),
-        ].slice(0, 3),
-        bathroomsMin: criteria?.bathroomsMin ?? undefined,
-        bedroomsMin: criteria?.bedroomsMin ?? undefined,
-        budgetLabel: budgetBandLabel(toNumber(profile.budgetMin), toNumber(profile.budgetMax)),
-        condition: condition.success ? condition.data : undefined,
-        label: previewPropertyTypeLabel(profile.buyingPurpose),
-        pin: point ? { latitude: point.lat, longitude: point.lng } : undefined,
-        squareFeetMin: criteria?.squareFeetMin ?? undefined,
-      };
-    });
+    const order = new Map(page.ids.map((id, index) => [id, index]));
+    rows.sort((first, second) => (order.get(first.id) ?? 0) - (order.get(second.id) ?? 0));
+    return {
+      hasMore: page.hasMore,
+      items: await toPublicPreviews(rows),
+      nextCursor: viewerUserId ? page.nextCursor : null,
+    };
   } catch (error) {
-    // The public preview is best-effort marketing; never block the homepage on it.
+    if (error instanceof SellerSearchCursorError) throw error;
+    // The preview is best-effort; never block the map on it.
     console.error("[public-preview] buyer preview query failed", error instanceof Error ? error.message : "Unknown error");
-    return [];
+    return { hasMore: false, items: [], nextCursor: null };
   }
+}
+
+async function toPublicPreviews(profiles: PreviewProfileRow[]): Promise<PublicBuyerPreviewDTO[]> {
+  const syntheticProfiles = await syntheticJourneyBuyerProfileIds(prisma, profiles.map((profile) => profile.id));
+  const testPreapprovalIds = await activeTestPreapprovalProfileIds(prisma, profiles.map((profile) => profile.id));
+  return profiles.map((profile) => {
+    const criteria = profile.criteria[0];
+    const condition = searchBuyersSchema.shape.condition.safeParse(criteria?.condition);
+    const amenitySet = new Set(
+      profile.criteria.flatMap((item) => item.features).map((feature) => feature.trim().toLowerCase()),
+    );
+    const primaryArea = profile.desiredServiceAreas[0]?.serviceArea;
+    const point = approximatePreviewPoint(
+      primaryArea ? { lat: primaryArea.centerLat, lng: primaryArea.centerLng } : null,
+    );
+    const areaLabel = primaryArea
+      ? [primaryArea.type === "zip" || primaryArea.type === "neighborhood" ? primaryArea.label : primaryArea.city ?? primaryArea.label, primaryArea.state]
+          .filter(Boolean)
+          .join(", ")
+      : "Liber service area";
+    const alias = publicNameForDisplay(profile.user.name, profile.userId);
+
+    return {
+      alias,
+      amenities: previewAmenities.filter((amenity) => amenitySet.has(amenity.toLowerCase())),
+      area: areaLabel,
+      avatarVariant: resolveAvatarVariant(profile.user.avatarVariant, profile.id).value,
+      badges: [
+        ...(syntheticProfiles.has(profile.id) ? ["Demo buyer"] : []),
+        ...(testPreapprovalIds.has(profile.id) ? [TEST_PREAPPROVAL_LABEL] : []),
+        ...profile.badges.map((badge) => previewBadgeLabels[badge.badgeType] ?? "Verified"),
+        ...(profile.buyerType === "Cash" && profile.badges.some((badge) => badge.badgeType === "VERIFIED_FUNDS")
+          ? ["Cash buyer"]
+          : []),
+      ].slice(0, 3),
+      bathroomsMin: criteria?.bathroomsMin ?? undefined,
+      bedroomsMin: criteria?.bedroomsMin ?? undefined,
+      budgetLabel: budgetBandLabel(toNumber(profile.budgetMin), toNumber(profile.budgetMax)),
+      condition: condition.success ? condition.data : undefined,
+      label: previewPropertyTypeLabel(profile.buyingPurpose),
+      pin: point ? { latitude: point.lat, longitude: point.lng } : undefined,
+      squareFeetMin: criteria?.squareFeetMin ?? undefined,
+    };
+  });
 }
 
 export async function hasControlledDemoBuyerPreviews() {

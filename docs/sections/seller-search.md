@@ -6,7 +6,8 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 
 ## Main files
 
-- `apps/web/app/seller/search/page.tsx`
+- `apps/web/app/page.tsx` (the one map; `app/seller/search/page.tsx` only redirects here)
+- `apps/web/lib/demand-search-href.ts`
 - `apps/web/components/buyer-card.tsx`
 - `apps/web/components/public-buyer-preview-card.tsx`
 - `apps/web/components/search-filter-bar.tsx`
@@ -26,8 +27,10 @@ Owns the core map-first seller workspace for finding matched buyers by geography
 
 ## Invariants
 
-- Full map/list search, buyer-profile links, advanced filters, and invites require approved seller access.
-- Active `PENDING` and `REJECTED` sellers receive only the signed-in privacy-safe preview projection as a read-only list. An anomalous missing access row receives the same limited projection with distinct copy; `SUSPENDED` seller access receives no seller-route preview.
+- One map at `/` serves every audience with the same location search, filters, sort and map/list layout. Full buyer cards, buyer-profile links and invites require approved seller access (or admin); everyone else gets `searchDemandPreviews`, which runs the same `querySellerSearchIds` filters/sort/blocks and returns only the preview projection (4 cards and no cursor for guests; paged for signed-in viewers, excluding their own profile).
+- Sellers whose access is `PENDING`, `REJECTED`, missing or `SUSPENDED` see that state in one notice under the filter bar and receive the preview projection.
+- Map URLs live at the root: filter, sort and location controls build them with `demandSearchHref`/`demandSearchPath`. Legacy `?area=` links resolve to a canonical `serviceArea` slug; invalid filter combinations reset to the market.
+- Each results page assigns photos with `distinctPropertyPhotos` so no photo repeats while a type has unused ones; map mini-cards use the same assignment.
 - The pre-approval list reuses `getPublicBuyerPreviews`; it must not call `searchBuyers`, serialize buyer routing IDs or identities, or render profile/contact/invite actions.
 - Approved sellers land on a split map and results list built from the same result set. Filters live in the search toolbar: popovers on desktop and one Filters sheet below 1100px. Below 1007px the map stays sticky above a sliding results sheet with a floating List/Map toggle.
 - Filter popovers and the sheet edit a local draft. Only Apply (or "Show matching buyers") pushes a new URL, which keeps `market`, `serviceArea`, and `sort` and drops the cursor.

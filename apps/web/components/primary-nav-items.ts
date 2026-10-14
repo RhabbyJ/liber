@@ -7,10 +7,11 @@ export type NavItem = {
   mode?: "buyer" | "seller" | "admin";
 };
 
+// One map for everyone; buyer profiles and invites opened from it keep it highlighted.
 const demandMapItem: NavItem = {
   href: "/",
   label: "Map",
-  isActive: (pathname) => pathname === "/",
+  isActive: (pathname) => pathname === "/" || pathname.startsWith("/buyers/") || pathname.startsWith("/seller/invite/"),
 };
 
 const guestItems: NavItem[] = [
@@ -20,7 +21,7 @@ const guestItems: NavItem[] = [
     isActive: () => false,
   },
   {
-    href: "/signup?role=seller&next=%2Fseller%2Fsearch",
+    href: "/signup?role=seller&next=%2F",
     label: "For sellers",
     isActive: () => false,
   },
@@ -36,13 +37,6 @@ const buyerItems: NavItem[] = [
 ];
 
 const sellerItems: NavItem[] = [
-  {
-    href: "/seller/search",
-    label: "Find buyers",
-    isActive: (pathname) =>
-      pathname === "/seller/search" || pathname.startsWith("/buyers/") || pathname.startsWith("/seller/invite/"),
-    mode: "seller",
-  },
   {
     href: "/seller/properties",
     label: "Properties",

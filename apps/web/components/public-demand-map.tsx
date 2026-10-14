@@ -10,7 +10,7 @@ import { groupMapPoints } from "../lib/map-point-groups";
 import { mapboxStaticImageUrl } from "../lib/mapbox-static-image";
 import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
 import { criteriaFacts } from "../lib/listing-format";
-import { propertyArtworkSrc } from "./property-type-artwork";
+import { distinctPropertyPhotos } from "../lib/property-photos";
 
 type Props = {
   market: MarketMapContext;
@@ -26,6 +26,7 @@ type Props = {
 
 type PreviewPoint = {
   index: number;
+  photo: string;
   lat: number;
   lng: number;
   preview: PublicBuyerPreviewDTO;
@@ -59,18 +60,18 @@ export function PublicDemandMap({
   const shouldUseMapbox = Boolean(mapboxToken);
   const selectedAreaGeojson = useKeyedGeoJson(shouldUseMapbox ? selectedArea?.geojsonPath : undefined);
 
-  const points = useMemo<PreviewPoint[]>(
-    () =>
-      previews
+  const points = useMemo<PreviewPoint[]>(() => {
+    const photos = distinctPropertyPhotos(previews.map((preview) => ({ seed: preview.alias, value: preview.label })));
+    return previews
         .map((preview, index) => ({
           index,
+          photo: photos[index],
           lat: preview.pin?.latitude ?? NaN,
           lng: preview.pin?.longitude ?? NaN,
           preview,
         }))
-        .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng)),
-    [previews],
-  );
+        .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+  }, [previews]);
   const mapInstanceKey = marketMapInstanceKey(market, mapboxToken);
   const [marketWest, marketSouth, marketEast, marketNorth] = market.bbox;
   const marketCenterLat = market.center.lat;
@@ -177,8 +178,8 @@ export function PublicDemandMap({
       if (!popupRef.current) return;
       pinnedPopupRef.current = pinned ? group.points[0].index : null;
       const html = group.points.length > 1
-        ? `<div class="buyer-map-popup-group">${group.points.map((item) => previewPopupHtml(item.preview, cta)).join("")}</div>`
-        : previewPopupHtml(group.points[0].preview, cta);
+        ? `<div class="buyer-map-popup-group">${group.points.map((item) => previewPopupHtml(item.preview, cta, item.photo)).join("")}</div>`
+        : previewPopupHtml(group.points[0].preview, cta, group.points[0].photo);
       popupRef.current.setLngLat([group.lng, group.lat]).setHTML(html).addTo(map);
     }
 
@@ -329,12 +330,13 @@ function previewPopupHtml(
     secondaryHref?: string;
     secondaryLabel?: string;
   },
+  photo: string,
 ) {
   const facts = criteriaFacts(preview).map((fact) => `<b>${escapeHtml(fact.value)}</b> ${escapeHtml(fact.label)}`);
 
   return `
     <div class="map-card preview">
-      <span class="map-card-media"><img alt="" src="${escapeHtml(propertyArtworkSrc(preview.label, preview.alias))}" /></span>
+      <span class="map-card-media"><img alt="" src="${escapeHtml(photo)}" /></span>
       <span class="map-card-body">
         <strong class="map-card-price">${escapeHtml(preview.budgetLabel)}</strong>
         ${facts.length > 0 ? `<span class="map-card-facts">${facts.join("<i></i>")}</span>` : ""}

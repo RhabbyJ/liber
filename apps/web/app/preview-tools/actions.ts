@@ -10,8 +10,8 @@ import {
 export async function enablePreviewSellerAccess() {
   await approveCurrentSellerForCeoPreview();
   revalidatePath("/preview-tools");
-  revalidatePath("/seller/search");
-  redirect("/seller/search?status=preview-access-enabled");
+  revalidatePath("/");
+  redirect("/");
 }
 
 export async function enablePreviewAdminAccess() {

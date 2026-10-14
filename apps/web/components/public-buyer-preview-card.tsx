@@ -9,7 +9,7 @@ import { PropertyTypeArtwork } from "./property-type-artwork";
 
 const flagOrder = ["Pre-approved", "Cash buyer", "Verified funds", "ID verified"];
 
-export function PublicBuyerPreviewCard({ index, preview }: { index: number; preview: PublicBuyerPreviewDTO }) {
+export function PublicBuyerPreviewCard({ index, photoSrc, preview }: { index: number; photoSrc?: string; preview: PublicBuyerPreviewDTO }) {
   const facts = criteriaFacts(preview);
   const flags = [...preview.badges].sort((a, b) => flagRank(a) - flagRank(b)).slice(0, 2);
   const extras = [preview.condition, ...preview.amenities].filter((value): value is string => Boolean(value)).slice(0, 3);
@@ -37,7 +37,7 @@ export function PublicBuyerPreviewCard({ index, preview }: { index: number; prev
       tabIndex={0}
     >
       <div className="listing-card-media">
-        <PropertyTypeArtwork className="listing-card-art" motion="none" priority={index < 2} seed={preview.alias} sizes="(max-width: 767px) 100vw, 360px" value={preview.label} />
+        <PropertyTypeArtwork className="listing-card-art" motion="none" priority={index < 2} seed={preview.alias} sizes="(max-width: 767px) 100vw, 360px" src={photoSrc} value={preview.label} />
         {flags.length > 0 ? (
           <div className="listing-card-flags">
             {flags.map((flag) => (

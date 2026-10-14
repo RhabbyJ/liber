@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { propertyTypeOptions } from "../lib/property-types";
 import { FilterPopover } from "./filter-popover";
 import { Icon } from "./icon";
+import { demandSearchPath } from "../lib/demand-search-href";
 
 export type SellerSearchFilters = {
   amenities: string[];
@@ -91,9 +92,8 @@ export function SearchFilterBar({
     }
     next.amenities.forEach((amenity) => params.append("amenities", amenity));
     next.badges.forEach((badge) => params.append("badges", badge));
-    const query = params.toString();
     startTransition(() => {
-      router.push(query ? `/seller/search?${query}` : "/seller/search", { scroll: false });
+      router.push(demandSearchPath(params), { scroll: false });
     });
   }
 

@@ -8,7 +8,7 @@ import { PropertyTypeArtwork } from "./property-type-artwork";
 const flagOrder = ["PRE_APPROVED", "CASH_BUYER", "VERIFIED_FUNDS", "VERIFIED_IDENTITY"];
 const TEST_LABEL = "Test pre-approval — not verified";
 
-export function BuyerCard({ buyer, priority = false }: { buyer: SellerBuyerSummaryDTO; priority?: boolean }) {
+export function BuyerCard({ buyer, photoSrc, priority = false }: { buyer: SellerBuyerSummaryDTO; photoSrc?: string; priority?: boolean }) {
   const activeBadges = buyer.badges.filter((badge) => badge.status === "active");
   const testPreApproval = activeBadges.find((badge) => badge.type === "TEST_PRE_APPROVED");
   const preApproval = activeBadges.find((badge) => badge.type === "PRE_APPROVED");
@@ -23,7 +23,7 @@ export function BuyerCard({ buyer, priority = false }: { buyer: SellerBuyerSumma
   return (
     <article className="listing-card" data-buyer-id={buyer.id}>
       <div className="listing-card-media">
-        <PropertyTypeArtwork className="listing-card-art" motion="none" priority={priority} seed={buyer.id} sizes="(max-width: 767px) 100vw, 360px" value={buyer.purpose} />
+        <PropertyTypeArtwork className="listing-card-art" motion="none" priority={priority} seed={buyer.id} sizes="(max-width: 767px) 100vw, 360px" src={photoSrc} value={buyer.purpose} />
         {flags.length > 0 || buyer.isDemo || testPreApproval ? (
           <div className="listing-card-flags">
             {buyer.isDemo ? <span className="listing-flag demo">Demo buyer</span> : null}

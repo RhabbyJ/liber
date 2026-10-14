@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  getSessionUser: vi.fn(), buyers: vi.fn(), documents: vi.fn(), syntheticProfiles: vi.fn(), testPreapprovalIds: vi.fn(),
+  getSessionUser: vi.fn(), buyers: vi.fn(), documents: vi.fn(), queryIds: vi.fn(), syntheticProfiles: vi.fn(), testPreapprovalIds: vi.fn(),
 }));
 vi.mock("@liber/db", async () => ({
   Prisma: (await import("../../../packages/db/src/generated/client")).Prisma,
   prisma: { buyerProfile: { findMany: mocks.buyers }, verificationDocument: { findMany: mocks.documents } },
 }));
 vi.mock("./session", () => ({ getSessionUser: mocks.getSessionUser }));
+vi.mock("./seller-search-query", async (importOriginal) => ({
+  ...await importOriginal<typeof import("./seller-search-query")>(),
+  querySellerSearchIds: mocks.queryIds,
+}));
 vi.mock("./test-preapproval", () => ({ activeTestPreapprovalProfileIds: mocks.testPreapprovalIds }));
 vi.mock("./synthetic-property-review", async (importOriginal) => ({
   ...await importOriginal<typeof import("./synthetic-property-review")>(),
@@ -16,7 +20,8 @@ vi.mock("./synthetic-property-review", async (importOriginal) => ({
 vi.mock("next/navigation", () => ({ redirect: (path: string) => { throw new Error(`redirect:${path}`); } }));
 
 import { listAdminBuyerProfiles } from "./contracts";
-import { getPublicBuyerPreviews } from "./buyer-preview";
+import { searchBuyersSchema } from "@liber/validators";
+import { searchDemandPreviews } from "./buyer-preview";
 import { sellerBuyerSelect, sellerBuyerSummary, type SellerBuyerRow } from "./buyer/read-models";
 import { publicNameForDisplay } from "./public-identity";
 
@@ -107,7 +112,8 @@ describe("admin buyer identity projection", () => {
 
   it("keeps full account names and email out of the public preview even if an over-broad mock row contains them", async () => {
     mocks.buyers.mockResolvedValue([buyer]);
-    const result = await getPublicBuyerPreviews("los-angeles");
+    mocks.queryIds.mockResolvedValue({ hasMore: false, ids: [buyer.id], nextCursor: null, pageSize: 4, snapshotAt: new Date().toISOString() });
+    const { items: result } = await searchDemandPreviews(searchBuyersSchema.parse({ market: "los-angeles" }));
     expect(result).toHaveLength(1);
     expect(mocks.buyers.mock.calls[0][0].select.user).toEqual({ select: { avatarVariant: true, name: true } });
     const serialized = JSON.stringify(result);

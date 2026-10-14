@@ -24,7 +24,7 @@ describe("seller access form feedback", () => {
     expect(result).toEqual({ ok: true, message: changed
       ? "Seller directory access approved."
       : "Seller directory access is already approved. No changes were needed." });
-    expect(revalidatePath.mock.calls).toEqual([["/admin/users"], ["/seller/search"]]);
+    expect(revalidatePath.mock.calls).toEqual([["/admin/users"], ["/"]]);
   });
 
   it("preserves authorization redirects and unexpected failures", async () => {

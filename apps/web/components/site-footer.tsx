@@ -14,7 +14,6 @@ const legalLines = [
 /** Only links that resolve for the viewer: Messages follows the header nav, and account links follow the session. */
 function footerColumns(isAuthenticated: boolean, showMessages: boolean) {
   const liberLinks: FooterLink[] = [
-    { href: "/", label: "Buyer demand map" },
     ...(showMessages ? [{ href: "/messages", label: "Messages" }] : []),
     ...(isAuthenticated
       ? [{ href: "/profile", label: "Your profile" }]
@@ -26,7 +25,7 @@ function footerColumns(isAuthenticated: boolean, showMessages: boolean) {
       heading: "For sellers",
       id: "footer-sellers",
       links: [
-        { href: "/seller/search", label: "Find buyers" },
+        { href: "/", label: "Find buyers" },
         { href: "/seller/properties", label: "Your properties" },
         { href: "/seller/properties/new", label: "Add a property" },
         { href: "/seller/invites", label: "Sent invites" },

@@ -11,7 +11,7 @@ import { canHover, declutterPricePins, escapeHtml, quietBasemap } from "../lib/m
 import { loadMapboxGl, type MapboxMap, type MapboxMarker, type MapboxPopup } from "../lib/mapbox-gl-loader";
 import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
 import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
-import { propertyArtworkSrc } from "./property-type-artwork";
+import { distinctPropertyPhotos } from "../lib/property-photos";
 import { StaticBuyerMap } from "./static-buyer-map";
 
 type Props = {
@@ -57,6 +57,11 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
     [buyers],
   );
   const markerGroups = useMemo(() => groupMapPoints(buyerPoints), [buyerPoints]);
+  // Same per-page assignment as the result cards, so a pin's mini-card matches its card.
+  const photoById = useMemo(() => {
+    const photos = distinctPropertyPhotos(buyers.map((buyer) => ({ seed: buyer.id, value: buyer.purpose })));
+    return new Map(buyers.map((buyer, index) => [buyer.id, photos[index]]));
+  }, [buyers]);
   const initialCenter = useMemo(() => mapCenter(buyerPoints, selectedArea, market), [buyerPoints, selectedArea, market]);
   const highlightBuyer = useCallback((buyerId: string, active: boolean) => {
     const marker = markerNodesRef.current.get(buyerId);
@@ -182,8 +187,8 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
         .setLngLat([group.lng, group.lat])
         .setOffset(popupOffsets([0, 0]))
         .setHTML(buyersHere.length > 1
-          ? `<div class="buyer-map-popup-group">${buyersHere.map(popupHtml).join("")}</div>`
-          : popupHtml(buyersHere[0]))
+          ? `<div class="buyer-map-popup-group">${buyersHere.map((buyer) => popupHtml(buyer, photoById.get(buyer.id) ?? "")).join("")}</div>`
+          : popupHtml(buyersHere[0], photoById.get(buyersHere[0].id) ?? ""))
         .addTo(map);
     }
 
@@ -251,7 +256,7 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
       map.off("zoomend", declutter);
       map.off("resize", declutter);
     };
-  }, [buyerPoints, highlightBuyer, initialCenter.lat, initialCenter.lng, isReady, markerGroups, selectedArea]);
+  }, [buyerPoints, highlightBuyer, initialCenter.lat, initialCenter.lng, isReady, markerGroups, photoById, selectedArea]);
 
   useEffect(() => {
     const cards = Array.from(document.querySelectorAll<HTMLElement>(".listing-card[data-buyer-id]"));
@@ -339,14 +344,14 @@ function popupOffsets([x, y]: [number, number]): Record<string, [number, number]
   };
 }
 
-function popupHtml(buyer: SellerBuyerSummaryDTO) {
+function popupHtml(buyer: SellerBuyerSummaryDTO, photo: string) {
   const badges = buyer.badges.filter((badge) => badge.status === "active").map((badge) => (badge.type === "PRE_APPROVED" ? "Pre-approved" : badge.label));
   const facts = criteriaFacts(buyer.criteriaDetails[0]).map((fact) => `<b>${escapeHtml(fact.value)}</b> ${escapeHtml(fact.label)}`);
   const meta = [badges[0], buyer.name].filter(Boolean).join(" · ");
 
   return `
     <a class="map-card" href="/buyers/${encodeURIComponent(buyer.id)}">
-      <span class="map-card-media"><img alt="" src="${escapeHtml(propertyArtworkSrc(buyer.purpose, buyer.id))}" /></span>
+      <span class="map-card-media"><img alt="" src="${escapeHtml(photo)}" /></span>
       <span class="map-card-body">
         <strong class="map-card-price">${escapeHtml(compactBudgetRange(buyer.budgetMin, buyer.budgetMax))}</strong>
         ${facts.length > 0 ? `<span class="map-card-facts">${facts.join("<i></i>")}</span>` : ""}

@@ -77,7 +77,7 @@ export default async function InviteBuyerPage({
                 <Icon name="home" size={14} />
                 Manage properties
               </Link>
-              <Link className="button secondary" href="/seller/search">
+              <Link className="button secondary" href="/">
                 <Icon name="arrow-right" size={14} />
                 View access status
               </Link>
@@ -104,7 +104,7 @@ export default async function InviteBuyerPage({
                 <Icon name="user" size={14} />
                 View profile
               </Link>
-              <Link className="button secondary" href="/seller/search">
+              <Link className="button secondary" href="/">
                 <Icon name="arrow-left" size={14} />
                 Back to buyers
               </Link>
@@ -140,7 +140,7 @@ export default async function InviteBuyerPage({
                 <Icon name="plus" size={14} />
                 Add property
               </Link>
-              <Link className="button secondary" href="/seller/search">
+              <Link className="button secondary" href="/">
                 <Icon name="arrow-left" size={14} />
                 Back to buyers
               </Link>
@@ -174,7 +174,7 @@ export default async function InviteBuyerPage({
                 <Icon name="home" size={14} />
                 Manage properties
               </Link>
-              <Link className="button ghost" href="/seller/search">
+              <Link className="button ghost" href="/">
                 <Icon name="arrow-left" size={14} />
                 Back to buyers
               </Link>

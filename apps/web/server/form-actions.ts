@@ -96,8 +96,8 @@ export async function blockBuyerProfile(formData: FormData) {
   if (typeof buyerProfileId !== "string") throw new Error("This profile is unavailable.");
   const { blockUserByBuyerProfile } = await import("./messaging/service");
   await blockUserByBuyerProfile({ buyerProfileId });
-  revalidatePath("/seller/search");
-  redirect("/seller/search?status=blocked");
+  revalidatePath("/");
+  redirect("/");
 }
 
 export async function blockInviteConversation(formData: FormData) {
@@ -187,7 +187,7 @@ export async function submitBadgeGrant(
   revalidatePath("/buyer/badges");
   revalidatePath("/buyer/profile");
   revalidatePath("/buyer/notifications");
-  revalidatePath("/seller/search");
+  revalidatePath("/");
   return { ok: true, message: "Badge granted. The buyer's verification status has been updated." };
 }
 
@@ -206,7 +206,7 @@ export async function submitBadgeRevoke(
   revalidatePath("/buyer/badges");
   revalidatePath("/buyer/profile");
   revalidatePath("/buyer/notifications");
-  revalidatePath("/seller/search");
+  revalidatePath("/");
   return { ok: true, message: "Badge revoked. It no longer counts as active verification." };
 }
 
@@ -222,7 +222,7 @@ export async function submitSellerAccessReview(
   const result = await reviewSellerAccess(formData);
   if (!result.ok) return result;
   revalidatePath("/admin/users");
-  revalidatePath("/seller/search");
+  revalidatePath("/");
   const status = result.data.status.toLowerCase();
   return {
     ok: true,

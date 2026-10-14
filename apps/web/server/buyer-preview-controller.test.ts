@@ -1,25 +1,36 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ServiceAreaResult } from "./service-areas";
+import { searchBuyersSchema } from "@liber/validators";
 
 const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
   fixtureProfiles: vi.fn(),
-  getSearchCoverageServiceAreaIds: vi.fn(),
+  queryIds: vi.fn(),
   testPreapprovalIds: vi.fn(),
 }));
 
 vi.mock("@liber/db", () => ({
   prisma: { buyerProfile: { findMany: (query: { where: { user?: { email?: string } } }) => query.where.user?.email ? mocks.fixtureProfiles(query) : mocks.findMany(query) } },
 }));
-
-vi.mock("./service-areas", () => ({
-  getSearchCoverageServiceAreaIds: mocks.getSearchCoverageServiceAreaIds,
+vi.mock("./seller-search-query", async (importOriginal) => ({
+  ...await importOriginal<typeof import("./seller-search-query")>(),
+  querySellerSearchIds: mocks.queryIds,
 }));
 vi.mock("./test-preapproval", () => ({ activeTestPreapprovalProfileIds: mocks.testPreapprovalIds }));
 
-import { getPublicBuyerPreviews } from "./buyer-preview";
+import { searchDemandPreviews } from "./buyer-preview";
+import { SellerSearchCursorError } from "./seller-search-query";
 import { avatarVariantFromSeed } from "../lib/avatar-variant";
 import { publicNameForDisplay } from "./public-identity";
+
+const filters = (input: Record<string, unknown> = {}) => searchBuyersSchema.parse({ market: "los-angeles", ...input });
+const idPage = (ids: string[], extra: Record<string, unknown> = {}) => ({
+  hasMore: false,
+  ids,
+  nextCursor: null,
+  pageSize: 24,
+  snapshotAt: new Date().toISOString(),
+  ...extra,
+});
 
 const previewProfileRow = {
   id: "buyer-profile-public-id",
@@ -58,17 +69,17 @@ describe("public buyer preview controller", () => {
     vi.clearAllMocks();
     mocks.findMany.mockResolvedValue([previewProfileRow]);
     mocks.fixtureProfiles.mockResolvedValue([]);
+    mocks.queryIds.mockResolvedValue(idPage([previewProfileRow.id]));
     mocks.testPreapprovalIds.mockResolvedValue(new Set());
   });
 
   it("queries through the narrow projection and serializes only preview-safe fields", async () => {
-    const previews = await getPublicBuyerPreviews("los-angeles");
+    const { items: previews } = await searchDemandPreviews(filters());
     const query = mocks.findMany.mock.calls[0]?.[0];
 
     expect(query).toMatchObject({
-      orderBy: { lastRefreshedAt: "desc" },
-      take: 4,
       where: {
+        id: { in: [previewProfileRow.id] },
         user: { status: "ACTIVE" },
         visibilityStatus: "ACTIVE",
       },
@@ -95,7 +106,7 @@ describe("public buyer preview controller", () => {
       badges: ["Pre-approved"],
       bathroomsMin: 2,
       bedroomsMin: 3,
-      budgetLabel: "$700K\u2013$950K",
+      budgetLabel: "$700K–$950K",
       condition: "Move-in ready",
       label: "House",
       pin: { latitude: 34.1467, longitude: -118.433314 },
@@ -108,10 +119,57 @@ describe("public buyer preview controller", () => {
     expectNoForbiddenFields(serialized);
   });
 
+  it("caps guests at the teaser size with no cursor while reporting that more match", async () => {
+    mocks.queryIds.mockResolvedValue(idPage([previewProfileRow.id], { hasMore: true, nextCursor: "guest-cursor" }));
+    const page = await searchDemandPreviews(filters({ cursor: "ignored-for-guests", pageSize: 50 }));
+    const [, guestFilters, , , viewer] = mocks.queryIds.mock.calls[0];
+
+    expect(guestFilters).toMatchObject({ cursor: undefined, pageSize: 4 });
+    expect(viewer).toBeUndefined();
+    expect(page.hasMore).toBe(true);
+    expect(page.nextCursor).toBeNull();
+  });
+
+  it("applies the seller search filters and blocks for a signed-in viewer and excludes their own profile", async () => {
+    mocks.findMany.mockResolvedValue(Array.from({ length: 6 }, () => previewProfileRow));
+    mocks.queryIds.mockResolvedValue(idPage(Array.from({ length: 6 }, () => previewProfileRow.id), { hasMore: true, nextCursor: "next-page" }));
+    const applied = filters({ amenities: ["Garage"], bedrooms: "3", budgetMax: "1000000", serviceArea: "sherman-oaks" });
+    const page = await searchDemandPreviews(applied, "viewer-user-id");
+    const [, viewerFilters, , , viewer] = mocks.queryIds.mock.calls[0];
+    const query = mocks.findMany.mock.calls[0]?.[0];
+
+    expect(viewerFilters).toEqual(applied);
+    expect(viewer).toBe("viewer-user-id");
+    expect(query.take).toBeUndefined();
+    expect(query.where.userId).toEqual({ not: "viewer-user-id" });
+    expect(page.nextCursor).toBe("next-page");
+    expect(page.items).toHaveLength(6);
+    expect(JSON.stringify(page)).not.toContain(previewProfileRow.userId);
+    expectNoForbiddenFields(JSON.parse(JSON.stringify(page.items)));
+  });
+
+  it("keeps the search order rather than the database row order", async () => {
+    const second = { ...previewProfileRow, id: "second-profile", user: { ...previewProfileRow.user, name: "Zed Second" } };
+    mocks.findMany.mockResolvedValue([previewProfileRow, second]);
+    mocks.queryIds.mockResolvedValue(idPage(["second-profile", previewProfileRow.id]));
+    const { items } = await searchDemandPreviews(filters(), "viewer-user-id");
+    expect(items.map((item) => item.alias.split(" ")[0])).toEqual(["Zed", "Julie"]);
+  });
+
+  it("rethrows stale cursors so the page can drop them, and degrades other failures to an empty page", async () => {
+    mocks.queryIds.mockRejectedValueOnce(new SellerSearchCursorError());
+    await expect(searchDemandPreviews(filters({ cursor: "stale" }), "viewer-user-id")).rejects.toBeInstanceOf(SellerSearchCursorError);
+
+    mocks.queryIds.mockRejectedValueOnce(new Error("database unavailable"));
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await expect(searchDemandPreviews(filters())).resolves.toEqual({ hasMore: false, items: [], nextCursor: null });
+    error.mockRestore();
+  });
+
   it("labels a test marker separately from verified pre-approval without exposing audit or profile identifiers", async () => {
     mocks.findMany.mockResolvedValue([{ ...previewProfileRow, badges: [] }]);
     mocks.testPreapprovalIds.mockResolvedValue(new Set([previewProfileRow.id]));
-    const previews = await getPublicBuyerPreviews("los-angeles");
+    const { items: previews } = await searchDemandPreviews(filters());
     expect(mocks.testPreapprovalIds).toHaveBeenCalledTimes(1);
     expect(mocks.testPreapprovalIds).toHaveBeenCalledWith(expect.anything(), [previewProfileRow.id]);
     expect(previews[0].badges).toEqual(["Test pre-approval — not verified"]);
@@ -129,8 +187,9 @@ describe("public buyer preview controller", () => {
       id: profileId,
       user: { avatarVariant: "https://example.test/avatar.png", name: null, status: "ACTIVE" },
     }]);
+    mocks.queryIds.mockResolvedValue(idPage([profileId]));
 
-    const [preview] = await getPublicBuyerPreviews("los-angeles");
+    const { items: [preview] } = await searchDemandPreviews(filters());
     const serialized = JSON.stringify(preview);
 
     expect(preview.alias).toBe(alias);
@@ -146,7 +205,7 @@ describe("public buyer preview controller", () => {
       criteria: [{ ...previewProfileRow.criteria[0], condition }],
     }]);
 
-    const [preview] = await getPublicBuyerPreviews("los-angeles");
+    const { items: [preview] } = await searchDemandPreviews(filters());
     expect(preview.condition).toBe(condition);
   });
 
@@ -157,7 +216,7 @@ describe("public buyer preview controller", () => {
       criteria: [{ ...previewProfileRow.criteria[0], condition: unapprovedText }],
     }]);
 
-    const [preview] = await getPublicBuyerPreviews("los-angeles", null, viewerUserId);
+    const { items: [preview] } = await searchDemandPreviews(filters(), viewerUserId);
     expect(preview.condition).toBeUndefined();
     expect(JSON.stringify(preview)).not.toContain(unapprovedText);
     expect(preview.amenities).toEqual(["Garage"]);
@@ -165,59 +224,10 @@ describe("public buyer preview controller", () => {
 
   it("adds a truthful demo label without disclosing the fixture email or profile ID", async () => {
     mocks.fixtureProfiles.mockResolvedValue([{ id: previewProfileRow.id }]);
-    const previews = await getPublicBuyerPreviews("los-angeles");
+    const { items: previews } = await searchDemandPreviews(filters());
     expect(previews[0].badges).toEqual(["Demo buyer", "Pre-approved"]);
     expect(JSON.stringify(previews)).not.toContain(previewProfileRow.id);
     expectNoForbiddenFields(previews);
-  });
-
-  it("returns every eligible privacy-safe preview after sign-in while excluding the viewer", async () => {
-    mocks.findMany.mockResolvedValue(Array.from({ length: 6 }, () => previewProfileRow));
-    const previews = await getPublicBuyerPreviews("los-angeles", null, "viewer-user-id");
-    const query = mocks.findMany.mock.calls[0]?.[0];
-
-    expect(query.take).toBeUndefined();
-    expect(query.where.userId).toEqual({ not: "viewer-user-id" });
-    expect(query.select.userId).toBe(true);
-    expect(JSON.stringify(previews)).not.toContain(previewProfileRow.userId);
-    expect(previews).toHaveLength(6);
-    expectNoForbiddenFields(JSON.parse(JSON.stringify(previews)));
-  });
-
-  it("uses selected-area coverage in the Prisma predicate without serializing its ID", async () => {
-    mocks.getSearchCoverageServiceAreaIds.mockResolvedValue(["area-a", "area-b"]);
-    const selectedArea = {
-      active: true,
-      bbox: [-118.5, 34.1, -118.3, 34.2],
-      center: { lat: 34.15, lng: -118.4 },
-      city: "Sherman Oaks",
-      county: "Los Angeles County",
-      disclaimer: "Approximate service area.",
-      geojsonPath: "/geo/service-areas/sherman-oaks.geojson",
-      id: "selected-area-id",
-      isPilot: false,
-      label: "Sherman Oaks",
-      marketSlug: "los-angeles",
-      postalCode: null,
-      slug: "sherman-oaks",
-      source: "test",
-      sourceVersion: "2026",
-      state: "CA",
-      type: "neighborhood",
-    } satisfies ServiceAreaResult;
-
-    const previews = await getPublicBuyerPreviews("los-angeles", selectedArea);
-    const query = mocks.findMany.mock.calls[0]?.[0];
-
-    expect(mocks.getSearchCoverageServiceAreaIds).toHaveBeenCalledWith(
-      "selected-area-id",
-      "los-angeles",
-    );
-    expect(query.where.desiredServiceAreas.some.serviceAreaId).toEqual({
-      in: ["area-a", "area-b"],
-    });
-    expect(JSON.stringify(previews)).not.toContain("selected-area-id");
-    expect(previews[0].pin).toEqual({ latitude: 34.1467, longitude: -118.433314 });
   });
 });
 

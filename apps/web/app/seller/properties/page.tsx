@@ -78,7 +78,7 @@ export default async function SellerPropertiesPage() {
                     <Icon name="pencil" size={13} />
                     Edit
                   </Link>
-                  <Link className="button primary sm" href="/seller/search">
+                  <Link className="button primary sm" href="/">
                     <Icon name="search" size={13} />
                     Find buyers
                   </Link>

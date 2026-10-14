@@ -12,7 +12,7 @@ export default async function AccountProfilePage() {
 
   const workspaces = [
     user.roles.includes("BUYER") ? { href: "/buyer/profile", label: "Buyer profile" } : null,
-    user.roles.includes("SELLER") ? { href: "/seller/search", label: "Seller workspace" } : null,
+    user.roles.includes("SELLER") ? { href: "/seller/properties", label: "Seller workspace" } : null,
     user.roles.includes("ADMIN") ? { href: "/admin", label: "Admin workspace" } : null,
   ].filter((workspace): workspace is { href: string; label: string } => Boolean(workspace));
 

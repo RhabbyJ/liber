@@ -26,11 +26,13 @@ seller data.
 - Guests receive at most four eligible preview records. A validated signed-in
   user receives all otherwise eligible previews through the same narrow DTO,
   with their own buyer profile excluded by server-side Auth UUID predicate.
-- Authentication changes only preview count. It does not authorize seller
-  search, full buyer profiles, filters, contact actions, or additional fields.
+- Every audience can filter and sort the shared map; guests stay capped at 4
+  preview cards with no paging. Authentication changes only preview count and
+  paging. It does not authorize seller search, full buyer profiles, contact
+  actions, or additional fields. Previews exclude blocked relationships.
 - Every audience may see first name, last initial, stable account code, and initials avatar. Never expose a full surname or photograph.
-- Active sellers awaiting or denied full-directory approval may see the same signed-in preview DTO on `/seller/search`; a missing review row is handled as a distinct fail-limited state. Suspended seller-directory access does not receive that seller-route list.
-- The pre-approval seller list has no buyer routing IDs, profile links, contact controls, advanced filters, or invite actions and must not call the approved seller search contract.
+- Sellers awaiting, denied, missing or suspended full-directory approval see the same signed-in preview DTO on the shared map with their review state shown inline.
+- Preview results have no buyer routing IDs, profile links, contact controls, or invite actions and never call the approved seller search contract (`searchBuyers`); they reuse only its id query (`querySellerSearchIds`) and project through the preview `select`.
 - The homepage stays map-first. Compact orientation copy, persistent navigation, and role-aware next-step CTAs may clarify the experience, but must not turn it into a separate marketing hero or expand the preview data contract.
 - Public and seller responses use dedicated Prisma `select` projections. Do not
   load a broad internal buyer object and sanitize it after serialization.

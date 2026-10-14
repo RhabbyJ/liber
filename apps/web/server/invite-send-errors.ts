@@ -16,7 +16,7 @@ export class InviteSendError extends Error {
 }
 
 const sentInvites = { href: "/seller/invites", label: "View sent invites" };
-const buyerSearch = { href: "/seller/search", label: "Back to buyers" };
+const buyerSearch = { href: "/", label: "Back to buyers" };
 
 // Only known domain failures become browser copy. Unknown errors and framework
 // redirects must keep reaching Next's error handling without exposing internals.
@@ -44,7 +44,7 @@ export function inviteSendFeedback(error: unknown): InviteSendFormState | null {
       case "DAILY_LIMIT":
         return { message: "You have sent 25 invites in the last 24 hours. Wait until an earlier send is more than 24 hours old before sending another. You can continue existing conversations now.", action: sentInvites };
       case "ACCESS_REQUIRED":
-        return { message: "Seller directory access must be approved before you can send invites. Check your access status and ask an admin to review it.", action: { href: "/seller/search", label: "View access status" } };
+        return { message: "Seller directory access must be approved before you can send invites. Check your access status and ask an admin to review it.", action: { href: "/", label: "View access status" } };
     }
   }
   if (error instanceof z.ZodError) {

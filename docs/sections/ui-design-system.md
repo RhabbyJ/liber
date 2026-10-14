@@ -138,7 +138,7 @@ Liber's own features and palette. Keep new surfaces inside this system:
 - Hover styling lives inside `@media (hover: hover) and (pointer: fine)`.
   Buttons keep a 44px touch target through `.button::after` whatever their
   visual size.
-- Search pages (`.search-page` on `/` and `/seller/search`): a toolbar with the
+- The search page (`.search-page` on `/`, the one map; `/seller/search` redirects): a toolbar with the
   location search, then filter popovers that edit a draft and commit on Apply.
   Filter pills follow Zillow's 2026 bar: 40px, 8px radius, a 1px `#7e7f8e`
   edge, bold label and chevron; an open or applied pill gets a 2px `#47a62f`

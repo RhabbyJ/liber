@@ -31,7 +31,7 @@ The loop is successful when a seller can find a relevant buyer and send a compli
 
 Liber v1 includes a limited pre-signup preview of buyer demand to make the marketplace value obvious before account creation.
 
-The public homepage is a map-first landing surface: a Zillow-style map showing anonymized, unlabeled buyer-demand pins at approximate locations, plus a small set of matching preview cards and a signup wall. Hovering or keyboard-focusing a preview card highlights only its matching map pin. There is no separate marketing landing page.
+Liber has one buyer-demand map, at `/`, for every audience (October 2026; `/seller/search` redirects there with its filters). Everyone gets the same map, location search, filters (budget, beds and baths, home type, buyer trust, square feet, condition, amenities) and sort. What changes by audience is the projection: approved sellers and admins see full seller-search results; everyone else sees privacy-safe preview cards and unlabeled pins built from the same filtered search. Hovering or keyboard-focusing a preview card highlights only its matching map pin. There is no separate marketing landing page.
 
 The public or unauthenticated experience can:
 
@@ -42,7 +42,7 @@ The public or unauthenticated experience can:
 - show condition only as Move-in ready, Mild fixer, or Fixer; omit unsupported
   condition text from both guest and signed-in preview responses,
 - show the buyer's first name, last initial, account code, and locally generated initials avatar as limited public identity; never expose the full surname or photograph,
-- let visitors select an active ZIP/city/neighborhood service area to pan the public map, draw an approximate selected-area polygon, and scope the limited preview cards to that selected area, without exposing full search,
+- let visitors select an active ZIP/city/neighborhood service area to pan the map, draw an approximate selected-area polygon, and apply the shared filters and sort; results stay capped at 4 preview cards with no paging,
 - use the same limited name and account code across public buyer labels,
 - invite the visitor to sign up or request seller access before viewing full search results or profiles.
 
@@ -50,7 +50,7 @@ The public or unauthenticated experience must not:
 
 - expose full buyer profiles,
 - expose exact buyer locations, precise pin coordinates, home addresses, private documents, lender documents, financial files, contact information, or storage paths,
-- expose a fully searchable buyer directory or public search filters beyond the limited active service-area selector,
+- page past the 4-card teaser or receive anything beyond the preview projection, whatever filters are applied,
 - expose real buyer profile URLs as public SEO/crawlable pages,
 - allow unauthenticated users to message, invite, contact, save, export, or otherwise act on a buyer,
 - use fake production buyers or fake trust signals outside the CEO demo / private preview data policy below,
@@ -58,7 +58,7 @@ The public or unauthenticated experience must not:
 
 Limited pre-signup previews are product marketing and onboarding support. They are not seller search, and they do not replace approved seller-directory access.
 
-After a server-validated sign-in, the homepage may show every otherwise eligible privacy-safe preview record except the signed-in user's own buyer profile. A signed-in seller awaiting or denied full-directory approval may browse that same read-only projection on the seller search route. Both surfaces must use the exact same preview DTO and approximate-pin rules as the public teaser. Authentication changes only preview count and placement: it does not grant full seller search, filters, buyer profile links, private identity or contact data, invite actions, or any field reserved for approved seller-directory access. Limited names, codes, and initials avatars are part of the public preview for every audience. A suspended seller-directory account does not receive the seller-route preview.
+After a server-validated sign-in, buyers, sellers awaiting or denied full-directory approval, and other signed-in accounts page through every otherwise eligible privacy-safe preview record on the same map, except their own buyer profile and anyone they have blocked or who has blocked them. Preview filtering, sort, block exclusion and cursors reuse the approved seller search query; only the projection differs, and it is the exact same preview DTO and approximate-pin rules as the public teaser. Signing in changes only preview count and paging: it does not grant buyer profile links, private identity or contact data, invite actions, or any field reserved for approved seller-directory access. Limited names, codes, and initials avatars are part of the public preview for every audience. Sellers whose directory access is pending, rejected, missing or suspended see that state above the results; suspended accounts keep the same preview any signed-in account sees and nothing more.
 
 The map destination and map headings are labeled **Map**. Searching changes the viewport and filters buyers; it never moves a buyer's pin to a different ZIP/city center. Static fallbacks use geographic street maps or show an unavailable state with usable buyer cards.
 
@@ -287,7 +287,7 @@ Full buyer profiles are not public marketing pages. They are only for approved s
 
 Seller search is the core product surface.
 
-The seller route may show active, non-suspended sellers the same privacy-safe read-only preview projection available to signed-in homepage viewers before full-directory approval. This preview has no buyer routing IDs, full-profile links, identities, contact actions, advanced filters, or invite actions and is not seller search authorization.
+Before full-directory approval, sellers see the signed-in preview projection on the shared map. That preview has no buyer routing IDs, full-profile links, private identities, contact actions, or invite actions and is not seller search authorization.
 
 Seller search must:
 
@@ -314,7 +314,7 @@ Seller search must not:
 
 The approved seller's main product page should feel like a map-first buyer-demand search experience.
 
-Before approval, the seller route should present a calm read-only list of privacy-safe buyer demand with the review state explained inline. It must distinguish pending, rejected, missing-review, and suspended states and must not imply that preview browsing enables contact or invites.
+Before approval, the shared map shows the privacy-safe preview with the review state explained in one inline notice under the filter bar. It must distinguish pending, rejected, missing-review, and suspended states and must not imply that preview browsing enables contact or invites.
 
 The map should:
 

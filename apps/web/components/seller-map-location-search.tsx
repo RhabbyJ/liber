@@ -13,6 +13,7 @@ import {
 } from "../lib/service-area-api";
 import { Icon } from "./icon";
 import { ServiceAreaSuggestions } from "./service-area-suggestions";
+import { demandSearchPath } from "../lib/demand-search-href";
 
 type Props = {
   defaultArea?: string;
@@ -145,8 +146,7 @@ export function SellerMapLocationSearch({ defaultArea = "", defaultServiceArea =
 }
 
 function queryPath(params: URLSearchParams) {
-  const query = params.toString();
-  return query ? `/seller/search?${query}` : "/seller/search";
+  return demandSearchPath(params);
 }
 
 function removeLegacyGeographyParams(params: URLSearchParams) {

@@ -8,7 +8,7 @@ export async function submitSelfTestPreapproval(_previous: TestPreapprovalResult
   try {
     const result = await setSelfTestPreapproval(form);
     if (result.ok) {
-      for (const path of ["/admin/badges", "/buyer/profile", "/buyer/badges", "/buyers", "/seller/search", "/"]) revalidatePath(path, "layout");
+      for (const path of ["/admin/badges", "/buyer/profile", "/buyer/badges", "/buyers", "/"]) revalidatePath(path, "layout");
     }
     return result;
   } catch (error) {

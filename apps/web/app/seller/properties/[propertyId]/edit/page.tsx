@@ -176,7 +176,7 @@ export default async function EditSellerPropertyPage({
             </div>
           </article>
           {verified ? (
-            <Link className="button primary block" href="/seller/search">
+            <Link className="button primary block" href="/">
               <Icon name="search" size={16} />
               Find buyers
             </Link>

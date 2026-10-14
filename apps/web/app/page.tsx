@@ -1,120 +1,209 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
+import { searchBuyersSchema, type SearchBuyersInput } from "@liber/validators";
+import { BuyerCard } from "../components/buyer-card";
+import { BuyerMap } from "../components/buyer-map";
 import { Icon } from "../components/icon";
-import { PublicMapLocationSearch } from "../components/public-map-location-search";
 import { PublicBuyerPreviewCard } from "../components/public-buyer-preview-card";
 import { PublicDemandMap } from "../components/public-demand-map";
+import { SearchFilterBar } from "../components/search-filter-bar";
 import { SearchViewToggle } from "../components/search-view-toggle";
+import { SellerMapLocationSearch } from "../components/seller-map-location-search";
 import { SiteFooter } from "../components/site-footer";
-import { DEFAULT_MARKET_SLUG, serviceAreaDisplayLabel } from "../lib/service-areas";
+import { SortSelect } from "../components/sort-select";
+import type { PublicBuyerPreviewDTO, SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
+import { demandSearchHref, type DemandSearchParams } from "../lib/demand-search-href";
 import { selectedMapArea } from "../lib/map-area";
-import { getPublicBuyerPreviews, hasControlledDemoBuyerPreviews } from "../server/buyer-preview";
+import { distinctPropertyPhotos } from "../lib/property-photos";
+import { DEFAULT_MARKET_SLUG, serviceAreaDisplayLabel } from "../lib/service-areas";
+import { canViewBuyerDirectory } from "../server/access";
+import { hasControlledDemoBuyerPreviews, searchDemandPreviews } from "../server/buyer-preview";
+import { getCurrentSellerAccess, searchBuyers } from "../server/contracts";
+import { SellerSearchCursorError } from "../server/seller-search-query";
 import { getActiveMarketBySlug, getActiveServiceAreaBySlug, resolveActiveServiceArea } from "../server/service-areas";
 import { getSessionUser } from "../server/session";
 
-type HomeSearchParams = {
-  area?: string;
-  market?: string;
-};
-
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams: Promise<HomeSearchParams>;
-}) {
+/**
+ * The one buyer-demand map. Everyone gets the same map, filters, sort and list:
+ * approved sellers (and admins) see full buyer cards that open profiles and invites;
+ * everyone else sees the privacy-safe preview of the same filtered search.
+ */
+export default async function HomePage({ searchParams }: { searchParams: Promise<DemandSearchParams> }) {
   const params = await searchParams;
   const user = await getSessionUser();
-  const marketSlug = serviceAreaParam(params.market) ?? DEFAULT_MARKET_SLUG;
-  const market = await getActiveMarketBySlug(marketSlug);
-  const selectedServiceArea = params.area ? await resolveHomeServiceArea(params.area, market.slug) : null;
+  const roles = user?.roles ?? [];
+  const isSeller = roles.includes("SELLER");
+  const isBuyer = roles.includes("BUYER");
+  const canSearch = user ? await canViewBuyerDirectory(user) : false;
+  const market = await getActiveMarketBySlug(slugParam(params.market) ?? DEFAULT_MARKET_SLUG);
+
+  // Older homepage links carried a free-text ?area=; settle them on one canonical serviceArea slug.
+  if (params.area && !params.serviceArea) {
+    const area = await resolveLegacyArea(params.area, market.slug);
+    redirect(demandSearchHref({ ...params, area: undefined, market: market.slug, serviceArea: area?.slug }, ["cursor"]));
+  }
+
+  const requestedServiceArea = slugParam(params.serviceArea);
+  const selectedServiceArea = requestedServiceArea ? await getActiveServiceAreaBySlug(requestedServiceArea, market.slug) : null;
   const selectedArea = selectedMapArea(selectedServiceArea);
   const selectedAreaLabel = selectedServiceArea ? serviceAreaDisplayLabel(selectedServiceArea) : "";
-  const [buyerPreviews, hasDemoPreviews] = await Promise.all([
-    getPublicBuyerPreviews(market.slug, selectedServiceArea, user?.id),
-    hasControlledDemoBuyerPreviews(),
-  ]);
-  const isBuyer = user?.roles.includes("BUYER") ?? false;
-  const isSeller = user?.roles.includes("SELLER") ?? false;
-  const mapboxToken = (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim();
-  const sellerSearchPath = selectedServiceArea
-    ? `/seller/search?market=${encodeURIComponent(market.slug)}&serviceArea=${encodeURIComponent(selectedServiceArea.slug)}`
-    : `/seller/search?market=${encodeURIComponent(market.slug)}`;
-  const homepagePath = selectedServiceArea
-    ? `/?market=${encodeURIComponent(market.slug)}&area=${encodeURIComponent(selectedServiceArea.slug)}`
-    : `/?market=${encodeURIComponent(market.slug)}`;
-  const sellerSearchHref = user
-    ? sellerSearchPath
-    : `/signup?role=seller&next=${encodeURIComponent(sellerSearchPath)}`;
-  const homepageLoginHref = `/login?next=${encodeURIComponent(homepagePath)}`;
-  const buyerProfilePath = `/buyer/profile?market=${encodeURIComponent(market.slug)}`;
-  const buyerProfileHref = user ? buyerProfilePath : `/signup?role=buyer&next=${encodeURIComponent(buyerProfilePath)}`;
-  const mapPrimaryHref = isSeller ? sellerSearchPath : isBuyer ? buyerProfilePath : user ? "/profile" : sellerSearchHref;
-  const mapPrimaryLabel = isSeller ? "Send invite" : isBuyer ? "Manage buyer profile" : user ? "Your profile" : "Get seller access";
-  const activePreviewLabel = `${buyerPreviews.length} active preview${buyerPreviews.length === 1 ? "" : "s"}`;
+  const amenities = listParam(params.amenities);
+  const badges = listParam(params.badges);
+  const parsed = searchBuyersSchema.safeParse({
+    amenities,
+    badges,
+    bathrooms: params.bathrooms || undefined,
+    bedrooms: params.bedrooms || undefined,
+    budgetMax: params.budgetMax || undefined,
+    budgetMin: params.budgetMin || undefined,
+    condition: params.condition || undefined,
+    cursor: params.cursor || undefined,
+    market: market.slug,
+    propertySubtype: params.propertySubtype || undefined,
+    serviceArea: selectedServiceArea?.slug,
+    sort: params.sort || undefined,
+    squareFeet: params.squareFeet || undefined,
+  });
+  if (!parsed.success) redirect(demandSearchHref({ market: market.slug, serviceArea: selectedServiceArea?.slug }));
+  const input: SearchBuyersInput = parsed.data;
+
+  const sellerAccessStatus = isSeller && !canSearch ? (await getCurrentSellerAccess()).data.status : null;
+  let buyers: SellerBuyerSummaryDTO[] = [];
+  let previews: PublicBuyerPreviewDTO[] = [];
+  let nextCursor: string | null = null;
+  let hasMore = false;
+  try {
+    if (canSearch) {
+      const { data } = await searchBuyers(input);
+      buyers = data.items;
+      nextCursor = data.pageInfo.nextCursor;
+      hasMore = Boolean(nextCursor);
+    } else {
+      const page = await searchDemandPreviews(input, user?.id);
+      previews = page.items;
+      nextCursor = page.nextCursor;
+      hasMore = page.hasMore;
+    }
+  } catch (error) {
+    if (params.cursor && error instanceof SellerSearchCursorError) redirect(demandSearchHref(params, ["cursor"]));
+    throw error;
+  }
+  const hasDemoPreviews = await hasControlledDemoBuyerPreviews();
+
+  const resultCount = canSearch ? buyers.length : previews.length;
+  const photos = distinctPropertyPhotos(canSearch
+    ? buyers.map((buyer) => ({ seed: buyer.id, value: buyer.purpose }))
+    : previews.map((preview) => ({ seed: preview.alias, value: preview.label })));
+  const hasFilters = Boolean(
+    params.budgetMin || params.budgetMax || params.bedrooms || params.bathrooms || params.squareFeet
+      || params.condition || params.propertySubtype || amenities.length || badges.length,
+  );
+  const homePath = demandSearchHref({ market: market.slug, serviceArea: selectedServiceArea?.slug });
+  const signupSellerHref = `/signup?role=seller&next=${encodeURIComponent(homePath)}`;
+  const loginHref = `/login?next=${encodeURIComponent(demandSearchHref(params, ["cursor"]))}`;
+  const previewCta = previewMapCta({ isBuyer, isSeller, signedIn: Boolean(user), signupSellerHref });
 
   return (
     <div className="search-page home-search-page">
-      <div className="search-toolbar public">
-        <div className="search-toolbar-location">
-          <PublicMapLocationSearch defaultArea={selectedAreaLabel} marketSlug={market.slug} />
-        </div>
-        <div className="search-toolbar-actions">
-          <Link className="button primary" href={mapPrimaryHref}>
-            {mapPrimaryLabel}
-          </Link>
-        </div>
-      </div>
+      <SearchFilterBar
+        // Remount when the applied URL filters change so cleared or back-navigated filters reset the drafts.
+        key={demandSearchHref({ ...params, market: market.slug }, ["cursor", "view"])}
+        actions={toolbarAction({ canSearch, isBuyer, isSeller, signedIn: Boolean(user), signupSellerHref })}
+        filters={{
+          amenities,
+          badges,
+          bathrooms: params.bathrooms || "",
+          bedrooms: params.bedrooms || "",
+          budgetMax: params.budgetMax || "",
+          budgetMin: params.budgetMin || "",
+          condition: params.condition || "",
+          propertySubtype: params.propertySubtype || "",
+          squareFeet: params.squareFeet || "",
+        }}
+        location={(
+          <SellerMapLocationSearch
+            defaultArea={selectedAreaLabel}
+            defaultServiceArea={selectedServiceArea?.slug ?? ""}
+            marketSlug={market.slug}
+          />
+        )}
+      />
+
+      {isSeller && !canSearch ? <SellerAccessNotice status={sellerAccessStatus} /> : null}
 
       <div className="search-layout">
-        <section aria-label="Buyer demand preview map" className="search-map">
-          <PublicDemandMap
-            market={market}
-            previews={buyerPreviews}
-            primaryCtaHref={mapPrimaryHref}
-            primaryCtaLabel={mapPrimaryLabel}
-            secondaryCtaHref={user ? undefined : homepageLoginHref}
-            secondaryCtaLabel={user ? undefined : "Sign in to see more"}
-            selectedArea={selectedArea}
-            selectedAreaLabel={selectedAreaLabel}
-            token={mapboxToken}
-          />
+        <section aria-label="Buyer demand map" className="search-map">
+          {canSearch ? (
+            <BuyerMap
+              buyers={buyers}
+              clearAreaHref={selectedServiceArea ? demandSearchHref(params, ["serviceArea", "cursor"]) : undefined}
+              market={market}
+              selectedServiceArea={selectedArea}
+            />
+          ) : (
+            <PublicDemandMap
+              market={market}
+              previews={previews}
+              primaryCtaHref={previewCta.href}
+              primaryCtaLabel={previewCta.label}
+              secondaryCtaHref={user ? undefined : loginHref}
+              secondaryCtaLabel={user ? undefined : "Sign in to see more"}
+              selectedArea={selectedArea}
+              selectedAreaLabel={selectedAreaLabel}
+              token={(process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").trim()}
+            />
+          )}
         </section>
 
         <section aria-labelledby="demand-results-title" className="search-results" id="demand-results">
           <span aria-hidden="true" className="search-results-handle" />
           <header className="search-results-head">
             <div>
-              <h1 id="demand-results-title">
-                {selectedAreaLabel ? `${selectedAreaLabel} buyer demand` : `${market.label} buyer demand`}
-              </h1>
+              <h1 id="demand-results-title">{selectedAreaLabel || market.label} buyer demand</h1>
               <p>
-                <strong>{selectedArea ? `${buyerPreviews.length} in this area` : activePreviewLabel}</strong>
-                {hasDemoPreviews && buyerPreviews.length > 0 ? <span> · Includes clearly labeled demo profiles</span> : null}
+                <strong>{resultCount}{hasMore && user ? "+" : ""} {resultCount === 1 ? "buyer" : "buyers"}</strong>
+                {hasFilters ? <span> matched to your filters</span> : null}
+                {hasDemoPreviews && resultCount > 0 ? <span> · Includes clearly labeled demo profiles</span> : null}
               </p>
             </div>
+            <SortSelect value={input.sort} />
           </header>
 
-          <div className="listing-grid">
-            {buyerPreviews.length > 0 ? (
-              buyerPreviews.map((preview, index) => (
-                <PublicBuyerPreviewCard index={index} key={index} preview={preview} />
-              ))
-            ) : selectedArea ? (
-              <div className="search-empty compact">
-                <span className="search-empty-icon" aria-hidden="true"><Icon name="search" size={24} /></span>
-                <h2>No preview cards here yet</h2>
-                <p>No privacy-safe buyer previews match this selected area.</p>
-              </div>
-            ) : null}
+          {resultCount === 0 ? (
+            <div className="search-empty">
+              <span className="search-empty-icon" aria-hidden="true"><Icon name="search" size={26} /></span>
+              <h2>{hasFilters ? "No buyers match these filters" : "No buyer demand here yet"}</h2>
+              <p>Try another supported area, widening the budget range, or removing filters.</p>
+              {hasFilters || selectedServiceArea ? (
+                <Link className="button secondary" href={demandSearchHref({ market: market.slug })}>Reset search</Link>
+              ) : null}
+            </div>
+          ) : (
+            <div className="listing-grid">
+              {canSearch
+                ? buyers.map((buyer, index) => <BuyerCard buyer={buyer} key={buyer.id} photoSrc={photos[index]} priority={index < 2} />)
+                : previews.map((preview, index) => <PublicBuyerPreviewCard index={index} key={`${preview.alias}-${index}`} photoSrc={photos[index]} preview={preview} />)}
+              {user ? null : <GuestTeaser hasMore={hasMore} loginHref={loginHref} signupSellerHref={signupSellerHref} />}
+            </div>
+          )}
 
-            <HomepageNextStep
-              buyerProfileHref={buyerProfileHref}
-              homepageLoginHref={homepageLoginHref}
-              isBuyer={isBuyer}
-              isSeller={isSeller}
-              isSignedIn={Boolean(user)}
-              sellerSearchHref={sellerSearchHref}
-            />
-          </div>
+          {user && (nextCursor || params.cursor) ? (
+            <nav aria-label="Buyer result pages" className="search-pagination">
+              {params.cursor ? (
+                <Link className="pagination-button" href={demandSearchHref(params, ["cursor"])}>
+                  <Icon name="chevron-left" size={16} />
+                  First page
+                </Link>
+              ) : <span />}
+              {nextCursor ? (
+                <Link className="pagination-button primary" href={demandSearchHref({ ...params, cursor: nextCursor })}>
+                  Next buyers
+                  <Icon name="chevron-right" size={16} />
+                </Link>
+              ) : null}
+            </nav>
+          ) : null}
 
           <SiteFooter variant="compact" />
         </section>
@@ -124,63 +213,84 @@ export default async function HomePage({
   );
 }
 
-function HomepageNextStep({
-  buyerProfileHref,
-  homepageLoginHref,
-  isBuyer,
-  isSeller,
-  isSignedIn,
-  sellerSearchHref,
-}: {
-  buyerProfileHref: string;
-  homepageLoginHref: string;
+function toolbarAction({ canSearch, isBuyer, isSeller, signedIn, signupSellerHref }: {
+  canSearch: boolean;
   isBuyer: boolean;
   isSeller: boolean;
-  isSignedIn: boolean;
-  sellerSearchHref: string;
+  signedIn: boolean;
+  signupSellerHref: string;
+}): ReactNode {
+  if (canSearch && isSeller) {
+    return (
+      <Link className="button primary" href="/seller/properties/new">
+        <Icon name="plus" size={16} />
+        Add property
+      </Link>
+    );
+  }
+  if (isSeller) return <Link className="button secondary" href="/seller/properties">Your properties</Link>;
+  if (isBuyer) return <Link className="button secondary" href="/buyer/profile">Your buyer profile</Link>;
+  if (!signedIn) return <Link className="button primary" href={signupSellerHref}>Get seller access</Link>;
+  return null;
+}
+
+/** Popup action on preview pins: nobody but an approved seller can open a profile or invite. */
+function previewMapCta({ isBuyer, isSeller, signedIn, signupSellerHref }: {
+  isBuyer: boolean;
+  isSeller: boolean;
+  signedIn: boolean;
+  signupSellerHref: string;
 }) {
-  if (isSeller) {
-    return (
-      <article className="promo-card">
-        <h2>Find your next buyer</h2>
-        <p>Choose a matching buyer and share your property with a private invite.</p>
-        <Link className="button secondary" href={sellerSearchHref}>Send invite</Link>
-      </article>
-    );
-  }
+  if (isSeller) return { href: "/seller/properties", label: "Check seller access" };
+  if (isBuyer) return { href: "/buyer/profile", label: "Your buyer profile" };
+  if (signedIn) return { href: "/profile", label: "Your profile" };
+  return { href: signupSellerHref, label: "Get seller access" };
+}
 
-  if (isBuyer) {
-    return (
-      <article className="promo-card">
-        <h2>Your buyer profile</h2>
-        <p>Keep your criteria current so matching sellers can find you.</p>
-        <Link className="button secondary" href={buyerProfileHref}>Manage buyer profile</Link>
-      </article>
-    );
-  }
+function SellerAccessNotice({ status }: { status: string | null }) {
+  const state = status === "SUSPENDED"
+    ? { body: "Contact Liber support if you believe this restriction was applied in error.", label: "Seller access suspended", tone: "danger" }
+    : status === "REJECTED"
+      ? { body: "Full profiles and invites are locked. You can still browse anonymized demand.", label: "Not approved", tone: "warning" }
+      : status
+        ? { body: "Full profiles and invites unlock after review.", label: "Awaiting review", tone: "" }
+        : { body: "Review has not started. You can still browse anonymized demand.", label: "Review not started", tone: "" };
+  return (
+    <div className="search-notice">
+      <div className={`inline-alert ${state.tone}`} role="status">
+        <Icon name={state.tone ? "lock" : "info"} size={20} />
+        <p><strong>{state.label}.</strong> {state.body}</p>
+        <Link className="text-link" href="/seller/properties">Manage properties</Link>
+      </div>
+    </div>
+  );
+}
 
-  if (isSignedIn) return null;
-
+function GuestTeaser({ hasMore, loginHref, signupSellerHref }: { hasMore: boolean; loginHref: string; signupSellerHref: string }) {
   return (
     <article className="promo-card">
-      <h2>See every buyer</h2>
-      <p>Guests preview four buyers. Sign in to see the full demand map.</p>
-      <Link className="button primary" href={homepageLoginHref}>Sign in</Link>
+      <h2>{hasMore ? "See every buyer" : "Know who’s buying"}</h2>
+      <p>Guests preview four buyers. Sign in to see the full demand map and filter every buyer.</p>
+      <Link className="button primary" href={loginHref}>Sign in</Link>
       <p className="promo-card-links">
-        New to Liber? <Link href={sellerSearchHref}>Join as a seller</Link> or <Link href={buyerProfileHref}>create a buyer profile</Link>.
+        New to Liber? <Link href={signupSellerHref}>Join as a seller</Link> or{" "}
+        <Link href="/signup?role=buyer&next=%2Fbuyer%2Fprofile">create a buyer profile</Link>.
       </p>
     </article>
   );
 }
 
-async function resolveHomeServiceArea(value: string, marketSlug: string) {
-  const bySlug = await getActiveServiceAreaBySlug(value, marketSlug);
+async function resolveLegacyArea(value: string, marketSlug: string) {
+  const bySlug = slugParam(value) ? await getActiveServiceAreaBySlug(value, marketSlug) : null;
   if (bySlug) return bySlug;
-
   const resolution = await resolveActiveServiceArea(value, marketSlug);
   return resolution.status === "resolved" ? resolution.area : null;
 }
 
-function serviceAreaParam(value?: string) {
+function slugParam(value?: string) {
   return value && /^[a-z0-9-]+$/.test(value) ? value : undefined;
+}
+
+function listParam(value?: string | string[]) {
+  return Array.isArray(value) ? value : value ? [value] : [];
 }

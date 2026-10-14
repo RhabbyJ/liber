@@ -69,7 +69,7 @@ export default async function PreviewToolsPage() {
           <>
             <p>Your seller-directory access is approved for this private preview (auto-approved on sign-in).</p>
             <div className="actions inline">
-              <Link className="button primary" href="/seller/search">Open seller search</Link>
+              <Link className="button primary" href="/">Open the buyer map</Link>
             </div>
           </>
         ) : status === "SUSPENDED" ? (

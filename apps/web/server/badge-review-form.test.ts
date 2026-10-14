@@ -50,7 +50,7 @@ describe("badge review form feedback", () => {
     expect(result.ok).toBe(true);
     expect(command).toHaveBeenCalledWith(form);
     expect(mocks.revalidatePath.mock.calls).toEqual([
-      ["/admin/badges"], ["/buyer/badges"], ["/buyer/profile"], ["/buyer/notifications"], ["/seller/search"],
+      ["/admin/badges"], ["/buyer/badges"], ["/buyer/profile"], ["/buyer/notifications"], ["/"],
     ]);
   });
 

@@ -15,6 +15,7 @@ export function PropertyTypeArtwork({
   priority = false,
   seed = "",
   sizes = "64px",
+  src,
   value,
 }: {
   className?: string;
@@ -23,6 +24,8 @@ export function PropertyTypeArtwork({
   /** Spreads cards of the same type across that type's photos (buyer or property id). */
   seed?: string;
   sizes?: string;
+  /** A photo already assigned for this page (see `distinctPropertyPhotos`). */
+  src?: string;
   value?: unknown;
 }) {
   return (
@@ -38,7 +41,7 @@ export function PropertyTypeArtwork({
         fill
         priority={priority}
         sizes={sizes}
-        src={propertyPhotoSrc(value, seed)}
+        src={src ?? propertyPhotoSrc(value, seed)}
       />
     </span>
   );

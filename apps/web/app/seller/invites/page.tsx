@@ -24,7 +24,7 @@ export default async function SellerInvitesPage() {
     <div className="page stack loose">
       <PageTitle
         actions={(
-          <Link className="button primary" href="/seller/search">
+          <Link className="button primary" href="/">
             <Icon name="search" size={16} />
             Find buyers
           </Link>
@@ -47,7 +47,7 @@ export default async function SellerInvitesPage() {
           icon="mail"
           title="No invites sent yet"
           description="Search buyers and send a manual invite once you find a fit."
-          actions={<Link className="button primary" href="/seller/search">Find buyers</Link>}
+          actions={<Link className="button primary" href="/">Find buyers</Link>}
         />
       ) : (
         <ul className="activity-list" aria-label="Sent invites">

@@ -6,7 +6,7 @@ describe("primary navigation", () => {
     expect(primaryNavItems(false, []).map(({ href, label }) => ({ href, label }))).toEqual([
       { href: "/", label: "Map" },
       { href: "/signup?role=buyer&next=%2Fbuyer%2Fprofile", label: "For buyers" },
-      { href: "/signup?role=seller&next=%2Fseller%2Fsearch", label: "For sellers" },
+      { href: "/signup?role=seller&next=%2F", label: "For sellers" },
     ]);
   });
 
@@ -16,7 +16,6 @@ describe("primary navigation", () => {
     expect(labels).toEqual([
       "Map",
       "Received invites",
-      "Find buyers",
       "Properties",
       "Sent invites",
       "Messages",

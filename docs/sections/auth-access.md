@@ -34,7 +34,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 ## Invariants
 
 - Roles are not enough for full seller-directory access; `SellerAccess.status = APPROVED` is required for search, buyer-profile reads, and invites.
-- Active sellers with `PENDING` or `REJECTED` access may see only the signed-in privacy-safe preview DTO on `/seller/search`. Missing-review state uses the same fail-limited projection; `SUSPENDED` access receives no seller-route preview. This never relaxes the approved search/profile/invite gates.
+- Sellers without approved access (pending, rejected, missing or suspended) see only the signed-in privacy-safe preview DTO on the shared map at `/`, like any signed-in account. This never relaxes the approved search/profile/invite gates.
 - Verified callbacks and successful password logins idempotently ensure a SELLER has an access row. A new row starts `PENDING`; an existing review status is preserved, and neither path can approve access.
 - Admin cannot be self-assigned through ordinary customer signup or profile UI.
 - The only self-service exceptions are the server-gated CEO-preview elevations.
