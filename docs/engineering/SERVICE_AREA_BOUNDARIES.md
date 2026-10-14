@@ -103,6 +103,10 @@ MVP matching:
 - For parent searches, recursively include descendants connected by reviewed `SEARCH_ROLLUP` rows.
 - Do not let spatial/display relationships or legacy text/bbox fields create matches.
 
+Runtime search uses a short-lived, per-market in-memory index built from active areas and their reviewed `service_area_search_terms` rows (`server/service-areas.ts`, `lib/service-area-search.ts`). Each server instance refreshes it after 60 seconds and serves a recent catalog (up to 15 minutes) while one refresh runs; with no usable catalog it returns the controlled unavailable error. The fixture fallback uses the same ranking code. `geography_admin.search_active_service_areas` remains the database-side reference used by release rehearsals and plan tests.
+
+Ranking: exact tiers (slug, postal code, label, reviewed term, unchanged from the SQL function) decide resolution; a trailing state or country suffix ("CA", "California") may be ignored for exact matching. Suggestions additionally match full-term prefixes, any-word prefixes and reordered words, spacing variants, directional/`Mt`/`St` abbreviations, and bounded typos (1 edit for 4-7 letters, 2 for longer words). Each suggestion reports `match: exact|prefix|word|fuzzy`. Areas without reviewed terms are never returned.
+
 Service-area lookup must be deterministic:
 
 - UI/API lookup uses explicit per-area search terms such as `91604`, `studio city`, and `studio city 91604`.
@@ -131,11 +135,12 @@ Maps remain clamped to the active County bbox, support drag/touch pan and zoom, 
 
 When a supported area is selected:
 
-1. Remove the previous selected-area source/layers.
-2. Add the selected GeoJSON as `liber-selected-service-area-source`.
-3. Add `liber-selected-service-area-fill`.
-4. Add `liber-selected-service-area-outline`.
-5. Fit the map to the stored bbox.
+1. Remove the previous selected-area sources/layers.
+2. Add the selected GeoJSON as `liber-selected-service-area-source` and its inverse (world minus the area's outer rings; enclaves stay dimmed) as `liber-selected-service-area-mask-source`.
+3. Add `liber-selected-service-area-mask`, `-fill`, `-casing`, and `-outline` beneath the first basemap symbol layer so street and place labels stay readable.
+4. Fit the map to the stored bbox with responsive padding (no animation under reduced motion).
+
+Markers whose screen positions overlap at the current zoom combine into one count marker anchored at the busiest member's real area center; clicking it zooms to the members, and zooming in splits them. No marker is placed at a synthetic coordinate.
 
 The UI must not draw radius circles for selected ZIP, city, or neighborhood areas.
 When Mapbox is unavailable, a fallback may draw a selected boundary only if pins and geometry share the same projection. Current static pin fallbacks omit the boundary rather than imply false spatial alignment.

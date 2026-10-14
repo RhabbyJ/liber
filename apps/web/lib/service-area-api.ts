@@ -1,3 +1,4 @@
+import type { ServiceAreaMatchKind } from "./service-area-search";
 import type { ServiceArea } from "./service-areas";
 
 export type ServiceAreaApiResult = {
@@ -11,6 +12,8 @@ export type ServiceAreaApiResult = {
   is_pilot: boolean;
   label: string;
   market_slug: string;
+  match?: ServiceAreaMatchKind;
+  matched_term?: string;
   postal_code: string | null;
   slug: string;
   source: string;
@@ -29,7 +32,9 @@ export type ServiceAreaSearchResponse = {
   suggestions: ServiceAreaApiResult[];
 };
 
-export function apiResultToServiceArea(result: ServiceAreaApiResult): ServiceArea {
+export type ServiceAreaSuggestionArea = ServiceArea & { match?: ServiceAreaMatchKind; matchedTerm?: string };
+
+export function apiResultToServiceArea(result: ServiceAreaApiResult): ServiceAreaSuggestionArea {
   return {
     active: true,
     bbox: result.bbox,
@@ -44,6 +49,8 @@ export function apiResultToServiceArea(result: ServiceAreaApiResult): ServiceAre
     isPilot: result.is_pilot,
     label: result.label,
     marketSlug: result.market_slug,
+    ...(result.match ? { match: result.match } : {}),
+    ...(result.matched_term ? { matchedTerm: result.matched_term } : {}),
     postalCode: result.postal_code,
     slug: result.slug,
     source: result.source,
@@ -55,8 +62,4 @@ export function apiResultToServiceArea(result: ServiceAreaApiResult): ServiceAre
 
 export function resolvedAreaFromSearchPayload(payload: ServiceAreaSearchResponse) {
   return payload.resolution.status === "resolved" ? apiResultToServiceArea(payload.resolution.area) : null;
-}
-
-export function hasSearchSuggestions(payload: ServiceAreaSearchResponse) {
-  return payload.suggestions.length > 0 || payload.resolution.status === "ambiguous";
 }

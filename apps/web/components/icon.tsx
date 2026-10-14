@@ -13,6 +13,7 @@ export type IconName =
   | "chevron-down"
   | "chevron-left"
   | "chevron-right"
+  | "clock"
   | "close"
   | "compass"
   | "condo"
@@ -94,6 +95,12 @@ const paths: Record<IconName, ReactElement> = {
   "chevron-down": <path d="m6 9 6 6 6-6" />,
   "chevron-left": <path d="m15 6-6 6 6 6" />,
   "chevron-right": <path d="m9 6 6 6-6 6" />,
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </>
+  ),
   close: <path d="M6 6l12 12M18 6 6 18" />,
   compass: (
     <>

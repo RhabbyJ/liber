@@ -50,6 +50,7 @@
     "db:import-service-areas": "node scripts/import-service-areas.mjs",
     "db:release-la-geography": "node scripts/manage-la-geography-release.mjs",
     "db:rehearse-la-geography": "node scripts/rehearse-la-geography-release.mjs",
+    "db:rehearse-la-communities": "node scripts/rehearse-la-community-release.mjs",
     "db:test-geography:fresh": "node scripts/test-geography-migration-fresh.mjs",
     "db:test-geography:upgrade": "node scripts/test-geography-migration-upgrade.mjs",
     "db:test-identity": "node scripts/test-identity-migration.mjs",

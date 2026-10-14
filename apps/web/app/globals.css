@@ -9150,3 +9150,418 @@ a.map-card:focus-visible {
     height: 64px;
   }
 }
+
+/* Pin clusters: nearby areas merge into one dark count pill (logged in) or a
+   dark count dot (preview) that zooms in on click; they split as you zoom.
+   Style the inner span: Mapbox owns the marker element's transform. */
+.map-price-pin.cluster {
+  background: var(--ink-strong);
+  color: #fff;
+}
+
+.map-price-pin.cluster::after {
+  border-top-color: var(--ink-strong);
+}
+
+.map-dot-pin .public-demand-count {
+  align-items: center;
+  color: #fff;
+  display: inline-flex;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  height: 24px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 24px;
+  padding: 0 6px;
+  width: auto;
+}
+
+.map-dot-pin.cluster .public-demand-count {
+  background: var(--ink-strong);
+  border-radius: 999px;
+  box-shadow: 0 0 0 6px rgba(42, 42, 51, 0.16), 0 2px 2px rgba(0, 0, 0, 0.5);
+  height: 28px;
+  min-width: 28px;
+}
+
+/* ==========================================================================
+   Service-area combobox (homepage map, seller map, filters, buyer profile)
+   ========================================================================== */
+
+.sr-only {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.area-search {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  position: relative;
+}
+
+.area-search-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.area-search-field {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.area-search-field .area-search-icon {
+  color: var(--sage-strong);
+  left: 12px;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.area-search-field input {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  color: var(--ink-strong);
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 42px;
+  padding: 0 64px 0 38px;
+  text-overflow: ellipsis;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  width: 100%;
+}
+
+.area-search-field input::placeholder {
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+
+.area-search-field input:focus {
+  border-color: var(--sage-strong);
+  box-shadow: var(--focus-ring);
+  outline: 0;
+}
+
+.area-search-clear {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-pill);
+  color: var(--ink-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 20px;
+  height: 30px;
+  justify-content: center;
+  line-height: 1;
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+}
+
+.area-search-clear:hover,
+.area-search-clear:focus-visible {
+  background: var(--surface-muted);
+  color: var(--ink-strong);
+  outline: 0;
+}
+
+.area-search-spinner {
+  animation: area-search-spin 0.7s linear infinite;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  border-top-color: var(--sage-strong);
+  height: 14px;
+  position: absolute;
+  right: 40px;
+  top: calc(50% - 7px);
+  width: 14px;
+}
+
+@keyframes area-search-spin {
+  to { transform: rotate(360deg); }
+}
+
+.area-search-submit {
+  background: var(--sage-deep);
+  border: 0;
+  border-radius: var(--r-sm);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 42px;
+  padding: 0 16px;
+}
+
+.area-search-popover {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: 0 20px 48px rgba(24, 35, 31, 0.18);
+  left: 0;
+  max-height: min(380px, 60vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+}
+
+.area-search-popover[hidden] {
+  display: none;
+}
+
+.area-search-note {
+  color: var(--ink-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  margin: 0;
+  padding: 6px 10px 4px;
+}
+
+.area-search-note.attention {
+  color: var(--info);
+}
+
+.area-search-options {
+  display: grid;
+  gap: 1px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.area-search-options:empty {
+  display: none;
+}
+
+.area-search-option {
+  align-items: center;
+  border-radius: var(--r-sm);
+  color: var(--ink-strong);
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  min-height: 46px;
+  padding: 6px 10px;
+}
+
+.area-search-option[aria-selected="true"] {
+  background: var(--sage-tint);
+}
+
+.area-search-option-icon {
+  align-items: center;
+  background: var(--surface-muted);
+  border-radius: var(--r-pill);
+  color: var(--ink-soft);
+  display: inline-flex;
+  flex: 0 0 30px;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.area-search-option-icon.neighborhood {
+  background: var(--sage-tint-strong);
+  color: var(--sage-deep);
+}
+
+.area-search-option-icon.city {
+  background: var(--amber-tint);
+  color: var(--amber-strong);
+}
+
+.area-search-option-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.area-search-option-text strong {
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.area-search-option-text mark {
+  background: transparent;
+  color: var(--ink-strong);
+  font-weight: 800;
+}
+
+.area-search-option-text small {
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.area-search-message {
+  color: var(--info);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* Homepage rail: the outer box owns the border, so the field is borderless. */
+.public-map-search-box .area-search-row {
+  min-height: 48px;
+  padding: 0 6px 0 2px;
+}
+
+.public-map-search-box .area-search-field input {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  font-size: 15px;
+  font-weight: 700;
+  min-height: 44px;
+}
+
+.public-map-search-box .area-search-popover {
+  left: -1px;
+  right: -1px;
+}
+
+.public-map-search-box .area-search-message {
+  padding: 0 10px 8px 38px;
+}
+
+.seller-map-search .area-search-row .button {
+  min-height: 42px;
+  padding-inline: 18px;
+}
+
+.filter-area-search .area-search-field input {
+  min-height: 40px;
+}
+
+@media (max-width: 640px) {
+  .seller-map-search .area-search-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .area-search-popover {
+    max-height: 50vh;
+  }
+
+  .area-search-option {
+    min-height: 50px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .area-search-spinner {
+    animation-duration: 2s;
+  }
+}
+
+/* The map's location search reads like Zillow's: one 40px field with the search
+   icon button inside it on the right (clear sits just left of it). */
+.seller-map-search .area-search-row {
+  flex-direction: row;
+  gap: 0;
+  position: relative;
+}
+
+.seller-map-search .area-search-field .area-search-icon {
+  display: none;
+}
+
+.seller-map-search .area-search-field input {
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-md);
+  caret-color: var(--sage-deep);
+  font-size: 16px;
+  font-weight: 400;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 80px 0 12px;
+}
+
+.seller-map-search .area-search-field input:hover,
+.seller-map-search .area-search-field input:focus {
+  border-color: var(--sage-deep);
+  box-shadow: none;
+}
+
+.seller-map-search .area-search-row:focus-within {
+  border-radius: var(--r-md);
+  box-shadow: var(--focus-ring);
+}
+
+.seller-map-search .area-search-clear {
+  right: 42px;
+}
+
+.seller-map-search .area-search-spinner {
+  right: 78px;
+}
+
+.seller-map-search .seller-map-search-submit {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  color: var(--ink-strong);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0;
+  height: 38px;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  width: 40px;
+  z-index: 2;
+}
+
+.seller-map-search .seller-map-search-submit::before {
+  background: currentColor;
+  content: "";
+  height: 18px;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='m20 20-4.5-4.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='m20 20-4.5-4.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  width: 18px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .seller-map-search .seller-map-search-submit:hover {
+    color: var(--sage-deep);
+  }
+}
+
+.seller-map-search .seller-map-search-submit:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}

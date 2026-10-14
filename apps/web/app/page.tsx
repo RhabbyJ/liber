@@ -124,7 +124,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         location={(
           <SellerMapLocationSearch
             defaultArea={selectedAreaLabel}
-            defaultServiceArea={selectedServiceArea?.slug ?? ""}
             marketSlug={market.slug}
           />
         )}
@@ -228,9 +227,10 @@ function toolbarAction({ canSearch, isBuyer, isSeller, signedIn, signupSellerHre
       </Link>
     );
   }
-  if (isSeller) return <Link className="button secondary" href="/seller/properties">Your properties</Link>;
-  if (isBuyer) return <Link className="button secondary" href="/buyer/profile">Your buyer profile</Link>;
-  if (!signedIn) return <Link className="button primary" href={signupSellerHref}>Get seller access</Link>;
+  // Every action carries an icon: on phones the toolbar collapses actions to icon buttons.
+  if (isSeller) return <Link className="button secondary" href="/seller/properties"><Icon name="home" size={16} />Your properties</Link>;
+  if (isBuyer) return <Link className="button secondary" href="/buyer/profile"><Icon name="user" size={16} />Your buyer profile</Link>;
+  if (!signedIn) return <Link className="button primary" href={signupSellerHref}><Icon name="key" size={16} />Get seller access</Link>;
   return null;
 }
 

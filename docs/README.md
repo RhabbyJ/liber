@@ -51,6 +51,7 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
   and production selection rules.
 - `engineering/GEOGRAPHY_LA_COUNTY_RELEASE_RUNBOOK.md` — exact-hash LA County staging, activation, production reconciliation, and rollback.
 - `engineering/GEOGRAPHY_LA_COUNTY_RELEASE_EVIDENCE_2026-07-12.md` — pinned source, transaction rehearsal, verification, and production reconciliation evidence for the active County release.
+- `engineering/GEOGRAPHY_LA_COMMUNITIES_RELEASE_EVIDENCE_2026-10-13.md` — rehearsal, production activation of all 269 County communities, migration checksums, advisor results, and the open outbox-cron finding.
 - `engineering/GEOGRAPHY_LA_SECURITY_HARDENING_EVIDENCE_2026-07-13.md` — applied raw-access/default-privilege hardening, prefix-index and migration-ledger proof, plus the remaining Supabase-owned launch blockers.
 
 ## Section micro-docs

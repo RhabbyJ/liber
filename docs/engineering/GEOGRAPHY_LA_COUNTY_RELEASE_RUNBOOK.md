@@ -95,6 +95,59 @@ npm run db:release-la-geography -- <manifest> --activate
 
 The command validates the external ledger before connecting, requires the database migration checksum to match the checked-in SQL exactly, pins writes to the confirmed Supabase project ref, serializes supported release writes with a transaction advisory lock, wraps each write in a short transaction, and prints only aggregate reconciliation data.
 
+## Community release (2026-10-13)
+
+Release `la-county-06037-2026-07-12-v2-communities-2026-10-13` activates the 266
+retained County statistical communities from the same v2 dataset (Granada Hills,
+Sherman Oaks, Van Nuys, Altadena, East Los Angeles, ...), for 269 active
+neighborhoods in total, and adds 30 reviewed nickname terms
+(`geography_admin.la_county_community_aliases()`, term kind
+`LIBER_REVIEWED_ALIAS`). It changes no geometry, labels, relationships, market
+bounds, or v2 terms. Existing reviewed City of Los Angeles and Long Beach
+`SEARCH_ROLLUP` rows make a city search include its communities.
+
+Migration `20261013090000_activate_la_county_communities` changes no live rows. It
+replaces `assert_la_county_activation_current` so the v2 invariant accepts the
+community overlay only while the community snapshot is live (a static test proves
+this is the only change) and adds owner-only activate, assert, and rollback
+functions. Activation verifies the exact v2 ledger and live v2 state, locks the
+market, records the activated IDs in `geography_activation_snapshots`, and aborts
+unless all 269 communities, aliases, and County invariants hold. A second run is
+idempotent. While the community snapshot is live, the v2 rollback is blocked.
+
+Order:
+
+1. Apply pending migrations through Prisma.
+2. Rehearse inside one rolled-back transaction:
+
+   ```text
+   LA_GEOGRAPHY_REHEARSAL_DATABASE_URL=<guarded Supabase database URL>
+   LA_GEOGRAPHY_REHEARSAL_ALLOW_ROLLBACK_ONLY=true
+   LA_GEOGRAPHY_REHEARSAL_CONFIRM=la-county-06037-2026-07-12-v2-communities-2026-10-13
+   LA_GEOGRAPHY_REHEARSAL_PROJECT_REF=<exact project ref>
+   ```
+
+   `npm run db:rehearse-la-communities` proves rejected ledgers, activation (266),
+   idempotency, Granada Hills/NoHo/LA-rollup lookups, the v2 rollback block, the
+   active-buyer rollback guard, rollback to the exact v2 state, refusal to
+   reactivate a rolled-back release, and an unchanged outer state.
+3. Deploy the application with the cached search catalog and new search UI.
+4. Activate with `LA_GEOGRAPHY_RELEASE_CONFIRM` set to the community release and
+   `npm run db:release-la-geography -- <manifest> --activate-communities`.
+5. Confirm `--status` reports 88 cities, 304 ZCTAs, 269 neighborhoods, one live
+   community snapshot, and zero invalid active buyers. Search results refresh
+   within one minute (server catalog) plus five minutes (CDN cache).
+
+The community release completed in production on 2026-10-13 after a passing
+rollback-only rehearsal; evidence is in
+`GEOGRAPHY_LA_COMMUNITIES_RELEASE_EVIDENCE_2026-10-13.md`.
+
+Rollback uses `--rollback-communities` with `LA_GEOGRAPHY_RELEASE_ALLOW_ROLLBACK=true`
+and `LA_GEOGRAPHY_RELEASE_ROLLBACK_CONFIRM=<community release>:rollback`. It fails
+before mutation if a published buyer selected one of the 266 communities; that
+buyer must reselect first. A rolled-back release cannot be reactivated under the
+same identifier.
+
 ## Rollback
 
 Rollback requires the standard write confirmation plus:

@@ -10,7 +10,7 @@ seller data.
 
 - `apps/web/app/page.tsx`
 - `apps/web/components/public-demand-map.tsx`
-- `apps/web/components/public-map-location-search.tsx`
+- `apps/web/components/seller-map-location-search.tsx`
 - `apps/web/server/buyer-preview.ts`
 - `apps/web/server/buyer/read-models.ts`
 - `apps/web/lib/buyer-dtos.ts`

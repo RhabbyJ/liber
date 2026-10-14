@@ -14,15 +14,18 @@ export type MapboxMap = {
   addControl(control: unknown, position?: string): void;
   addLayer(layer: Record<string, unknown>, beforeId?: string): void;
   addSource(id: string, source: Record<string, unknown>): void;
+  easeTo(options: Record<string, unknown>): void;
   fitBounds(bounds: MapboxBoundsLike | MapboxLngLatBounds, options?: Record<string, unknown>): void;
   flyTo(options: Record<string, unknown>): void;
+  getContainer(): HTMLElement;
   getLayer(id: string): unknown;
   getSource(id: string): MapboxGeoJsonSource | undefined;
-  getStyle(): { layers?: Array<{ id: string; type: string }> } | undefined;
+  getStyle?(): { layers?: Array<{ id: string; type: string }> } | undefined;
   getZoom(): number;
   off(event: string, listener: () => void): void;
   project(coordinates: [number, number]): { x: number; y: number };
   on(event: string, listener: () => void): void;
+  project(coordinates: [number, number]): { x: number; y: number };
   remove(): void;
   removeLayer(id: string): void;
   removeSource(id: string): void;
@@ -31,6 +34,7 @@ export type MapboxMap = {
 
 export type MapboxMarker = {
   addTo(map: MapboxMap): MapboxMarker;
+  getElement(): HTMLElement;
   remove(): void;
   setLngLat(coordinates: [number, number]): MapboxMarker;
   setPopup(popup: MapboxPopup): MapboxMarker;
@@ -45,6 +49,8 @@ export type MapboxPopup = {
   setLngLat(coordinates: [number, number]): MapboxPopup;
   setOffset(offset: Record<string, [number, number]>): MapboxPopup;
 };
+
+export type MapboxBounds = MapboxBoundsLike;
 
 export type MapboxLngLatBounds = {
   extend(coordinates: [number, number]): MapboxLngLatBounds;

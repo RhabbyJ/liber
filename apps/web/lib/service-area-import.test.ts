@@ -217,7 +217,9 @@ describe("reviewed LA County service-area dataset", () => {
     expect(importer).toContain("Service-area import commit outcome is unknown");
     expect(importer).toContain("Service-area import committed, but result reporting failed");
     expect(releaseManager).toContain("expectedMigrationChecksum");
-    expect(releaseManager).toContain("response.rows[0]?.checksum !== expectedMigrationChecksum");
+    expect(releaseManager).toContain("response.rows[0]?.checksum !== checksum");
+    expect(releaseManager).toContain("await assertMigrationLedger(client, releaseMigrationName, expectedMigrationChecksum);");
+    expect(releaseManager).toContain("await assertMigrationLedger(client, communityMigrationName, expectedCommunityMigrationChecksum);");
     expectTextBefore(releaseManager, "pg_advisory_xact_lock", 'if (action === "stage")');
     expectTextBefore(releaseManager, "commitAttempted = true", 'client.query("COMMIT")');
     expect(releaseManager).toContain("LA geography commit outcome is unknown; run --status before retrying.");

@@ -17,6 +17,7 @@
     "@supabase/supabase-js": "2.110.5",
     "next": "16.3.5",
     "pdf-lib": "1.17.1",
+    "polygon-clipping": "0.15.7",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "zod": "4.4.3"

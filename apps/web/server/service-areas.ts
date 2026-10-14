@@ -1,12 +1,16 @@
 import { Prisma, prisma } from "@liber/db";
 import {
+  createServiceAreaSearchIndex,
+  type ServiceAreaMatchKind,
+  type ServiceAreaSearchIndex,
+} from "../lib/service-area-search";
+import {
   DEFAULT_MARKET_SLUG,
   activeServiceAreas,
   defaultMarket,
   marketBboxString,
   normalizeServiceAreaSearchTerm,
-  resolveServiceArea,
-  searchServiceAreas,
+  serviceAreaSearchTerms,
   type Market,
   type ServiceArea,
 } from "../lib/service-areas";
@@ -61,6 +65,8 @@ export type ServiceAreaResult = ServiceArea & {
   sourceUrl?: string | null;
   geojsonSha256?: string | null;
 };
+
+export type ServiceAreaSuggestion = ServiceAreaResult & { match: ServiceAreaMatchKind; matchedTerm?: string };
 
 export type ServiceAreaResultResolution =
   | { status: "none" }
@@ -216,26 +222,32 @@ export async function getSearchCoverageServiceAreaIds(serviceAreaId: string, mar
 }
 
 export async function resolveActiveServiceArea(query: string, marketSlug: string): Promise<ServiceAreaResultResolution> {
-  const lookup = await lookupActiveServiceAreas(query, 8, marketSlug);
-  return resolutionFromLookup(lookup.filter((row) => row.exactMatch).map((row) => row.area));
+  if (!normalizeServiceAreaSearchTerm(query)) return { status: "none" };
+  return (await activeServiceAreaSearchIndex(marketSlug)).search(query).resolution;
 }
 
 export async function searchAndResolveActiveServiceAreas(query: string, limit: number, marketSlug: string) {
   if (!normalizeServiceAreaSearchTerm(query)) {
     return {
       resolution: { status: "none" } as ServiceAreaResultResolution,
-      suggestions: [] as ServiceAreaResult[],
+      suggestions: [] as ServiceAreaSuggestion[],
     };
   }
-  const lookup = await lookupActiveServiceAreas(query, limit, marketSlug);
+  const { resolution, suggestions } = (await activeServiceAreaSearchIndex(marketSlug)).search(query, limit);
   return {
-    resolution: resolutionFromLookup(lookup.filter((row) => row.exactMatch).map((row) => row.area)),
-    suggestions: lookup.map((row) => row.area),
+    resolution,
+    suggestions: suggestions.map((hit): ServiceAreaSuggestion => ({
+      ...hit.area,
+      match: hit.match,
+      ...(hit.matchedTerm ? { matchedTerm: hit.matchedTerm } : {}),
+    })),
   };
 }
 
-export function serviceAreaApiShape(area: ServiceAreaResult) {
+export function serviceAreaApiShape(area: ServiceAreaResult | ServiceAreaSuggestion) {
   return {
+    ...("match" in area ? { match: area.match } : {}),
+    ...("matchedTerm" in area && area.matchedTerm ? { matched_term: area.matchedTerm } : {}),
     slug: area.slug,
     label: area.label,
     type: area.type,
@@ -296,52 +308,76 @@ function dbServiceAreaToResult(row: DbServiceArea): ServiceAreaResult {
   };
 }
 
-async function lookupActiveServiceAreas(query: string, limit: number, marketSlug: string) {
-  const normalized = normalizeServiceAreaSearchTerm(query);
-  if (!normalized) return [];
+type ServiceAreaCatalog = {
+  index: ServiceAreaSearchIndex<ServiceAreaResult>;
+  loadedAt: number;
+};
+
+// Search runs on every keystroke. The reviewed catalog changes only through a
+// guarded release, so each server instance keeps a short-lived market index
+// instead of issuing indexed lookups per request.
+const CATALOG_FRESH_MS = 60_000;
+const CATALOG_STALE_LIMIT_MS = 15 * 60_000;
+const catalogCache = new Map<string, { catalog: ServiceAreaCatalog | null; refresh: Promise<ServiceAreaCatalog> | null }>();
+
+export function resetServiceAreaCatalogCache() {
+  catalogCache.clear();
+}
+
+async function activeServiceAreaSearchIndex(marketSlug: string) {
+  const entry = catalogCache.get(marketSlug) ?? { catalog: null, refresh: null };
+  catalogCache.set(marketSlug, entry);
+  const now = Date.now();
+  if (entry.catalog && now - entry.catalog.loadedAt < CATALOG_FRESH_MS) return entry.catalog.index;
+
+  entry.refresh ??= loadServiceAreaCatalog(marketSlug)
+    .then((catalog) => {
+      entry.catalog = catalog;
+      return catalog;
+    })
+    .finally(() => {
+      entry.refresh = null;
+    });
+  if (entry.catalog && now - entry.catalog.loadedAt < CATALOG_STALE_LIMIT_MS) {
+    // Serve the recent catalog while one background refresh replaces it.
+    entry.refresh.catch(() => undefined);
+    return entry.catalog.index;
+  }
+  return (await entry.refresh).index;
+}
+
+async function loadServiceAreaCatalog(marketSlug: string): Promise<ServiceAreaCatalog> {
   try {
-    const rows = await prisma.$queryRaw<Array<{ exact_match: boolean; service_area_id: string }>>(Prisma.sql`
-      SELECT service_area_id::text, exact_match
-      FROM geography_admin.search_active_service_areas(
-        ${marketSlug}, ${normalized}, ${Math.min(Math.max(limit, 1), 8)}
-      )
-    `);
-    if (rows.length === 0) return [];
-    const areas = await prisma.serviceArea.findMany({
-      where: {
-        id: { in: rows.map((row) => row.service_area_id) },
-        active: true,
-        market: { active: true, slug: marketSlug },
-      },
+    const rows = await prisma.serviceArea.findMany({
+      where: { active: true, market: { active: true, slug: marketSlug } },
       include: {
         currentGeometry: { select: { sha256: true } },
         market: { select: { slug: true } },
+        reviewedSearchTerms: { select: { termNormalized: true } },
       },
     });
-    const areaById = new Map(areas.map((area) => [area.id, dbServiceAreaToResult(area)]));
-    return rows.flatMap((row) => {
-      const area = areaById.get(row.service_area_id);
-      return area ? [{ area, exactMatch: row.exact_match }] : [];
-    });
-  } catch (error) {
-    logGeographyFailure("indexed service-area lookup", error);
-    if (fixtureFallbackEnabled() && marketSlug === DEFAULT_MARKET_SLUG) {
-      const fixtures = fixtureServiceAreas();
-      const suggestions = searchServiceAreas(query, fixtures, limit) as ServiceAreaResult[];
-      const resolution = resolveServiceArea(query, fixtures);
-      const exactIds = new Set(resolution.status === "resolved"
-        ? [resolution.area.id]
-        : resolution.status === "ambiguous" ? resolution.areas.map((area) => area.id) : []);
-      return suggestions.map((area) => ({ area, exactMatch: exactIds.has(area.id) }));
+    if (rows.length === 0 && fixtureFallbackEnabled() && marketSlug === DEFAULT_MARKET_SLUG) {
+      return fixtureCatalog();
     }
+    return {
+      index: createServiceAreaSearchIndex(rows.map((row) => ({
+        area: dbServiceAreaToResult(row),
+        terms: row.reviewedSearchTerms.map((term) => term.termNormalized),
+      }))),
+      loadedAt: Date.now(),
+    };
+  } catch (error) {
+    logGeographyFailure("load service-area search catalog", error);
+    if (fixtureFallbackEnabled() && marketSlug === DEFAULT_MARKET_SLUG) return fixtureCatalog();
     throw new GeographyUnavailableError(undefined, { cause: error });
   }
 }
 
-function resolutionFromLookup(areas: ServiceAreaResult[]): ServiceAreaResultResolution {
-  if (areas.length === 0) return { status: "none" };
-  if (areas.length === 1) return { status: "resolved", area: areas[0] };
-  return { status: "ambiguous", areas };
+function fixtureCatalog(): ServiceAreaCatalog {
+  return {
+    index: createServiceAreaSearchIndex(fixtureServiceAreas().map((area) => ({ area, terms: serviceAreaSearchTerms(area) }))),
+    loadedAt: Date.now(),
+  };
 }
 
 function dbMarketToResult(row: DbMarket): Market {
