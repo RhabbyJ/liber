@@ -79,7 +79,10 @@ describe("owner property edit defaults", () => {
 
   it("preserves the full canonical address through the HTML update contract", async () => {
     const result = await getSellerProperty(property.id);
-    expect(mocks.findFirst).toHaveBeenCalledWith({ where: { id: property.id, ownerUserId: "seller-fixture" } });
+    expect(mocks.findFirst).toHaveBeenCalledWith({
+      include: { images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, propertyIdentityVersion: true } } },
+      where: { id: property.id, ownerUserId: "seller-fixture" },
+    });
     expect(result.data.address).toEqual({
       addressLine1: property.addressLine1,
       addressLine2: property.addressLine2,
@@ -203,6 +206,6 @@ describe("owner property edit defaults", () => {
     mocks.getSessionUser.mockResolvedValue({ id: "other-seller-fixture", roles: ["SELLER"] });
     mocks.findFirst.mockResolvedValue(null);
     await expect(getSellerProperty(property.id)).rejects.toThrow("Property not found.");
-    expect(mocks.findFirst).toHaveBeenCalledWith({ where: { id: property.id, ownerUserId: "other-seller-fixture" } });
+    expect(mocks.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: property.id, ownerUserId: "other-seller-fixture" } }));
   });
 });
