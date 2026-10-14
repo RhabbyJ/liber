@@ -178,6 +178,10 @@ Liber's own features and palette. Keep new surfaces inside this system:
   `#47a62f`, below WCAG AA for 16px text. The palette above is mandated, so
   changing it needs an explicit brand decision.
 
+- Buyer workspace: the profile wizard is one 720px column with Redfin segmented controls, the search filter's budget slider and toggle chips (native radios/checkboxes, unchanged names); verification shows per-badge status rows (test pre-approvals always read Not verified) above a shared drag-and-drop `DirectUploadField` zone; received invites are horizontal saved-homes cards grouped Awaiting your reply / Accepted / Closed. Invite cards without shared photos use the property type's photo labelled "Sample photo".
+- Messages: the inbox is a bordered list panel (search and All/Unread/Active pills filter only loaded conversations); the thread fills the viewport with a sticky header, tour strip, grey/green-tint bubbles, the LOI callout above a pinned composer, always-visible quick replies, and a details rail (overlay on phones). The site footer is hidden on thread pages only.
+- LOI workspace: checkout-style stepper, numbered white section cards, sticky deal snapshot, definition-grid reviews, modal decision sheets, and a white sticky action bar. Area rules live in `components/loi/loi-workspace.css` and `app/messages/messages.css`; older globals.css rules for these areas are overridden, not deleted, because the area sheets still rely on some of their base properties.
+
 ## Agent notes
 
 The root page supplies a fresh CSP nonce to the native primary-navigation

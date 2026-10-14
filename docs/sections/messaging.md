@@ -120,6 +120,8 @@ and report-driven admin moderation.
   convenience, or an explicitly named Vercel Preview, only. Vercel production
   refuses wildcard cohorts even with stale CEO-preview flags.
 
+- Presentation (October 2026 portal restyle): inbox list panel with client-side search/filters over loaded rows, full-height thread with quick replies always visible and the LOI callout above the composer, details rail on desktop and overlay on phones; the site footer is hidden on thread pages. Data loading, polling, Realtime and actions are unchanged.
+
 ## Agent notes
 
 The responsive messenger uses date groups and incoming/outgoing bubbles. The
