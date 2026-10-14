@@ -2,6 +2,7 @@
 
 import { Prisma, prisma } from "@liber/db";
 import { currentCoverImageId } from "../lib/property-cover";
+import { listNotificationItems } from "./notifications";
 import {
   buyerProfileModerationSchema,
   createSellerPropertySchema,
@@ -1625,22 +1626,7 @@ export async function listAuditLog() {
 
 export async function listNotifications() {
   const user = await requireAuthenticatedUser();
-  const notifications = await prisma.notification.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: "desc" },
-  });
-  return {
-    ok: true,
-    data: notifications.map((notification) => ({
-      id: notification.id,
-      userId: notification.userId,
-      type: notification.type,
-      title: notification.title,
-      body: notification.body,
-      readAt: notification.readAt ? dateKey(notification.readAt) : null,
-      createdAt: dateKey(notification.createdAt),
-    })),
-  };
+  return { ok: true, data: await listNotificationItems(user) };
 }
 
 export async function listSellerProperties() {

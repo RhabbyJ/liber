@@ -4,7 +4,8 @@ import { advanceInviteActivity, inviteActivityBaseline, isNotificationActivity }
 
 const oldInvite = { id: "old-invite", createdAt: "2026-10-06T10:00:00.000Z", read: false };
 const newInvite = { id: "new-invite", createdAt: "2026-10-06T10:01:00.000Z", read: false };
-const activity = (unreadCount: number, latestInvite = oldInvite): NotificationActivity => ({ unreadCount, latestInvite });
+const recentItem = { actionLabel: "Open LOI", body: "A new LOI is ready.", createdAt: "2026-10-13T10:00:00.000Z", href: "/negotiations/neg1", id: "n1", read: false, title: "LOI update", type: "LOI_UPDATE" };
+const activity = (unreadCount: number, latestInvite = oldInvite): NotificationActivity => ({ unreadCount, latestInvite, recent: [recentItem] });
 
 describe("invite arrival detection", () => {
   it("establishes a failed initial-load baseline without replaying existing invites", () => {
@@ -14,7 +15,7 @@ describe("invite arrival detection", () => {
   });
 
   it("lights the bell on a first new invitation after a confirmed empty inbox", () => {
-    const initial = inviteActivityBaseline({ unreadCount: 0, latestInvite: null });
+    const initial = inviteActivityBaseline({ unreadCount: 0, latestInvite: null, recent: [] });
     expect(advanceInviteActivity(initial, activity(1, newInvite)).arrived).toBe(true);
   });
 
@@ -60,8 +61,12 @@ describe("invite arrival detection", () => {
 
   it("accepts only valid activity payloads", () => {
     expect(isNotificationActivity(activity(2))).toBe(true);
-    expect(isNotificationActivity({ unreadCount: 0, latestInvite: null })).toBe(true);
-    for (const bad of [null, {}, { unreadCount: -1, latestInvite: null }, { unreadCount: 1.5, latestInvite: null },
+    expect(isNotificationActivity({ unreadCount: 0, latestInvite: null, recent: [] })).toBe(true);
+    for (const bad of [null, {}, { unreadCount: -1, latestInvite: null, recent: [] }, { unreadCount: 1.5, latestInvite: null, recent: [] },
+      { unreadCount: 0, latestInvite: null },
+      { unreadCount: 0, latestInvite: null, recent: [{ ...recentItem, href: "https://evil.example/x" }] },
+      { unreadCount: 0, latestInvite: null, recent: [{ ...recentItem, href: "//evil.example/x" }] },
+      { unreadCount: 0, latestInvite: null, recent: [{ ...recentItem, read: "no" }] },
       { unreadCount: 1, latestInvite: { ...oldInvite, createdAt: "invalid" } },
       { unreadCount: 1, latestInvite: { ...oldInvite, read: "false" } }]) {
       expect(isNotificationActivity(bad)).toBe(false);

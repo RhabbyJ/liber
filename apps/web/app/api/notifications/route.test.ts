@@ -8,7 +8,7 @@ vi.mock("../../../server/notifications", () => ({ readNotificationActivity: mock
 import { GET, PATCH } from "./route";
 
 const user = { id: "trusted-session-owner", roles: ["BUYER"] };
-const activity = { unreadCount: 1, latestInvite: { id: "cminvite", createdAt: "2026-10-06T12:00:00Z", read: false } };
+const activity = { unreadCount: 1, latestInvite: { id: "cminvite", createdAt: "2026-10-06T12:00:00Z", read: false }, recent: [] };
 function request(body: unknown = { all: true }, headers: Record<string, string> = {}) {
   return new NextRequest("https://liber.example/api/notifications", {
     method: "PATCH", headers: { host: "liber.example", origin: "https://liber.example", "content-type": "application/json", ...headers },

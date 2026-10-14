@@ -16,7 +16,7 @@ export default async function BuyerInvitesPage({ searchParams }: {
 }) {
   const { error = "", status = "" } = searchParams ? await searchParams : {};
   const [{ data: invites }, { data: notifications }] = await Promise.all([listBuyerInvites(), listNotifications()]);
-  const unread = notifications.filter((notification) => !notification.readAt).length;
+  const unread = notifications.filter((notification) => !notification.read).length;
   const awaitingReply = invites.filter((invite) => invite.status === "Sent" || invite.status === "Viewed").length;
   const groups = groupBuyerInvites(invites);
 

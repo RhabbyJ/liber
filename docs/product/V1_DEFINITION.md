@@ -411,6 +411,12 @@ popups on page load. Dismissing a popup does not mark it read. The bell's
 explicit **Mark all read** control acknowledges only the signed-in user's
 notifications. Page loads, prefetches, and activity reads never acknowledge them.
 
+Every notification is a link. The bell dropdown lists the five newest and the
+notifications page lists the full feed with All/Unread filters; each row opens
+the related LOI, invites, verification, properties, map, or admin page and marks
+only that notification read. Users without a buyer or seller workspace use
+`/notifications`.
+
 An invite must not:
 
 - create an offer,

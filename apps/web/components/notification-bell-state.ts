@@ -1,4 +1,4 @@
-import type { NotificationActivity } from "../lib/notification-activity";
+import { isInternalPath, type NotificationActivity, type NotificationItem } from "../lib/notification-activity";
 
 export type InviteActivityBaseline = {
   established: boolean;
@@ -33,10 +33,21 @@ export function advanceInviteActivity(baseline: InviteActivityBaseline, activity
   };
 }
 
+export function isNotificationItem(value: unknown): value is NotificationItem {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Partial<NotificationItem>;
+  return typeof item.id === "string" && item.id.length > 0
+    && typeof item.title === "string" && typeof item.body === "string" && typeof item.type === "string"
+    && typeof item.actionLabel === "string" && typeof item.read === "boolean"
+    && typeof item.createdAt === "string" && Number.isFinite(Date.parse(item.createdAt))
+    && isInternalPath(item.href);
+}
+
 export function isNotificationActivity(value: unknown): value is NotificationActivity {
   if (!value || typeof value !== "object") return false;
   const activity = value as Partial<NotificationActivity>;
   if (!Number.isSafeInteger(activity.unreadCount) || (activity.unreadCount ?? -1) < 0) return false;
+  if (!Array.isArray(activity.recent) || !activity.recent.every(isNotificationItem)) return false;
   if (activity.latestInvite === null) return true;
   const invite = activity.latestInvite;
   return Boolean(invite && typeof invite.id === "string" && invite.id.length > 0

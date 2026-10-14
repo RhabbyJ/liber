@@ -17,7 +17,7 @@ const statusTone: Record<string, "active" | "pending" | "declined" | "closed"> =
 
 export default async function SellerInvitesPage() {
   const [{ data: invites }, { data: notifications }] = await Promise.all([listSellerInvites(), listNotifications()]);
-  const unread = notifications.filter((notification) => !notification.readAt).length;
+  const unread = notifications.filter((notification) => !notification.read).length;
   const today = new Date();
 
   return (

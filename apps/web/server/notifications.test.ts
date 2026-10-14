@@ -1,26 +1,41 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ count: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn(), transaction: vi.fn() }));
+const mocks = vi.hoisted(() => ({ count: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), transaction: vi.fn() }));
 vi.mock("@liber/db", () => ({ prisma: { notification: mocks, $transaction: mocks.transaction } }));
 
-import { markNotificationsRead, readNotificationActivity } from "./notifications";
+import { listNotificationItems, markNotificationsRead, readNotificationActivity, RECENT_NOTIFICATION_LIMIT } from "./notifications";
 import type { SessionUser } from "./authz";
 
 const buyer: SessionUser = { id: "buyer-owner", roles: ["BUYER"] };
 const invite = { id: "cmnotification", createdAt: new Date("2026-10-06T12:00:00Z"), readAt: null };
+const loiRow = {
+  body: "The seller sent a counter-offer.", createdAt: new Date("2026-10-07T09:30:00Z"), id: "cmloi",
+  metadata: { negotiationId: "cmneg1", privateNote: "never serialized" }, readAt: null, title: "LOI updated", type: "LOI_UPDATE",
+};
+const loiItem = {
+  actionLabel: "Open LOI", body: loiRow.body, createdAt: "2026-10-07T09:30:00.000Z", href: "/negotiations/cmneg1",
+  id: "cmloi", read: false, title: "LOI updated", type: "LOI_UPDATE",
+};
+const ownedListQuery = (take: number) => ({
+  where: { userId: buyer.id },
+  orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+  take,
+  select: { body: true, createdAt: true, id: true, metadata: true, readAt: true, title: true, type: true },
+});
 
 describe("notification activity ownership", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.count.mockResolvedValue(2);
     mocks.findFirst.mockResolvedValue(invite);
+    mocks.findMany.mockResolvedValue([]);
     mocks.updateMany.mockResolvedValue({ count: 1 });
     mocks.transaction.mockImplementation((operations: Promise<unknown>[]) => Promise.all(operations));
   });
 
   it("counts only the session owner's unread notifications and projects a stable invite hint", async () => {
     expect(await readNotificationActivity(buyer)).toEqual({
-      unreadCount: 2, latestInvite: { id: invite.id, createdAt: "2026-10-06T12:00:00.000Z", read: false },
+      unreadCount: 2, latestInvite: { id: invite.id, createdAt: "2026-10-06T12:00:00.000Z", read: false }, recent: [],
     });
     expect(mocks.count).toHaveBeenCalledWith({ where: { userId: buyer.id, readAt: null } });
     expect(mocks.findFirst).toHaveBeenCalledWith({
@@ -31,13 +46,15 @@ describe("notification activity ownership", () => {
     expect(mocks.updateMany).not.toHaveBeenCalled();
   });
 
-  it("reads buyer count and latest hint in one repeatable-read snapshot", async () => {
+  it("reads buyer count, latest hint and recent list in one repeatable-read snapshot", async () => {
     await readNotificationActivity(buyer);
     expect(mocks.transaction).toHaveBeenCalledOnce();
     expect(mocks.transaction).toHaveBeenCalledWith([
       mocks.count.mock.results[0].value,
       mocks.findFirst.mock.results[0].value,
+      mocks.findMany.mock.results[0].value,
     ], { isolationLevel: "RepeatableRead" });
+    expect(mocks.findMany).toHaveBeenCalledWith(ownedListQuery(RECENT_NOTIFICATION_LIMIT));
     expect(mocks.count).toHaveBeenCalledOnce();
     expect(mocks.findFirst).toHaveBeenCalledOnce();
   });
@@ -58,15 +75,34 @@ describe("notification activity ownership", () => {
 
   it("does not fetch buyer invite hints for sellers or administrators", async () => {
     for (const roles of [["SELLER"], ["ADMIN"]] as SessionUser["roles"][]) {
-      expect(await readNotificationActivity({ id: "other-owner", roles })).toEqual({ unreadCount: 2, latestInvite: null });
+      expect(await readNotificationActivity({ id: "other-owner", roles })).toEqual({ unreadCount: 2, latestInvite: null, recent: [] });
     }
     expect(mocks.findFirst).not.toHaveBeenCalled();
-    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.transaction).toHaveBeenCalledTimes(2);
+    expect(mocks.transaction).toHaveBeenLastCalledWith([
+      mocks.count.mock.results[1].value,
+      mocks.findMany.mock.results[1].value,
+    ], { isolationLevel: "RepeatableRead" });
+  });
+
+  it("projects recent rows to clickable items without serializing metadata", async () => {
+    mocks.findMany.mockResolvedValue([loiRow, { ...loiRow, id: "cmold", metadata: { negotiationId: "../admin" }, readAt: new Date() }]);
+    const { recent } = await readNotificationActivity(buyer);
+    expect(recent).toEqual([loiItem, { ...loiItem, actionLabel: "Open messages", href: "/messages", id: "cmold", read: true }]);
+    expect(JSON.stringify(recent)).not.toContain("never serialized");
+    expect(recent[0]).not.toHaveProperty("metadata");
+  });
+
+  it("lists the full feed only for the session owner, newest first", async () => {
+    mocks.findMany.mockResolvedValue([loiRow]);
+    expect(await listNotificationItems(buyer)).toEqual([loiItem]);
+    expect(mocks.findMany).toHaveBeenCalledWith(ownedListQuery(200));
+    expect(mocks.updateMany).not.toHaveBeenCalled();
   });
 
   it("allows a mixed-role buyer and returns null when there is no invite", async () => {
     mocks.findFirst.mockResolvedValue(null);
-    expect(await readNotificationActivity({ ...buyer, roles: ["SELLER", "BUYER"] })).toEqual({ unreadCount: 2, latestInvite: null });
+    expect(await readNotificationActivity({ ...buyer, roles: ["SELLER", "BUYER"] })).toEqual({ unreadCount: 2, latestInvite: null, recent: [] });
   });
 
   it("updates an individual ID only within the owner scope, including administrator sessions", async () => {

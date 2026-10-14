@@ -2067,26 +2067,83 @@ input[type="radio"]:disabled {
   line-height: 20px;
 }
 
-/* Notification feed (Zillow notification centre): type icon, text, day, unread dot. */
+/* Notification centre: filter bar, then a feed of clickable rows (type icon, text, age · action). */
+.notification-center {
+  display: grid;
+  gap: 12px;
+  max-width: 760px;
+}
+
+.notification-center-bar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.notification-filter.segmented-control {
+  width: auto;
+}
+
+.notification-filter.segmented-control button {
+  flex: 0 0 auto;
+  height: 40px;
+  padding: 0 20px;
+}
+
+.notification-mark-all {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 40px;
+}
+
 .notification-list {
   border-top: 1px solid var(--line);
   display: grid;
   list-style: none;
-  max-width: 760px;
+}
+
+.notification-list > li {
+  border-bottom: 1px solid var(--line);
 }
 
 .notification-row {
   align-items: start;
-  border-bottom: 1px solid var(--line);
+  color: var(--ink-strong);
   display: grid;
   gap: 16px;
-  grid-template-columns: 40px minmax(0, 1fr) 10px;
-  padding: 16px 8px;
+  grid-template-columns: 40px minmax(0, 1fr) 20px;
+  padding: 16px 12px;
   transition: background-color var(--dur) var(--ease);
 }
 
 .notification-row.unread {
   background: var(--sage-tint);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .notification-row:hover {
+    background: var(--surface-subtle);
+    color: var(--ink-strong);
+  }
+
+  .notification-row.unread:hover {
+    background: var(--sage-tint-strong);
+  }
+
+  .notification-row:hover .notification-row-action {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.notification-row:focus-visible {
+  box-shadow: inset var(--focus-ring);
+  outline: none;
 }
 
 .notification-row-icon {
@@ -2105,8 +2162,13 @@ input[type="radio"]:disabled {
   color: var(--sage-deep);
 }
 
+.notification-row-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
 .notification-row-text strong {
-  display: block;
   font-weight: 400;
   line-height: 24px;
 }
@@ -2115,7 +2177,7 @@ input[type="radio"]:disabled {
   font-weight: 700;
 }
 
-.notification-row-text p {
+.notification-row-body {
   color: var(--ink-soft);
   font-size: 14px;
   line-height: 20px;
@@ -2123,10 +2185,19 @@ input[type="radio"]:disabled {
 
 .notification-row-text small {
   color: var(--ink-meta);
-  display: block;
   font-size: 12px;
   line-height: 16px;
   margin-top: 4px;
+}
+
+.notification-row-action {
+  color: var(--sage-deep);
+  font-weight: 700;
+}
+
+.notification-row-chevron {
+  color: var(--ink-meta);
+  margin-top: 10px;
 }
 
 .notification-dot {
@@ -2135,6 +2206,27 @@ input[type="radio"]:disabled {
   height: 10px;
   margin-top: 15px;
   width: 10px;
+}
+
+.notification-empty {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 16px;
+  padding: 24px 12px;
+}
+
+.notification-empty .notification-row-icon {
+  flex: none;
+}
+
+.notification-empty p {
+  color: var(--ink-soft);
+}
+
+.notification-empty strong {
+  color: var(--ink-strong);
 }
 
 /* Workspace tabs (Redfin "My Redfin"): 16px labels on a hairline, 3px ink underline when current. */

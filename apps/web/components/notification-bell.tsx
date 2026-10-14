@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import type { NotificationActivity } from "../lib/notification-activity";
+import type { NotificationActivity, NotificationItem } from "../lib/notification-activity";
+import { markNotificationRead, NOTIFICATIONS_CHANGED_EVENT } from "../lib/notification-client";
+import { relativeTime } from "../lib/notification-format";
+import { notificationIcon } from "../lib/notification-links";
 import { Icon } from "./icon";
 import { createRecoveryPolling, MESSAGING_FALLBACK_POLL_MS } from "./messaging/recovery-polling";
 import { advanceInviteActivity, inviteActivityBaseline, isNotificationActivity } from "./notification-bell-state";
@@ -94,6 +97,7 @@ export function NotificationBell({ initialActivity, href, isBuyer }: {
     const recover = () => polling.recover();
     window.addEventListener("focus", recover);
     window.addEventListener("online", recover);
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, recover);
     document.addEventListener("visibilitychange", recover);
     polling.recover();
     return () => {
@@ -103,6 +107,7 @@ export function NotificationBell({ initialActivity, href, isBuyer }: {
       markAllRef.current = null;
       window.removeEventListener("focus", recover);
       window.removeEventListener("online", recover);
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, recover);
       document.removeEventListener("visibilitychange", recover);
     };
   }, [isBuyer]);
@@ -138,8 +143,22 @@ export function NotificationBell({ initialActivity, href, isBuyer }: {
     triggerRef.current?.focus({ preventScroll: true });
   }
 
+  function openNotification(item: NotificationItem) {
+    setIsOpen(false);
+    if (item.read) return;
+    // Optimistic: the row and count update now; the next poll reconciles with the server.
+    setActivity((current) => current && {
+      ...current,
+      recent: current.recent.map((entry) => entry.id === item.id ? { ...entry, read: true } : entry),
+      unreadCount: Math.max(0, current.unreadCount - 1),
+    });
+    void markNotificationRead(item.id);
+  }
+
   if (sessionEnded) return null;
   const unreadCount = activity?.unreadCount ?? 0;
+  const recent = activity?.recent ?? [];
+  const now = new Date();
   const label = unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications";
 
   return (
@@ -165,13 +184,35 @@ export function NotificationBell({ initialActivity, href, isBuyer }: {
             {isMarking ? "Marking as read…" : "Mark all read"}
           </button>}
         </div>
-        <p className="notification-popover-summary">
-          <span aria-hidden="true" className={`notification-summary-icon${unreadCount > 0 ? " unread" : ""}`}>
-            <Icon name={unreadCount > 0 ? "bell" : "check"} size={18} />
-          </span>
-          {unreadCount > 0 ? `${unreadCount} unread ${unreadCount === 1 ? "notification" : "notifications"}` : "You're all caught up."}
-        </p>
-        <Link className="notification-popover-link" href={href} onClick={() => setIsOpen(false)} ref={firstLinkRef}>
+        {recent.length ? (
+          <ul className="notification-popover-list">
+            {recent.map((item, index) => (
+              <li key={item.id}>
+                <Link className={`notification-popover-item${item.read ? "" : " unread"}`} href={item.href}
+                  onClick={() => openNotification(item)} ref={index === 0 ? firstLinkRef : undefined}>
+                  <span aria-hidden="true" className="notification-popover-icon">
+                    <Icon name={notificationIcon(item.type)} size={18} />
+                  </span>
+                  <span className="notification-popover-text">
+                    <strong>{item.title}</strong>
+                    <span>{item.body}</span>
+                    <small>
+                      <time dateTime={item.createdAt} suppressHydrationWarning>{relativeTime(item.createdAt, now)}</time>
+                      {item.read ? null : <span className="visually-hidden"> (unread)</span>}
+                    </small>
+                  </span>
+                  {item.read ? null : <span aria-hidden="true" className="notification-dot" />}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="notification-popover-summary">
+            <span aria-hidden="true" className="notification-summary-icon"><Icon name="check" size={18} /></span>
+            You&apos;re all caught up.
+          </p>
+        )}
+        <Link className="notification-popover-link" href={href} onClick={() => setIsOpen(false)} ref={recent.length ? undefined : firstLinkRef}>
           See all notifications <Icon name="chevron-right" size={18} />
         </Link>
         {error && <p className="notification-error" role="alert">{error}</p>}
