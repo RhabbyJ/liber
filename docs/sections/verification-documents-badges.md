@@ -36,6 +36,8 @@ Owns buyer verification evidence, seller ownership evidence, private document st
 - Cash buyer is derived from cash purchase type and current verified-funds evidence. Earnest-money, completed-transaction, and non-contingent badges are disabled.
 - Pre-approval expires after 90 days.
 - Regranting funds/identity without an explicit expiry clears a previous expiry. The admin badge form only offers compatible approved evidence; expected validation, evidence, and rate-limit failures remain inline.
+- After an admin approves or rejects a document, `/admin/documents?reviewed=approved|rejected&subject=buyer|property` confirms the decision; an approved buyer document shows a **Grant badge** shortcut, since approval alone never grants a badge. Badge grants notify the buyer as `Badge added: <badge>`; rejected buyer documents notify `Verification document not accepted`.
+- Buyer document submission times display in the market time zone (America/Los_Angeles).
 - Badge grants/revokes and document reviews should be audited.
 - Buyer-facing verification copy may explain that approved badges help sellers identify verified buyers, but it must not imply guaranteed invites, financing, or closing.
 

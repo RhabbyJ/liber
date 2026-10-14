@@ -1,9 +1,14 @@
 import { notFound } from "next/navigation";
+import { ConversationInbox } from "../../../components/messaging/conversation-inbox";
 import { MessageThread } from "../../../components/messaging/message-thread";
-import { normalizeConversationThread } from "../../../components/messaging/normalize";
+import {
+  normalizeConversationSummaries,
+  normalizeConversationThread,
+  normalizeListPageInfo,
+} from "../../../components/messaging/normalize";
 import { messagingTemplateLabel } from "../../../components/messaging/types";
 import { MessagingError } from "../../../server/messaging/errors";
-import { getConversationThread } from "../../../server/messaging/service";
+import { getConversationThread, listConversations } from "../../../server/messaging/service";
 import { buyerQuickReplyTemplates, sellerFollowUpTemplates } from "../../../server/messaging/templates";
 
 export default async function ConversationPage({
@@ -21,6 +26,10 @@ export default async function ConversationPage({
   }
   const thread = normalizeConversationThread(conversation);
   if (!thread) notFound();
+  // The side inbox is a convenience; the thread still renders if the list cannot load.
+  const inbox = await listConversations().catch(() => null);
+  const conversations = inbox ? normalizeConversationSummaries(inbox) : [];
+  const pageInfo = inbox ? normalizeListPageInfo(inbox) : { hasMore: false, moderationRevision: null, nextCursor: null };
   const templates = (thread.viewerRole === "SELLER" ? sellerFollowUpTemplates : buyerQuickReplyTemplates)
     .map((template) => ({
       key: template.key,
@@ -29,5 +38,19 @@ export default async function ConversationPage({
       version: template.version,
     }));
 
-  return <MessageThread initialLoi={{ available: false }} initialThread={thread} key={thread.id} templates={templates} />;
+  return (
+    <div className="chat-shell is-thread">
+      <aside aria-label="Conversations" className="chat-sidebar">
+        <h2 className="chat-sidebar-title">Messages</h2>
+        <ConversationInbox activeId={thread.id} initialConversations={conversations} initialPageInfo={pageInfo} />
+      </aside>
+      <MessageThread
+        counterpartAvatarVariant={conversations.find((item) => item.id === thread.id)?.counterpartAvatarVariant ?? null}
+        initialLoi={{ available: false }}
+        initialThread={thread}
+        key={thread.id}
+        templates={templates}
+      />
+    </div>
+  );
 }

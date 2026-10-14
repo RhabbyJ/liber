@@ -80,7 +80,14 @@ describe("owner property edit defaults", () => {
   it("preserves the full canonical address through the HTML update contract", async () => {
     const result = await getSellerProperty(property.id);
     expect(mocks.findFirst).toHaveBeenCalledWith({
-      include: { images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, propertyIdentityVersion: true } } },
+      include: {
+        documents: {
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          select: { createdAt: true, ownershipEvidenceKind: true, propertyIdentityVersion: true, rejectionReason: true, reviewStatus: true },
+          where: { documentType: "OWNERSHIP" },
+        },
+        images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, propertyIdentityVersion: true } },
+      },
       where: { id: property.id, ownerUserId: "seller-fixture" },
     });
     expect(result.data.address).toEqual({
@@ -117,6 +124,29 @@ describe("owner property edit defaults", () => {
     const result = await getSellerProperty(property.id);
     expect(Object.values(result.data.address).every((value) => value === undefined)).toBe(true);
     expect(result.data.title).not.toBe("");
+  });
+
+  it("lists only the current identity's photos and latest ownership evidence per kind", async () => {
+    const at = (iso: string) => new Date(iso);
+    mocks.findFirst.mockResolvedValue({
+      ...property,
+      documents: [
+        { createdAt: at("2026-10-14T05:00:00Z"), ownershipEvidenceKind: "GOVERNMENT_ID", propertyIdentityVersion: 3, rejectionReason: "Name does not match title", reviewStatus: "REJECTED" },
+        { createdAt: at("2026-10-13T05:00:00Z"), ownershipEvidenceKind: "GOVERNMENT_ID", propertyIdentityVersion: 3, rejectionReason: null, reviewStatus: "APPROVED" },
+        { createdAt: at("2026-10-14T06:00:00Z"), ownershipEvidenceKind: "PROPERTY_ADDRESS_PROOF", propertyIdentityVersion: 2, rejectionReason: null, reviewStatus: "APPROVED" },
+      ],
+      images: [
+        { id: "old-photo", propertyIdentityVersion: 2 },
+        { id: "cover-photo", propertyIdentityVersion: 3 },
+        { id: "second-photo", propertyIdentityVersion: 3 },
+      ],
+    });
+    const { data } = await getSellerProperty(property.id);
+    expect(data.imageIds).toEqual(["cover-photo", "second-photo"]);
+    expect(data.coverImageId).toBe("cover-photo");
+    expect(data.ownershipEvidence).toEqual({
+      GOVERNMENT_ID: { rejectionReason: "Name does not match title", status: "REJECTED", submittedAt: "2026-10-14T05:00:00.000Z" },
+    });
   });
 
   it("preserves legitimate zero coordinates", async () => {

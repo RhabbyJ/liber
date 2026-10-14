@@ -9,7 +9,7 @@ const invite = (id: string, status: InviteDTO["status"]): InviteDTO => ({
   message: "Synthetic message",
   property: "123 Example St",
   propertyId: "synthetic-property",
-  sentAt: "Oct 12",
+  sentAt: "2026-10-12T17:00:00.000Z",
   sentAtDate: "2026-10-12",
   status,
   title: "Synthetic invite",

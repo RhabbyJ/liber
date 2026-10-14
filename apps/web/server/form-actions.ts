@@ -167,9 +167,11 @@ export async function submitInvite(
 }
 
 export async function submitDocumentReview(formData: FormData) {
-  await reviewDocument(formData);
+  const { data } = await reviewDocument(formData);
   revalidatePath("/admin/documents");
   revalidatePath("/buyer/notifications");
+  const subject = data.documentType === "OWNERSHIP" ? "property" : "buyer";
+  redirect(`/admin/documents?reviewed=${data.decision === "APPROVED" ? "approved" : "rejected"}&subject=${subject}`);
 }
 
 export async function submitBadgeGrant(

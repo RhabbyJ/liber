@@ -20,9 +20,12 @@ const conversationTimeFormatter = new Intl.DateTimeFormat("en", { timeStyle: "sh
 const INBOX_REFRESH_TIMEOUT_MS = 15_000;
 
 export function ConversationInbox({
+  activeId,
   initialConversations,
   initialPageInfo,
 }: {
+  /** The conversation open beside the list, highlighted like a desktop messenger. */
+  activeId?: string;
   initialConversations: ConversationSummary[];
   initialPageInfo: MessagingListPageInfo;
 }) {
@@ -176,7 +179,8 @@ export function ConversationInbox({
       <div className="message-inbox-list">
         {visibleConversations.map((conversation) => (
           <Link
-            className={`message-inbox-item${conversation.unreadCount > 0 ? " unread" : ""}`}
+            aria-current={conversation.id === activeId ? "page" : undefined}
+            className={`message-inbox-item${conversation.unreadCount > 0 ? " unread" : ""}${conversation.id === activeId ? " active" : ""}`}
             href={`/messages/${conversation.id}`}
             key={conversation.id}
           >
@@ -203,9 +207,7 @@ export function ConversationInbox({
               <span className="message-inbox-context">
                 <span className="message-inbox-property">{conversation.propertyTitle}</span>
                 {conversation.status !== "ACTIVE" ? (
-                  <span className={`message-status-chip ${statusClassName(conversation.status)}`}>
-                    {statusLabel(conversation.status)}
-                  </span>
+                  <span className={`message-inbox-state ${statusClassName(conversation.status)}`}> · {statusLabel(conversation.status)}</span>
                 ) : null}
               </span>
               <span className="message-inbox-snippet">
@@ -215,7 +217,7 @@ export function ConversationInbox({
                   ) : statusDescription(conversation.status)}
                 </span>
                 <span className="message-inbox-meta">
-                  {conversation.muted ? <span className="message-inbox-muted">Muted</span> : null}
+                  {conversation.muted ? <span aria-label="Muted" className="message-inbox-muted" role="img"><Icon aria-hidden="true" name="bell" size={14} /></span> : null}
                   {conversation.unreadCount > 0 ? (
                     <span aria-label={`${conversation.unreadCount} unread messages`} className="message-unread-count">
                       {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
@@ -279,7 +281,7 @@ function statusDescription(status: ConversationSummary["status"]) {
 }
 
 function statusLabel(status: ConversationSummary["status"]) {
-  if (status === "AWAITING_BUYER") return "Awaiting reply";
+  if (status === "AWAITING_BUYER") return "Waiting for reply";
   if (status === "BLOCKED") return "Unavailable";
   if (status === "READ_ONLY") return "Closed";
   return "Active";

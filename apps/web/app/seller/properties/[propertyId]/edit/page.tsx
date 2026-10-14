@@ -9,7 +9,7 @@ import { PropertyTypePicker } from "../../../../../components/property-type-pick
 import { formatMoney } from "../../../../../lib/format";
 import { propertySubtypeLabel } from "../../../../../lib/property-types";
 import { DEFAULT_MARKET_SLUG } from "../../../../../lib/service-areas";
-import { getSellerProperty } from "../../../../../server/contracts";
+import { getSellerProperty, type OwnershipEvidenceStatus } from "../../../../../server/contracts";
 import { submitSellerPropertyUpdate } from "../../../../../server/form-actions";
 import { getActiveMarketBySlug } from "../../../../../server/service-areas";
 import { confidentialDocumentAccessEnabled } from "../../../../../server/verification/document-access";
@@ -26,6 +26,10 @@ export default async function EditSellerPropertyPage({
   if (!property) notFound();
 
   const verified = property.status === "Ownership verified";
+  const evidence = property.ownershipEvidence;
+  const evidenceStates = [evidence.GOVERNMENT_ID?.status, evidence.PROPERTY_ADDRESS_PROOF?.status];
+  const evidenceRejected = evidenceStates.includes("REJECTED");
+  const evidenceSubmitted = evidenceStates.every((state) => state === "PENDING" || state === "APPROVED");
   const documentsDisabledReason = confidentialDocumentAccessEnabled() ? undefined : "Document verification is temporarily unavailable.";
   const facts = [
     property.beds ? `${property.beds} bds` : null,
@@ -56,7 +60,22 @@ export default async function EditSellerPropertyPage({
         <a className="workspace-tab" href="#ownership">Ownership</a>
       </nav>
 
-      {verified ? null : (
+      {verified ? null : evidenceRejected ? (
+        <div className="inline-alert warning" role="note">
+          <Icon name="info" size={20} />
+          <p>
+            <strong>A document needs attention.</strong> Liber couldn’t accept one of your ownership documents. Upload a new one to continue.{" "}
+            <a className="text-link" href="#ownership">Go to ownership</a>
+          </p>
+        </div>
+      ) : evidenceSubmitted ? (
+        <div className="inline-alert" role="status">
+          <Icon name="doc" size={20} />
+          <p>
+            <strong>Ownership in review.</strong> Liber is reviewing your documents. We’ll notify you when you can invite buyers from this property.
+          </p>
+        </div>
+      ) : (
         <div className="inline-alert warning" role="note">
           <Icon name="info" size={20} />
           <p>
@@ -118,7 +137,17 @@ export default async function EditSellerPropertyPage({
 
           <section aria-labelledby="photos-title" className="listing-editor-section" id="photos">
             <h2 id="photos-title">Photos</h2>
-            <p className="listing-editor-help">Only buyers you invite can see these photos.</p>
+            <p className="listing-editor-help">Only buyers you invite can see these photos. The first photo is the cover.</p>
+            {property.imageIds.length ? (
+              <ul aria-label="Uploaded photos" className="listing-photo-grid">
+                {property.imageIds.map((imageId, index) => (
+                  <li key={imageId}>
+                    <PropertyCoverPhoto className="listing-photo-grid-img" imageId={imageId} propertyType={property.propertyType} seed={imageId} showSampleTag={false} sizes="(max-width: 640px) 50vw, 200px" />
+                    {index === 0 ? <span className="listing-flag listing-photo-grid-cover">Cover photo</span> : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             <DirectUploadField
               accept="image/png,image/jpeg,image/webp"
               hint="PNG, JPEG, or WebP; 10 MB max each."
@@ -136,24 +165,28 @@ export default async function EditSellerPropertyPage({
               tax, or mortgage bill matching the property name and address. Liber reviews them privately.
             </p>
             <div className="listing-editor-uploads">
-              <DirectUploadField
-                accept="application/pdf,image/png,image/jpeg,image/webp"
-                disabledReason={documentsDisabledReason}
-                hint="Private evidence for Liber review; 20 MB max."
-                label="Government-issued photo ID"
-                ownershipEvidenceKind="GOVERNMENT_ID"
-                propertyId={property.id}
-                purpose="PROPERTY_OWNERSHIP"
-              />
-              <DirectUploadField
-                accept="application/pdf,image/png,image/jpeg,image/webp"
-                disabledReason={documentsDisabledReason}
-                hint="Utility, tax, or mortgage bill; 20 MB max."
-                label="Property address evidence"
-                ownershipEvidenceKind="PROPERTY_ADDRESS_PROOF"
-                propertyId={property.id}
-                purpose="PROPERTY_OWNERSHIP"
-              />
+              {([
+                { hint: "Private evidence for Liber review; 20 MB max.", kind: "GOVERNMENT_ID", label: "Government-issued photo ID" },
+                { hint: "Utility, tax, or mortgage bill; 20 MB max.", kind: "PROPERTY_ADDRESS_PROOF", label: "Property address evidence" },
+              ] as const).map((slot) => {
+                const current = evidence[slot.kind];
+                return (
+                  <div className="listing-evidence-slot" key={slot.kind}>
+                    {current ? <EvidenceStatus label={slot.label} value={current} /> : null}
+                    {current && current.status !== "REJECTED" ? null : (
+                      <DirectUploadField
+                        accept="application/pdf,image/png,image/jpeg,image/webp"
+                        disabledReason={documentsDisabledReason}
+                        hint={slot.hint}
+                        label={current ? `Upload a new ${slot.kind === "GOVERNMENT_ID" ? "photo ID" : "property bill"}` : slot.label}
+                        ownershipEvidenceKind={slot.kind}
+                        propertyId={property.id}
+                        purpose="PROPERTY_OWNERSHIP"
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </section>
         </div>
@@ -181,10 +214,35 @@ export default async function EditSellerPropertyPage({
               Find buyers
             </Link>
           ) : (
-            <p className="listing-editor-rail-note">Find buyers unlocks after Liber verifies ownership.</p>
+            <p className="listing-editor-rail-note">Invites from this property unlock after Liber verifies ownership.</p>
           )}
         </aside>
       </div>
+    </div>
+  );
+}
+
+const submittedDate = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", timeZone: "America/Los_Angeles", year: "numeric" });
+
+function EvidenceStatus({ label, value }: { label: string; value: OwnershipEvidenceStatus }) {
+  const display = {
+    APPROVED: { icon: "check-shield", tag: "Approved", tone: "active" },
+    PENDING: { icon: "doc", tag: "In review", tone: "pending" },
+    REJECTED: { icon: "info", tag: "Not accepted", tone: "expired" },
+  } as const;
+  const { icon, tag, tone } = display[value.status];
+  return (
+    <div className="listing-evidence-status">
+      <span aria-hidden="true" className={`status-list-icon ${tone}`}><Icon name={icon} size={18} /></span>
+      <span className="listing-evidence-text">
+        <strong>{label}</strong>
+        <span>
+          {value.status === "REJECTED"
+            ? value.rejectionReason || "Upload a clearer or matching document."
+            : `Submitted ${submittedDate.format(new Date(value.submittedAt))}${value.status === "PENDING" ? " · Nothing else to send" : ""}`}
+        </span>
+      </span>
+      <span className={`status-tag ${tone}`}>{tag}</span>
     </div>
   );
 }

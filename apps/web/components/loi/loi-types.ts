@@ -26,6 +26,8 @@ export type LoiNegotiation = {
   draft: { draftVersion: number; id: string; terms: LoiTermsV1; updatedAt: string } | null;
   effectivelyExpired: boolean;
   financingEvidenceExceptionExpiresAt?: string | null;
+  /** Buyer-only: whether their pre-approval badge or letter already satisfies financed terms. */
+  buyerFinancingEvidence?: "BADGE" | "DOCUMENT" | "NONE" | null;
   id: string;
   propertySnapshot: unknown;
   revisionPageInfo: LoiRevisionPageInfo;

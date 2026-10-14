@@ -591,7 +591,10 @@ export function LoiWorkspace({ initialNegotiation, templateOwnerId }: { initialN
           ) : null}
           {view.mode === "REVIEWING" && view.terms && localSummary ? (
             <>
-            {view.terms.funding.type === "FINANCED" ? <section className="card stack tight loi-callout-card">
+            {view.terms.funding.type === "FINANCED" && (negotiation.buyerFinancingEvidence === "BADGE" || negotiation.buyerFinancingEvidence === "DOCUMENT") ? <section className="card stack tight loi-callout-card">
+              <h3>Pre-approval on file</h3>
+              <p>{negotiation.buyerFinancingEvidence === "BADGE" ? "Your verified pre-approval badge supports these financed terms." : "Your pre-approval letter is in review, which is enough to submit financed terms."}</p>
+            </section> : view.terms.funding.type === "FINANCED" ? <section className="card stack tight loi-callout-card">
               <h3>Loan submission requirements</h3>
               {negotiation.financingEvidenceExceptionExpiresAt ? <p>A temporary testing exception allows this LOI to be submitted without pre-approval evidence until {formatLoiDateTime(negotiation.financingEvidenceExceptionExpiresAt)}. This does not verify financing or grant a badge.</p> : <>
                 <p>The buyer needs a current pre-approval badge or an uploaded pre-approval letter before these financed terms can be sent. A pending letter is sufficient; badge approval is not required to submit.</p>

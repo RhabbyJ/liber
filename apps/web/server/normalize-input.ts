@@ -8,6 +8,9 @@ export function normalizeInput(input: unknown) {
   const output: Record<string, unknown> = {};
 
   for (const key of Array.from(input.keys())) {
+    // React's progressive-enhancement fields for useActionState forms ($ACTION_KEY,
+    // $ACTION_1:0, ...) reach the action with values; they are never user input.
+    if (key.startsWith("$ACTION_")) continue;
     const rawValues = input.getAll(key);
     const values = rawValues.filter((value) => value !== "");
     if (values.length === 0 && key === "features" && rawValues.length > 0) {

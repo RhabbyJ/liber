@@ -7,6 +7,7 @@ import { Icon } from "../../../components/icon";
 import { DirectUploadField } from "../../../components/direct-upload-field";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
 import { confidentialDocumentAccessEnabled } from "../../../server/verification/document-access";
+import { formatRange } from "../../../lib/format";
 import { DEFAULT_MARKET_SLUG } from "../../../lib/service-areas";
 import { getActiveMarketOrFallback } from "../../../server/service-areas";
 import { avatarColorIndex, avatarColorNames, avatarColorOptions } from "../../../lib/avatar-variant";
@@ -76,10 +77,20 @@ export default async function BuyerProfileBuilderPage({
     { label: "Verified funds", verified: activeBadges.some((badge) => badge.type === "VERIFIED_FUNDS") },
     { label: "Cash buyer", verified: activeBadges.some((badge) => badge.type === "CASH_BUYER") },
   ].filter((item) => item.verified);
+  const criteria = buyer.criteriaDetails[0];
   const generalInformation = [
     { label: "Purchase type", value: buyer.type || "Not set" },
     { label: "Seeking property type", value: buyer.purpose || "Not set" },
     { label: "Desired location", value: buyer.location || "Not set" },
+    { label: "Budget", value: formatRange(buyer.budgetMin, buyer.budgetMax) },
+    { label: "Down payment", value: formatRange(buyer.downPaymentMin, buyer.downPaymentMax) },
+    { label: "Beds & baths", value: bedsAndBaths(criteria?.bedroomsMin, criteria?.bathroomsMin) },
+    { label: "Home size", value: sizeRange(criteria?.squareFeetMin, criteria?.squareFeetMax) },
+    { label: "Lot size", value: sizeRange(criteria?.lotSizeMin, criteria?.lotSizeMax) },
+    { label: "Year built", value: criteria?.yearBuiltMin ? `${criteria.yearBuiltMin} or newer` : "Any" },
+    { label: "Condition", value: criteria?.condition || "Any" },
+    { label: "Amenities", value: criteria?.features?.length ? criteria.features.join(", ") : "None selected" },
+    { label: "Note to sellers", value: buyer.bio || "Not set" },
     { label: "Profile status", value: visibilityLabel },
     { label: "Last updated", value: buyer.refreshedAt || "Not set" },
   ];
@@ -319,6 +330,19 @@ function TestPreApprovalNotice({ badge }: { badge: Parameters<typeof BadgePill>[
       <p><BadgePill badge={badge} /> Testing only. Financing has not been verified. This badge expires automatically within 24 hours.</p>
     </aside>
   );
+}
+
+function bedsAndBaths(beds?: number, baths?: number) {
+  const parts = [beds ? `${beds}+ beds` : "", baths ? `${baths}+ baths` : ""].filter(Boolean);
+  return parts.length ? parts.join(", ") : "Any";
+}
+
+function sizeRange(min?: number, max?: number) {
+  const sqft = (value: number) => `${value.toLocaleString("en-US")} sqft`;
+  if (min && max) return `${sqft(min)} – ${sqft(max)}`;
+  if (min) return `${sqft(min)}+`;
+  if (max) return `Up to ${sqft(max)}`;
+  return "Any";
 }
 
 // Public labels end in the stable account code ("Julie P. #7C4E2A91B6D0"); the code renders as secondary text.

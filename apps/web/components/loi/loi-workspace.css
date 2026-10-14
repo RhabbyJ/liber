@@ -73,12 +73,6 @@
   font-size: 14px;
   line-height: 20px;
   margin-top: 10px;
-  padding: 2px 8px;
-}
-
-.loi-page .status-tag.active {
-  background: var(--sage-tint-strong);
-  color: var(--ink-strong);
 }
 
 /* Completed LOI ------------------------------------------------------------ */

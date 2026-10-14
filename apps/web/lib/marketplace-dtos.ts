@@ -31,6 +31,12 @@ export type InviteDTO = {
   propertyStatus?: string;
   propertyCondition?: string;
   propertyFeatures?: string[];
+  /** Current-identity listing facts and the seller's note, shared only with the invited buyer. */
+  propertyPrice?: number;
+  propertyBedrooms?: number;
+  propertyBathrooms?: number;
+  propertySquareFeet?: number;
+  propertyNote?: string;
   status: "Sent" | "Viewed" | "Accepted" | "Declined" | "Expired";
   sentAt: string;
   sentAtDate: string;

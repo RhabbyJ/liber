@@ -472,6 +472,29 @@ describe("LOI service behavior", () => {
     expect(saved.costsAndCredits.closingCostEstimates.itemizedCosts).toEqual(next.costsAndCredits.closingCostEstimates!.itemizedCosts);
   });
 
+  it("tells only the buyer whether their pre-approval evidence already satisfies financed terms", async () => {
+    const row = access(1, "AWAITING_SELLER_RESPONSE");
+    const stub = () => {
+      mocks.prisma.loiNegotiation.findUnique.mockResolvedValue(negotiation(1, "AWAITING_SELLER_RESPONSE"));
+      mocks.prisma.loiRevision.findMany.mockResolvedValue([revision()]);
+      mocks.prisma.loiDraft.findUnique.mockResolvedValue(null);
+    };
+    stub();
+    mocks.prisma.$queryRaw.mockResolvedValueOnce([row]).mockResolvedValueOnce([{ badge_active: true, document_uploaded: true }]);
+    expect((await getLoiNegotiation(negotiationId)).buyerFinancingEvidence).toBe("BADGE");
+
+    stub();
+    mocks.prisma.$queryRaw.mockResolvedValueOnce([row]).mockResolvedValueOnce([{ badge_active: false, document_uploaded: true }]);
+    expect((await getLoiNegotiation(negotiationId)).buyerFinancingEvidence).toBe("DOCUMENT");
+
+    stub();
+    mocks.getSessionUser.mockResolvedValue({ id: sellerId, roles: ["SELLER"] });
+    mocks.prisma.$queryRaw.mockReset();
+    mocks.prisma.$queryRaw.mockResolvedValueOnce([row]);
+    expect((await getLoiNegotiation(negotiationId)).buyerFinancingEvidence).toBeNull();
+    expect(mocks.prisma.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+
   it("exposes starter terms only for an eligible actionable initial negotiation", async () => {
     const row = { ...access(), property_price: { toString: () => "2000000" }, property_snapshot: { price: 1_000_000 } };
     mocks.prisma.$queryRaw.mockResolvedValueOnce([row]);

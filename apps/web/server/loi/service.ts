@@ -145,8 +145,11 @@ export async function getLoiNegotiation(negotiationId: string) {
       : [];
     const editable = eligible && !effectivelyExpired && canDraftLoi(negotiation.status, negotiation.currentSequence, viewerRole);
     const effectiveStatus = effectiveLoiStatus(access, negotiation.status, current?.responseDeadline ?? null) ?? "READ_ONLY";
+    // Only the buyer learns their own evidence state (a pending letter is private to them).
+    const evidence = viewerRole === "BUYER" ? await buyerFinancingEvidence(tx, access.buyer_user_id) : null;
     return {
       allowedActions,
+      buyerFinancingEvidence: evidence ? evidence.badgeActive ? "BADGE" as const : evidence.documentUploaded ? "DOCUMENT" as const : "NONE" as const : null,
       conversationId: access.conversation_id,
       currentSequence: negotiation.currentSequence,
       draft: draft && editable ? { basedOnSequence: draft.basedOnSequence, draftVersion: draft.draftVersion, id: draft.id, terms: decodeDraftTerms(draft.schemaVersion, draft.terms), updatedAt: draft.updatedAt.toISOString() } : null,
@@ -390,8 +393,8 @@ function assertCanStart(access: Access) {
   if (!canStartNegotiation(access)) throw loiUnavailable();
 }
 
-async function assertBuyerFinancingEvidence(tx: Tx, buyerUserId: string, negotiationId: string) {
-  const [row] = await tx.$queryRaw<Array<{ badge_active: boolean; document_uploaded: boolean }>>`
+async function buyerFinancingEvidence(tx: Tx, buyerUserId: string) {
+  const rows = await tx.$queryRaw<Array<{ badge_active: boolean; document_uploaded: boolean }>>`
     SELECT
       EXISTS (
         SELECT 1
@@ -410,7 +413,13 @@ async function assertBuyerFinancingEvidence(tx: Tx, buyerUserId: string, negotia
           AND document."reviewStatus" IN ('PENDING'::public."DocumentStatus", 'APPROVED'::public."DocumentStatus")
       ) AS document_uploaded
   `;
-  if (!row?.badge_active && !row?.document_uploaded) {
+  const row = Array.isArray(rows) ? rows[0] : undefined;
+  return { badgeActive: Boolean(row?.badge_active), documentUploaded: Boolean(row?.document_uploaded) };
+}
+
+async function assertBuyerFinancingEvidence(tx: Tx, buyerUserId: string, negotiationId: string) {
+  const evidence = await buyerFinancingEvidence(tx, buyerUserId);
+  if (!evidence.badgeActive && !evidence.documentUploaded) {
     const exceptionExpiry = financingTestExceptionExpiresAt(buyerUserId, negotiationId);
     if (exceptionExpiry) return exceptionExpiry;
     throw new LoiError("FINANCING_EVIDENCE_REQUIRED", "Financed terms need a pre-approval badge or an uploaded pre-approval letter.", 400);

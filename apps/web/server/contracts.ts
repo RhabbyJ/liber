@@ -470,6 +470,11 @@ function inviteFromDb(invite: {
     images?: Array<{ id: string; propertyIdentityVersion: number }>;
     condition?: string | null;
     features?: string[];
+    price?: unknown;
+    bedrooms?: number | null;
+    bathrooms?: number | null;
+    squareFeet?: number | null;
+    description?: string | null;
   };
   propertyId: string;
   propertyIdentityVersion: number;
@@ -500,10 +505,11 @@ function inviteFromDb(invite: {
     propertyStatus: propertyStatusLabel(invite.property.ownershipVerificationStatus),
     propertyCondition: currentIdentity ? invite.property.condition ?? undefined : undefined,
     propertyFeatures: currentIdentity ? invite.property.features ?? [] : [],
+    ...(currentIdentity ? inviteListingFacts(invite.property) : {}),
     status: !currentIdentity || (invite.expiresAt && invite.expiresAt.getTime() <= Date.now() && ["SENT", "VIEWED"].includes(invite.status))
       ? "Expired"
       : titleFromStatus(invite.status),
-    sentAt: dateKey(invite.sentAt) || "Now",
+    sentAt: invite.sentAt.toISOString(),
     sentAtDate: dateKey(invite.sentAt),
     expiresAt: invite.expiresAt?.toISOString(),
     title: invite.title,
@@ -677,6 +683,11 @@ export async function listBuyerInvites() {
           propertyType: true,
           condition: true,
           features: true,
+          price: true,
+          bedrooms: true,
+          bathrooms: true,
+          squareFeet: true,
+          description: true,
           images: { select: { id: true, propertyIdentityVersion: true } },
         },
       },
@@ -1249,7 +1260,7 @@ export async function reviewDocument(input: unknown) {
   requireConfidentialDocumentAccess();
   await assertRateLimit(`admin-review:${admin.id}`, 120, 60 * 60_000);
   const data = reviewDocumentSchema.parse(normalizeInput(input));
-  await prisma.$transaction(async (tx) => {
+  const documentType = await prisma.$transaction(async (tx) => {
     const document = await tx.verificationDocument.findUnique({
       where: { id: data.documentId },
     });
@@ -1296,6 +1307,7 @@ export async function reviewDocument(input: unknown) {
     });
     if (review.count !== 1) throw new Error("Document has already been reviewed.");
     const reviewedDocument = document;
+    let propertyVerified = false;
 
     if (reviewedDocument.documentType === "OWNERSHIP" && reviewedDocument.propertyId) {
       if (data.decision === "APPROVED" && reviewedDocument.ownershipEvidenceKind === "GOVERNMENT_ID"
@@ -1359,6 +1371,7 @@ export async function reviewDocument(input: unknown) {
           where: { id: reviewedDocument.propertyId },
           data: { ownershipVerificationStatus: "APPROVED", status: "READY_FOR_INVITES" },
         });
+        propertyVerified = true;
       } else {
         await tx.sellerProperty.update({
           where: { id: reviewedDocument.propertyId },
@@ -1370,14 +1383,17 @@ export async function reviewDocument(input: unknown) {
       }
     }
 
+    const copy = documentReviewCopy(reviewedDocument.documentType === "OWNERSHIP", data.decision, propertyVerified);
     await tx.notification.create({
       data: {
-        body:
-          data.decision === "APPROVED"
-            ? "An admin approved your verification document."
-            : "An admin rejected your verification document.",
-        metadata: { decision: data.decision, documentId: reviewedDocument.id, documentType: reviewedDocument.documentType },
-        title: `Verification document ${data.decision.toLowerCase()}`,
+        body: copy.body,
+        metadata: {
+          decision: data.decision,
+          documentId: reviewedDocument.id,
+          documentType: reviewedDocument.documentType,
+          ...(reviewedDocument.propertyId ? { propertyId: reviewedDocument.propertyId, propertyVerified } : {}),
+        },
+        title: copy.title,
         type: "document_reviewed",
         userId: reviewedDocument.userId,
       },
@@ -1392,8 +1408,9 @@ export async function reviewDocument(input: unknown) {
         targetType: "document",
       },
     });
+    return reviewedDocument.documentType;
   });
-  return { ok: true, data };
+  return { ok: true, data: { ...data, documentType } };
 }
 
 export async function grantBadge(input: unknown) {
@@ -1470,9 +1487,9 @@ export async function grantBadge(input: unknown) {
     });
     await tx.notification.create({
       data: {
-        body: "An admin approved this trust badge for your buyer profile.",
+        body: "Sellers now see this badge on your buyer profile. Your documents stay private.",
         metadata: { badgeId: created.id, badgeType: data.badgeType },
-        title: `${badgeLabel(data.badgeType)} badge approved`,
+        title: `Badge added: ${badgeLabel(data.badgeType)}`,
         type: "badge_granted",
         userId: buyerProfile.userId,
       },
@@ -1646,11 +1663,24 @@ export async function listSellerProperties() {
   };
 }
 
+export type OwnershipEvidenceStatus = {
+  rejectionReason?: string;
+  status: "APPROVED" | "PENDING" | "REJECTED";
+  submittedAt: string;
+};
+
 export async function getSellerProperty(propertyId: string) {
   const seller = await requireCurrentUser("SELLER");
   const property = await prisma.sellerProperty.findFirst({
     where: { id: propertyId, ownerUserId: seller.id },
-    include: { images: coverImageSelect },
+    include: {
+      documents: {
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { createdAt: true, ownershipEvidenceKind: true, propertyIdentityVersion: true, rejectionReason: true, reviewStatus: true },
+        where: { documentType: "OWNERSHIP" },
+      },
+      images: coverImageSelect,
+    },
   });
   if (!property) throw new Error("Property not found.");
   const syntheticApprovals = await activeSyntheticPropertyApprovals(prisma, [property]);
@@ -1659,6 +1689,11 @@ export async function getSellerProperty(propertyId: string) {
     data: {
       ...propertyFromDb(property, syntheticApprovals.has(syntheticPropertyVersionKey(property))),
       coverImageId: currentCoverImageId(property),
+      // Only the current identity's photos and evidence describe this property.
+      imageIds: (property.images ?? [])
+        .filter((image) => image.propertyIdentityVersion === property.identityVersion)
+        .map((image) => image.id),
+      ownershipEvidence: latestOwnershipEvidence(property.documents ?? [], property.identityVersion),
       // Exact edit values are available only after the owner-scoped lookup above.
       address: {
         addressLine1: property.addressLine1 ?? undefined,
@@ -1671,6 +1706,56 @@ export async function getSellerProperty(propertyId: string) {
       },
     },
   };
+}
+
+function inviteListingFacts(property: { bathrooms?: number | null; bedrooms?: number | null; description?: string | null; price?: unknown; squareFeet?: number | null }) {
+  const price = property.price === null || property.price === undefined ? undefined : Number(property.price);
+  return {
+    ...(price && Number.isFinite(price) && price > 0 ? { propertyPrice: price } : {}),
+    ...(property.bedrooms ? { propertyBedrooms: property.bedrooms } : {}),
+    ...(property.bathrooms ? { propertyBathrooms: property.bathrooms } : {}),
+    ...(property.squareFeet ? { propertySquareFeet: property.squareFeet } : {}),
+    ...(property.description?.trim() ? { propertyNote: property.description.trim() } : {}),
+  };
+}
+
+function documentReviewCopy(ownership: boolean, decision: "APPROVED" | "REJECTED", propertyVerified: boolean) {
+  if (!ownership) {
+    return decision === "APPROVED"
+      ? { body: "An admin approved your verification document.", title: "Verification document approved" }
+      : { body: "Liber couldn’t accept your verification document. Upload a new one to try again.", title: "Verification document not accepted" };
+  }
+  if (decision === "REJECTED") {
+    return { body: "Liber couldn’t accept one of your ownership documents. Upload a new one from your property.", title: "Ownership document not accepted" };
+  }
+  return propertyVerified
+    ? { body: "Your ownership documents are approved. You can now invite buyers to this property.", title: "Property verified" }
+    : { body: "Liber approved one of your ownership documents. The property is verified once both are approved.", title: "Ownership document approved" };
+}
+
+function latestOwnershipEvidence(
+  documents: Array<{
+    createdAt: Date;
+    ownershipEvidenceKind: string | null;
+    propertyIdentityVersion: number | null;
+    rejectionReason: string | null;
+    reviewStatus: string;
+  }>,
+  identityVersion: number,
+) {
+  const evidence: Partial<Record<"GOVERNMENT_ID" | "PROPERTY_ADDRESS_PROOF", OwnershipEvidenceStatus>> = {};
+  for (const document of documents) {
+    const kind = document.ownershipEvidenceKind;
+    if ((kind !== "GOVERNMENT_ID" && kind !== "PROPERTY_ADDRESS_PROOF") || evidence[kind]) continue;
+    if (document.propertyIdentityVersion !== identityVersion) continue;
+    if (document.reviewStatus !== "APPROVED" && document.reviewStatus !== "PENDING" && document.reviewStatus !== "REJECTED") continue;
+    evidence[kind] = {
+      ...(document.reviewStatus === "REJECTED" && document.rejectionReason ? { rejectionReason: document.rejectionReason } : {}),
+      status: document.reviewStatus,
+      submittedAt: document.createdAt.toISOString(),
+    };
+  }
+  return evidence;
 }
 
 function badgeLabel(type: Badge["type"]) {

@@ -411,7 +411,9 @@ popups on page load. Dismissing a popup does not mark it read. The bell's
 explicit **Mark all read** control acknowledges only the signed-in user's
 notifications. Page loads, prefetches, and activity reads never acknowledge them.
 
-Every notification is a link. The bell dropdown lists the five newest and the
+Every notification is a link. Ownership reviews tell the seller exactly what
+happened ("Property verified" once both documents are approved), and a buyer's
+rejected document says so and points to a replacement upload. The bell dropdown lists the five newest and the
 notifications page lists the full feed with All/Unread filters; each row opens
 the related LOI, invites, verification, properties, map, or admin page and marks
 only that notification read. Users without a buyer or seller workspace use
@@ -461,13 +463,19 @@ from the buyer-owned invite on the server. Unavailable messaging leaves the
 question unsent and preserves local input; decline remains available. LOI
 creation failures are shown explicitly and can be retried from accepted invites.
 
+A buyer's invite card shows the property's current asking price, beds, baths, square
+feet, condition, features, and the seller's note for invited buyers, alongside the
+private photos. Stale property identities show none of these.
+
 An eligible buyer can start an LOI even when the seller supplied no asking price.
 The initial Offer price is blank in that case; a positive proposed amount is
 required before reviewing or submitting terms; private drafts can save without it. Existing invite snapshots are never
 rewritten to invent a seller price.
 
-The messaging interface groups incoming/outgoing bubbles by date, keeps a compact
-composer, and exposes property context, LOI, mute, and block in Details. A single
+The messaging interface works like a desktop messenger: the conversation list stays
+beside the open chat (one pane at a time on phones), the property is pinned at the
+top of every chat, bubbles group by sender and day, quick replies open from the
+composer's + button, and Details exposes property context, LOI, mute, and block. A single
 check means sent; it does not claim delivery/read status. Inbox search and
 All/Unread/Active filters apply only to loaded authorized conversations.
 

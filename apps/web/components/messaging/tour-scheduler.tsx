@@ -44,7 +44,13 @@ export function TourScheduler({ conversationId, muted }: { conversationId: strin
     const tick = () => { setClock(Date.now()); if (document.visibilityState === "visible") void refresh(); };
     const timer = window.setInterval(tick, 15_000);
     window.addEventListener("focus", tick);
-    return () => { window.clearInterval(timer); window.removeEventListener("focus", tick); loadRef.current?.abort(); };
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", tick);
+      // Clear the in-flight marker too, so a remount (Strict Mode, fast refresh) loads immediately.
+      loadRef.current?.abort();
+      loadRef.current = null;
+    };
   }, [refresh]);
 
   const schedule = view?.schedule;

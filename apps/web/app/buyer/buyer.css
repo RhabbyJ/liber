@@ -559,8 +559,8 @@
 }
 
 .verification-status-row.pending .verification-status-icon {
-  background: var(--amber-tint);
-  color: var(--amber-strong);
+  background: var(--surface-muted);
+  color: var(--status-pending);
 }
 
 .verification-status-row.expired .verification-status-icon,
@@ -615,9 +615,8 @@
   margin-top: 4px;
 }
 
-.verification-status-row .status-tag.warning {
-  background: var(--warning-tint);
-  color: var(--warning);
+.verification-status-row .status-tag.warning::before {
+  background: var(--warning);
 }
 
 .verification-documents {

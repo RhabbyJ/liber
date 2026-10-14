@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import type { BuyerInviteResponseState } from "../lib/buyer-invite-response";
 import type { InviteDTO } from "../lib/marketplace-dtos";
+import { formatMoney } from "../lib/format";
+import { relativeTime } from "../lib/notification-format";
 import { Icon } from "./icon";
 import { PrivatePropertyImages } from "./private-property-images";
 import { PropertyTypeArtwork } from "./property-type-artwork";
@@ -27,6 +29,11 @@ export function BuyerInviteCard({ invite, actionId, action }: {
   const questionId = `invite-question-${invite.id}`;
   const facts = [...new Set([invite.propertyCondition, ...(invite.propertyFeatures ?? [])].filter((value): value is string => Boolean(value?.trim())))];
   const imageIds = (invite.imageIds ?? []).slice(0, 1);
+  const listingFacts = [
+    invite.propertyBedrooms ? `${invite.propertyBedrooms} bds` : null,
+    invite.propertyBathrooms ? `${invite.propertyBathrooms} ba` : null,
+    invite.propertySquareFeet ? `${invite.propertySquareFeet.toLocaleString("en-US")} sqft` : null,
+  ].filter((fact): fact is string => Boolean(fact));
   const deadline = invite.expiresAt && !Number.isNaN(Date.parse(invite.expiresAt))
     ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Los_Angeles", timeZoneName: "short" }).format(new Date(invite.expiresAt))
     : null;
@@ -57,13 +64,22 @@ export function BuyerInviteCard({ invite, actionId, action }: {
       <div className="buyer-invite-content">
         <div className="buyer-invite-topline">
           <span className={`status-tag ${statusTone}`}>{statusLabel}</span>
-          <span className="buyer-invite-sent">Sent <time dateTime={invite.sentAtDate}>{invite.sentAt}</time></span>
+          <span className="buyer-invite-sent">Sent <time dateTime={invite.sentAt} suppressHydrationWarning>{relativeTime(invite.sentAt, new Date()) || invite.sentAtDate}</time></span>
         </div>
-        <h2 className="buyer-invite-title">{invite.property}</h2>
+        {invite.propertyPrice ? <p className="buyer-invite-price">{formatMoney(invite.propertyPrice)}</p> : null}
+        {listingFacts.length ? <p className="buyer-invite-stats">{listingFacts.join(" | ")}</p> : null}
+        <h2 className={`buyer-invite-title${invite.propertyPrice ? " is-address" : ""}`}>{invite.property}</h2>
         {facts.length ? (
           <ul aria-label="Property condition and features" className="buyer-invite-facts">
             {facts.map((fact) => <li key={fact}>{fact}</li>)}
           </ul>
+        ) : null}
+
+        {invite.propertyNote ? (
+          <blockquote className="buyer-invite-note">
+            <span>From the seller</span>
+            <p>{invite.propertyNote}</p>
+          </blockquote>
         ) : null}
 
         <div className="buyer-invite-message">

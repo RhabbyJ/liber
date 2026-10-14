@@ -43,6 +43,7 @@
   --amber-strong: #0d5aa7;
   --amber-tint: #eef6ff;
   --amber-line: #b9dcff;
+  --status-pending: #d97706;
 
   /* Status */
   --info: #0d5aa7;
@@ -1185,15 +1186,15 @@ button.text-link {
 
 .status-dot {
   align-items: center;
-  background: var(--surface-muted);
-  border-radius: var(--r-xs);
+  background: none;
   color: var(--ink-strong);
   display: inline-flex;
-  font-size: 12px;
-  font-weight: 700;
-  gap: 4px;
-  line-height: 16px;
-  padding: 2px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 5px;
+  line-height: 18px;
+  padding: 0;
+  white-space: nowrap;
   width: fit-content;
 }
 
@@ -1203,7 +1204,7 @@ button.text-link {
 
 .status-dot.active,
 .status-dot.success {
-  background: var(--sage-tint-strong);
+  color: var(--ink-strong);
 }
 
 .status-dot.active .icon,
@@ -1213,8 +1214,7 @@ button.text-link {
 
 .status-dot.amber,
 .status-dot.warning {
-  background: var(--warning-tint);
-  color: var(--warning);
+  color: var(--ink-strong);
 }
 
 .status-dot.amber .icon,
@@ -1223,7 +1223,6 @@ button.text-link {
 }
 
 .status-dot.danger {
-  background: var(--danger-tint);
   color: var(--danger);
 }
 
@@ -1232,12 +1231,11 @@ button.text-link {
 }
 
 .status-dot.info {
-  background: var(--amber-tint);
-  color: var(--amber-strong);
+  color: var(--ink-strong);
 }
 
 .status-dot.info .icon {
-  color: var(--amber-strong);
+  color: var(--status-pending);
 }
 
 .trust-badge {
@@ -1905,8 +1903,8 @@ input[type="radio"]:disabled {
 }
 
 .status-list-icon.pending {
-  background: var(--amber-tint);
-  color: var(--amber-strong);
+  background: var(--surface-muted);
+  color: var(--status-pending);
 }
 
 .status-list-icon.expired {
@@ -1915,30 +1913,39 @@ input[type="radio"]:disabled {
 }
 
 .status-tag {
-  background: var(--surface-muted);
-  border-radius: var(--r-xs);
+  align-items: center;
+  background: none;
   color: var(--ink-strong);
   display: inline-flex;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 16px;
-  padding: 2px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+  line-height: 18px;
+  padding: 0;
   white-space: nowrap;
   width: fit-content;
 }
 
-.status-tag.active {
-  background: var(--sage-tint-strong);
+/* Status labels read like Zillow's listing status: a colored dot, then ink text. */
+.status-tag::before {
+  background: var(--ink-faint);
+  border-radius: 50%;
+  content: "";
+  flex: none;
+  height: 8px;
+  width: 8px;
 }
 
-.status-tag.pending {
-  background: var(--amber-tint);
-  color: var(--amber-strong);
+.status-tag.active::before {
+  background: var(--sage-deep);
 }
 
-.status-tag.expired {
-  background: var(--danger-tint);
-  color: var(--danger);
+.status-tag.pending::before {
+  background: var(--status-pending);
+}
+
+.status-tag.expired::before {
+  background: var(--danger);
 }
 
 .profile-header {
@@ -2392,9 +2399,8 @@ input[type="radio"]:disabled {
   }
 }
 
-.status-tag.declined {
-  background: var(--danger-tint);
-  color: var(--danger);
+.status-tag.declined::before {
+  background: var(--danger);
 }
 
 /* Inline alerts: one tinted line with an icon, used for real status only. */
@@ -3037,34 +3043,36 @@ input[type="radio"]:disabled {
 
 .message-status-chip {
   align-items: center;
-  background: var(--surface-muted);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-pill);
-  color: var(--ink-soft);
-  display: inline-flex;
-  flex: 0 0 auto;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1;
-  padding: 5px 8px;
-}
-
-.message-status-chip.active {
-  background: var(--sage-tint);
-  border-color: var(--sage-line);
+  background: none;
   color: var(--ink-strong);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+  line-height: 18px;
+  padding: 0;
+  white-space: nowrap;
+  width: fit-content;
 }
 
-.message-status-chip.waiting {
-  background: var(--info-tint);
-  border-color: var(--amber-line);
-  color: var(--info);
+.message-status-chip::before {
+  background: var(--ink-faint);
+  border-radius: 50%;
+  content: "";
+  height: 8px;
+  width: 8px;
 }
 
-.message-status-chip.unavailable {
-  background: var(--danger-tint);
-  border-color: #efc1bc;
-  color: var(--danger);
+.message-status-chip.active::before {
+  background: var(--sage-deep);
+}
+
+.message-status-chip.waiting::before {
+  background: var(--status-pending);
+}
+
+.message-status-chip.unavailable::before {
+  background: var(--danger);
 }
 
 .message-live-region {
@@ -4742,6 +4750,84 @@ input[type="radio"]:disabled {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Admin document review: match checks stacked, then Approve and Reject side by side. */
+.document-review {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto auto;
+  justify-content: start;
+}
+
+.document-review form {
+  display: contents;
+}
+
+.document-review .checkbox-row {
+  grid-column: 1 / -1;
+}
+
+.listing-evidence-slot {
+  align-content: start;
+  display: grid;
+  gap: 12px;
+}
+
+/* Submitted evidence: one status row per slot instead of an empty dropzone. */
+.listing-evidence-status {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 12px 16px;
+}
+
+.listing-evidence-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.listing-evidence-text strong {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.listing-evidence-text span {
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.listing-photo-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  list-style: none;
+  margin-bottom: 16px;
+}
+
+.listing-photo-grid li {
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  position: relative;
+}
+
+.listing-photo-grid-img.property-type-artwork {
+  display: block;
+  inset: 0;
+  position: absolute;
+}
+
+.listing-photo-grid-cover {
+  left: 8px;
+  position: absolute;
+  top: 8px;
 }
 
 .listing-editor-savebar {

@@ -35,9 +35,12 @@ export function notificationTarget(type: string, rawMetadata: unknown): Notifica
       : { href: "/seller/invites", label: "View sent invites" };
   }
   if (kind === "document_reviewed") {
-    return metadata.documentType === "OWNERSHIP"
-      ? { href: "/seller/properties", label: "View properties" }
-      : { href: "/buyer/badges", label: "View verification" };
+    if (metadata.documentType !== "OWNERSHIP") return { href: "/buyer/badges", label: "View verification" };
+    if (metadata.propertyVerified === true) return { href: "/", label: "Find buyers" };
+    const propertyId = id(metadata, "propertyId");
+    return propertyId
+      ? { href: `/seller/properties/${propertyId}/edit`, label: "View property" }
+      : { href: "/seller/properties", label: "View properties" };
   }
   if (kind === "badge_granted" || kind === "badge_revoked" || kind === "badge_expired") {
     return { href: "/buyer/badges", label: "View verification" };

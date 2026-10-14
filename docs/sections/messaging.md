@@ -120,21 +120,24 @@ and report-driven admin moderation.
   convenience, or an explicitly named Vercel Preview, only. Vercel production
   refuses wildcard cohorts even with stale CEO-preview flags.
 
-- Presentation (October 2026 portal restyle): inbox list panel with client-side search/filters over loaded rows, full-height thread with quick replies always visible and the LOI callout above the composer, details rail on desktop and overlay on phones; the site footer is hidden on thread pages. Data loading, polling, Realtime and actions are unchanged.
+- Presentation (October 14, 2026 messenger redesign): `/messages` and `/messages/[id]` share a desktop-messenger shell (`app/messages/chat.css`). The inbox list stays on the left (380px, 320px below 1100px) beside either a placeholder or the open thread; phones show one pane at a time with a back chevron. The thread page also loads the first inbox page (failure leaves an empty sidebar, never a broken thread) and passes the authorized inbox avatar variant to the header. The thread has an avatar header, a pinned listing bar (cover photo, title, location) with the LOI strip and tour bar under it, grouped bubbles (incoming white, outgoing soft green with ink text, tail on the last bubble of a five-minute group, time inside the bubble), the invite as a shared-listing card, centered system lines, and a pill composer whose `+` opens the quick-reply tray (shown inline when quick replies are the only way to reply). Details is a right drawer (a third column at 1280px and up). The site footer is hidden on all messages pages. Data loading, polling, Realtime and actions are unchanged.
 
 ## Agent notes
 
-The responsive messenger uses date groups and incoming/outgoing bubbles. The
+The responsive messenger uses day separators (Today, Yesterday, then "Mon, Oct 13")
+and grouped incoming/outgoing bubbles. The
 single check indicates an acknowledged send only, never read/presence. Details
 contains property context, LOI status, mute/block controls, and the full safety
 notice; the composer keeps a brief property-only reminder visible. Inbox search
 and All/Unread/Active filters operate on loaded authorized summaries, with a
 load-more explanation when older pages exist. Scoped presentation lives in
-`app/messages/messages.css` and must preserve canonical recovery, draft retention,
-moderation invalidation, and history pagination.
+`app/messages/chat.css` (layout, bubbles, composer) and `app/messages/messages.css`
+(tour, dialogs, reports) and must preserve canonical recovery, draft retention,
+moderation invalidation, and history pagination. Thread regions use explicit grid
+rows so a hidden alert region never moves the composer into the stretch row.
 
-The eligible Start LOI / Open LOI action is always visible above the message
-composer, outside collapsed Details, with a full-width 48px button on phones.
+The eligible Start LOI / Open LOI action is always visible as a slim strip pinned
+under the listing bar, outside collapsed Details.
 Its dedicated presentation lives in `components/messaging/chat-loi-action.*`.
 It preserves the existing sidecar eligibility and routes into the same
 non-binding workspace; it never submits terms directly from chat.

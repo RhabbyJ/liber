@@ -14,7 +14,9 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { GeneratedAvatar } from "../generated-avatar";
 import { Icon } from "../icon";
+import { PropertyCoverPhoto } from "../property-cover-photo";
 import { ChatLoiAction } from "./chat-loi-action";
 import { TourScheduler } from "./tour-scheduler";
 import { PrivatePropertyImages } from "../private-property-images";
@@ -45,10 +47,13 @@ const MESSAGING_REQUEST_TIMEOUT_MS = 15_000;
 const LOI_SUMMARY_REQUEST_TIMEOUT_MS = 5_000;
 
 export function MessageThread({
+  counterpartAvatarVariant,
   initialLoi,
   initialThread,
   templates,
 }: {
+  /** From the authorized inbox row; the thread payload carries no avatar. */
+  counterpartAvatarVariant?: string | null;
   initialLoi: MessagingLoiSummary;
   initialThread: ConversationThread;
   templates: MessagingTemplateOption[];
@@ -68,6 +73,8 @@ export function MessageThread({
   const [blockOpen, setBlockOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<MessagingMessage | null>(null);
   const [contextOpen, setContextOpen] = useState(false);
+  const [trayOpen, setTrayOpen] = useState(false);
+  const draftRef = useRef<HTMLTextAreaElement | null>(null);
   const [timeZone, setTimeZone] = useState("UTC");
   const dateFormatters = useMemo(() => ({
     day: new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone }),
@@ -115,6 +122,14 @@ export function MessageThread({
   useEffect(() => {
     setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
   }, []);
+
+  // The composer grows with the draft (up to about six lines), like a messaging app.
+  useLayoutEffect(() => {
+    const input = draftRef.current;
+    if (!input) return;
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
+  }, [draft]);
 
   const executeRefresh = useCallback(async (announceFailure = false) => {
     if (!refreshEnabledRef.current) return;
@@ -617,43 +632,53 @@ export function MessageThread({
     });
   }
 
+  const coverImageId = thread.propertySnapshot.imageIds[0];
+  const listingLocation = locationDetail(thread.propertySnapshot);
+
   return (
-    <div className="page wide message-thread-page">
-      <header className="message-thread-header">
-        <div className="message-thread-heading">
-          <Link aria-label="All conversations" className="messenger-back" href="/messages" ref={fallbackFocusRef}>
-            <Icon name="chevron-left" size={24} />
-          </Link>
-          <div className="message-thread-identity">
-            <span aria-hidden="true" className="message-counterpart-icon">
-              <Icon name="home" size={20} />
-            </span>
-            <div className="message-thread-title-copy">
-              <h1>{thread.counterpartLabel}</h1>
-              <p className="message-thread-property">
-                <span>{thread.propertySnapshot.title}</span>
-                {thread.propertySnapshot.location ? <span className="message-thread-location">{thread.propertySnapshot.location}</span> : null}
-              </p>
-            </div>
-          </div>
+    <div className={`chat-thread${contextOpen ? " details-open" : ""}`}>
+      <header className="chat-header">
+        <Link aria-label="All conversations" className="chat-back" href="/messages" ref={fallbackFocusRef}>
+          <Icon name="chevron-left" size={26} />
+        </Link>
+        {counterpartAvatarVariant ? (
+          <GeneratedAvatar className="chat-header-avatar" decorative name={thread.counterpartLabel} seed={thread.counterpartLabel} variant={counterpartAvatarVariant} />
+        ) : (
+          <span aria-hidden="true" className="chat-header-avatar chat-header-avatar-fallback"><Icon name="home" size={20} /></span>
+        )}
+        <div className="chat-header-copy">
+          <h1>{thread.counterpartLabel}</h1>
+          <p>{thread.viewerRole === "BUYER" ? "Seller" : "Buyer"} · {conversationStatusLabel(thread.status)}</p>
         </div>
-        <div className="message-thread-actions">
-          <span className={`message-status-chip ${conversationStatusClassName(thread.status)}`}>{conversationStatusLabel(thread.status)}</span>
-          <button
-            aria-controls="message-context"
-            aria-expanded={contextOpen}
-            className="button secondary sm messenger-details-toggle"
-            onClick={() => setContextOpen((open) => !open)}
-            ref={contextToggleRef}
-            type="button"
-          >
-            <Icon name="info" size={18} />
-            Details
-          </button>
-        </div>
+        <button
+          aria-controls="message-context"
+          aria-expanded={contextOpen}
+          aria-label="Conversation details"
+          className="chat-icon-button"
+          onClick={() => setContextOpen((open) => !open)}
+          ref={contextToggleRef}
+          type="button"
+        >
+          <Icon name="info" size={22} />
+        </button>
       </header>
 
-      <div aria-atomic="true" aria-live="polite" className="message-live-region">
+      <div className="chat-pinned">
+        <button className="chat-listing" onClick={() => setContextOpen(true)} type="button">
+          <span className="chat-listing-thumb">
+            <PropertyCoverPhoto className="chat-listing-photo" imageId={coverImageId} propertyType="HOME" seed={thread.id} showSampleTag={false} sizes="56px" />
+          </span>
+          <span className="chat-listing-text">
+            <strong>{thread.propertySnapshot.title}</strong>
+            <span>{[listingLocation, thread.viewerRole === "BUYER" ? "Shared with you" : "Your property"].filter(Boolean).join(" · ")}</span>
+          </span>
+          <Icon className="chat-listing-chevron" name="chevron-right" size={20} />
+        </button>
+        <ChatLoiAction loi={loi} busy={mutationPending} onStart={() => void startLoi()} />
+        <TourScheduler conversationId={conversationId} muted={thread.muted} />
+      </div>
+
+      <div aria-atomic="true" aria-live="polite" className="message-live-region chat-alerts">
         {error ? (
           <div className="inline-alert danger" role="alert">
             <Icon name="info" size={20} />
@@ -669,215 +694,218 @@ export function MessageThread({
         {notice ? <p className="visually-hidden">{notice}</p> : null}
       </div>
 
-      <TourScheduler conversationId={conversationId} muted={thread.muted} />
-      <div className={`message-thread-layout${contextOpen ? " context-open" : ""}`}>
-        <section aria-label="Conversation" className="message-thread-panel">
-          <div
-            aria-label="Message history"
-            className="message-history"
-            onScroll={(event) => {
-              const history = event.currentTarget;
-              messageViewportRef.current.nearBottom = history.scrollHeight - history.scrollTop - history.clientHeight < 96;
-            }}
-            ref={messageHistoryRef}
-            role="region"
-            tabIndex={0}
-          >
-            {thread.pageInfo.hasMore ? (
-              <div className="message-load-older">
-                <button className="button secondary sm" disabled={loadingOlder} onClick={loadOlderMessages} type="button">
-                  {loadingOlder ? "Loading…" : "Load older messages"}
-                </button>
-              </div>
-            ) : null}
-
-            <ol aria-live="polite" aria-relevant="additions text" className="message-list" role="log">
-              {thread.messages.length === 0 ? (
-                <li className="message-empty">No messages to show yet.</li>
-              ) : thread.messages.map((message, index) => (
-                <Fragment key={message.id}>
-                  {formatMessageDate(message.createdAt, dateFormatters.day) !== formatMessageDate(thread.messages[index - 1]?.createdAt, dateFormatters.day) ? (
-                    <li className="messenger-day"><time dateTime={message.createdAt || undefined}>{formatMessageDate(message.createdAt, dateFormatters.day)}</time></li>
-                  ) : null}
-                  <li className={`message-row${message.isOwn ? " own" : ""}${message.kind === "SYSTEM" ? " system" : ""}${message.kind === "INVITE" ? " invite" : ""}`}>
-                    <article className="message-bubble">
-                      <span className="visually-hidden">{message.senderLabel}</span>
-                      {message.kind === "INVITE" ? <span className="messenger-invite-label"><Icon name="home" size={16} /> Property invite</span> : null}
-                      <p className={message.redacted ? "muted" : undefined}>{message.body}</p>
-                      <div className="message-meta">
-                        {!message.isOwn && message.kind !== "SYSTEM" && !message.redacted ? (
-                          <button
-                            aria-label={`Report message from ${message.senderLabel}, ${formatMessageDate(message.createdAt, dateFormatters.full)}`}
-                            className="message-report-button"
-                            onClick={() => openDialog(() => setReportTarget(message))}
-                            type="button"
-                          >
-                            Report
-                          </button>
-                        ) : null}
-                        <span className="messenger-message-time">
-                          <time dateTime={message.createdAt || undefined} suppressHydrationWarning title={formatMessageDate(message.createdAt, dateFormatters.full)}>
-                            {formatMessageDate(message.createdAt, dateFormatters.time)}
-                          </time>
-                          {message.isOwn && message.kind !== "SYSTEM" ? <span aria-label="Sent" className="messenger-sent" role="img" title="Sent"><Icon aria-hidden="true" name="check" size={16} /></span> : null}
-                        </span>
-                      </div>
-                    </article>
-                  </li>
-                </Fragment>
-              ))}
-            </ol>
+      <div
+        aria-label="Message history"
+        className="chat-history"
+        onScroll={(event) => {
+          const history = event.currentTarget;
+          messageViewportRef.current.nearBottom = history.scrollHeight - history.scrollTop - history.clientHeight < 96;
+        }}
+        ref={messageHistoryRef}
+        role="region"
+        tabIndex={0}
+      >
+        {thread.pageInfo.hasMore ? (
+          <div className="chat-load-older">
+            <button className="chat-pill-button" disabled={loadingOlder} onClick={loadOlderMessages} type="button">
+              {loadingOlder ? "Loading…" : "Load older messages"}
+            </button>
           </div>
+        ) : null}
 
-          <section aria-label="Message composer" className="message-composer">
-            <ChatLoiAction loi={loi} busy={mutationPending} onStart={() => void startLoi()} />
-            {canSend ? (
-              <>
-                <div className="message-guided-options">
-                  <p className="message-guided-heading" id="message-quick-replies-label">
-                    Quick replies <span className="messenger-quick-help">Choose a reply to send it immediately.</span>
-                  </p>
-                  <div aria-labelledby="message-quick-replies-label" className="message-template-list" role="group">
-                    {templates.map((template) => (
+        <ol aria-live="polite" aria-relevant="additions text" className="chat-list" role="log">
+          {thread.messages.length === 0 ? (
+            <li className="chat-system"><p>No messages to show yet.</p></li>
+          ) : thread.messages.map((message, index) => {
+            const previous = thread.messages[index - 1];
+            const next = thread.messages[index + 1];
+            const newDay = dayKey(message.createdAt, timeZone) !== dayKey(previous?.createdAt, timeZone);
+            const groupedWithPrevious = !newDay && sameGroup(previous, message);
+            const groupedWithNext = dayKey(message.createdAt, timeZone) === dayKey(next?.createdAt, timeZone) && sameGroup(message, next);
+            const time = (
+              <time dateTime={message.createdAt || undefined} suppressHydrationWarning title={formatMessageDate(message.createdAt, dateFormatters.full)}>
+                {formatMessageDate(message.createdAt, dateFormatters.time)}
+              </time>
+            );
+            return (
+              <Fragment key={message.id}>
+                {newDay ? (
+                  <li className="chat-day"><span suppressHydrationWarning>{dayLabel(message.createdAt, timeZone)}</span></li>
+                ) : null}
+                {message.kind === "SYSTEM" ? (
+                  <li className="chat-system"><p>{message.body}</p></li>
+                ) : (
+                  <li className={`chat-row${message.isOwn ? " own" : ""}${groupedWithPrevious ? " grouped" : ""}${groupedWithNext ? "" : " tail"}${message.kind === "INVITE" ? " invite" : ""}`}>
+                    <article className="chat-bubble">
+                      <span className="visually-hidden">{message.senderLabel}</span>
+                      {message.kind === "INVITE" ? (
+                        <span className="chat-invite-media">
+                          <PropertyCoverPhoto className="chat-invite-photo" imageId={coverImageId} propertyType="HOME" seed={thread.id} sizes="300px" />
+                          <span className="chat-invite-label"><Icon name="home" size={14} /> Private viewing invite</span>
+                        </span>
+                      ) : null}
+                      {message.kind === "INVITE" ? <strong className="chat-invite-title">{thread.propertySnapshot.title}</strong> : null}
+                      <p className={message.redacted ? "muted" : undefined}>{message.body}</p>
+                      <span className="chat-meta">
+                        {time}
+                        {message.isOwn ? <span aria-label="Sent" className="chat-sent" role="img" title="Sent"><Icon aria-hidden="true" name="check" size={14} /></span> : null}
+                      </span>
+                    </article>
+                    {!message.isOwn && !message.redacted ? (
                       <button
-                        className="message-template-button"
-                        disabled={sending || !isOnline}
-                        key={template.key}
-                        onClick={() => void sendMessage({
+                        aria-label={`Report message from ${message.senderLabel}, ${formatMessageDate(message.createdAt, dateFormatters.full)}`}
+                        className="chat-report"
+                        onClick={() => openDialog(() => setReportTarget(message))}
+                        type="button"
+                      >
+                        Report
+                      </button>
+                    ) : null}
+                  </li>
+                )}
+              </Fragment>
+            );
+          })}
+        </ol>
+      </div>
+
+      <footer aria-label="Message composer" className="chat-composer">
+        {canSend ? (
+          <>
+            {trayOpen || !canSendFreeText ? (
+              <div className="chat-quick-tray" id="message-quick-replies">
+                <p className="chat-quick-heading" id="message-quick-replies-label">Quick replies</p>
+                <div aria-labelledby="message-quick-replies-label" className="chat-quick-list" role="group">
+                  {templates.map((template) => (
+                    <button
+                      className="chat-quick-reply"
+                      disabled={sending || !isOnline}
+                      key={template.key}
+                      onClick={() => {
+                        setTrayOpen(false);
+                        void sendMessage({
                           kind: "GUIDED",
                           templateKey: template.key,
                           templateVersion: template.version,
-                        })}
-                        title={template.text}
-                        type="button"
-                      >
-                        <strong>{template.label}</strong>
-                        <span className="visually-hidden">{template.text}</span>
-                      </button>
-                    ))}
-                  </div>
+                        });
+                      }}
+                      type="button"
+                    >
+                      <strong>{template.label}</strong>
+                      <span>{template.text}</span>
+                    </button>
+                  ))}
                 </div>
-                {visibleComposerError ? (
-                  <p className="message-composer-error" id="message-composer-error" role="alert">
-                    {visibleComposerError}
-                  </p>
-                ) : null}
-                {canSendFreeText ? (
-                  <form className="message-free-form" onSubmit={(event) => {
-                    event.preventDefault();
-                    void sendMessage({ body: draft, kind: "FREE_TEXT" });
-                  }}>
-                    <label className="visually-hidden" htmlFor="message-draft">Message {thread.counterpartLabel}</label>
-                    <div className="messenger-compose-input">
-                      <textarea
-                        aria-describedby={visibleComposerError ? "message-draft-count message-composer-error" : "message-draft-count"}
-                        aria-invalid={draftLength > 2_000 || undefined}
-                        disabled={sending}
-                        id="message-draft"
-                        maxLength={4_000}
-                        name="message"
-                        onChange={(event) => {
-                          setDraft(event.target.value);
-                          if (composerError) setComposerError("");
-                        }}
-                        onKeyDown={(event) => submitOnEnter(event)}
-                        placeholder="Write a message…"
-                        rows={1}
-                        value={draft}
-                      />
-                      <button
-                        aria-label={sending ? "Sending message" : "Send message"}
-                        className="messenger-send"
-                        disabled={sending || !isOnline || !draft.trim() || draftLength > 2_000}
-                        type="submit"
-                      >
-                        <Icon name="arrow-right" size={20} strokeWidth={2.2} />
-                      </button>
-                    </div>
-                    <div className="message-composer-footer">
-                      <span className="message-composer-help">
-                        <span
-                          className={`field-hint message-character-count${draftLength > 2_000 ? " invalid" : ""}`}
-                          id="message-draft-count"
-                        >
-                          {draftLength.toLocaleString()} / 2,000
-                        </span>
-                        <span aria-hidden="true" className="message-composer-shortcut">Enter to send · Shift+Enter for a new line</span>
-                      </span>
-                      {sending ? <span className="muted small" role="status">Sending…</span> : null}
-                    </div>
-                  </form>
-                ) : (
-                  <p className="muted small">The invite is delivered. Chat opens after the buyer replies.</p>
-                )}
-              </>
+              </div>
+            ) : null}
+            {visibleComposerError ? (
+              <p className="message-composer-error" id="message-composer-error" role="alert">
+                {visibleComposerError}
+              </p>
+            ) : null}
+            {canSendFreeText ? (
+              <form className="chat-compose" onSubmit={(event) => {
+                event.preventDefault();
+                void sendMessage({ body: draft, kind: "FREE_TEXT" });
+              }}>
+                <button
+                  aria-controls="message-quick-replies"
+                  aria-expanded={trayOpen}
+                  aria-label="Quick replies"
+                  className={`chat-compose-plus${trayOpen ? " open" : ""}`}
+                  onClick={() => setTrayOpen((open) => !open)}
+                  type="button"
+                >
+                  <Icon name="plus" size={22} />
+                </button>
+                <label className="visually-hidden" htmlFor="message-draft">Message {thread.counterpartLabel}</label>
+                <textarea
+                  aria-describedby={visibleComposerError ? "message-draft-count message-composer-error" : "message-draft-count"}
+                  aria-invalid={draftLength > 2_000 || undefined}
+                  className="chat-compose-input"
+                  disabled={sending}
+                  id="message-draft"
+                  maxLength={4_000}
+                  name="message"
+                  onChange={(event) => {
+                    setDraft(event.target.value);
+                    if (composerError) setComposerError("");
+                  }}
+                  onKeyDown={(event) => submitOnEnter(event)}
+                  placeholder="Message"
+                  ref={draftRef}
+                  rows={1}
+                  value={draft}
+                />
+                <button
+                  aria-label={sending ? "Sending message" : "Send message"}
+                  className="chat-send"
+                  disabled={sending || !isOnline || !draft.trim() || draftLength > 2_000}
+                  type="submit"
+                >
+                  <Icon name="arrow-right" size={20} strokeWidth={2.4} />
+                </button>
+                <span
+                  className={`chat-count${draftLength > 1_800 ? " visible" : ""}${draftLength > 2_000 ? " invalid" : ""}`}
+                  id="message-draft-count"
+                >
+                  {draftLength.toLocaleString()} / 2,000<span className="visually-hidden"> characters. Enter to send, Shift+Enter for a new line.</span>
+                </span>
+              </form>
             ) : (
-              <div className="message-read-only" role="status">
-                <Icon name="lock" size={20} />
-                <div>
-                  <strong>{composerUnavailableTitle(thread)}</strong>
-                  <p suppressHydrationWarning>{composerUnavailableDescription(thread)}</p>
-                </div>
-              </div>
+              <p className="chat-composer-note">The invite is delivered. Chat opens after the buyer replies.</p>
             )}
-            <p className="messenger-private-note"><Icon name="lock" size={14} /> Property chat only. No sensitive details or payment requests.</p>
-          </section>
-        </section>
-
-        <aside className="message-context-panel" aria-label="Conversation context" hidden={!contextOpen} id="message-context">
-          <div className="messenger-context-heading">
-            <h2>Conversation details</h2>
-            <button aria-label="Close conversation details" className="messenger-context-close" onClick={() => { setContextOpen(false); contextToggleRef.current?.focus(); }} type="button">
-              <Icon name="close" size={20} />
-            </button>
+            {sending ? <span className="visually-hidden" role="status">Sending…</span> : null}
+          </>
+        ) : (
+          <div className="chat-readonly" role="status">
+            <Icon name="lock" size={18} />
+            <p><strong>{composerUnavailableTitle(thread)}.</strong> <span suppressHydrationWarning>{composerUnavailableDescription(thread)}</span></p>
           </div>
-          <section className="messenger-context-section">
-            <PrivatePropertyImages imageIds={thread.propertySnapshot.imageIds} />
-            <div>
-              <h3>{thread.propertySnapshot.title}</h3>
-              <p className="meta-line">{thread.viewerRole === "BUYER" ? "Seller's property" : "Your property"}</p>
-            </div>
-            {thread.propertySnapshot.location ? (
-              <p className="messenger-context-location"><Icon name="map-pin" size={16} /> {thread.propertySnapshot.location}</p>
+        )}
+        <p className="chat-private-note"><Icon name="lock" size={12} /> Private property chat. No sensitive info or payment requests.</p>
+      </footer>
+
+      <aside className="chat-details" aria-label="Conversation context" hidden={!contextOpen} id="message-context">
+        <div className="chat-details-head">
+          <h2>Details</h2>
+          <button aria-label="Close conversation details" className="chat-icon-button" onClick={() => { setContextOpen(false); contextToggleRef.current?.focus(); }} type="button">
+            <Icon name="close" size={22} />
+          </button>
+        </div>
+        <section className="chat-details-section">
+          <PrivatePropertyImages imageIds={thread.propertySnapshot.imageIds} />
+          <h3>{thread.propertySnapshot.title}</h3>
+          {thread.propertySnapshot.location ? <p className="chat-details-meta">{thread.propertySnapshot.location}</p> : null}
+          <dl className="chat-details-list">
+            <div><dt>Property</dt><dd>{thread.viewerRole === "BUYER" ? "Seller’s property" : "Your property"}</dd></div>
+            <div><dt>Conversation</dt><dd><span className={`status-tag ${conversationStatusClassName(thread.status)}`}>{conversationStatusLabel(thread.status)}</span></dd></div>
+            {thread.propertySnapshot.ownershipStatus ? (
+              <div><dt>Ownership</dt><dd><span className={`status-tag ${["APPROVED", "Ownership verified"].includes(thread.propertySnapshot.ownershipStatus) ? "active" : "pending"}`}>{ownershipLabel(thread.propertySnapshot.ownershipStatus)}</span></dd></div>
             ) : null}
-            <div className="messenger-context-tags">
-              <span className={`message-status-chip ${conversationStatusClassName(thread.status)}`}>{conversationStatusLabel(thread.status)}</span>
-              {thread.propertySnapshot.ownershipStatus ? (
-                <span className={`status-dot ${["APPROVED", "Ownership verified"].includes(thread.propertySnapshot.ownershipStatus) ? "active" : "warning"}`}>{thread.propertySnapshot.ownershipStatus}</span>
-              ) : null}
-            </div>
-            {!thread.propertySnapshot.identityCurrent ? (
-              <p className="fine-print">Showing the property version shared with this invite.</p>
+            {loi.available ? (
+              <div><dt>LOI</dt><dd><span className={`status-tag ${loi.status === "TERMS_ALIGNED" ? "active" : "pending"}`}>{!loi.id && !loi.canCreate ? "Waiting for buyer" : loiStatusLabel(loi.status)}</span></dd></div>
             ) : null}
-          </section>
-          {loi.available ? (
-            <section className="messenger-context-section">
-              <div className="messenger-context-row">
-                <h3>LOI workspace</h3>
-                <span className={`message-status-chip ${loi.status === "TERMS_ALIGNED" ? "active" : "waiting"}`}>{loiStatusLabel(loi.status)}</span>
-              </div>
-              {!loi.id && !loi.canCreate ? <span className="status-dot info">Waiting for buyer</span> : null}
-            </section>
+          </dl>
+          {!thread.propertySnapshot.identityCurrent ? (
+            <p className="fine-print">Showing the property version shared with this invite.</p>
           ) : null}
-          <section className="messenger-context-section messenger-conversation-controls">
-            <button className="button secondary messenger-control" disabled={mutationPending} onClick={updateMute} type="button">
-              <Icon name="bell" size={18} /> {thread.muted ? "Unmute conversation" : "Mute conversation"}
-            </button>
-            <button
-              className="button secondary messenger-control message-block-action"
-              disabled={mutationPending || thread.status === "BLOCKED"}
-              onClick={() => openDialog(() => setBlockOpen(true))}
-              type="button"
-            >
-              <Icon name="shield" size={18} /> Block participant
-            </button>
-          </section>
-          <p className="message-safety-copy">
-            <Icon name="shield" size={16} />
-            <span>{thread.safetyNotice}</span>
-          </p>
-        </aside>
-      </div>
+        </section>
+        <section className="chat-details-section chat-details-actions">
+          <button className="chat-details-action" disabled={mutationPending} onClick={updateMute} type="button">
+            <Icon name="bell" size={20} /> {thread.muted ? "Unmute conversation" : "Mute conversation"}
+          </button>
+          <button
+            className="chat-details-action danger"
+            disabled={mutationPending || thread.status === "BLOCKED"}
+            onClick={() => openDialog(() => setBlockOpen(true))}
+            type="button"
+          >
+            <Icon name="shield" size={20} /> Block participant
+          </button>
+        </section>
+        <p className="chat-details-safety">{thread.safetyNotice}</p>
+      </aside>
 
       {blockOpen ? (
         <MessagingDialog
@@ -1055,17 +1083,51 @@ class MessagingRequestError extends Error {
 }
 
 function conversationStatusLabel(status: ConversationThread["status"]) {
-  if (status === "AWAITING_BUYER") return "Awaiting reply";
+  if (status === "AWAITING_BUYER") return "Waiting for reply";
   if (status === "BLOCKED") return "Unavailable";
   if (status === "READ_ONLY") return "Closed";
   return "Active";
 }
 
+/** Snapshot stores the enum ("APPROVED") or an already human label (test approvals). */
+function ownershipLabel(value: string) {
+  const labels: Record<string, string> = { APPROVED: "Verified", PENDING: "In review", REJECTED: "Not verified", NOT_SUBMITTED: "Not submitted" };
+  return labels[value] ?? value;
+}
+
 function conversationStatusClassName(status: ConversationThread["status"]) {
-  if (status === "AWAITING_BUYER") return "waiting";
-  if (status === "BLOCKED") return "unavailable";
-  if (status === "READ_ONLY") return "closed";
+  if (status === "AWAITING_BUYER") return "pending";
+  if (status === "BLOCKED") return "expired";
+  if (status === "READ_ONLY") return "";
   return "active";
+}
+
+const GROUP_WINDOW_MS = 5 * 60_000;
+
+/** Consecutive messages from one side within a few minutes read as one bubble group. */
+function sameGroup(first?: MessagingMessage, second?: MessagingMessage) {
+  if (!first || !second || first.kind === "SYSTEM" || second.kind === "SYSTEM") return false;
+  if (first.kind === "INVITE" || second.kind === "INVITE" || first.isOwn !== second.isOwn) return false;
+  const gap = new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime();
+  return Number.isFinite(gap) && gap >= 0 && gap < GROUP_WINDOW_MS;
+}
+
+function dayKey(value: string | undefined, timeZone: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat("en-CA", { timeZone }).format(date);
+}
+
+/** "Today", "Yesterday", then "Mon, Oct 13" (adds the year outside the current one). */
+function dayLabel(value: string, timeZone: string) {
+  const key = dayKey(value, timeZone);
+  const now = Date.now();
+  if (key === dayKey(new Date(now).toISOString(), timeZone)) return "Today";
+  if (key === dayKey(new Date(now - 86_400_000).toISOString(), timeZone)) return "Yesterday";
+  const date = new Date(value);
+  const sameYear = new Intl.DateTimeFormat("en", { timeZone, year: "numeric" }).format(date)
+    === new Intl.DateTimeFormat("en", { timeZone, year: "numeric" }).format(new Date(now));
+  return new Intl.DateTimeFormat("en", { day: "numeric", month: "short", timeZone, weekday: "short", ...(sameYear ? {} : { year: "numeric" }) }).format(date);
 }
 
 function composerUnavailableTitle(thread: ConversationThread) {
@@ -1086,4 +1148,10 @@ function submitOnEnter(event: KeyboardEvent<HTMLTextAreaElement>) {
   if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
   event.preventDefault();
   event.currentTarget.form?.requestSubmit();
+}
+
+/** The location after the title: "17200 Ventura Blvd, Encino, CA" under that title reads "Encino, CA". */
+function locationDetail({ location, title }: { location?: string | null; title: string }) {
+  if (!location) return "";
+  return location.startsWith(title) ? location.slice(title.length).replace(/^[,\s]+/, "") : location;
 }

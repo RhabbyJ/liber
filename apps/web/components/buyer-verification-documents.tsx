@@ -18,7 +18,7 @@ const submittedDate = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
   hour: "numeric",
   minute: "2-digit",
-  timeZone: "UTC",
+  timeZone: "America/Los_Angeles",
   timeZoneName: "short",
 });
 
