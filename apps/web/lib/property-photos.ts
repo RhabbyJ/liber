@@ -6,7 +6,14 @@ import { propertySubtypeFromSeekingPropertyType, type PropertySubtype } from "./
  * seeking or what kind of home a seller listed, never a specific property.
  */
 const propertyPhotos: Record<PropertySubtype, readonly string[]> = {
-  HOME: ["/images/homes/house-1.webp", "/images/homes/house-2.webp", "/images/homes/house-3.webp"],
+  HOME: [
+    "/images/homes/house-1.webp",
+    "/images/homes/house-2.webp",
+    "/images/homes/house-3.webp",
+    "/images/homes/house-4.webp",
+    "/images/homes/house-5.webp",
+    "/images/homes/house-6.webp",
+  ],
   CONDO: ["/images/homes/condo-1.webp", "/images/homes/condo-2.webp"],
   TOWNHOUSE: ["/images/homes/townhouse-1.webp", "/images/homes/townhouse-2.webp"],
   MANUFACTURED: ["/images/homes/manufactured-1.webp", "/images/homes/manufactured-2.webp"],
