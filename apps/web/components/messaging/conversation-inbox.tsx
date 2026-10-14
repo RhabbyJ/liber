@@ -15,6 +15,7 @@ import type { ConversationSummary, MessagingListPageInfo } from "./types";
 import { createRecoveryPolling, MESSAGING_FALLBACK_POLL_MS } from "./recovery-polling";
 
 const conversationDateFormatter = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
+const conversationMonthDayFormatter = new Intl.DateTimeFormat("en", { day: "numeric", month: "short" });
 const conversationTimeFormatter = new Intl.DateTimeFormat("en", { timeStyle: "short" });
 const INBOX_REFRESH_TIMEOUT_MS = 15_000;
 
@@ -134,11 +135,13 @@ export function ConversationInbox({
 
   if (conversations.length === 0) {
     return (
-      <EmptyState
-        description="A conversation appears here after a valid property invite is sent to you or by you."
-        icon="mail"
-        title="No conversations yet"
-      />
+      <section aria-label="Conversations" className="messenger-inbox empty">
+        <EmptyState
+          description="A conversation appears here after a valid property invite is sent to you or by you."
+          icon="mail"
+          title="No conversations yet"
+        />
+      </section>
     );
   }
 
@@ -155,14 +158,14 @@ export function ConversationInbox({
     <section aria-label="Conversations" className="messenger-inbox">
       <div className="messenger-inbox-tools">
         <label className="messenger-search">
-          <Icon aria-hidden="true" name="search" size={18} />
+          <Icon aria-hidden="true" name="search" size={20} />
           <span className="visually-hidden">Search loaded conversations</span>
           <input onChange={(event) => setSearch(event.target.value)} placeholder="Search conversations" type="search" value={search} />
         </label>
         <div aria-label="Filter conversations" className="messenger-filters" role="group">
           <button aria-pressed={filter === "all"} onClick={() => setFilter("all")} type="button">All</button>
           <button aria-pressed={filter === "unread"} onClick={() => setFilter("unread")} type="button">
-            Unread {unreadConversations > 0 ? <span>{unreadConversations}</span> : null}
+            Unread {unreadConversations > 0 ? <span className="messenger-filter-count">{unreadConversations}</span> : null}
           </button>
           <button aria-pressed={filter === "active"} onClick={() => setFilter("active")} type="button">Active</button>
         </div>
@@ -180,13 +183,14 @@ export function ConversationInbox({
             {conversation.counterpartAvatarVariant ? (
               <GeneratedAvatar
                 className="message-inbox-avatar"
+                decorative
                 name={conversation.counterpartLabel}
                 seed={conversation.counterpartLabel}
                 variant={conversation.counterpartAvatarVariant}
               />
             ) : (
               <span className="message-inbox-icon" aria-hidden="true">
-                <Icon name="message" size={19} />
+                <Icon name="home" size={20} />
               </span>
             )}
             <span className="message-inbox-main">
@@ -204,39 +208,46 @@ export function ConversationInbox({
                   </span>
                 ) : null}
               </span>
-              <span className="message-inbox-preview">
-                {conversation.lastMessage ? (
-                  <>{conversation.lastMessage.isOwn ? "You: " : ""}{conversation.lastMessage.body}</>
-                ) : statusDescription(conversation.status)}
-              </span>
-            </span>
-            <span className="message-inbox-meta">
-              {conversation.unreadCount > 0 ? (
-                <span aria-label={`${conversation.unreadCount} unread messages`} className="message-unread-count">
-                  {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
+              <span className="message-inbox-snippet">
+                <span className="message-inbox-preview">
+                  {conversation.lastMessage ? (
+                    <>{conversation.lastMessage.isOwn ? "You: " : ""}{conversation.lastMessage.body}</>
+                  ) : statusDescription(conversation.status)}
                 </span>
-              ) : null}
-              {conversation.muted ? <span className="muted small">Muted</span> : null}
+                <span className="message-inbox-meta">
+                  {conversation.muted ? <span className="message-inbox-muted">Muted</span> : null}
+                  {conversation.unreadCount > 0 ? (
+                    <span aria-label={`${conversation.unreadCount} unread messages`} className="message-unread-count">
+                      {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
+                    </span>
+                  ) : null}
+                </span>
+              </span>
             </span>
           </Link>
         ))}
         {visibleConversations.length === 0 ? (
           <div className="messenger-no-results">
-            <Icon aria-hidden="true" name="search" size={24} />
+            <Icon aria-hidden="true" name="search" size={40} />
             <h2>No matching conversations</h2>
             <p>Try a different search or filter.</p>
-            <button className="button secondary sm" onClick={() => { setSearch(""); setFilter("all"); }} type="button">Show all conversations</button>
+            <button className="button secondary" onClick={() => { setSearch(""); setFilter("all"); }} type="button">Show all conversations</button>
           </div>
         ) : null}
       </div>
-      {error ? <p className="auth-alert error" role="alert">{error}</p> : null}
+      {error ? (
+        <div className="inline-alert danger messenger-inbox-alert" role="alert">
+          <Icon aria-hidden="true" name="info" size={20} />
+          <p>{error}</p>
+        </div>
+      ) : null}
       <p aria-live="polite" className="visually-hidden">{notice}</p>
       {pageInfo.hasMore && pageInfo.nextCursor ? (
         <div className="message-inbox-pagination">
-          <p className="muted small">Search and filters apply to loaded conversations.</p>
           <button className="button secondary" disabled={loading} onClick={() => void loadMore()} type="button">
             {loading ? "Loading…" : "Load older conversations"}
           </button>
+          <p className="fine-print">Search and filters apply to loaded conversations.</p>
         </div>
       ) : null}
     </section>
@@ -247,7 +258,10 @@ function formatConversationTime(value: string) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return isToday(date) ? conversationTimeFormatter.format(date) : conversationDateFormatter.format(date);
+  if (isToday(date)) return conversationTimeFormatter.format(date);
+  return date.getFullYear() === new Date().getFullYear()
+    ? conversationMonthDayFormatter.format(date)
+    : conversationDateFormatter.format(date);
 }
 
 function isToday(date: Date) {

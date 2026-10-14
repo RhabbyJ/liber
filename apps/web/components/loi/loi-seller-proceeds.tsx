@@ -13,7 +13,7 @@ export function LoiSellerProceeds({ terms, summary, payoff: controlledPayoff, on
   const inputId = useId();
   const parsed = parseSellerLoanPayoff(payoff);
   const net = sellerNetProceeds(summary, parsed.cents);
-  return <section className="card stack tight" aria-label="Seller net proceeds calculator">
+  return <section className="card stack tight loi-proceeds-card" aria-label="Seller net proceeds calculator">
     <h3>Seller net proceeds</h3>
     <div className="field">
       <label htmlFor={inputId}>Seller loan payoff</label>
@@ -31,7 +31,7 @@ export function LoiSellerProceeds({ terms, summary, payoff: controlledPayoff, on
 export function LoiSellerProceedsBreakdown({ terms, summary, payoff }: { terms: LoiTermsV1; summary: LoiComputedSummary | null; payoff: string }) {
   const parsed = parseSellerLoanPayoff(payoff);
   const net = sellerNetProceeds(summary, parsed.cents);
-  return <section className="card stack" aria-label="Seller proceeds breakdown">
+  return <section className="card stack loi-proceeds-breakdown" aria-label="Seller proceeds breakdown">
     <h3>Seller proceeds breakdown</h3>
     <p className="small">The private loan payoff includes all existing loans and payoff fees. Do not repeat those charges in Other closing costs.</p>
     <ProceedsDetails terms={terms} summary={summary} payoffCents={parsed.cents} />

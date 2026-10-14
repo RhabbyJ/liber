@@ -622,19 +622,23 @@ export function MessageThread({
       <header className="message-thread-header">
         <div className="message-thread-heading">
           <Link aria-label="All conversations" className="messenger-back" href="/messages" ref={fallbackFocusRef}>
-            <Icon name="arrow-left" size={20} />
+            <Icon name="chevron-left" size={24} />
           </Link>
           <div className="message-thread-identity">
             <span aria-hidden="true" className="message-counterpart-icon">
-              <Icon name="message" size={20} />
+              <Icon name="home" size={20} />
             </span>
             <div className="message-thread-title-copy">
               <h1>{thread.counterpartLabel}</h1>
-              <p className="message-thread-property">{thread.propertySnapshot.title}</p>
+              <p className="message-thread-property">
+                <span>{thread.propertySnapshot.title}</span>
+                {thread.propertySnapshot.location ? <span className="message-thread-location">{thread.propertySnapshot.location}</span> : null}
+              </p>
             </div>
           </div>
         </div>
         <div className="message-thread-actions">
+          <span className={`message-status-chip ${conversationStatusClassName(thread.status)}`}>{conversationStatusLabel(thread.status)}</span>
           <button
             aria-controls="message-context"
             aria-expanded={contextOpen}
@@ -643,18 +647,24 @@ export function MessageThread({
             ref={contextToggleRef}
             type="button"
           >
-            <Icon name="info" size={17} />
+            <Icon name="info" size={18} />
             Details
           </button>
         </div>
       </header>
 
       <div aria-atomic="true" aria-live="polite" className="message-live-region">
-        {error ? <p className="auth-alert error" role="alert">{error}</p> : null}
+        {error ? (
+          <div className="inline-alert danger" role="alert">
+            <Icon name="info" size={20} />
+            <p>{error}</p>
+          </div>
+        ) : null}
         {!isOnline ? (
-          <p className="auth-alert info" role="status">
-            You are offline. Your draft stays here, and sending will resume after you reconnect.
-          </p>
+          <div className="inline-alert warning" role="status">
+            <Icon name="info" size={20} />
+            <p>You are offline. Your draft stays here, and sending will resume after you reconnect.</p>
+          </div>
         ) : null}
         {notice ? <p className="visually-hidden">{notice}</p> : null}
       </div>
@@ -689,10 +699,10 @@ export function MessageThread({
                   {formatMessageDate(message.createdAt, dateFormatters.day) !== formatMessageDate(thread.messages[index - 1]?.createdAt, dateFormatters.day) ? (
                     <li className="messenger-day"><time dateTime={message.createdAt || undefined}>{formatMessageDate(message.createdAt, dateFormatters.day)}</time></li>
                   ) : null}
-                  <li className={`message-row${message.isOwn ? " own" : ""}${message.kind === "SYSTEM" ? " system" : ""}`}>
+                  <li className={`message-row${message.isOwn ? " own" : ""}${message.kind === "SYSTEM" ? " system" : ""}${message.kind === "INVITE" ? " invite" : ""}`}>
                     <article className="message-bubble">
                       <span className="visually-hidden">{message.senderLabel}</span>
-                      {message.kind === "INVITE" ? <span className="messenger-invite-label"><Icon name="home" size={13} /> Property invite</span> : null}
+                      {message.kind === "INVITE" ? <span className="messenger-invite-label"><Icon name="home" size={16} /> Property invite</span> : null}
                       <p className={message.redacted ? "muted" : undefined}>{message.body}</p>
                       <div className="message-meta">
                         {!message.isOwn && message.kind !== "SYSTEM" && !message.redacted ? (
@@ -709,7 +719,7 @@ export function MessageThread({
                           <time dateTime={message.createdAt || undefined} suppressHydrationWarning title={formatMessageDate(message.createdAt, dateFormatters.full)}>
                             {formatMessageDate(message.createdAt, dateFormatters.time)}
                           </time>
-                          {message.isOwn && message.kind !== "SYSTEM" ? <span aria-label="Sent" className="messenger-sent" role="img" title="Sent"><Icon aria-hidden="true" name="check" size={14} /></span> : null}
+                          {message.isOwn && message.kind !== "SYSTEM" ? <span aria-label="Sent" className="messenger-sent" role="img" title="Sent"><Icon aria-hidden="true" name="check" size={16} /></span> : null}
                         </span>
                       </div>
                     </article>
@@ -723,12 +733,11 @@ export function MessageThread({
             <ChatLoiAction loi={loi} busy={mutationPending} onStart={() => void startLoi()} />
             {canSend ? (
               <>
-                <details className="message-guided-options">
-                  <summary className="message-guided-heading">
-                    <span><Icon name="message" size={14} /> Quick replies</span>
-                    <span>Choose a message</span>
-                  </summary>
-                  <div className="message-template-list">
+                <div className="message-guided-options">
+                  <p className="message-guided-heading" id="message-quick-replies-label">
+                    Quick replies <span className="messenger-quick-help">Choose a reply to send it immediately.</span>
+                  </p>
+                  <div aria-labelledby="message-quick-replies-label" className="message-template-list" role="group">
                     {templates.map((template) => (
                       <button
                         className="message-template-button"
@@ -743,12 +752,11 @@ export function MessageThread({
                         type="button"
                       >
                         <strong>{template.label}</strong>
-                        <span>{template.text}</span>
+                        <span className="visually-hidden">{template.text}</span>
                       </button>
                     ))}
                   </div>
-                  <p className="messenger-quick-help">Choose a reply to send it immediately.</p>
-                </details>
+                </div>
                 {visibleComposerError ? (
                   <p className="message-composer-error" id="message-composer-error" role="alert">
                     {visibleComposerError}
@@ -774,16 +782,16 @@ export function MessageThread({
                         }}
                         onKeyDown={(event) => submitOnEnter(event)}
                         placeholder="Write a message…"
-                        rows={2}
+                        rows={1}
                         value={draft}
                       />
                       <button
                         aria-label={sending ? "Sending message" : "Send message"}
-                        className="button primary messenger-send"
+                        className="messenger-send"
                         disabled={sending || !isOnline || !draft.trim() || draftLength > 2_000}
                         type="submit"
                       >
-                        <Icon name="arrow-right" size={20} />
+                        <Icon name="arrow-right" size={20} strokeWidth={2.2} />
                       </button>
                     </div>
                     <div className="message-composer-footer">
@@ -805,59 +813,63 @@ export function MessageThread({
               </>
             ) : (
               <div className="message-read-only" role="status">
-                <Icon name="lock" size={18} />
+                <Icon name="lock" size={20} />
                 <div>
                   <strong>{composerUnavailableTitle(thread)}</strong>
                   <p suppressHydrationWarning>{composerUnavailableDescription(thread)}</p>
                 </div>
               </div>
             )}
-            <p className="messenger-private-note"><Icon name="lock" size={12} /> Property chat only. No sensitive details or payment requests.</p>
+            <p className="messenger-private-note"><Icon name="lock" size={14} /> Property chat only. No sensitive details or payment requests.</p>
           </section>
         </section>
 
         <aside className="message-context-panel" aria-label="Conversation context" hidden={!contextOpen} id="message-context">
           <div className="messenger-context-heading">
             <h2>Conversation details</h2>
-            <button aria-label="Close conversation details" className="messenger-context-close" onClick={() => { setContextOpen(false); contextToggleRef.current?.focus(); }} type="button">×</button>
+            <button aria-label="Close conversation details" className="messenger-context-close" onClick={() => { setContextOpen(false); contextToggleRef.current?.focus(); }} type="button">
+              <Icon name="close" size={20} />
+            </button>
           </div>
+          <section className="messenger-context-section">
+            <PrivatePropertyImages imageIds={thread.propertySnapshot.imageIds} />
+            <div>
+              <h3>{thread.propertySnapshot.title}</h3>
+              <p className="meta-line">{thread.viewerRole === "BUYER" ? "Seller's property" : "Your property"}</p>
+            </div>
+            {thread.propertySnapshot.location ? (
+              <p className="messenger-context-location"><Icon name="map-pin" size={16} /> {thread.propertySnapshot.location}</p>
+            ) : null}
+            <div className="messenger-context-tags">
+              <span className={`message-status-chip ${conversationStatusClassName(thread.status)}`}>{conversationStatusLabel(thread.status)}</span>
+              {thread.propertySnapshot.ownershipStatus ? (
+                <span className={`status-dot ${["APPROVED", "Ownership verified"].includes(thread.propertySnapshot.ownershipStatus) ? "active" : "warning"}`}>{thread.propertySnapshot.ownershipStatus}</span>
+              ) : null}
+            </div>
+            {!thread.propertySnapshot.identityCurrent ? (
+              <p className="fine-print">Showing the property version shared with this invite.</p>
+            ) : null}
+          </section>
           {loi.available ? (
-            <section className="card sage stack tight">
-              <p className="eyebrow">LOI workspace</p>
-              <h2>{loiStatusLabel(loi.status)}</h2>
+            <section className="messenger-context-section">
+              <div className="messenger-context-row">
+                <h3>LOI workspace</h3>
+                <span className={`message-status-chip ${loi.status === "TERMS_ALIGNED" ? "active" : "waiting"}`}>{loiStatusLabel(loi.status)}</span>
+              </div>
               {!loi.id && !loi.canCreate ? <span className="status-dot info">Waiting for buyer</span> : null}
             </section>
           ) : null}
-          <section className="card stack tight">
-            <div className="section-head compact">
-              <div>
-                <h2>{thread.propertySnapshot.title}</h2>
-                <p className="meta-line">{thread.viewerRole === "BUYER" ? "Seller's property" : "Your property"}</p>
-              </div>
-              <span className={`message-status-chip ${conversationStatusClassName(thread.status)}`}>{conversationStatusLabel(thread.status)}</span>
-            </div>
-            {thread.propertySnapshot.location ? (
-              <p className="muted small"><Icon name="map-pin" size={13} /> {thread.propertySnapshot.location}</p>
-            ) : null}
-            {thread.propertySnapshot.ownershipStatus ? (
-              <span className={`status-dot ${["APPROVED", "Ownership verified"].includes(thread.propertySnapshot.ownershipStatus) ? "active" : "warning"}`}>{thread.propertySnapshot.ownershipStatus}</span>
-            ) : null}
-            <PrivatePropertyImages imageIds={thread.propertySnapshot.imageIds} />
-            {!thread.propertySnapshot.identityCurrent ? (
-              <p className="muted small">Showing the property version shared with this invite.</p>
-            ) : null}
-          </section>
-          <section className="messenger-conversation-controls">
-            <button className="button secondary sm" disabled={mutationPending} onClick={updateMute} type="button">
-              <Icon name="bell" size={15} /> {thread.muted ? "Unmute conversation" : "Mute conversation"}
+          <section className="messenger-context-section messenger-conversation-controls">
+            <button className="button secondary messenger-control" disabled={mutationPending} onClick={updateMute} type="button">
+              <Icon name="bell" size={18} /> {thread.muted ? "Unmute conversation" : "Mute conversation"}
             </button>
             <button
-              className="button secondary sm message-block-action"
+              className="button secondary messenger-control message-block-action"
               disabled={mutationPending || thread.status === "BLOCKED"}
               onClick={() => openDialog(() => setBlockOpen(true))}
               type="button"
             >
-              <Icon name="shield" size={15} /> Block participant
+              <Icon name="shield" size={18} /> Block participant
             </button>
           </section>
           <p className="message-safety-copy">
@@ -874,7 +886,7 @@ export function MessageThread({
           onClose={() => closeDialog(() => setBlockOpen(false))}
         >
           <p>Blocking is permanent in Messaging V1. Neither participant will be able to send messages, and future invites between you will be unavailable.</p>
-          {dialogError ? <p className="auth-alert error" role="alert">{dialogError}</p> : null}
+          {dialogError ? <div className="inline-alert danger" role="alert"><Icon name="info" size={20} /><p>{dialogError}</p></div> : null}
           <div className="actions right">
             <button className="button secondary" disabled={mutationPending} onClick={() => closeDialog(() => setBlockOpen(false))} type="button">Cancel</button>
             <button className="button warning" disabled={mutationPending} onClick={() => void blockParticipant()} type="button">
@@ -917,7 +929,7 @@ export function MessageThread({
               <input disabled={mutationPending} name="block" type="checkbox" value="true" />
               <span>Block this participant too (permanent)</span>
             </label>
-            {dialogError ? <p className="auth-alert error" role="alert">{dialogError}</p> : null}
+            {dialogError ? <div className="inline-alert danger" role="alert"><Icon name="info" size={20} /><p>{dialogError}</p></div> : null}
             <div className="actions right">
               <button className="button secondary" disabled={mutationPending} onClick={() => closeDialog(() => setReportTarget(null))} type="button">Cancel</button>
               <button className="button warning" disabled={mutationPending} type="submit">
@@ -986,7 +998,7 @@ function MessagingDialog({
             onClick={onClose}
             type="button"
           >
-            ×
+            <Icon name="close" size={20} />
           </button>
         </div>
         {children}

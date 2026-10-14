@@ -3,6 +3,7 @@
 import { loiCounterEditableTermsV1Schema, loiEditableTermsV1Schema, loiCounterEditableDraftTermsV1Schema, loiEditableDraftTermsV1Schema, previewLoiCalculation, type LoiCalculationIssue, type LoiComputedSummary, type LoiTermsV1 } from "@liber/validators";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Icon } from "../icon";
 import { getMessagingBrowserClient, logMessagingRealtimeJoinStatus } from "../messaging/realtime";
 import { LoiEditor, type LoiTermsUpdater } from "./loi-editor";
 import { loiCashEquations } from "./loi-cash-equation";
@@ -11,6 +12,7 @@ import { parseSellerLoanPayoff, sellerNetProceeds } from "./loi-seller-proceeds-
 import { LoiCompletedDownload } from "./loi-completed-download";
 import { loiFeeBreakdown } from "./loi-fee-breakdown";
 import "./loi-cash-callout.css";
+import "./loi-workspace.css";
 import { LoiActionBar } from "./loi-action-bar";
 import { LoiTemplateDialog } from "./loi-template-dialog";
 import { applyLoiTemplate, type LoiTemplate } from "./loi-template-values";
@@ -528,21 +530,22 @@ export function LoiWorkspace({ initialNegotiation, templateOwnerId }: { initialN
   return (
     <div className={`page wide loi-page stack${hasActionBar ? " has-action-bar" : ""}`}>
       <header className="loi-header">
-        <div className="stack tight">
-          <Link className="link-button" href={`/messages/${encodeURIComponent(negotiation.conversationId)}`} ref={fallbackFocus}>← Back to messages</Link>
-          <p className="eyebrow">Non-binding term alignment</p>
-          <h1>LOI workspace</h1>
-          <p className="meta-line">Non-binding term alignment · Version {negotiation.currentSequence || "draft"} · {negotiation.viewerRole === "BUYER" ? "Buyer" : "Seller"} view</p>
+        <Link className="page-back" href={`/messages/${encodeURIComponent(negotiation.conversationId)}`} ref={fallbackFocus}><Icon name="chevron-left" size={18} />Back to messages</Link>
+        <div className="loi-header-row">
+          <div className="loi-header-text">
+            <h1>LOI workspace</h1>
+            <p className="meta-line">Non-binding term alignment · Version {negotiation.currentSequence || "draft"} · {negotiation.viewerRole === "BUYER" ? "Buyer" : "Seller"} view</p>
+          </div>
+          <span className={`status-tag ${statusTone(negotiation.status)}`}>{statusLabel(negotiation.status)}</span>
         </div>
-        <span className="status-dot info">{statusLabel(negotiation.status)}</span>
       </header>
 
       {negotiation.status === "TERMS_ALIGNED" ? (
         <section className="loi-aligned-celebration" role="status">
-          <span aria-hidden="true" className="loi-aligned-mark">✓</span>
-          <div>
-            <p className="eyebrow">Terms aligned</p>
+          <span aria-hidden="true" className="loi-aligned-mark"><Icon name="check" size={24} strokeWidth={2.4} /></span>
+          <div className="loi-aligned-copy">
             <h2>Completed LOI</h2>
+            <p className="meta-line">Terms aligned</p>
             <p>Both buyer and seller can view the final terms. This LOI is read-only.</p>
             <p>You aligned on these terms for contract preparation. This is not a signed offer or escrow instruction.</p>
           </div>
@@ -550,23 +553,23 @@ export function LoiWorkspace({ initialNegotiation, templateOwnerId }: { initialN
       ) : null}
 
       <div aria-atomic="true" aria-live="polite" className="loi-live-region">
-        {refreshError ? <p className="auth-alert warning" role="status">{refreshError}</p> : null}
-        {error && !hasActionBar ? <p className="auth-alert error" role="alert">{error}</p> : null}
-        {notice ? <p className="auth-alert success" role="status">{notice}</p> : null}
+        {refreshError ? <div className="inline-alert warning" role="status"><Icon name="info" size={20} /><p>{refreshError}</p></div> : null}
+        {error && !hasActionBar ? <div className="inline-alert danger" role="alert"><Icon name="info" size={20} /><p>{error}</p></div> : null}
+        {notice ? <div className="inline-alert success" role="status"><Icon name="check" size={20} /><p>{notice}</p></div> : null}
       </div>
 
       {historical ? (
-        <section className="auth-alert warning loi-history-banner" role="status">
-          <strong>Viewing historical version {displayedRevision.sequence}</strong>
-          <span>Version {negotiation.currentSequence} is current. Current-version actions are hidden until you return to it.</span>
+        <section className="inline-alert warning loi-history-banner" role="status">
+          <Icon name="info" size={20} />
+          <p><strong>Viewing historical version {displayedRevision.sequence}</strong> <span>Version {negotiation.currentSequence} is current. Current-version actions are hidden until you return to it.</span></p>
           <button className="button secondary sm" onClick={showCurrent} type="button">Return to current version {negotiation.currentSequence}</button>
         </section>
       ) : null}
 
       {view.staleDraft ? (
-        <section className="auth-alert warning loi-draft-conflict" role="alert">
-          <strong>Your saved draft changed elsewhere</strong>
-          <span>Your unsaved input is still on this page. Load the latest saved draft before continuing.</span>
+        <section className="inline-alert warning loi-draft-conflict" role="alert">
+          <Icon name="info" size={20} />
+          <p><strong>Your saved draft changed elsewhere</strong> <span>Your unsaved input is still on this page. Load the latest saved draft before continuing.</span></p>
           <button className="button secondary sm" onClick={reloadCanonicalDraft} type="button">Load latest saved draft</button>
         </section>
       ) : null}
@@ -574,7 +577,7 @@ export function LoiWorkspace({ initialNegotiation, templateOwnerId }: { initialN
       <div className="loi-layout">
         <section aria-labelledby="loi-view-title" className="stack">
           <h2 className="loi-view-heading" id="loi-view-title" ref={viewHeading} tabIndex={-1}>{negotiation.status === "TERMS_ALIGNED" && view.mode !== "HISTORICAL" ? "Final terms · Read-only" : view.mode === "EDITING" ? "Draft your terms" : view.mode === "REVIEWING" ? "Review before you submit" : `LOI ${viewModeLabel(view.mode)}`}</h2>
-          {view.mode === "CURRENT" && negotiation.viewerRole === "SELLER" && negotiation.allowedActions.includes("COUNTER") && current?.terms.disclosures.deathOnPropertyProvidedBy !== "SELLER" ? <section className="card stack tight">
+          {view.mode === "CURRENT" && negotiation.viewerRole === "SELLER" && negotiation.allowedActions.includes("COUNTER") && current?.terms.disclosures.deathOnPropertyProvidedBy !== "SELLER" ? <section className="card stack tight loi-callout-card">
             <h3>Add your seller disclosure</h3>
             <p>The death-on-property question is yours to answer. Add your answer in a counter so the buyer can review the exact updated terms before alignment.</p>
             <button className="button secondary" disabled={Boolean(pending)} onClick={startOrResume} type="button">Add seller disclosure</button>
@@ -588,7 +591,7 @@ export function LoiWorkspace({ initialNegotiation, templateOwnerId }: { initialN
           ) : null}
           {view.mode === "REVIEWING" && view.terms && localSummary ? (
             <>
-            {view.terms.funding.type === "FINANCED" ? <section className="card stack tight">
+            {view.terms.funding.type === "FINANCED" ? <section className="card stack tight loi-callout-card">
               <h3>Loan submission requirements</h3>
               {negotiation.financingEvidenceExceptionExpiresAt ? <p>A temporary testing exception allows this LOI to be submitted without pre-approval evidence until {formatLoiDateTime(negotiation.financingEvidenceExceptionExpiresAt)}. This does not verify financing or grant a badge.</p> : <>
                 <p>The buyer needs a current pre-approval badge or an uploaded pre-approval letter before these financed terms can be sent. A pending letter is sufficient; badge approval is not required to submit.</p>
@@ -640,19 +643,19 @@ export function LoiWorkspace({ initialNegotiation, templateOwnerId }: { initialN
           </details> : null}
         </section>
 
-        <aside aria-label="LOI deal snapshot" className="loi-summary stack">
-          <section className="card sage stack tight">
-            <p className="eyebrow">{historical ? `Version ${displayedRevision.sequence} snapshot` : view.mode === "EDITING" || view.mode === "REVIEWING" ? "Draft deal snapshot" : "Current deal snapshot"}</p>
+        <aside aria-label="LOI deal snapshot" className={`loi-summary stack ${negotiation.viewerRole === "SELLER" ? "seller" : "buyer"}`}>
+          <section className="card stack tight loi-snapshot">
+            <h2 className="loi-snapshot-title">{historical ? `Version ${displayedRevision.sequence} snapshot` : view.mode === "EDITING" || view.mode === "REVIEWING" ? "Draft deal snapshot" : "Current deal snapshot"}</h2>
             <Summary summary={sidebarSummary} terms={sidebarTerms} compact viewerRole={negotiation.viewerRole} issues={sidebarIssues} />
-            {sidebarTerms ? <a className="link-button" href="#loi-financial-details-title">View fees and calculations ↓</a> : null}
-            <p className="muted small">Non-binding term alignment for contract preparation only.</p>
+            {sidebarTerms ? <a className="text-link loi-snapshot-link" href="#loi-financial-details-title">View fees and calculations <Icon name="chevron-down" size={16} /></a> : null}
+            <p className="fine-print">Non-binding term alignment for contract preparation only.</p>
           </section>
           {negotiation.viewerRole === "SELLER" && sidebarTerms ? <LoiSellerProceeds key={negotiation.id} summary={sidebarSummary} terms={sidebarTerms} showDetails={false} payoff={payoff} onPayoffChange={(value) => setSellerPayoff({ negotiationId: negotiation.id, value })} /> : null}
         </aside>
       </div>
 
       {sidebarTerms ? <section className="loi-financial-details stack" aria-labelledby="loi-financial-details-title">
-        <div className="section-head compact"><h2 id="loi-financial-details-title">Fees and calculation details</h2><p className="muted small">Updates with your offer terms.</p></div>
+        <div className="loi-financial-details-head"><h2 id="loi-financial-details-title">Fees and calculation details</h2><p className="meta-line">Updates with your offer terms.</p></div>
         <div className="loi-financial-details-grid">
           {negotiation.viewerRole === "BUYER" ? <section className="card stack">
             <Summary summary={sidebarSummary} terms={sidebarTerms} detailsOnly viewerRole="BUYER" />
@@ -714,9 +717,11 @@ function RevisionTimeline({ currentRevisionId, history, loading, onLoadOlder, on
   }), [history, role]);
   return (
     <section className="card stack tight" aria-labelledby="loi-history-title">
-      <div className="section-head">
-        <h2 id="loi-history-title">Revision timeline</h2>
-        <span className="muted small">Immutable after submission</span>
+      <div className="loi-card-head">
+        <div>
+          <h2 id="loi-history-title">Revision timeline</h2>
+          <p className="meta-line">Immutable after submission</p>
+        </div>
       </div>
       {pageInfo.hasOlder ? <button className="button secondary sm" disabled={loading} onClick={onLoadOlder} type="button">{loading ? "Loading…" : "Load older versions"}</button> : null}
       {history.length ? (
@@ -774,12 +779,12 @@ function TermsReview({ computedSummary, heading, previousRevision = null, proper
   const calculatedDiffs = previousRevision ? recalculatedDiffs(previousRevision.computedSummary, computedSummary) : [];
   return (
     <section className="card stack loi-terms-review" aria-labelledby={headingId}>
-      <div className="section-head">
+      <div className="loi-card-head">
         <div>
-          <p className="eyebrow">Complete proposed-term snapshot</p>
-          <h2 id={headingId} style={{ overflowWrap: "anywhere" }}>{heading}</h2>
+          <h2 id={headingId}>{heading}</h2>
+          <p className="meta-line">Complete proposed-term snapshot</p>
         </div>
-        {revision ? <span className="status-dot info">Immutable</span> : <span className="status-dot warning">Private draft</span>}
+        {revision ? <span className="status-tag">Immutable</span> : <span className="status-tag pending">Private draft</span>}
       </div>
 
       <PropertyIdentity property={property} />
@@ -810,15 +815,15 @@ function TermsReview({ computedSummary, heading, previousRevision = null, proper
       </div>
 
       <section className="loi-recalculated stack tight" aria-labelledby={recalculatedHeadingId}>
-        <div className="section-head compact"><h3 id={recalculatedHeadingId}>Calculated values</h3><span className="status-dot info">Recalculated</span></div>
+        <div className="loi-recalculated-head"><h3 id={recalculatedHeadingId}>Calculated values</h3><span className="status-tag pending">Recalculated</span></div>
         <dl className="loi-review-grid">
           {loiSummaryRows(computedSummary).map((row) => <div key={row.fieldId}><dt>{row.label}</dt><dd>{row.formattedValue}</dd></div>)}
         </dl>
       </section>
 
-      <div className="auth-alert info loi-nonbinding-notice">
-        <strong>Non-binding</strong>
-        <span>Proposed terms for contract preparation — not a signature, escrow instruction, or payment.</span>
+      <div className="inline-alert loi-nonbinding-notice">
+        <Icon name="info" size={20} />
+        <p><strong>Non-binding</strong> <span>Proposed terms for contract preparation — not a signature, escrow instruction, or payment.</span></p>
       </div>
     </section>
   );
@@ -827,10 +832,13 @@ function TermsReview({ computedSummary, heading, previousRevision = null, proper
 function PropertyIdentity({ property }: { property: ReturnType<typeof normalizePropertyIdentity> }) {
   return (
     <section className="loi-property-identity" aria-label="Immutable property identity">
-      <strong>{property.title}</strong>
-      {property.location ? <span>{property.location}</span> : null}
-      <span className="meta-line">
-        Captured with this negotiation{property.identityVersion === null ? "" : ` · identity version ${property.identityVersion}`}
+      <span aria-hidden="true" className="loi-property-mark"><Icon name="home" size={22} /></span>
+      <span className="loi-property-text">
+        <strong>{property.title}</strong>
+        {property.location ? <span>{property.location}</span> : null}
+        <span className="meta-line">
+          Captured with this negotiation{property.identityVersion === null ? "" : ` · identity version ${property.identityVersion}`}
+        </span>
       </span>
     </section>
   );
@@ -841,7 +849,7 @@ function DiffList({ diffs, recalculated = false }: { diffs: LoiSemanticDiff[]; r
     <dl className="loi-diff-list">
       {diffs.map((diff) => (
         <div key={`${diff.section}:${diff.fieldId}`}>
-          <dt>{diff.label}{recalculated ? <span className="status-dot info">Recalculated</span> : null}</dt>
+          <dt>{diff.label}{recalculated ? <span className="status-tag pending">Recalculated</span> : null}</dt>
           <dd><span>{diff.from}</span><span aria-hidden="true">→</span><strong>{diff.to}</strong></dd>
         </div>
       ))}
@@ -942,16 +950,16 @@ function LoiDecisionDialog({ busy, current, decision, error, onClose, onConfirm,
       ref={dialog}
     >
       <div className="loi-dialog-content stack">
-        <div className="section-head">
-          <div><p className="eyebrow">{decision === "discard" ? "Private draft only" : "Confirm exact LOI version"}</p><h2 id={titleId}>{title}</h2></div>
-          <button aria-label="Close decision dialog" className="message-dialog-close" disabled={busy} onClick={onClose} type="button">×</button>
+        <div className="loi-dialog-head">
+          <div><h2 id={titleId}>{title}</h2><p className="meta-line">{decision === "discard" ? "Private draft only" : "Confirm exact LOI version"}</p></div>
+          <button aria-label="Close decision dialog" className="message-dialog-close loi-dialog-close" disabled={busy} onClick={onClose} type="button"><Icon name="close" size={20} /></button>
         </div>
-        {error ? <p className="auth-alert error" role="alert">{error}</p> : null}
+        {error ? <div className="inline-alert danger" role="alert"><Icon name="info" size={20} /><p>{error}</p></div> : null}
         {decision === "discard" ? (
           <p>{current ? "This removes your saved counter and unsaved changes. The submitted version stays unchanged." : "This removes your saved draft and unsaved changes, then starts again with the original suggested terms."}</p>
         ) : current ? (
           <>
-            <section className="card sage stack tight loi-decision-summary" aria-label={`Version ${current.sequence} decision summary`}>
+            <section className="card stack tight loi-decision-summary" aria-label={`Version ${current.sequence} decision summary`}>
               <PropertyIdentity property={normalizePropertyIdentity(propertySnapshot)} />
               {role === "SELLER"
                 ? <LoiSellerProceedsBreakdown summary={current.computedSummary} terms={current.terms} payoff={payoff} />
@@ -961,13 +969,13 @@ function LoiDecisionDialog({ busy, current, decision, error, onClose, onConfirm,
             <TermsReview computedSummary={current.computedSummary} heading={`Version ${current.sequence} complete terms`} propertySnapshot={propertySnapshot} revision={current} role={role} terms={current.terms} />
           </>
         ) : (
-          <section className="card sage stack tight">
+          <section className="card stack tight loi-decision-summary">
             <PropertyIdentity property={normalizePropertyIdentity(propertySnapshot)} />
             <p>No terms have been submitted. Withdrawal will close the initial private-draft workflow.</p>
           </section>
         )}
-        {decision !== "discard" ? <p className="muted">This records non-binding proposed-term status for contract preparation. It is not a signature or binding acceptance.</p> : null}
-        <div className="actions right">
+        {decision !== "discard" ? <p className="fine-print">This records non-binding proposed-term status for contract preparation. It is not a signature or binding acceptance.</p> : null}
+        <div className="actions right loi-dialog-actions">
           <button className="button secondary" disabled={busy} onClick={onClose} ref={cancel} type="button">Cancel</button>
           <button className={decision === "agree" ? "button primary" : "button warning"} disabled={busy} onClick={onConfirm} type="button">{busy ? "Recording…" : confirmLabel}</button>
         </div>
@@ -1021,6 +1029,13 @@ function statusLabel(status: string | null) {
     WITHDRAWN: "Withdrawn",
   };
   return status ? labels[status] ?? "LOI" : "LOI";
+}
+
+function statusTone(status: string | null) {
+  if (status === "TERMS_ALIGNED") return "active";
+  if (status === "AWAITING_BUYER_RESPONSE" || status === "AWAITING_BUYER_SUBMISSION" || status === "AWAITING_SELLER_RESPONSE") return "pending";
+  if (status === "DECLINED" || status === "WITHDRAWN" || status === "EXPIRED") return "expired";
+  return "";
 }
 
 function viewModeLabel(mode: LoiWorkspaceViewState["mode"]) {

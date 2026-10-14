@@ -1,0 +1,1590 @@
+/* ==========================================================================
+   LOI workspace: a checkout-style page. Header, stepper, white section
+   cards, sticky deal snapshot, fees table, modal sheets and a sticky action
+   bar. Scoped under .loi-page so it overrides the legacy global loi-* rules.
+   ========================================================================== */
+
+.page.wide.loi-page {
+  gap: 24px;
+  max-width: 1240px;
+  padding: 24px 24px 64px;
+}
+
+.loi-page.has-action-bar {
+  padding-bottom: 128px;
+}
+
+/* LOI primary actions keep the brand green with dark text (6:1, 4.6:1 pressed). */
+.loi-page .button.primary {
+  background: var(--sage-strong);
+  border-color: var(--sage-strong);
+  color: var(--ink-strong);
+}
+
+.loi-page .button.primary:active {
+  background: var(--sage-deep);
+  border-color: var(--sage-deep);
+  color: var(--ink-strong);
+}
+
+.loi-page .link-button {
+  color: var(--ink-strong);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* Header ------------------------------------------------------------------ */
+
+.loi-page .loi-header {
+  align-items: start;
+  display: grid;
+  gap: 8px;
+  justify-content: stretch;
+}
+
+.loi-header-row {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  justify-content: space-between;
+}
+
+.loi-header-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.loi-page .loi-header h1 {
+  font-size: 32px;
+  line-height: 40px;
+}
+
+.loi-page .loi-header .page-back {
+  min-height: 32px;
+}
+
+.loi-page .status-tag {
+  align-items: center;
+}
+
+.loi-page .loi-header .status-tag {
+  font-size: 14px;
+  line-height: 20px;
+  margin-top: 10px;
+  padding: 2px 8px;
+}
+
+.loi-page .status-tag.active {
+  background: var(--sage-tint-strong);
+  color: var(--ink-strong);
+}
+
+/* Completed LOI ------------------------------------------------------------ */
+
+.loi-page .loi-aligned-celebration {
+  align-items: flex-start;
+  background: var(--sage-tint);
+  border: 1px solid var(--sage-line);
+  border-radius: var(--r-lg);
+  display: flex;
+  gap: 16px;
+  padding: 20px 24px;
+}
+
+.loi-page .loi-aligned-mark {
+  align-items: center;
+  background: var(--sage-deep);
+  border-radius: 50%;
+  color: #fff;
+  display: inline-flex;
+  flex: 0 0 48px;
+  height: 48px;
+  justify-content: center;
+  width: 48px;
+}
+
+.loi-aligned-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.loi-aligned-copy h2 {
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.loi-aligned-copy .meta-line {
+  color: var(--ink-strong);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.loi-aligned-copy p:not(.meta-line) {
+  color: var(--ink-strong);
+}
+
+/* Status banners ------------------------------------------------------------ */
+
+.loi-page .loi-live-region {
+  display: grid;
+  gap: 8px;
+}
+
+.loi-page .loi-history-banner,
+.loi-page .loi-draft-conflict {
+  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.loi-page .loi-history-banner p strong,
+.loi-page .loi-draft-conflict p strong {
+  display: block;
+}
+
+.loi-page .loi-history-banner p span,
+.loi-page .loi-draft-conflict p span {
+  color: var(--ink-strong);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.loi-page .loi-history-banner .button,
+.loi-page .loi-draft-conflict .button {
+  grid-column: auto;
+  grid-row: auto;
+  min-height: 40px;
+}
+
+/* Layout ------------------------------------------------------------------- */
+
+.loi-page .loi-layout {
+  align-items: start;
+  gap: 32px;
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+
+.page.wide.loi-page,
+.loi-page .loi-layout > section,
+.loi-page .loi-summary {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.loi-page .loi-layout > section {
+  gap: 24px;
+  min-width: 0;
+}
+
+.loi-page .loi-view-heading {
+  font-size: 24px;
+  line-height: 32px;
+  scroll-margin-top: calc(var(--header-h) + 24px);
+}
+
+/* Cards: white, 12px radius, card elevation, 24px padding. */
+.loi-page .card {
+  background: var(--surface);
+  border: 0;
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  gap: 16px;
+  padding: 24px;
+}
+
+.loi-page .card h2 {
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.loi-page .card h3 {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.loi-page .card.loi-callout-card {
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  box-shadow: none;
+  gap: 8px;
+  padding: 20px 24px;
+}
+
+.loi-page .card.loi-callout-card p {
+  color: var(--ink-strong);
+}
+
+.loi-page .card.loi-callout-card .button {
+  justify-self: start;
+  margin-top: 8px;
+  min-height: 48px;
+}
+
+.loi-card-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.loi-card-head > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.loi-card-head h2 {
+  overflow-wrap: anywhere;
+}
+
+.loi-card-head .status-tag {
+  flex: 0 0 auto;
+  margin-top: 4px;
+}
+
+/* Checkout stepper (existing .loi-progress markup) */
+.loi-page .loi-progress {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 16px 20px;
+}
+
+.loi-page .loi-progress li {
+  align-items: center;
+  color: var(--ink-soft);
+  display: flex;
+  flex: 1 1 0;
+  font-size: 14px;
+  gap: 10px;
+  line-height: 20px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.loi-page .loi-progress li:last-child {
+  flex: 0 0 auto;
+}
+
+.loi-page .loi-progress li:not(:last-child)::after {
+  background: var(--line);
+  border-radius: 1px;
+  content: "";
+  flex: 1 1 auto;
+  height: 2px;
+  margin: 0 16px 0 6px;
+  min-width: 12px;
+}
+
+.loi-page .loi-progress li span {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  color: var(--ink-soft);
+  display: inline-flex;
+  flex: 0 0 32px;
+  font-size: 14px;
+  font-weight: 700;
+  height: 32px;
+  justify-content: center;
+  position: relative;
+  width: 32px;
+}
+
+.loi-page .loi-progress li[aria-current="step"] {
+  color: var(--ink-strong);
+  font-weight: 700;
+}
+
+.loi-page .loi-progress li[aria-current="step"] span {
+  background: var(--sage-tint);
+  border: 2px solid var(--sage-deep);
+  color: var(--ink-strong);
+}
+
+/* Steps before the current one read as done: filled circle with a check. */
+.loi-page .loi-progress li:has(~ li[aria-current="step"]) {
+  color: var(--ink-strong);
+}
+
+.loi-page .loi-progress li:has(~ li[aria-current="step"]) span {
+  background: var(--sage-deep);
+  border-color: var(--sage-deep);
+  color: transparent;
+}
+
+.loi-page .loi-progress li:has(~ li[aria-current="step"]) span::after {
+  border: solid #fff;
+  border-width: 0 2.5px 2.5px 0;
+  content: "";
+  height: 13px;
+  left: 50%;
+  margin: -8px 0 0 -3px;
+  position: absolute;
+  top: 50%;
+  transform: rotate(45deg);
+  width: 7px;
+}
+
+.loi-page .loi-progress li:has(~ li[aria-current="step"])::after {
+  background: var(--sage-deep);
+}
+
+/* Property identity strip */
+.loi-page .loi-property-identity {
+  align-items: center;
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+}
+
+.loi-property-mark {
+  align-items: center;
+  background: var(--sage-tint-strong);
+  border-radius: var(--r-md);
+  color: var(--sage-deep);
+  display: inline-flex;
+  flex: 0 0 48px;
+  height: 48px;
+  justify-content: center;
+  width: 48px;
+}
+
+.loi-property-text {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.loi-property-text strong {
+  color: var(--ink-strong);
+  font-size: 16px;
+  line-height: 24px;
+  overflow-wrap: anywhere;
+}
+
+.loi-page .loi-property-text > span:not(.meta-line) {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.loi-page .loi-property-text > .meta-line {
+  color: var(--ink-meta);
+  font-size: 12px;
+  line-height: 16px;
+  margin-top: 2px;
+}
+
+/* Editor ------------------------------------------------------------------- */
+
+.loi-page #loi-editor,
+.loi-page #loi-editor > .loi-lock.stack {
+  gap: 24px;
+}
+
+.loi-page #loi-editor .card {
+  gap: 20px;
+  scroll-margin-top: calc(var(--header-h) + 16px);
+}
+
+.loi-page #loi-editor .card > .loi-lock.stack,
+.loi-page #loi-editor .card > .stack {
+  gap: 20px;
+}
+
+.loi-section-title {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.loi-page .card .loi-section-title {
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.loi-section-number {
+  align-items: center;
+  background: var(--sage-tint-strong);
+  border-radius: 50%;
+  color: var(--ink-strong);
+  display: inline-flex;
+  flex: 0 0 32px;
+  font-size: 14px;
+  font-weight: 700;
+  height: 32px;
+  justify-content: center;
+  line-height: 1;
+  width: 32px;
+}
+
+.loi-page #loi-editor .loi-editor-intro {
+  color: var(--ink-soft);
+}
+
+.loi-page #loi-editor p.small,
+.loi-page #loi-editor .field-hint,
+.loi-page #loi-editor span.small {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.loi-page #loi-editor .grid.two,
+.loi-page #loi-editor .grid.three {
+  gap: 20px 24px;
+}
+
+.loi-page #loi-editor .field {
+  gap: 6px;
+}
+
+.loi-page #loi-editor .field label {
+  line-height: 20px;
+}
+
+.loi-page #loi-editor :is(input:not([type="checkbox"]):not([type="radio"]), select) {
+  min-height: 48px;
+}
+
+.loi-page #loi-editor textarea {
+  min-height: 112px;
+}
+
+.loi-page #loi-editor :is(input, select, textarea)[aria-invalid="true"] {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
+}
+
+.loi-page #loi-editor :is(input, select, textarea)[aria-invalid="true"]:focus {
+  box-shadow: 0 0 0 1px var(--danger), var(--focus-ring);
+}
+
+.loi-page #loi-editor .card:has([aria-invalid="true"]) {
+  box-shadow: 0 0 0 1px var(--danger), var(--shadow-card);
+}
+
+.loi-page .loi-fieldset legend {
+  color: var(--ink-strong);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+  margin-bottom: 12px;
+}
+
+.loi-page #loi-editor .card .stack.tight {
+  gap: 20px;
+}
+
+.loi-page #loi-editor .loi-fieldset.stack.tight {
+  gap: 12px;
+}
+
+.loi-page #loi-editor .checkbox-row {
+  align-items: center;
+  cursor: pointer;
+  min-height: 48px;
+}
+
+.loi-page #loi-editor .checkbox-row input {
+  margin-top: 0;
+}
+
+.loi-page #loi-editor fieldset:disabled .field label,
+.loi-page #loi-editor fieldset:disabled .checkbox-row {
+  color: var(--ink-soft);
+}
+
+.loi-page #loi-editor details > summary {
+  align-items: center;
+  color: var(--ink-strong);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 8px;
+  line-height: 20px;
+  list-style: none;
+  min-height: 44px;
+}
+
+.loi-page #loi-editor details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.loi-page #loi-editor details > summary::before {
+  border-bottom: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  content: "";
+  height: 7px;
+  margin: -3px 4px 0 2px;
+  transform: rotate(45deg);
+  transition: transform var(--dur) var(--ease);
+  width: 7px;
+}
+
+.loi-page #loi-editor details[open] > summary::before {
+  margin-top: 3px;
+  transform: rotate(225deg);
+}
+
+.loi-page #loi-editor details > .stack {
+  margin-top: 8px;
+}
+
+.loi-page #loi-editor .card h3 {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.loi-page #loi-editor .actions[role="group"] {
+  gap: 8px;
+}
+
+.loi-page #loi-editor .actions[role="group"] .button {
+  border-color: var(--line-control);
+  border-radius: var(--r-pill);
+  font-weight: 600;
+  min-height: 40px;
+}
+
+.loi-page #loi-editor .actions[role="group"] .button[aria-pressed="true"] {
+  background: var(--sage-tint);
+  border-color: var(--sage-deep);
+  opacity: 1;
+}
+
+/* Deal snapshot ---------------------------------------------------------- */
+
+.loi-page .loi-summary {
+  gap: 16px;
+  min-width: 0;
+  position: sticky;
+  top: calc(var(--header-h) + 24px);
+}
+
+.loi-page .loi-snapshot {
+  gap: 16px;
+}
+
+.loi-page .loi-snapshot .loi-snapshot-title {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.loi-page .loi-snapshot > .stack.tight {
+  gap: 12px;
+}
+
+.loi-snapshot-link {
+  align-items: center;
+  display: inline-flex;
+  font-size: 14px;
+  gap: 4px;
+  justify-self: start;
+  line-height: 20px;
+}
+
+.loi-page .loi-snapshot .fine-print {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+/* Definition-list tables: label left, figure right, hairlines between rows. */
+.loi-page .loi-summary-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.loi-page .loi-summary-list > div {
+  align-items: baseline;
+  border-bottom: 1px solid var(--line-soft);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 10px 0;
+}
+
+.loi-page .loi-summary-list > div:last-child {
+  border-bottom: 0;
+}
+
+.loi-page .loi-summary-list dt {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+  min-width: 0;
+}
+
+.loi-page .loi-summary-list dd {
+  color: var(--ink-strong);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 20px;
+  margin: 0;
+  text-align: right;
+}
+
+.loi-page .loi-summary-list > div:has(> dt > strong) {
+  border-bottom: 0;
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
+.loi-page .loi-summary-list > div:has(+ div > dt > strong) {
+  border-bottom: 0;
+}
+
+.loi-page .loi-summary-list > div:first-child:has(> dt > strong) {
+  border-top: 0;
+  margin-top: 0;
+}
+
+.loi-page .loi-summary-list dt strong,
+.loi-page .loi-summary-list dd strong {
+  color: var(--ink-strong);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+/* Seller headline figure: the offer price reads like a listing price. */
+.loi-page .loi-summary.seller .loi-snapshot .loi-summary-list:first-of-type > div:first-child {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--line);
+  flex-direction: column;
+  gap: 0;
+  padding: 0 0 12px;
+}
+
+.loi-page .loi-summary.seller .loi-snapshot .loi-summary-list:first-of-type > div:first-child dd {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 40px;
+  text-align: left;
+}
+
+.loi-page .loi-proceeds-card .loi-summary-list > div {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.loi-page .loi-proceeds-card .loi-summary-list dd strong {
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.loi-page .loi-proceeds-card .field input,
+.loi-page .loi-proceeds-breakdown .field input {
+  min-height: 48px;
+}
+
+.loi-page .loi-summary .field-hint,
+.loi-page .loi-financial-details .field-hint,
+.loi-page .loi-financial-details p.small,
+.loi-page .loi-summary p.small {
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Fees and calculation details ------------------------------------------ */
+
+.loi-page .loi-financial-details {
+  gap: 16px;
+  max-width: calc(100% - 392px);
+  scroll-margin-top: calc(var(--header-h) + 24px);
+}
+
+.loi-financial-details-head {
+  display: grid;
+  gap: 4px;
+}
+
+.loi-financial-details-head h2 {
+  font-size: 24px;
+  line-height: 32px;
+}
+
+.loi-page .loi-financial-details-grid > .card {
+  gap: 24px;
+}
+
+.loi-page .loi-financial-details-grid > .card > .stack.tight {
+  gap: 24px;
+}
+
+.loi-page .loi-financial-details-grid section.stack.tight {
+  gap: 4px;
+}
+
+.loi-page .loi-financial-details-grid section.stack.tight > h3 {
+  margin-bottom: 4px;
+}
+
+.loi-page .loi-financial-details .loi-proceeds-breakdown > p.small:first-of-type {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* Completed PDF card sits under the details at the same width. */
+.loi-page > .card {
+  gap: 8px;
+  max-width: calc(100% - 392px);
+}
+
+.loi-page > .card > .button {
+  justify-self: start;
+  margin-top: 8px;
+  min-height: 48px;
+  padding-inline: 24px;
+}
+
+/* Review screens --------------------------------------------------------- */
+
+.loi-page .loi-terms-review {
+  gap: 24px;
+}
+
+.loi-page .loi-review-meta {
+  background: var(--surface-subtle);
+  border-radius: var(--r-md);
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 16px 0;
+}
+
+.loi-page .loi-review-meta > div {
+  align-content: start;
+  align-items: flex-start;
+  border: 0;
+  border-left: 1px solid var(--line);
+  display: grid;
+  gap: 2px;
+  padding: 0 16px;
+}
+
+.loi-page .loi-review-meta > div:first-child {
+  border-left: 0;
+}
+
+.loi-page .loi-review-meta dt {
+  color: var(--ink-meta);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.loi-page .loi-review-meta dd {
+  color: var(--ink-strong);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  margin: 0;
+  text-align: left;
+}
+
+.loi-page .loi-review-sections {
+  gap: 0;
+}
+
+.loi-page .loi-review-section,
+.loi-page .loi-recalculated {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+
+.loi-page .loi-review-section {
+  padding-bottom: 20px;
+}
+
+.loi-page .loi-review-section h3,
+.loi-page .loi-recalculated h3,
+.loi-page .loi-review-diffs h3 {
+  font-size: 16px;
+  line-height: 24px;
+  margin-bottom: 8px;
+}
+
+.loi-page .loi-review-grid {
+  column-gap: 32px;
+  display: grid;
+  gap: 0 32px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.loi-page .loi-review-grid > div {
+  align-content: start;
+  border-bottom: 1px solid var(--line-soft);
+  display: grid;
+  gap: 2px;
+  padding: 10px 0;
+}
+
+.loi-page .loi-review-grid dt {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.loi-page .loi-review-grid dd {
+  color: var(--ink-strong);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 24px;
+  margin: 0;
+  text-align: left;
+}
+
+.loi-recalculated-head {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.loi-page .loi-recalculated-head h3 {
+  margin-bottom: 0;
+}
+
+.loi-page .loi-recalculated .loi-review-grid {
+  margin-top: 8px;
+}
+
+.loi-page .loi-review-diffs {
+  background: var(--amber-tint);
+  border: 0;
+  border-radius: var(--r-md);
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+}
+
+.loi-page .loi-review-diffs h4 {
+  color: var(--ink-strong);
+  font-size: 14px;
+  line-height: 20px;
+  margin-top: 8px;
+}
+
+.loi-page .loi-diff-list {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+}
+
+.loi-page .loi-diff-list > div {
+  background: var(--surface);
+  border: 0;
+  border-radius: 0;
+  display: grid;
+  gap: 2px;
+  padding: 10px 16px;
+}
+
+.loi-page .loi-diff-list > div:first-child {
+  border-radius: var(--r-xs) var(--r-xs) 0 0;
+}
+
+.loi-page .loi-diff-list > div:last-child {
+  border-radius: 0 0 var(--r-xs) var(--r-xs);
+}
+
+.loi-page .loi-diff-list dt {
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.loi-page .loi-diff-list dd {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 16px;
+  gap: 4px 10px;
+  line-height: 24px;
+  margin: 0;
+}
+
+.loi-page .loi-diff-list dd span {
+  color: var(--ink-soft);
+}
+
+.loi-page .loi-diff-list dd [aria-hidden="true"] {
+  color: var(--ink-meta);
+}
+
+.loi-page .loi-diff-list dd strong {
+  color: var(--ink-strong);
+}
+
+.loi-page .loi-nonbinding-notice p span {
+  color: var(--ink-strong);
+}
+
+/* Revision timeline ------------------------------------------------------ */
+
+.loi-page .loi-history-disclosure > summary {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  color: var(--ink-strong);
+  cursor: pointer;
+  display: flex;
+  font-size: 16px;
+  font-weight: 700;
+  gap: 12px;
+  line-height: 24px;
+  list-style: none;
+  min-height: 56px;
+  padding: 16px 0;
+}
+
+.loi-page .loi-history-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.loi-page .loi-history-disclosure > summary::after {
+  border-bottom: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  content: "";
+  height: 8px;
+  margin: -4px 4px 0 auto;
+  transform: rotate(45deg);
+  transition: transform var(--dur) var(--ease);
+  width: 8px;
+}
+
+.loi-page .loi-history-disclosure[open] > summary::after {
+  margin-top: 4px;
+  transform: rotate(225deg);
+}
+
+.loi-page .loi-revision-list {
+  border-top: 1px solid var(--line);
+  gap: 0;
+}
+
+.loi-page .loi-revision-row {
+  align-items: start;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  gap: 8px 24px;
+  grid-template-columns: minmax(200px, 1fr) auto minmax(200px, 1fr);
+  padding: 16px 16px 16px 20px;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.loi-page .loi-revision-row.selected {
+  background: var(--sage-tint);
+  box-shadow: inset 3px 0 0 var(--sage-deep);
+}
+
+.loi-page .loi-revision-row strong {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.loi-page .loi-revision-row span,
+.loi-page .loi-compact-diffs span {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.loi-page .loi-compact-diffs {
+  gap: 2px;
+}
+
+.loi-page .loi-compact-diffs span:first-child {
+  color: var(--ink-strong);
+  font-weight: 600;
+}
+
+.loi-page .loi-revision-row .link-button {
+  min-height: 44px;
+  margin-top: -10px;
+}
+
+/* Decision and template dialogs: modal sheets ---------------------------- */
+
+.loi-page .loi-native-dialog {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  max-height: calc(100dvh - 48px);
+  max-width: none;
+  overflow: visible;
+  padding: 0;
+  width: min(880px, calc(100vw - 48px));
+}
+
+.loi-page .loi-native-dialog.loi-template-dialog {
+  width: min(620px, calc(100vw - 48px));
+}
+
+.loi-page .loi-native-dialog[open] {
+  animation: loi-sheet-in var(--dur) var(--ease-out);
+}
+
+.loi-page .loi-native-dialog::backdrop {
+  background: rgba(42, 42, 51, 0.5);
+}
+
+.loi-page .loi-dialog-content {
+  background: var(--surface);
+  border: 0;
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-modal);
+  gap: 20px;
+  max-height: calc(100dvh - 48px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 24px 24px 0;
+}
+
+.loi-dialog-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.loi-dialog-head > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.loi-page .loi-dialog-head h2 {
+  font-size: 24px;
+  line-height: 32px;
+  overflow-wrap: anywhere;
+}
+
+.loi-page .message-dialog-close {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  color: var(--ink-strong);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 44px;
+  font-size: 24px;
+  height: 44px;
+  justify-content: center;
+  margin: -8px -10px 0 0;
+  min-height: 44px;
+  min-width: 44px;
+  transition: background-color var(--dur-fast) var(--ease);
+  width: 44px;
+}
+
+.loi-page .message-dialog-close:active {
+  background: var(--surface-band);
+}
+
+.loi-page .message-dialog-close:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.loi-page .card.loi-decision-summary {
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: none;
+  padding: 20px;
+}
+
+.loi-page .loi-decision-summary .loi-property-identity {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.loi-page .loi-decision-summary > .card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+
+.loi-page .loi-dialog-content > .loi-terms-review {
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+
+.loi-page .loi-dialog-actions {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  bottom: 0;
+  gap: 12px;
+  margin: 0 -24px;
+  padding: 16px 24px;
+  position: sticky;
+  z-index: 1;
+}
+
+.loi-page .loi-native-dialog .button {
+  font-size: 16px;
+  min-height: 48px;
+  padding-inline: 24px;
+  white-space: normal;
+}
+
+@keyframes loi-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Sticky action bar ------------------------------------------------------ */
+
+.loi-page .loi-action-bar {
+  align-items: center;
+  background: var(--surface);
+  border: 0;
+  bottom: 0;
+  box-shadow: var(--shadow-sticky-bar);
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px 24px;
+  justify-content: space-between;
+  left: 0;
+  padding: 16px max(24px, calc((100% - 1240px) / 2 + 24px));
+  position: fixed;
+  right: 0;
+  z-index: 40;
+}
+
+.loi-page .loi-action-context {
+  display: grid;
+  flex: 1 1 auto;
+  font-size: 14px;
+  gap: 0;
+  line-height: 20px;
+  max-width: 600px;
+  min-width: 0;
+}
+
+.loi-page .loi-action-context strong {
+  color: var(--ink-strong);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.loi-page .loi-action-context > span {
+  color: var(--ink-soft);
+}
+
+.loi-page .loi-action-context .field-hint.invalid {
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.loi-page .loi-action-controls {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 12px;
+}
+
+.loi-page .loi-action-bar .button {
+  font-size: 16px;
+  min-height: 48px;
+  padding: 11px 24px;
+  white-space: nowrap;
+}
+
+.loi-page .loi-more-actions {
+  position: relative;
+}
+
+.loi-page .loi-more-actions > summary {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-xs);
+  color: var(--ink-strong);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 16px;
+  font-weight: 700;
+  gap: 10px;
+  line-height: 24px;
+  list-style: none;
+  min-height: 48px;
+  padding: 11px 18px 11px 20px;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.loi-page .loi-more-actions > summary::-webkit-details-marker {
+  display: none;
+}
+
+.loi-page .loi-more-actions > summary::after {
+  border-bottom: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  content: "";
+  height: 7px;
+  margin-top: 4px;
+  transform: rotate(225deg);
+  transition: transform var(--dur) var(--ease);
+  width: 7px;
+}
+
+.loi-page .loi-more-actions[open] > summary {
+  background: var(--surface-muted);
+  border-color: var(--ink-strong);
+}
+
+.loi-page .loi-more-actions[open] > summary::after {
+  margin-top: -4px;
+  transform: rotate(45deg);
+}
+
+.loi-page .loi-more-actions > summary:active {
+  background: var(--surface-muted);
+}
+
+.loi-page .loi-more-panel {
+  animation: loi-popover-in var(--dur) var(--ease-out);
+  background: var(--surface);
+  border: 0;
+  border-radius: var(--r-md);
+  bottom: calc(100% + 8px);
+  box-shadow: var(--shadow-popover);
+  display: grid;
+  gap: 0;
+  max-height: calc(100dvh - 220px);
+  overflow-y: auto;
+  padding: 8px 0;
+  position: absolute;
+  right: 0;
+  width: min(300px, calc(100vw - 32px));
+}
+
+.loi-page .loi-more-panel .button {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--ink-strong);
+  font-size: 16px;
+  font-weight: 400;
+  justify-content: flex-start;
+  min-height: 48px;
+  padding: 12px 20px;
+  text-align: left;
+  white-space: normal;
+  width: 100%;
+}
+
+.loi-page .loi-more-panel .button:active {
+  background: var(--surface-muted);
+  color: var(--ink-strong);
+}
+
+.loi-page .loi-more-panel .button.warning,
+.loi-page .loi-more-panel .button.warning:active {
+  color: var(--danger);
+}
+
+.loi-page .loi-more-panel .button:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--sage-deep);
+}
+
+@keyframes loi-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .loi-page .button.primary:hover {
+    background: var(--sage-deep);
+    border-color: var(--sage-deep);
+    color: var(--ink-strong);
+  }
+
+  .loi-page .loi-more-actions > summary:hover {
+    background: var(--surface-subtle);
+    border-color: var(--ink-strong);
+  }
+
+  .loi-page .loi-more-panel .button:hover {
+    background: var(--surface-subtle);
+    color: var(--ink-strong);
+  }
+
+  .loi-page .loi-more-panel .button.warning:hover {
+    background: var(--danger-tint);
+    color: var(--danger);
+  }
+
+  .loi-page .message-dialog-close:hover {
+    background: var(--surface-muted);
+  }
+
+  .loi-page .loi-revision-row:not(.selected):hover {
+    background: var(--surface-subtle);
+  }
+}
+
+/* Tablet and phone --------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .loi-page .loi-layout {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 24px;
+  }
+
+  .loi-page .loi-financial-details,
+  .loi-page > .card {
+    max-width: calc(100% - 344px);
+  }
+}
+
+@media (max-width: 900px) {
+  .loi-page.has-action-bar {
+    padding-bottom: 232px;
+  }
+
+  .loi-page .loi-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .loi-page .loi-summary {
+    position: static;
+  }
+
+  .loi-page .loi-financial-details,
+  .loi-page > .card {
+    max-width: none;
+  }
+
+  .loi-page .loi-action-bar {
+    align-items: stretch;
+    border: 0;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+  }
+
+  .loi-page .loi-action-context {
+    max-width: none;
+  }
+
+  .loi-page .loi-action-context strong {
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  .loi-page .loi-action-context > span {
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    display: -webkit-box;
+    font-size: 13px;
+    line-height: 18px;
+    overflow: hidden;
+  }
+
+  .loi-page .loi-action-controls {
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .loi-page .loi-action-controls > .button {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-inline: 16px;
+    white-space: normal;
+  }
+
+  .loi-page .loi-more-actions {
+    flex: 0 0 auto;
+  }
+
+  .loi-page .loi-more-actions > summary {
+    padding-inline: 16px;
+  }
+
+  .loi-page .loi-more-panel {
+    left: 0;
+    right: auto;
+  }
+
+  .loi-page .loi-review-meta {
+    gap: 16px 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .loi-page .loi-review-meta > div:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .loi-page .loi-revision-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+@media (max-width: 767px) {
+  .page.wide.loi-page {
+    gap: 20px;
+    padding: 16px 16px 48px;
+  }
+
+  .loi-page.has-action-bar {
+    padding-bottom: 232px;
+  }
+
+  .loi-page .loi-header h1 {
+    font-size: 24px;
+    line-height: 32px;
+  }
+
+  .loi-page .loi-header .status-tag {
+    margin-top: 0;
+  }
+
+  .loi-page .loi-header-row {
+    flex-direction: column;
+  }
+
+  .loi-page .card {
+    padding: 20px 16px;
+  }
+
+  .loi-page .loi-progress {
+    padding: 12px 16px;
+  }
+
+  .loi-page .loi-progress li {
+    font-size: 13px;
+    gap: 6px;
+  }
+
+  .loi-page .loi-progress li span {
+    flex-basis: 28px;
+    height: 28px;
+    width: 28px;
+  }
+
+  .loi-page .loi-progress li:not(:last-child)::after {
+    margin: 0 6px 0 4px;
+    min-width: 8px;
+  }
+
+  .loi-page .loi-card-head {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .loi-page .loi-aligned-celebration {
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .loi-page .loi-aligned-mark {
+    flex-basis: 36px;
+    height: 36px;
+    width: 36px;
+  }
+
+  .loi-page .loi-history-banner,
+  .loi-page .loi-draft-conflict {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .loi-page .loi-history-banner .button,
+  .loi-page .loi-draft-conflict .button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .loi-page .loi-review-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .loi-page .loi-revision-row {
+    grid-template-columns: minmax(0, 1fr);
+    padding-left: 16px;
+  }
+
+  .loi-page .loi-revision-row .link-button {
+    justify-self: start;
+    margin-top: 0;
+  }
+
+  .loi-page .loi-native-dialog,
+  .loi-page .loi-native-dialog.loi-template-dialog {
+    margin: auto auto 0;
+    max-height: calc(100dvh - 16px);
+    width: 100vw;
+  }
+
+  .loi-page .loi-dialog-content {
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    max-height: calc(100dvh - 16px);
+    padding: 20px 16px 0;
+  }
+
+  .loi-page .loi-dialog-head h2 {
+    font-size: 20px;
+    line-height: 28px;
+  }
+
+  .loi-page .loi-dialog-actions {
+    margin: 0 -16px;
+    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+  }
+
+  .loi-page .loi-dialog-actions .button {
+    flex: 1 1 100%;
+  }
+}
+
+.loi-page .card.loi-callout-card a {
+  color: var(--ink-strong);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

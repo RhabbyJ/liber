@@ -20,7 +20,7 @@ export default async function MessagesPage() {
   const pageInfo = normalizeListPageInfo(result);
 
   return (
-    <div className="page stack loose message-inbox-page">
+    <div className="page message-inbox-page">
       <PageTitle title="Messages" />
       <ConversationInbox initialConversations={conversations} initialPageInfo={pageInfo} />
     </div>

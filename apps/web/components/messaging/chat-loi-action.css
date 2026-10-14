@@ -1,12 +1,31 @@
+/* Chat LOI callout: stays above the composer, green tint, one visible 48px action. */
 .chat-loi-action {
   align-items: center;
   background: var(--sage-tint);
   border: 1px solid var(--sage-line);
   border-radius: var(--r-md);
-  display: flex;
-  gap: 16px;
-  justify-content: space-between;
-  padding: 14px 16px;
+  display: grid;
+  gap: 12px 16px;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  padding: 12px 12px 12px 16px;
+}
+
+.chat-loi-icon {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--sage-line);
+  border-radius: 50%;
+  color: var(--sage-deep);
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.chat-loi-action.completed .chat-loi-icon {
+  background: var(--sage-deep);
+  border-color: var(--sage-deep);
+  color: #fff;
 }
 
 .chat-loi-copy {
@@ -16,54 +35,72 @@
 .chat-loi-copy strong {
   color: var(--ink-strong);
   display: block;
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 16px;
+  line-height: 24px;
 }
 
 .chat-loi-copy p {
   color: var(--ink-soft);
-  font-size: 12px;
-  line-height: 1.5;
-  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 20px;
+  margin: 0;
 }
 
-.chat-loi-action .chat-loi-button {
+/* LOI primaries keep the brand green with dark text for contrast (6:1, 4.6:1 when pressed). */
+.chat-loi-action .button.chat-loi-button {
   background: var(--sage-strong);
-  border: 1px solid var(--sage-deep);
+  border-color: var(--sage-strong);
   color: var(--ink-strong);
   flex-shrink: 0;
-  font-size: 14px;
-  font-weight: 750;
-  gap: 9px;
+  font-size: 16px;
+  font-weight: 700;
   min-height: 48px;
-  padding: 12px 20px;
+  padding: 11px 24px;
 }
 
-.chat-loi-action .chat-loi-button:hover {
-  background: var(--sage);
+.chat-loi-action .button.chat-loi-button::after {
+  height: 48px;
+  margin-top: -24px;
+}
+
+.chat-loi-action .button.chat-loi-button:active {
+  background: var(--sage-deep);
+  border-color: var(--sage-deep);
   color: var(--ink-strong);
 }
 
-.chat-loi-action .chat-loi-button:focus-visible {
-  outline: 2px solid var(--ink-strong);
-  outline-offset: 3px;
+.chat-loi-action .button.chat-loi-button:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: 0;
 }
 
-.chat-loi-action .chat-loi-button:disabled {
+.chat-loi-action .button.chat-loi-button:disabled {
   cursor: wait;
-  opacity: 0.65;
+  opacity: 0.6;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chat-loi-action .button.chat-loi-button:hover {
+    background: var(--sage-deep);
+    border-color: var(--sage-deep);
+    color: var(--ink-strong);
+  }
 }
 
 @media (max-width: 600px) {
   .chat-loi-action {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 10px;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr);
     padding: 12px;
   }
 
-  .chat-loi-action .chat-loi-button {
+  .chat-loi-icon {
+    display: none;
+  }
+
+  .chat-loi-action .button.chat-loi-button {
     justify-content: center;
+    margin-top: 4px;
     width: 100%;
   }
 }

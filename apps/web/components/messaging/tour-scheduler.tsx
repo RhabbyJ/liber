@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { TourMutation, TourView } from "../../lib/tour-scheduling";
+import { Icon } from "../icon";
 
 type View = TourView & { emailRemindersAvailable?: boolean };
 
@@ -86,19 +87,20 @@ export function TourScheduler({ conversationId, muted }: { conversationId: strin
     void mutate({ action: "PROPOSE", expectedRevision: schedule?.revision ?? 0, startsAt: date.toISOString(), timeZone, durationMinutes: duration as 30 | 60 | 90 | 120 });
   }
 
-  if (!view) return loadError ? <div className="tour-scheduler tour-load-error"><span>Tour scheduling could not load.</span><button className="button secondary sm" onClick={() => void refresh()} type="button">Retry tour scheduling</button></div> : null;
+  if (!view) return loadError ? <div className="tour-scheduler tour-load-error"><Icon name="calendar" size={18} /><span>Tour scheduling could not load.</span><button className="button secondary sm" onClick={() => void refresh()} type="button">Retry tour scheduling</button></div> : null;
   if (!view.canSchedule && !schedule) return null;
   return (
     <section aria-label="Property tour" className="tour-scheduler">
       <button aria-controls={`tour-${conversationId}`} aria-expanded={open} className="tour-toggle" onClick={() => setOpen(!open)} type="button">
-        <span><strong>{status}</strong>{schedule ? <span className="tour-date">{formatTime(schedule.startsAt, schedule.timeZone)}</span> : <span className="tour-date">Agree on a time together in Liber</span>}</span>
-        <span aria-hidden="true">{open ? "−" : "+"}</span>
+        <span aria-hidden="true" className="tour-toggle-icon"><Icon name="calendar" size={20} /></span>
+        <span className="tour-toggle-copy"><strong>{status}</strong>{schedule ? <span className="tour-date">{formatTime(schedule.startsAt, schedule.timeZone)}</span> : <span className="tour-date">Agree on a time together in Liber</span>}</span>
+        <Icon className="tour-toggle-chevron" name="chevron-down" size={20} />
       </button>
       {open ? <div className="tour-content" id={`tour-${conversationId}`}>
-        {error ? <p className="auth-alert error" role="alert">{error}</p> : null}
-        {notice ? <p role="status">{notice}</p> : null}
-        {loadError ? <p role="status">The latest tour could not be refreshed. Reconnect before making changes.</p> : null}
-        {schedule ? <p>{schedule.durationMinutes} minutes · {schedule.timeZone}{timeZone !== schedule.timeZone ? ` · Your time: ${formatTime(schedule.startsAt, timeZone)}` : ""}</p> : null}
+        {error ? <div className="inline-alert danger" role="alert"><Icon name="info" size={20} /><p>{error}</p></div> : null}
+        {notice ? <p className="tour-notice" role="status">{notice}</p> : null}
+        {loadError ? <p className="tour-notice" role="status">The latest tour could not be refreshed. Reconnect before making changes.</p> : null}
+        {schedule ? <p className="tour-meta">{schedule.durationMinutes} minutes · {schedule.timeZone}{timeZone !== schedule.timeZone ? ` · Your time: ${formatTime(schedule.startsAt, timeZone)}` : ""}</p> : null}
         {!view.canSchedule ? <p>This conversation is read-only. The tour cannot be changed and reminders will not be sent.</p> : <>
           {schedule?.status === "CONFIRMED" && finished ? <div className="tour-follow-up"><strong>How did the tour go?</strong><p>Use the chat below to ask follow-up questions or discuss next steps. When you are ready, open the LOI from Conversation details.</p><button className="button secondary sm" onClick={() => { setOpen(false); document.getElementById("message-draft")?.focus(); }} type="button">Back to messages</button></div> : null}
           {schedule?.status === "PROPOSED" && !past ? <p>{schedule.proposedByYou ? "The other participant must confirm before this is a scheduled tour." : "Review this time, then confirm or propose another time."}</p> : null}
@@ -107,11 +109,17 @@ export function TourScheduler({ conversationId, muted }: { conversationId: strin
             <button className="button secondary sm" disabled={pending} onClick={() => { setEditing(true); setCancelOpen(false); setError(""); }} type="button">{schedule && schedule.status !== "CANCELLED" && !past ? "Propose another time" : "Propose a tour time"}</button>
             {schedule && schedule.status !== "CANCELLED" && !past && !cancelOpen ? <button className="button ghost sm" disabled={pending} onClick={() => setCancelOpen(true)} type="button">Cancel tour</button> : null}
           </div> : <form className="tour-form" onSubmit={propose}>
-            <label htmlFor={`tour-time-${conversationId}`}>Date and time <span>({timeZone})</span></label>
-            <input disabled={pending} id={`tour-time-${conversationId}`} onChange={(event) => setLocalTime(event.target.value)} required type="datetime-local" value={localTime} />
-            <label htmlFor={`tour-duration-${conversationId}`}>Tour length</label>
-            <select disabled={pending} id={`tour-duration-${conversationId}`} onChange={(event) => setDuration(Number(event.target.value))} value={duration}><option value={30}>30 minutes</option><option value={60}>1 hour</option><option value={90}>1½ hours</option><option value={120}>2 hours</option></select>
-            <p>A new proposal replaces the current time and needs confirmation from the other participant.</p>
+            <div className="tour-form-fields">
+              <div className="field">
+                <label htmlFor={`tour-time-${conversationId}`}>Date and time <span>({timeZone})</span></label>
+                <input disabled={pending} id={`tour-time-${conversationId}`} onChange={(event) => setLocalTime(event.target.value)} required type="datetime-local" value={localTime} />
+              </div>
+              <div className="field">
+                <label htmlFor={`tour-duration-${conversationId}`}>Tour length</label>
+                <select disabled={pending} id={`tour-duration-${conversationId}`} onChange={(event) => setDuration(Number(event.target.value))} value={duration}><option value={30}>30 minutes</option><option value={60}>1 hour</option><option value={90}>1½ hours</option><option value={120}>2 hours</option></select>
+              </div>
+            </div>
+            <p className="field-hint">A new proposal replaces the current time and needs confirmation from the other participant.</p>
             <div className="tour-actions"><button className="button primary sm" disabled={pending} type="submit">{pending ? "Saving…" : "Send time proposal"}</button><button className="button secondary sm" disabled={pending} onClick={() => setEditing(false)} type="button">Keep current schedule</button></div>
           </form>}
           {cancelOpen && schedule ? <div className="tour-cancel"><p>Cancel this tour and its reminders?</p><div className="tour-actions"><button className="button secondary sm" disabled={pending} onClick={() => void mutate({ action: "CANCEL", expectedRevision: schedule.revision })} type="button">Yes, cancel tour</button><button className="button ghost sm" disabled={pending} onClick={() => setCancelOpen(false)} type="button">Keep tour</button></div></div> : null}

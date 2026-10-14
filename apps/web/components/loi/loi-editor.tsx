@@ -67,9 +67,9 @@ export function LoiEditor({
     <form className="stack" id="loi-editor" onSubmit={(event) => event.preventDefault()}>
       <fieldset className="loi-lock stack" disabled={disabled}>
       <legend className="visually-hidden">LOI draft terms</legend>
-      <p className="small">Complete your terms, then review before sending. The {LOI_RESPONSE_WINDOW_HOURS}-hour response window starts when you submit.</p>
+      <p className="small loi-editor-intro">Complete your terms, then review before sending. The {LOI_RESPONSE_WINDOW_HOURS}-hour response window starts when you submit.</p>
       <section className="card stack" aria-labelledby="loi-section-parties">
-        <h2 id="loi-section-parties">1. Parties</h2>
+        <SectionTitle id="loi-section-parties" number="1">Parties</SectionTitle>
         {counter ? <p className="small">Counters keep party details from the current version.</p> : null}
         <fieldset className="loi-lock stack" disabled={counter}>
         <TextField
@@ -102,7 +102,7 @@ export function LoiEditor({
       </section>
 
       <section className="card stack" aria-labelledby="loi-section-funding">
-        <h2 id="loi-section-funding">2. Purchase price and funding</h2>
+        <SectionTitle id="loi-section-funding" number="2">Purchase price and funding</SectionTitle>
         <MoneyField
           cents={terms.purchasePriceCents === 0 ? null : terms.purchasePriceCents}
           hint={terms.purchasePriceCents === 0 ? "You can save this draft without an offer price. Enter your proposed offer price before reviewing and submitting this LOI." : undefined}
@@ -267,7 +267,7 @@ export function LoiEditor({
       </section>
 
       <section className="card stack" aria-labelledby="loi-section-deposit">
-        <h2 id="loi-section-deposit">3. Earnest-money deposit</h2>
+        <SectionTitle id="loi-section-deposit" number="3">Earnest-money deposit</SectionTitle>
         <p className="small">Set at 3% of the offer price and calculated automatically.</p>
         <p aria-atomic="true" aria-live="polite" id="loi-deposit-percent">
           <strong>{summary ? usd.format(summary.earnestMoneyCents / 100) : "3% of offer price"}</strong>
@@ -276,7 +276,7 @@ export function LoiEditor({
       </section>
 
       <section className="card stack" aria-labelledby="loi-section-timing">
-        <h2 id="loi-section-timing">4. Timing and contingencies</h2>
+        <SectionTitle id="loi-section-timing" number="4">Timing and contingencies</SectionTitle>
         <div className="grid two">
           <NumberField error={fieldErrors["timing.closingDays"]} id="loi-closing" label="Escrow / closing days" max={LOI_MAX_ESCROW_DAYS} min={1} onChange={(closingDays) => update("timing.closingDays", (value) => ({ ...value, timing: { ...value.timing, closingDays: Math.min(Math.max(closingDays, 1), LOI_MAX_ESCROW_DAYS) } }))} value={terms.timing.closingDays} />
           <NumberField error={fieldErrors["timing.inspectionContingencyDays"]} id="loi-inspection" label="Physical inspection days" min={0} onChange={(inspectionContingencyDays) => update("timing.inspectionContingencyDays", (value) => ({ ...value, timing: { ...value.timing, inspectionContingencyDays } }))} value={terms.timing.inspectionContingencyDays} />
@@ -289,7 +289,7 @@ export function LoiEditor({
       </section>
 
       <section className="card stack" aria-labelledby="loi-section-possession">
-        <h2 id="loi-section-possession">5. Possession</h2>
+        <SectionTitle id="loi-section-possession" number="5">Possession</SectionTitle>
         <SelectField
           error={fieldErrors["possession.type"]}
           id="loi-possession"
@@ -323,7 +323,7 @@ export function LoiEditor({
       </section>
 
       <section className="card stack" aria-labelledby="loi-section-agent">
-        <h2 id="loi-section-agent">6. Buyer agent</h2>
+        <SectionTitle id="loi-section-agent" number="6">Buyer agent</SectionTitle>
         <fieldset className="loi-lock stack" disabled={counter}>
           <CheckboxField
             checked={terms.representation.buyerRepresented}
@@ -396,7 +396,7 @@ export function LoiEditor({
       </section>
 
       <section className="card stack" aria-labelledby="loi-section-costs">
-        <h2 id="loi-section-costs">7. Escrow, title, warranty, and costs</h2>
+        <SectionTitle id="loi-section-costs" number="7">Escrow, title, warranty, and costs</SectionTitle>
         <p className="small">Recommended allocation: each party pays their own escrow fees, and the seller pays for title insurance. Choose different payers using the separate selectors below.</p>
         <div className="grid two">
           <ProviderField errors={fieldErrors} kind="escrow" label="Proposed escrow provider" onChange={(escrow) => update("providers.escrow", (value) => updateLoiEscrowProvider(value, escrow as LoiTermsV1["providers"]["escrow"]))} value={terms.providers.escrow} />
@@ -483,7 +483,7 @@ export function LoiEditor({
       </section>
 
       <section className="card stack" aria-labelledby="loi-section-personal-property">
-        <h2 id="loi-section-personal-property">8. HOA and personal property</h2>
+        <SectionTitle id="loi-section-personal-property" number="8">HOA and personal property</SectionTitle>
         <div className="grid three">
           <SelectField
             error={fieldErrors["hoa.documentFeePayer"]}
@@ -510,7 +510,7 @@ export function LoiEditor({
       <ClosingCostEstimates fields={fieldErrors} summary={summary} terms={terms} update={update} />
 
       <section className="card stack" aria-labelledby="loi-section-disclosures">
-        <h2 id="loi-section-disclosures">9. Disclosures</h2>
+        <SectionTitle id="loi-section-disclosures" number="9">Disclosures</SectionTitle>
         {viewerRole === "SELLER" ? <SelectField
           error={fieldErrors["disclosures.deathOnProperty"]}
           id="loi-disclosure-death"
@@ -531,7 +531,7 @@ export function LoiEditor({
       </section>
 
       <section className="card stack" aria-labelledby="loi-section-additional">
-        <h2 id="loi-section-additional">10. Additional terms</h2>
+        <SectionTitle id="loi-section-additional" number="10">Additional terms</SectionTitle>
         <fieldset className="loi-lock stack" disabled={counter}>
         <TextAreaField error={fieldErrors["additionalTerms.proposedTerms"]} id="loi-additional" label="Additional proposed terms" maxLength={4000} onChange={(proposedTerms) => update("additionalTerms.proposedTerms", (value) => ({ ...value, additionalTerms: { ...value.additionalTerms, proposedTerms } }))} rows={6} value={terms.additionalTerms.proposedTerms} />
         <TextAreaField error={fieldErrors["additionalTerms.exclusions"]} id="loi-exclusions" label="Explicit exclusions" maxLength={4000} onChange={(exclusions) => update("additionalTerms.exclusions", (value) => ({ ...value, additionalTerms: { ...value.additionalTerms, exclusions } }))} rows={4} value={terms.additionalTerms.exclusions} />
@@ -539,6 +539,17 @@ export function LoiEditor({
       </section>
       </fieldset>
     </form>
+  );
+}
+
+// The visible badge is decorative; the heading text keeps its "1. Parties" reading order.
+function SectionTitle({ children, id, number, numberLabel = `${number}. ` }: { children: ReactNode; id: string; number: string; numberLabel?: string }) {
+  return (
+    <h2 className="loi-section-title" id={id}>
+      <span aria-hidden="true" className="loi-section-number">{number}</span>
+      {numberLabel ? <span className="visually-hidden">{numberLabel}</span> : null}
+      {children}
+    </h2>
   );
 }
 
@@ -659,7 +670,7 @@ function ClosingCostEstimates({ fields, summary, terms, update }: { fields: Reco
   const confirmOtherCosts = (estimates.buyerOtherClosingCostsCents ?? 0) + (estimates.sellerOtherClosingCostsCents ?? 0) > 0 && (summary?.calculationVersion === 3 || (summary?.calculationVersion === 4 || summary?.calculationVersion === 5))
     && (summary.buyerHomeWarrantyCents ?? 0) + (summary.sellerHomeWarrantyCents ?? 0) + summary.buyerItemizedCostsCents + summary.sellerItemizedCostsCents + summary.rentBackAtClosingCents + summary.monthlyRentBackCents > 0;
   return <section className="card stack" aria-labelledby="loi-section-estimates">
-    <h2 id="loi-section-estimates">Closing-cost estimates</h2>
+    <SectionTitle id="loi-section-estimates" number="$" numberLabel="">Closing-cost estimates</SectionTitle>
     <p className="small">Every entered fee follows its selected payer: buyer-paid costs increase expected cash to close; seller-paid costs reduce seller proceeds. Add estimates you have received. Blank escrow fields use the scheduled fee below. Title and other unknown fees stay blank; enter 0 only when no charge applies.</p>
     <details open>
       <summary>Add or update fee estimates</summary>
