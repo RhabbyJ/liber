@@ -1613,7 +1613,15 @@ input[type="radio"]:disabled {
 }
 
 .checkbox-row input {
+  accent-color: var(--sage-deep);
+  flex: 0 0 auto;
+  height: 20px;
   margin-top: 2px;
+  width: 20px;
+}
+
+.form-grid > .checkbox-row.full {
+  grid-column: 1 / -1;
 }
 
 /* Legacy label + hidden input + .checkmark pattern */
@@ -2088,48 +2096,242 @@ input[type="radio"]:disabled {
   line-height: 20px;
 }
 
+/* Notification feed (Zillow notification centre): type icon, text, day, unread dot. */
 .notification-list {
   border-top: 1px solid var(--line);
   display: grid;
   list-style: none;
+  max-width: 760px;
 }
 
 .notification-row {
+  align-items: start;
   border-bottom: 1px solid var(--line);
   display: grid;
-  gap: 12px;
-  grid-template-columns: 8px minmax(0, 1fr);
-  padding: 16px 4px;
+  gap: 16px;
+  grid-template-columns: 40px minmax(0, 1fr) 10px;
+  padding: 16px 8px;
+  transition: background-color var(--dur) var(--ease);
 }
 
-.notification-dot {
+.notification-row.unread {
+  background: var(--sage-tint);
+}
+
+.notification-row-icon {
+  align-items: center;
+  background: var(--surface-muted);
   border-radius: 50%;
-  height: 8px;
-  margin-top: 8px;
-  width: 8px;
+  color: var(--ink-strong);
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
 }
 
-.notification-row.unread .notification-dot {
-  background: var(--sage-deep);
+.notification-row.unread .notification-row-icon {
+  background: var(--surface);
+  color: var(--sage-deep);
 }
 
-.notification-row strong {
+.notification-row-text strong {
   display: block;
+  font-weight: 400;
   line-height: 24px;
 }
 
-.notification-row p {
+.notification-row.unread .notification-row-text strong {
+  font-weight: 700;
+}
+
+.notification-row-text p {
   color: var(--ink-soft);
   font-size: 14px;
   line-height: 20px;
 }
 
-.notification-row small {
+.notification-row-text small {
   color: var(--ink-meta);
   display: block;
   font-size: 12px;
   line-height: 16px;
   margin-top: 4px;
+}
+
+.notification-dot {
+  background: var(--sage-deep);
+  border-radius: 50%;
+  height: 10px;
+  margin-top: 15px;
+  width: 10px;
+}
+
+/* Workspace tabs (Redfin "My Redfin"): 16px labels on a hairline, 3px ink underline when current. */
+.workspace-tabs {
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 24px;
+  margin-top: -8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.workspace-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.workspace-tab {
+  align-items: center;
+  border-bottom: 3px solid transparent;
+  color: var(--ink-soft);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 16px;
+  gap: 8px;
+  line-height: 24px;
+  margin-bottom: -1px;
+  min-height: 48px;
+  transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+  white-space: nowrap;
+}
+
+.workspace-tab.current {
+  border-bottom-color: var(--ink-strong);
+  color: var(--ink-strong);
+  font-weight: 700;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  a.workspace-tab:hover {
+    border-bottom-color: var(--line-strong);
+    color: var(--ink-strong);
+  }
+}
+
+.workspace-tab-badge {
+  background: var(--sage-deep);
+  border-radius: var(--r-pill);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  min-width: 18px;
+  padding: 0 6px;
+  text-align: center;
+}
+
+/* Admin sub-navigation: the workspace tabs, full width under the header. */
+.admin-subnav {
+  margin: 0 auto;
+  max-width: var(--container);
+  padding: 8px var(--gutter) 0;
+}
+
+.admin-subnav .workspace-tabs {
+  margin-top: 0;
+}
+
+.admin-subnav + .page {
+  padding-top: 24px;
+}
+
+/* Activity rows (sent invites): avatar, who + status, what, when, one action. */
+.activity-list {
+  border-top: 1px solid var(--line);
+  display: grid;
+  list-style: none;
+}
+
+.activity-row {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 8px 16px;
+  grid-template-columns: 44px minmax(0, 1fr) auto auto;
+  min-height: 80px;
+  padding: 16px 8px;
+  transition: background-color var(--dur) var(--ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .activity-row:hover {
+    background: var(--surface-subtle);
+  }
+}
+
+.activity-row-avatar.generated-avatar {
+  --generated-avatar-size: 44px;
+}
+
+.activity-row-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.activity-row-title {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  line-height: 24px;
+}
+
+.activity-row-title a {
+  color: var(--ink-strong);
+  font-weight: 700;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .activity-row-title a:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.activity-row-meta {
+  align-items: center;
+  color: var(--ink-soft);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 14px;
+  gap: 6px;
+  line-height: 20px;
+  min-width: 0;
+}
+
+.activity-verified {
+  color: var(--sage-deep);
+  font-weight: 600;
+}
+
+.activity-row-date {
+  color: var(--ink-meta);
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.activity-row-muted {
+  color: var(--ink-meta);
+  font-size: 14px;
+}
+
+@media (max-width: 760px) {
+  .activity-row {
+    align-items: start;
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .activity-row-date,
+  .activity-row-action {
+    grid-column: 2;
+  }
+}
+
+.status-tag.declined {
+  background: var(--danger-tint);
+  color: var(--danger);
 }
 
 /* Inline alerts: one tinted line with an icon, used for real status only. */
@@ -2420,34 +2622,29 @@ input[type="radio"]:disabled {
   line-height: 16px;
 }
 
-/* Art panel: the artwork's own ground colour, so the illustration has no visible box. */
+/* Photo panel: full-bleed listing photography, framed by a hairline. */
 .auth-art {
-  background: #faf8f4;
+  background: var(--surface-muted);
   border-left: 1px solid var(--line-soft);
-  display: grid;
   overflow: hidden;
-  place-items: center;
   position: relative;
 }
 
 .auth-art-image {
-  height: auto;
-  margin-bottom: 8vh;
-  max-width: 640px;
-  position: relative;
-  width: 64%;
-  z-index: 1;
+  animation: auth-art-settle 1.2s var(--ease-out) both;
+  object-fit: cover;
+  object-position: 50% 62%;
 }
 
-/* Full skyline at the panel's width (the art is 12:1). */
-.auth-art-skyline {
-  aspect-ratio: 12 / 1;
-  bottom: 0;
-  display: block;
-  height: auto;
-  left: 0;
-  position: absolute;
-  width: 100%;
+@keyframes auth-art-settle {
+  from { opacity: 0; transform: scale(1.03); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-art-image {
+    animation: none;
+  }
 }
 
 @media (max-width: 899px) {
@@ -3445,50 +3642,9 @@ input[type="radio"]:disabled {
   user-select: none;
 }
 
-.property-type-artwork[data-artwork-variant="emoji"] {
-  border: 0;
-  border-radius: 50%;
-}
-
-@keyframes generated-artwork-float {
-  0%, 100% { transform: translate3d(0, 0, 0) rotate(0); }
-  50% { transform: translate3d(0, -4px, 0) rotate(0.5deg); }
-}
-
-@keyframes generated-artwork-pulse {
-  0%, 100% { filter: drop-shadow(0 8px 12px rgba(36, 35, 38, 0.06)); transform: scale(1); }
-  50% { filter: drop-shadow(0 12px 18px rgba(71, 166, 47, 0.13)); transform: scale(1.025); }
-}
-
-[data-artwork-motion="float"] {
-  animation: generated-artwork-float 5.8s ease-in-out infinite;
-  transform-origin: 50% 56%;
-}
-
-[data-artwork-motion="pulse"] {
-  animation: generated-artwork-pulse 5.4s ease-in-out infinite;
-  transform-origin: center;
-}
-
 [data-artwork-motion="lift"] {
   transition: transform 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
   transform-origin: center;
-}
-
-[data-property-type="CONDO"][data-artwork-motion="float"] {
-  animation-delay: -1.4s;
-}
-
-[data-property-type="TOWNHOUSE"][data-artwork-motion="float"] {
-  animation-delay: -2.8s;
-}
-
-[data-property-type="MANUFACTURED"][data-artwork-motion="float"] {
-  animation-delay: -4.2s;
-}
-
-[data-property-type="LAND"][data-artwork-motion="float"] {
-  animation-delay: -5.2s;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3651,40 +3807,40 @@ input[type="radio"]:disabled {
 
 .property-type-options {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+/* Redfin's home-type tiles: hairline box, line icon over the label, 2px ink edge when chosen. */
 .field label.property-type-choice {
-  align-content: start;
+  align-content: center;
   background: var(--surface);
-  border: 1.5px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-md);
+  color: var(--ink-strong);
   cursor: pointer;
   display: grid;
-  gap: 8px;
+  gap: 6px;
   justify-items: center;
+  min-height: 88px;
   min-width: 0;
-  padding: 8px 8px 11px;
+  padding: 12px 6px;
   position: relative;
   text-align: center;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
-.field label.property-type-choice:hover {
-  border-color: var(--sage-line);
-  transform: translateY(-1px);
-}
-
-.property-type-choice:is(:hover, :focus-within) .property-type-artwork-image {
-  filter: saturate(1.04);
-  transform: scale(1.045);
+@media (hover: hover) and (pointer: fine) {
+  .field label.property-type-choice:hover {
+    background: var(--surface-subtle);
+    border-color: var(--ink-strong);
+  }
 }
 
 .property-type-choice:has(input:checked) {
   background: var(--sage-tint);
-  border-color: var(--sage-strong);
-  box-shadow: var(--shadow-1);
+  border-color: var(--sage-deep);
+  box-shadow: inset 0 0 0 1px var(--sage-deep);
 }
 
 .property-type-choice:has(input:focus-visible) {
@@ -3703,48 +3859,24 @@ input[type="radio"]:disabled {
   width: 1px;
 }
 
-.property-type-choice-art {
-  aspect-ratio: 1;
-  border-radius: calc(var(--r-sm) - 1px);
-  max-width: 104px;
-  width: 100%;
+.property-type-choice-icon {
+  color: var(--ink-strong);
+  stroke-width: 1.5;
+}
+
+.property-type-choice:has(input:checked) .property-type-choice-icon {
+  color: var(--sage-deep);
 }
 
 .property-type-choice strong {
-  font-size: 12px;
-  line-height: 1.25;
-}
-
-.property-type-choice-check {
-  align-items: center;
-  background: var(--sage-strong);
-  border: 2px solid var(--surface);
-  border-radius: var(--r-pill);
-  color: #fff;
-  display: inline-flex;
-  height: 24px;
-  justify-content: center;
-  opacity: 0;
-  position: absolute;
-  right: 7px;
-  top: 7px;
-  transform: scale(0.8);
-  transition: opacity 0.16s ease, transform 0.16s ease;
-  width: 24px;
-}
-
-.property-type-choice input:checked ~ .property-type-choice-check {
-  opacity: 1;
-  transform: scale(1);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
 }
 
 @media (max-width: 640px) {
   .property-type-options {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .property-type-choice-art {
-    max-width: 96px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -3966,9 +4098,152 @@ input[type="radio"]:disabled {
   width: 100%;
 }
 
+/* Invite composer: Redfin's request card — choice cards, one note, a full-width action. */
 .invite-compose-form {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
   display: grid;
-  gap: 22px;
+  gap: 24px;
+  padding: 24px;
+}
+
+.invite-property-choices {
+  border: 0;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.invite-property-choices legend {
+  color: var(--ink-strong);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+  margin-bottom: 8px;
+}
+
+.invite-property-choice {
+  align-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 96px minmax(0, 1fr) 24px;
+  padding: 8px 16px 8px 8px;
+  position: relative;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .invite-property-choice:hover {
+    border-color: var(--ink-strong);
+  }
+}
+
+.invite-property-choice:has(input:checked) {
+  background: var(--sage-tint);
+  border-color: var(--sage-deep);
+  box-shadow: inset 0 0 0 1px var(--sage-deep);
+}
+
+.invite-property-choice:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
+
+.invite-property-choice input {
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 1px;
+}
+
+.invite-property-thumb.property-type-artwork {
+  aspect-ratio: 3 / 2;
+  border-radius: var(--r-xs);
+  width: 96px;
+}
+
+.invite-property-text {
+  display: grid;
+  min-width: 0;
+}
+
+.invite-property-text strong {
+  line-height: 24px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.invite-property-text small {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.invite-property-check {
+  align-items: center;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 50%;
+  color: transparent;
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  width: 24px;
+}
+
+.invite-property-choice:has(input:checked) .invite-property-check {
+  background: var(--sage-deep);
+  border-color: var(--sage-deep);
+  color: #fff;
+}
+
+.invite-receives {
+  align-items: start;
+  background: var(--surface-subtle);
+  border-radius: var(--r-md);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 40px minmax(0, 1fr);
+  padding: 16px;
+}
+
+.invite-receives-icon {
+  align-items: center;
+  background: var(--surface);
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  color: var(--sage-deep);
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.invite-receives p {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.invite-receives strong {
+  color: var(--ink-strong);
+  display: block;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.invite-compose-actions {
+  align-items: center;
+  display: grid;
+  gap: 16px;
+  justify-items: center;
 }
 
 .reference-form-section {
@@ -4086,12 +4361,48 @@ input[type="radio"]:disabled {
   max-width: 600px;
 }
 
-.property-intake-illustration {
-  display: block;
-  filter: drop-shadow(0 14px 20px rgba(36, 35, 38, 0.08));
-  height: auto;
-  margin: 0 auto 20px;
-  width: 240px;
+/* Zillow Sell-page hero: a photo banner with white type; the address search overlaps its edge. */
+.intake-banner {
+  align-items: center;
+  border-radius: var(--r-lg);
+  color: #fff;
+  display: grid;
+  isolation: isolate;
+  min-height: 300px;
+  overflow: hidden;
+  padding: 32px 24px 72px;
+  position: relative;
+}
+
+.intake-banner::after {
+  background: linear-gradient(180deg, rgba(10, 12, 20, 0.15) 0%, rgba(10, 12, 20, 0.55) 100%);
+  content: "";
+  inset: 0;
+  position: absolute;
+  z-index: -1;
+}
+
+.property-intake-photo {
+  object-fit: cover;
+  object-position: 50% 60%;
+  z-index: -2;
+}
+
+.intake-banner-text h1 {
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+.intake-banner-text .seller-property-intake-lede {
+  color: #fff;
+  font-size: 18px;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+}
+
+.seller-property-intake-hero .property-intake-composer {
+  margin-top: -36px;
+  position: relative;
+  z-index: 1;
 }
 
 .property-intake-composer {
@@ -4257,9 +4568,10 @@ input[type="radio"]:disabled {
     font-size: 14.5px;
   }
 
-  .property-intake-illustration {
-    margin-bottom: 16px;
-    width: 200px;
+  .intake-banner {
+    margin: 0 -16px;
+    min-height: 240px;
+    border-radius: 0;
   }
 
   .property-intake-composer {
@@ -4295,105 +4607,191 @@ input[type="radio"]:disabled {
   }
 }
 
-/* Seller property reference form */
-.seller-property-reference-page {
+/* Listing editor (Zillow's edit-listing page): head, section tabs, cards, sticky summary rail. */
+.listing-editor {
   display: grid;
-  gap: 28px;
-  padding-top: 42px;
-}
-
-.seller-property-reference-head,
-.seller-property-reference-shell {
+  gap: 24px;
   margin: 0 auto;
-  max-width: 960px;
-  width: 100%;
+  max-width: 1120px;
 }
 
-.seller-property-reference-head {
+.listing-editor-head {
+  align-items: center;
   display: grid;
-  gap: 10px;
+  gap: 16px;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
 }
 
-.seller-property-back {
-  align-items: center;
-  color: var(--ink-muted);
-  display: inline-flex;
-  font-size: 13px;
-  font-weight: 700;
-  gap: 6px;
-  width: fit-content;
+.listing-editor-thumb.property-type-artwork {
+  aspect-ratio: 3 / 2;
+  border-radius: var(--r-md);
+  width: 96px;
 }
 
-.seller-property-back:hover {
-  color: var(--sage-strong);
+.listing-editor-title h1 {
+  font-size: 28px;
+  line-height: 36px;
 }
 
-.seller-property-reference-head h1 {
-  color: var(--ink-strong);
-  font-size: 22px;
-  letter-spacing: 0;
-  margin: 0;
+.listing-editor-title p {
+  color: var(--ink-soft);
+  line-height: 24px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.seller-property-reference-head p {
-  color: var(--ink-muted);
+.listing-editor-tabs {
+  background: var(--surface);
+  margin-top: 0;
+  position: sticky;
+  top: var(--header-h);
+  z-index: 20;
+}
+
+.listing-editor-layout {
+  align-items: start;
+  display: grid;
+  gap: 32px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.listing-editor-main {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+
+.listing-editor-section {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  scroll-margin-top: calc(var(--header-h) + 64px);
+}
+
+.listing-editor-section > h2 {
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.listing-editor-help {
+  color: var(--ink-soft);
   font-size: 14px;
-  margin: 0;
+  line-height: 20px;
+  margin-top: -8px;
 }
 
-.seller-property-title-row {
+.listing-editor-form {
+  gap: 20px 24px;
+}
+
+.listing-editor-form .field input,
+.listing-editor-form .field select,
+.listing-editor-form .field textarea {
+  min-height: 48px;
+}
+
+.listing-editor-form .field textarea {
+  min-height: 120px;
+}
+
+.listing-editor-uploads {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.listing-editor-savebar {
   align-items: center;
+  border-top: 1px solid var(--line-soft);
   display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  justify-content: space-between;
-}
-
-.seller-property-reference-shell {
-  background: transparent;
-}
-
-.seller-property-reference-form {
-  gap: 18px 28px;
-}
-
-.seller-property-reference-form .field input,
-.seller-property-reference-form .field select,
-.seller-property-reference-form .field textarea {
-  background: #fff;
-  border-color: var(--line);
-  border-radius: var(--r-sm);
-  min-height: 48px;
-}
-
-.seller-property-reference-form .field textarea {
-  min-height: 128px;
-}
-
-.seller-property-verify-section {
-  margin-bottom: 4px;
-}
-
-.seller-property-file-line input[type="file"] {
-  background: #fff;
-  border-style: solid;
-  min-height: 48px;
-}
-
-.seller-property-image-upload {
+  gap: 24px;
   grid-column: 1 / -1;
+  justify-content: flex-end;
+  padding-top: 16px;
 }
 
-.seller-property-image-upload input[type="file"] {
-  background: var(--sage-tint);
-  border: 1px dashed var(--sage-line);
-  min-height: 92px;
+.listing-editor-savebar .button {
+  min-height: 48px;
+  min-width: 160px;
 }
 
-.seller-property-reference-form .auth-alert {
-  border-radius: var(--r-sm);
+.listing-editor-rail {
+  display: grid;
+  gap: 16px;
+  position: sticky;
+  top: calc(var(--header-h) + 72px);
 }
 
+.listing-editor-rail .listing-card {
+  grid-template-rows: 180px auto;
+}
+
+.listing-editor-rail-note {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
+@media (max-width: 1007px) {
+  .listing-editor-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .listing-editor-rail {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .listing-editor-head {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .listing-editor-head .status-tag {
+    grid-column: 2;
+  }
+
+  .listing-editor-thumb.property-type-artwork {
+    width: 72px;
+  }
+
+  .listing-editor-title h1 {
+    font-size: 24px;
+    line-height: 32px;
+  }
+
+  .listing-editor-section {
+    border-radius: 0;
+    box-shadow: none;
+    border-bottom: 1px solid var(--line);
+    margin: 0 -16px;
+    padding: 24px 16px;
+  }
+
+  .listing-editor-uploads {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The save bar follows the thumb on phones, like Zillow's sticky listing actions. */
+  .listing-editor-savebar {
+    background: var(--surface);
+    bottom: 0;
+    box-shadow: var(--shadow-sticky-bar);
+    margin: 0 -16px;
+    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+    position: sticky;
+    z-index: 15;
+  }
+
+  .listing-editor-savebar .button {
+    flex: 1;
+  }
+}
 
 /* ==========================================================================
    Table
@@ -4402,6 +4800,32 @@ input[type="radio"]:disabled {
 .table {
   border-collapse: collapse;
   width: 100%;
+}
+
+/* Wide admin tables scroll inside their card instead of the page. */
+.card.flat:has(> .table) {
+  overflow-x: auto;
+  padding: 0;
+}
+
+.card.flat > .table {
+  min-width: 760px;
+}
+
+.table th:first-child,
+.table td:first-child {
+  padding-left: 24px;
+}
+
+.table th:last-child,
+.table td:last-child {
+  padding-right: 24px;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .table th,
@@ -6272,6 +6696,40 @@ body:has(.search-page) .site-footer:not(.compact) {
   object-position: 50% 58%;
 }
 
+/* Owner photos load through a short-lived signed URL; the tile stays neutral until then. */
+.property-cover-photo {
+  background: var(--surface-muted);
+}
+
+.property-cover-photo .property-type-artwork-image {
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+  opacity: 0;
+  position: absolute;
+  transition: opacity var(--dur-slow) var(--ease);
+  width: 100%;
+}
+
+.property-cover-photo.loaded .property-type-artwork-image {
+  opacity: 1;
+}
+
+.sample-photo-tag {
+  background: rgba(10, 10, 20, 0.62);
+  border-radius: var(--r-xs);
+  bottom: 8px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  padding: 2px 6px;
+  pointer-events: none;
+  position: absolute;
+  right: 8px;
+  z-index: 2;
+}
+
 .listing-card-flags {
   display: flex;
   flex-wrap: wrap;
@@ -7179,6 +7637,7 @@ a.map-card:focus-visible {
 }
 
 .site-footer-skyline {
+  color: #c4c4cb;
   display: block;
   height: 120px;
   width: 100%;
@@ -7342,7 +7801,7 @@ a.map-card:focus-visible {
 }
 
 .hdp-media-art .property-type-artwork-image {
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .hdp-media-tag {
@@ -7392,6 +7851,25 @@ a.map-card:focus-visible {
   line-height: 20px;
   padding: 16px;
   text-align: center;
+}
+
+/* Real street tile: the approximate area center, never a home address. */
+.hdp-media-area.has-map {
+  background-image: none;
+  justify-content: flex-end;
+  padding: 12px;
+}
+
+.hdp-media-map {
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+  position: absolute;
+  width: 100%;
+}
+
+.hdp-media-area span {
+  position: relative;
 }
 
 .hdp-media-area .icon {

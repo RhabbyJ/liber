@@ -26,10 +26,20 @@ export default async function AdminUsersPage() {
           <tbody>
             {users.map((user) => (
               <tr key={user.id}>
-                <td>{user.name}{user.isCurrentUser ? " (you)" : ""}</td>
-                <td>{user.roles.join(", ")}</td>
-                <td>{user.status || "ACTIVE"}</td>
-                <td>{user.roles.includes("SELLER") ? user.sellerAccessStatus ?? "PENDING" : "Not seller"}</td>
+                <td><strong>{user.name}</strong>{user.isCurrentUser ? <span className="muted"> (you)</span> : null}</td>
+                <td>
+                  <span className="tag-row">
+                    {user.roles.map((role) => <span className="status-tag" key={role}>{roleLabel(role)}</span>)}
+                  </span>
+                </td>
+                <td><span className={`status-tag ${(user.status || "ACTIVE") === "ACTIVE" ? "active" : "declined"}`}>{statusLabel(user.status || "ACTIVE")}</span></td>
+                <td>
+                  {user.roles.includes("SELLER") ? (
+                    <span className={`status-tag ${user.sellerAccessStatus === "APPROVED" ? "active" : user.sellerAccessStatus === "SUSPENDED" ? "declined" : "pending"}`}>
+                      {statusLabel(user.sellerAccessStatus ?? "PENDING")}
+                    </span>
+                  ) : <span className="muted">Not seller</span>}
+                </td>
                 <td>
                   <div className="actions inline">
                     {user.roles.includes("SELLER") ? (
@@ -43,7 +53,7 @@ export default async function AdminUsersPage() {
                     {user.status !== "SUSPENDED" ? (
                       <form action={submitUserSuspension}>
                         <input name="userId" type="hidden" value={user.id} />
-                        <button className="button secondary" type="submit">{user.isCurrentUser ? "Suspend your account" : "Suspend User"}</button>
+                        <button className="button secondary sm" type="submit">{user.isCurrentUser ? "Suspend your account" : "Suspend user"}</button>
                       </form>
                     ) : null}
                   </div>
@@ -55,4 +65,12 @@ export default async function AdminUsersPage() {
       </section>
     </div>
   );
+}
+
+function roleLabel(role: string) {
+  return role.charAt(0) + role.slice(1).toLowerCase();
+}
+
+function statusLabel(status: string) {
+  return status.charAt(0) + status.slice(1).toLowerCase();
 }

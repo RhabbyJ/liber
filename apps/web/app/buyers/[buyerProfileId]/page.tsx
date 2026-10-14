@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { GeneratedAvatar } from "../../../components/generated-avatar";
 import { Icon, type IconName } from "../../../components/icon";
 import { PropertyTypeArtwork } from "../../../components/property-type-artwork";
+import { approximateBuyerPoint } from "../../../lib/buyer-map-point";
 import { formatRange } from "../../../lib/format";
 import { compactBudgetRange, seekingLabel } from "../../../lib/listing-format";
+import { mapboxAreaImageUrl } from "../../../lib/mapbox-static-image";
 import { getAuthorizedBuyerProfile } from "../../../server/contracts";
 import { getSessionUser } from "../../../server/session";
 import { blockBuyerProfile } from "../../../server/form-actions";
@@ -73,6 +75,10 @@ export default async function PublicBuyerProfilePage({
     { icon: "calendar", label: "Profile updated", value: formatUpdated(buyer.refreshedAt) },
   ];
   const backHref = isOwner ? "/buyer/profile" : "/seller/search";
+  const areaMapUrl = mapboxAreaImageUrl({
+    point: approximateBuyerPoint(buyer),
+    token: process.env.NEXT_PUBLIC_MAPBOX_TOKEN,
+  });
 
   return (
     <div className={`hdp${inviteHref && !isOwner ? " has-mobile-cta" : ""}`}>
@@ -100,15 +106,17 @@ export default async function PublicBuyerProfilePage({
 
       <div className="hdp-media" aria-hidden="true">
         <div className="hdp-media-main">
-          <PropertyTypeArtwork className="hdp-media-art" motion="none" priority sizes="(max-width: 899px) 100vw, 66vw" value={buyer.purpose} />
+          <PropertyTypeArtwork className="hdp-media-art" priority seed={buyer.id} sizes="(max-width: 899px) 100vw, 66vw" value={buyer.purpose} />
           <span className="hdp-media-tag">{seekingLabel(buyer.purpose)}</span>
         </div>
         <div className="hdp-media-side">
           <div className="hdp-media-avatar">
             <GeneratedAvatar decorative name={buyer.name} seed={buyer.avatarSeed} size="xl" variant={buyer.avatarVariant} />
           </div>
-          <div className="hdp-media-area">
-            <Icon name="map-pin" size={28} />
+          <div className={`hdp-media-area${areaMapUrl ? " has-map" : ""}`}>
+            {/* Mapbox renders the streets and the approximate area-center pin in one projection. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {areaMapUrl ? <img alt="" className="hdp-media-map" loading="lazy" src={areaMapUrl} /> : <Icon name="map-pin" size={28} />}
             <span>{buyer.location || "Liber service area"}</span>
           </div>
         </div>

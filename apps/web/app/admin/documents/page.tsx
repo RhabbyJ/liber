@@ -1,5 +1,7 @@
-import { PageTitle } from "../../../components/page-title";
 import Link from "next/link";
+import { EmptyState } from "../../../components/empty-state";
+import { Icon } from "../../../components/icon";
+import { PageTitle } from "../../../components/page-title";
 import { listPendingDocuments } from "../../../server/contracts";
 import { submitDocumentReview } from "../../../server/form-actions";
 import { AdminSyntheticPropertyReview } from "../../../components/admin-synthetic-property-review";
@@ -13,10 +15,18 @@ export default async function AdminDocumentsPage({ searchParams }: { searchParam
   return (
     <div className="page stack">
       <PageTitle title="Documents">
-        Document storage paths stay private; admins review status without exposing public URLs.
+        {adminDocuments.length === 1 ? "1 document waiting for review" : `${adminDocuments.length} documents waiting for review`}
       </PageTitle>
-      {!available ? <p role="status">Document verification is temporarily unavailable.</p> : null}
-      <p className="auth-alert info">For buyer verification, review and approve the document below, then <Link href="/admin/badges">grant its matching badge</Link>. Uploading a file submits it to this review queue; it does not approve the badge automatically.</p>
+      {!available ? (
+        <div className="inline-alert warning" role="status">
+          <Icon name="info" size={20} />
+          <p>Document verification is temporarily unavailable.</p>
+        </div>
+      ) : null}
+      <div className="inline-alert" role="note">
+        <Icon name="info" size={20} />
+        <p>Approving a buyer document doesn’t grant a badge. Approve it here, then <Link className="text-link" href="/admin/badges">grant the matching badge</Link>.</p>
+      </div>
       {testProperties.length ? (
         <section className="card flat stack">
           <h2>Synthetic journey test controls</h2>
@@ -24,6 +34,9 @@ export default async function AdminDocumentsPage({ searchParams }: { searchParam
           {testProperties.map((property) => <AdminSyntheticPropertyReview key={property.id} property={property} />)}
         </section>
       ) : null}
+      {adminDocuments.length === 0 ? (
+        <EmptyState description="New uploads appear here for private review." icon="check" title="No documents waiting" />
+      ) : (
       <section className="card flat">
         <table className="table">
           <thead>
@@ -44,7 +57,7 @@ export default async function AdminDocumentsPage({ searchParams }: { searchParam
                 <td>{document.type}</td>
                 <td>{document.status}</td>
                 <td>
-                  <a href={`/api/admin/documents/${encodeURIComponent(document.id)}`} rel="noreferrer" target="_blank">Open</a>
+                  <a className="text-link" href={`/api/admin/documents/${encodeURIComponent(document.id)}`} rel="noreferrer" target="_blank">Open</a>
                 </td>
                 <td>
                   <div className="actions inline">
@@ -63,12 +76,12 @@ export default async function AdminDocumentsPage({ searchParams }: { searchParam
                           <label className="checkbox-row"><input name="ownerOrEntityMatches" required type="checkbox" value="true" />Owner/entity name matches</label>
                         </>
                       ) : null}
-                      <button className="button" type="submit">Approve</button>
+                      <button className="button primary sm" type="submit">Approve</button>
                     </form>
                     <form action={submitDocumentReview}>
                       <input name="documentId" type="hidden" value={document.id} />
                       <input name="decision" type="hidden" value="REJECTED" />
-                      <button className="button secondary" type="submit">Reject</button>
+                      <button className="button secondary sm" type="submit">Reject</button>
                     </form>
                   </div>
                 </td>
@@ -77,6 +90,7 @@ export default async function AdminDocumentsPage({ searchParams }: { searchParam
           </tbody>
         </table>
       </section>
+      )}
       {nextCursor ? <a className="button secondary" href={`/admin/documents?cursor=${encodeURIComponent(nextCursor)}`}>Next documents</a> : null}
     </div>
   );

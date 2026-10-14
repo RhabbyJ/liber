@@ -1,58 +1,36 @@
 import Image from "next/image";
-import {
-  propertySubtypeFromSeekingPropertyType,
-  type PropertySubtype,
-} from "../lib/property-types";
-
-const propertyArtwork: Record<PropertySubtype, string> = {
-  HOME: "/images/property-types/house-2d.webp",
-  CONDO: "/images/property-types/condo-2d.webp",
-  TOWNHOUSE: "/images/property-types/townhouse-2d.webp",
-  MANUFACTURED: "/images/property-types/manufactured-2d.webp",
-  LAND: "/images/property-types/land-2d.webp",
-};
-
-const propertyEmoji: Record<PropertySubtype, string> = {
-  HOME: "/images/property-types/house-emoji.webp",
-  CONDO: "/images/property-types/condo-emoji.webp",
-  TOWNHOUSE: "/images/property-types/townhouse-emoji.webp",
-  MANUFACTURED: "/images/property-types/manufactured-emoji.webp",
-  LAND: "/images/property-types/land-emoji.webp",
-};
+import { propertyPhotoSrc } from "../lib/property-photos";
+import { propertySubtypeFromSeekingPropertyType } from "../lib/property-types";
 
 export type ArtworkMotion = "float" | "lift" | "none" | "pulse";
-export type PropertyArtworkVariant = "emoji" | "illustration";
 
-export function propertyArtworkSrc(value: unknown, variant: PropertyArtworkVariant = "illustration") {
-  const subtype = propertySubtypeFromSeekingPropertyType(value);
-  return variant === "emoji" ? propertyEmoji[subtype] : propertyArtwork[subtype];
+export function propertyArtworkSrc(value: unknown, seed = "") {
+  return propertyPhotoSrc(value, seed);
 }
 
+/** Listing-style media for a property type: a representative photo, stable per seed. */
 export function PropertyTypeArtwork({
   className,
-  motion = "lift",
+  motion = "none",
   priority = false,
+  seed = "",
   sizes = "64px",
   value,
-  variant = "illustration",
 }: {
   className?: string;
   motion?: ArtworkMotion;
   priority?: boolean;
+  /** Spreads cards of the same type across that type's photos (buyer or property id). */
+  seed?: string;
   sizes?: string;
   value?: unknown;
-  variant?: PropertyArtworkVariant;
 }) {
-  const subtype = propertySubtypeFromSeekingPropertyType(value);
-  const source = propertyArtworkSrc(value, variant);
-
   return (
     <span
       aria-hidden="true"
       className={`property-type-artwork${className ? ` ${className}` : ""}`}
       data-artwork-motion={motion}
-      data-artwork-variant={variant}
-      data-property-type={subtype}
+      data-property-type={propertySubtypeFromSeekingPropertyType(value)}
     >
       <Image
         alt=""
@@ -60,7 +38,7 @@ export function PropertyTypeArtwork({
         fill
         priority={priority}
         sizes={sizes}
-        src={source}
+        src={propertyPhotoSrc(value, seed)}
       />
     </span>
   );

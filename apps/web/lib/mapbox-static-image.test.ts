@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapboxStaticImageUrl } from "./mapbox-static-image";
+import { mapboxAreaImageUrl, mapboxStaticImageUrl } from "./mapbox-static-image";
 
 const market = {
   bbox: [-118.67, 34.11, -118.18, 34.31] as [number, number, number, number],
@@ -7,6 +7,20 @@ const market = {
   label: "Los Angeles",
   slug: "los-angeles",
 };
+
+describe("Mapbox area tile", () => {
+  it("returns no image without a token or a finite area center", () => {
+    expect(mapboxAreaImageUrl({ point: { lat: 34.16, lng: -118.5 }, token: "" })).toBeNull();
+    expect(mapboxAreaImageUrl({ point: null, token: "pk.test" })).toBeNull();
+    expect(mapboxAreaImageUrl({ point: { lat: Number.NaN, lng: -118.5 }, token: "pk.test" })).toBeNull();
+  });
+
+  it("centers one brand pin on the approximate area center", () => {
+    const url = mapboxAreaImageUrl({ point: { lat: 34.16, lng: -118.5 }, token: "pk.test" });
+    expect(url).toContain("/mapbox/streets-v12/static/pin-l+47a62f(-118.5,34.16)/-118.5,34.16,11.60,0,0/640x400@2x");
+    expect(url).toContain("access_token=pk.test");
+  });
+});
 
 describe("Mapbox static demand map", () => {
   it("returns no image without a browser-safe token", () => {

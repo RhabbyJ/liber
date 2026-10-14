@@ -3,7 +3,7 @@ import { BadgePill } from "../../../../components/badge-pill";
 import { EmptyState } from "../../../../components/empty-state";
 import { GeneratedAvatar } from "../../../../components/generated-avatar";
 import { Icon } from "../../../../components/icon";
-import { PropertyTypeArtwork } from "../../../../components/property-type-artwork";
+import { PropertyCoverPhoto } from "../../../../components/property-cover-photo";
 import { PropertyFeatureSummary } from "../../../../components/property-details-fields";
 import { PageTitle } from "../../../../components/page-title";
 import { SellerInviteForm } from "../../../../components/seller-invite-form";
@@ -200,7 +200,7 @@ export default async function InviteBuyerPage({
         <SellerInviteForm
           action={submitInvite}
           buyer={{ id: buyer.id, name: buyer.name }}
-          properties={readyProperties.map(({ id, title, status }) => ({ id, title, status }))}
+          properties={readyProperties.map(({ coverImageId, id, propertyType, status, title }) => ({ coverImageId, id, propertyType, status, title }))}
           propertyId={property.id}
           templateVersion={sellerOpeningTemplateVersion}
         />
@@ -228,11 +228,12 @@ export default async function InviteBuyerPage({
             <h2 className="quick-overview-title" id="quick-overview-title">Property</h2>
             <article className="listing-card static">
               <div className="listing-card-media">
-                <PropertyTypeArtwork
+                <PropertyCoverPhoto
                   className="listing-card-art"
-                  motion="none"
+                  imageId={property.coverImageId}
+                  propertyType={property.propertyType}
+                  seed={property.id}
                   sizes="340px"
-                  value={property.propertyType}
                 />
                 <div className="listing-card-flags">
                   <span className="listing-flag">

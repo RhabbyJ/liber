@@ -2,7 +2,7 @@ import Link from "next/link";
 import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
 import { PageTitle } from "../../../components/page-title";
-import { PropertyTypeArtwork } from "../../../components/property-type-artwork";
+import { PropertyCoverPhoto } from "../../../components/property-cover-photo";
 import { PropertyFeatureSummary } from "../../../components/property-details-fields";
 import { formatMoney } from "../../../lib/format";
 import { propertySubtypeLabel } from "../../../lib/property-types";
@@ -42,12 +42,13 @@ export default async function SellerPropertiesPage() {
             return (
               <article className="listing-card static property-listing" key={property.id}>
                 <div className="listing-card-media">
-                  <PropertyTypeArtwork
+                  <PropertyCoverPhoto
                     className="listing-card-art"
-                    motion="none"
+                    imageId={property.coverImageId}
                     priority={index < 2}
+                    propertyType={property.propertyType}
+                    seed={property.id}
                     sizes="(max-width: 767px) 100vw, 360px"
-                    value={property.propertyType}
                   />
                   <div className="listing-card-flags">
                     <span className="listing-flag">

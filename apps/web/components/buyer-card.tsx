@@ -23,7 +23,7 @@ export function BuyerCard({ buyer, priority = false }: { buyer: SellerBuyerSumma
   return (
     <article className="listing-card" data-buyer-id={buyer.id}>
       <div className="listing-card-media">
-        <PropertyTypeArtwork className="listing-card-art" motion="none" priority={priority} sizes="(max-width: 767px) 100vw, 360px" value={buyer.purpose} />
+        <PropertyTypeArtwork className="listing-card-art" motion="none" priority={priority} seed={buyer.id} sizes="(max-width: 767px) 100vw, 360px" value={buyer.purpose} />
         {flags.length > 0 || buyer.isDemo || testPreApproval ? (
           <div className="listing-card-flags">
             {buyer.isDemo ? <span className="listing-flag demo">Demo buyer</span> : null}

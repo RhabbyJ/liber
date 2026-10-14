@@ -34,6 +34,27 @@ export function mapboxStaticImageUrl({ market, points, selectedArea = null, toke
   return `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${overlay}${camera}/${imageWidth}x${imageHeight}?access_token=${encodeURIComponent(accessToken)}`;
 }
 
+/** A close street-map tile around one approximate area center (buyer detail page). */
+export function mapboxAreaImageUrl({
+  height = 400,
+  point,
+  token = "",
+  width = 640,
+  zoom = 11.6,
+}: {
+  height?: number;
+  point: StaticMapPoint | null;
+  token?: string;
+  width?: number;
+  zoom?: number;
+}) {
+  const accessToken = token.trim();
+  if (!accessToken || !point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return null;
+  const marker = `pin-l+47a62f(${coordinate(point.lng)},${coordinate(point.lat)})`;
+  const camera = `${coordinate(point.lng)},${coordinate(point.lat)},${zoom.toFixed(2)},0,0`;
+  return `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${marker}/${camera}/${width}x${height}@2x?access_token=${encodeURIComponent(accessToken)}`;
+}
+
 function pointBounds(points: StaticMapPoint[], marketBounds: [number, number, number, number]) {
   const validPoints = points.filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
   if (validPoints.length < 2) return marketBounds;

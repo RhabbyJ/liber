@@ -69,7 +69,7 @@ export default async function AdminReportsPage({
                   <p>{report.message.body}</p>
                 </div>
                 {report.details ? (
-                  <div className="auth-alert info"><strong>Reporter context:</strong> {report.details}</div>
+                  <div className="inline-alert"><Icon name="info" size={20} /><p><strong>Reporter context:</strong> {report.details}</p></div>
                 ) : null}
                 {report.surroundingMessages.length > 0 ? (
                   <details className="message-report-context">

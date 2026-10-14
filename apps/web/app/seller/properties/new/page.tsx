@@ -28,9 +28,13 @@ export default async function NewSellerPropertyPage({
         {safeNext ? <input name="next" type="hidden" value={safeNext} /> : null}
 
         <div className="seller-property-intake-hero">
-          <PropertyHeroIllustration />
-          <h1>Add your property</h1>
-          <p className="seller-property-intake-lede">Enter the address to get started. It stays private.</p>
+          <div className="intake-banner">
+            <PropertyHeroIllustration />
+            <div className="intake-banner-text">
+              <h1>Add your property</h1>
+              <p className="seller-property-intake-lede">Enter the address to get started. It stays private.</p>
+            </div>
+          </div>
           <PropertyAddressLookup marketSlug={market.slug} marketState={market.state} presentation="intake" />
         </div>
 

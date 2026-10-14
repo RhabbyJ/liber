@@ -37,7 +37,7 @@ export function PublicBuyerPreviewCard({ index, preview }: { index: number; prev
       tabIndex={0}
     >
       <div className="listing-card-media">
-        <PropertyTypeArtwork className="listing-card-art" motion="none" priority={index < 2} sizes="(max-width: 767px) 100vw, 360px" value={preview.label} />
+        <PropertyTypeArtwork className="listing-card-art" motion="none" priority={index < 2} seed={preview.alias} sizes="(max-width: 767px) 100vw, 360px" value={preview.label} />
         {flags.length > 0 ? (
           <div className="listing-card-flags">
             {flags.map((flag) => (

@@ -346,7 +346,7 @@ function popupHtml(buyer: SellerBuyerSummaryDTO) {
 
   return `
     <a class="map-card" href="/buyers/${encodeURIComponent(buyer.id)}">
-      <span class="map-card-media"><img alt="" src="${escapeHtml(propertyArtworkSrc(buyer.purpose))}" /></span>
+      <span class="map-card-media"><img alt="" src="${escapeHtml(propertyArtworkSrc(buyer.purpose, buyer.id))}" /></span>
       <span class="map-card-body">
         <strong class="map-card-price">${escapeHtml(compactBudgetRange(buyer.budgetMin, buyer.budgetMax))}</strong>
         ${facts.length > 0 ? `<span class="map-card-facts">${facts.join("<i></i>")}</span>` : ""}

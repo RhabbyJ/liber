@@ -1,10 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Skyline } from "./skyline";
 
 /**
- * Zillow's split sign-in page: a narrow form panel beside a full-height art panel.
+ * Zillow's split sign-in page: a narrow form panel beside a full-height photograph.
  * The site header and footer are hidden on these pages (see `.auth-split` in globals.css).
  */
 export function AuthShell({
@@ -33,13 +32,11 @@ export function AuthShell({
         <Image
           alt=""
           className="auth-art-image"
-          height={480}
+          fill
           priority
-          sizes="(max-width: 899px) 0px, 640px"
-          src="/images/flows/property-intake-2d.webp"
-          width={720}
+          sizes="(max-width: 899px) 0px, calc(100vw - 480px)"
+          src="/images/homes/auth-hero.webp"
         />
-        <Skyline className="auth-art-skyline" />
       </div>
     </div>
   );

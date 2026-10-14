@@ -153,20 +153,27 @@ export function NotificationBell({ initialActivity, href, isBuyer }: {
       }
     }}>
       <button aria-controls={popoverId} aria-expanded={isOpen} aria-haspopup="dialog" aria-label={label}
-        className={`notification-button${unreadCount > 0 ? " has-unread" : ""}`}
+        className={`icon-button notification-button${unreadCount > 0 ? " has-unread" : ""}`}
         onClick={() => setIsOpen((current) => !current)} ref={triggerRef} type="button">
-        <Icon name="bell" size={19} />
+        <Icon name="bell" size={22} />
         {unreadCount > 0 && <span aria-hidden="true" className="notification-count">{unreadCount > 99 ? "99+" : unreadCount}</span>}
       </button>
       <div aria-labelledby={titleId} className="notification-popover" hidden={!isOpen} id={popoverId} role="dialog">
-        <strong id={titleId}>Notifications</strong>
-        <p>{unreadCount > 0 ? `${unreadCount} unread ${unreadCount === 1 ? "notification" : "notifications"}` : "You're all caught up."}</p>
+        <div className="notification-popover-head">
+          <strong id={titleId}>Notifications</strong>
+          {unreadCount > 0 && <button className="notification-mark-read" disabled={isMarking} onClick={() => void markAllRead()} ref={markReadButtonRef} type="button">
+            {isMarking ? "Marking as read…" : "Mark all read"}
+          </button>}
+        </div>
+        <p className="notification-popover-summary">
+          <span aria-hidden="true" className={`notification-summary-icon${unreadCount > 0 ? " unread" : ""}`}>
+            <Icon name={unreadCount > 0 ? "bell" : "check"} size={18} />
+          </span>
+          {unreadCount > 0 ? `${unreadCount} unread ${unreadCount === 1 ? "notification" : "notifications"}` : "You're all caught up."}
+        </p>
         <Link className="notification-popover-link" href={href} onClick={() => setIsOpen(false)} ref={firstLinkRef}>
-          All notifications <Icon name="arrow-right" size={16} />
+          See all notifications <Icon name="chevron-right" size={18} />
         </Link>
-        {unreadCount > 0 && <button className="notification-mark-read" disabled={isMarking} onClick={() => void markAllRead()} ref={markReadButtonRef} type="button">
-          {isMarking ? "Marking as read…" : "Mark all read"}
-        </button>}
         {error && <p className="notification-error" role="alert">{error}</p>}
       </div>
       {toastId && <div className="invite-arrival-toast" key={toastId} onKeyDown={(event) => {

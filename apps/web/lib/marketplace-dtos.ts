@@ -16,6 +16,8 @@ export type SellerPropertyDTO = {
   status: string;
   lifecycleStatus: "DRAFT" | "READY_FOR_REVIEW" | "READY_FOR_INVITES" | "ARCHIVED";
   identityVersion: number;
+  /** Owner-only: first uploaded photo of the current property identity, read through the image access route. */
+  coverImageId?: string;
 };
 
 export type InviteDTO = {

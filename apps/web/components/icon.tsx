@@ -15,6 +15,7 @@ export type IconName =
   | "chevron-right"
   | "close"
   | "compass"
+  | "condo"
   | "diamond"
   | "doc"
   | "expand"
@@ -23,9 +24,11 @@ export type IconName =
   | "home"
   | "info"
   | "key"
+  | "land"
   | "list"
   | "lock"
   | "logout"
+  | "manufactured"
   | "mail"
   | "map"
   | "map-pin"
@@ -44,6 +47,7 @@ export type IconName =
   | "sparkle"
   | "star"
   | "tag"
+  | "townhouse"
   | "upload"
   | "user";
 
@@ -97,6 +101,12 @@ const paths: Record<IconName, ReactElement> = {
       <path d="m15 9-1.5 4.5L9 15l1.5-4.5L15 9z" fill="currentColor" stroke="none" />
     </>
   ),
+  condo: (
+    <>
+      <path d="M5 21V3.5h10V21M15 9h4v12M3 21h18" />
+      <path d="M8.5 7.5h.5M11 7.5h.5M8.5 11h.5M11 11h.5M8.5 14.5h.5M11 14.5h.5M17 12.5h.01M17 16h.01" />
+    </>
+  ),
   diamond: <path d="M12 3 4 12l8 9 8-9-8-9z" />,
   doc: (
     <>
@@ -132,6 +142,7 @@ const paths: Record<IconName, ReactElement> = {
       <path d="M11.5 12H21l-2 2-2-2 2-2" />
     </>
   ),
+  land: <path d="M2.5 19.5c2.6-3.4 5.6-5.2 9.5-5.2s6.9 1.8 9.5 5.2M2.5 19.5h19M12 14.3V5l5 2.2-5 2.2" />,
   list: <path d="M8 6h12M8 12h12M8 18h12M4 6h.5M4 12h.5M4 18h.5" />,
   lock: (
     <>
@@ -151,6 +162,7 @@ const paths: Record<IconName, ReactElement> = {
       <path d="m3.5 7 8.5 6 8.5-6" />
     </>
   ),
+  manufactured: <path d="M2.5 17.5h19M3.5 17.5V10h17v7.5M3.5 10l2-3h13l2 3M7 13h3M14 13h3M5.5 20.5v-3M18.5 20.5v-3" />,
   map: <path d="M9 4.5 3.5 6.5v13l5.5-2 6 2 5.5-2v-13l-5.5 2-6-2zM9 4.5v13M15 6.5v13" />,
   "map-pin": (
     <>
@@ -221,6 +233,7 @@ const paths: Record<IconName, ReactElement> = {
       <circle cx="14.5" cy="9" r="1.4" fill="currentColor" stroke="none" />
     </>
   ),
+  townhouse: <path d="M2 21h20M3.5 21V11L8 6.5l4.5 4.5M12.5 21V11L16 7.5l4.5 4.5V21M3.5 21V11M7 21v-4h2v4M15.5 21v-4h2v4" />,
   upload: (
     <>
       <path d="M12 4v12M7 9l5-5 5 5" />

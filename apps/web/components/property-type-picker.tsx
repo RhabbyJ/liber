@@ -1,7 +1,15 @@
-import { propertyTypeOptions, propertySubtypeFromSeekingPropertyType } from "../lib/property-types";
-import { Icon } from "./icon";
-import { PropertyTypeArtwork } from "./property-type-artwork";
+import { propertyTypeOptions, propertySubtypeFromSeekingPropertyType, type PropertySubtype } from "../lib/property-types";
+import { Icon, type IconName } from "./icon";
 
+const typeIcons: Record<PropertySubtype, IconName> = {
+  CONDO: "condo",
+  HOME: "home",
+  LAND: "land",
+  MANUFACTURED: "manufactured",
+  TOWNHOUSE: "townhouse",
+};
+
+/** Redfin-style home-type tiles: a line icon over the label, one native radio per tile. */
 export function PropertyTypePicker({
   defaultValue,
   legend,
@@ -35,16 +43,8 @@ export function PropertyTypePicker({
                 type="radio"
                 value={value}
               />
-              <PropertyTypeArtwork
-                className="property-type-choice-art"
-                motion="float"
-                sizes="(max-width: 640px) 96px, 104px"
-                value={option.value}
-              />
+              <Icon className="property-type-choice-icon" name={typeIcons[option.value]} size={28} />
               <strong>{option.label}</strong>
-              <span className="property-type-choice-check">
-                <Icon name="check" size={12} />
-              </span>
             </label>
           );
         })}

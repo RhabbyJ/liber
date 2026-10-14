@@ -334,7 +334,7 @@ function previewPopupHtml(
 
   return `
     <div class="map-card preview">
-      <span class="map-card-media"><img alt="" src="${escapeHtml(propertyArtworkSrc(preview.label))}" /></span>
+      <span class="map-card-media"><img alt="" src="${escapeHtml(propertyArtworkSrc(preview.label, preview.alias))}" /></span>
       <span class="map-card-body">
         <strong class="map-card-price">${escapeHtml(preview.budgetLabel)}</strong>
         ${facts.length > 0 ? `<span class="map-card-facts">${facts.join("<i></i>")}</span>` : ""}

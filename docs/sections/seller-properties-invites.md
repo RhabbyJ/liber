@@ -58,6 +58,7 @@ Owns private seller property records, property images, ownership evidence upload
 - Identity changes clear the seller attestation and withdraw `SENT`, `VIEWED`, and `ACCEPTED` invites. The seller must explicitly re-attest to the new version.
 - Property images and invites carry `propertyIdentityVersion`; invited buyers never receive mismatched images or invite details.
 - Invited-buyer image authorization is centralized in the database and also requires active buyer/seller state plus a current approved, unflagged, ready property.
+- Owner-scoped property reads (`listSellerProperties`, `getSellerProperty`) return `coverImageId`: the first image (sort order, then upload time) of the current identity version. Its bytes still load only through the authorized `/api/property-images/[imageId]` signed-URL route; earlier-identity images never become covers.
 
 ## Agent notes
 

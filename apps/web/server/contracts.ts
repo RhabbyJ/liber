@@ -1,6 +1,7 @@
 "use server";
 
 import { Prisma, prisma } from "@liber/db";
+import { currentCoverImageId } from "../lib/property-cover";
 import {
   buyerProfileModerationSchema,
   createSellerPropertySchema,
@@ -359,6 +360,11 @@ function withPrivateAccountName(buyer: Buyer, accountName: string) {
     accountName,
   };
 }
+
+const coverImageSelect = {
+  orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }],
+  select: { id: true, propertyIdentityVersion: true },
+};
 
 function propertyFromDb(property: {
   addressLine1: string | null;
@@ -1640,16 +1646,24 @@ export async function listSellerProperties() {
   const seller = await requireCurrentUser("SELLER");
   const properties = await prisma.sellerProperty.findMany({
     where: { ownerUserId: seller.id },
+    include: { images: coverImageSelect },
     orderBy: { updatedAt: "desc" },
   });
   const syntheticApprovals = await activeSyntheticPropertyApprovals(prisma, properties);
-  return { ok: true, data: properties.map((property) => propertyFromDb(property, syntheticApprovals.has(syntheticPropertyVersionKey(property)))) };
+  return {
+    ok: true,
+    data: properties.map((property) => ({
+      ...propertyFromDb(property, syntheticApprovals.has(syntheticPropertyVersionKey(property))),
+      coverImageId: currentCoverImageId(property),
+    })),
+  };
 }
 
 export async function getSellerProperty(propertyId: string) {
   const seller = await requireCurrentUser("SELLER");
   const property = await prisma.sellerProperty.findFirst({
     where: { id: propertyId, ownerUserId: seller.id },
+    include: { images: coverImageSelect },
   });
   if (!property) throw new Error("Property not found.");
   const syntheticApprovals = await activeSyntheticPropertyApprovals(prisma, [property]);
@@ -1657,6 +1671,7 @@ export async function getSellerProperty(propertyId: string) {
     ok: true,
     data: {
       ...propertyFromDb(property, syntheticApprovals.has(syntheticPropertyVersionKey(property))),
+      coverImageId: currentCoverImageId(property),
       // Exact edit values are available only after the owner-scoped lookup above.
       address: {
         addressLine1: property.addressLine1 ?? undefined,

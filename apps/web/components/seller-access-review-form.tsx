@@ -21,22 +21,22 @@ export function SellerAccessReviewForm({
       <input name="userId" type="hidden" value={userId} />
       <div className="actions inline">
         <button
-          className="button"
+          className="button primary sm"
           disabled={pending || accessStatus === "APPROVED" || !accountActive}
           name="status"
           type="submit"
           value="APPROVED"
         >
-          {accessStatus === "APPROVED" ? "Seller approved" : "Approve Seller"}
+          {accessStatus === "APPROVED" ? "Seller approved" : "Approve seller"}
         </button>
         <button
-          className="button secondary"
+          className="button secondary sm"
           disabled={pending || accessStatus === "SUSPENDED"}
           name="status"
           type="submit"
           value="SUSPENDED"
         >
-          {accessStatus === "SUSPENDED" ? "Seller suspended" : "Suspend Seller"}
+          {accessStatus === "SUSPENDED" ? "Seller suspended" : "Suspend seller"}
         </button>
       </div>
       {pending ? <span role="status">Saving seller access…</span> : null}

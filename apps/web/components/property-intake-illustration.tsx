@@ -1,25 +1,16 @@
 import Image from "next/image";
-import type { ArtworkMotion } from "./property-type-artwork";
 
-type FlowIllustrationProps = {
-  className?: string;
-  motion?: ArtworkMotion;
-};
-
-export function PropertyHeroIllustration({
-  className,
-  motion = "float",
-}: FlowIllustrationProps = {}) {
+/** Hero photograph for the add-property banner (a generated photo of no real address). */
+export function PropertyHeroIllustration({ className }: { className?: string } = {}) {
   return (
     <Image
       alt=""
       aria-hidden="true"
-      className={`property-intake-illustration${className ? ` ${className}` : ""}`}
-      data-artwork-motion={motion}
-      height={480}
-      sizes="(max-width: 700px) 200px, 240px"
-      src="/images/flows/property-intake-2d.webp"
-      width={720}
+      className={`property-intake-photo${className ? ` ${className}` : ""}`}
+      fill
+      priority
+      sizes="(max-width: 860px) 100vw, 800px"
+      src="/images/homes/house-3.webp"
     />
   );
 }
