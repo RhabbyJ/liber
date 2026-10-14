@@ -1,18 +1,9 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import {
-  serviceAreaDisplayLabel,
-  type ServiceArea,
-} from "../lib/service-areas";
-import {
-  hasSearchSuggestions,
-  resolvedAreaFromSearchPayload,
-  type ServiceAreaSearchResponse,
-} from "../lib/service-area-api";
-import { Icon } from "./icon";
-import { ServiceAreaSuggestions } from "./service-area-suggestions";
+import { useState } from "react";
+import type { ServiceArea } from "../lib/service-areas";
+import { ServiceAreaCombobox } from "./service-area-combobox";
 import { UnsupportedAreaState } from "./unsupported-area-state";
 
 type Props = {
@@ -24,154 +15,58 @@ export function PublicMapLocationSearch({ defaultArea = "", marketSlug }: Props)
   const router = useRouter();
   const searchParams = useSearchParams();
   const unsupportedArea = searchParams.get("unsupported") ?? "";
-  const [query, setQuery] = useState(unsupportedArea || defaultArea);
-  const [message, setMessage] = useState("");
-  const [isUnsupported, setIsUnsupported] = useState(Boolean(unsupportedArea));
-  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
-  const previousMarketRef = useRef(marketSlug);
+  const [dismissedUnsupported, setDismissedUnsupported] = useState("");
+  const isUnsupported = Boolean(unsupportedArea) && dismissedUnsupported !== unsupportedArea;
 
-  useEffect(() => {
-    if (previousMarketRef.current === marketSlug) return;
-    previousMarketRef.current = marketSlug;
-    setQuery("");
-    setMessage("");
-    setIsUnsupported(false);
-    setIsSuggestionsOpen(false);
-  }, [marketSlug]);
-
-  useEffect(() => {
-    if (unsupportedArea) {
-      setQuery(unsupportedArea);
-      setMessage("");
-      setIsUnsupported(true);
-      return;
-    }
-
-    setQuery(defaultArea);
-    setMessage("");
-    setIsUnsupported(false);
-    setIsSuggestionsOpen(false);
-  }, [defaultArea, unsupportedArea]);
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const value = query.trim();
-    setMessage("");
-    setIsUnsupported(false);
-
-    if (value.length < 3) {
-      setMessage("Enter a supported city, neighborhood, or ZIP.");
-      return;
-    }
-
-    try {
-      const params = new URLSearchParams({ market: marketSlug, q: value });
-      const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
-      const payload = await response.json() as ServiceAreaSearchResponse;
-
-      if (!response.ok) {
-        pushUnsupportedArea(value);
-        return;
-      }
-      const resolvedArea = resolvedAreaFromSearchPayload(payload);
-      if (resolvedArea) {
-        pushArea(resolvedArea);
-        return;
-      }
-      if (hasSearchSuggestions(payload)) {
-        setMessage("Choose a specific supported city, neighborhood, or ZIP.");
-        setIsSuggestionsOpen(true);
-        return;
-      }
-
-      pushUnsupportedArea(value);
-    } catch {
-      setMessage("Location lookup failed.");
-    }
-  }
-
-  function pushArea(area: ServiceArea) {
+  function navigate(update: (params: URLSearchParams) => void, replace = false) {
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.set("market", marketSlug);
-    nextParams.set("area", area.slug);
-    nextParams.delete("unsupported");
-    setQuery(serviceAreaDisplayLabel(area));
-    setMessage("");
-    setIsUnsupported(false);
-    setIsSuggestionsOpen(false);
-    router.push(queryPath(nextParams));
+    update(nextParams);
+    const query = nextParams.toString();
+    const path = query ? `/?${query}` : "/";
+    if (replace) router.replace(path, { scroll: false });
+    else router.push(path, { scroll: false });
+  }
+
+  function selectArea(area: ServiceArea) {
+    navigate((params) => {
+      params.set("area", area.slug);
+      params.delete("unsupported");
+    });
   }
 
   function clearArea() {
-    const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.set("market", marketSlug);
-    nextParams.delete("area");
-    nextParams.delete("unsupported");
-    setQuery("");
-    setMessage("");
-    setIsUnsupported(false);
-    setIsSuggestionsOpen(false);
-    router.push(queryPath(nextParams));
+    setDismissedUnsupported(unsupportedArea);
+    if (!searchParams.has("area") && !searchParams.has("unsupported")) return;
+    navigate((params) => {
+      params.delete("area");
+      params.delete("unsupported");
+    });
   }
 
-  function pushUnsupportedArea(value: string) {
-    const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.set("market", marketSlug);
-    nextParams.delete("area");
-    nextParams.set("unsupported", value);
-    setQuery(value);
-    setMessage("");
-    setIsUnsupported(true);
-    setIsSuggestionsOpen(false);
-    router.replace(queryPath(nextParams));
+  function showUnsupported(value: string) {
+    navigate((params) => {
+      params.delete("area");
+      params.set("unsupported", value);
+    }, true);
   }
 
   return (
-    <div
-      className="map-search-box public-map-search-box"
-      onBlurCapture={(event) => {
-        const nextTarget = event.relatedTarget;
-        if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) {
-          setIsSuggestionsOpen(false);
-        }
-      }}
-      onFocusCapture={() => setIsSuggestionsOpen(true)}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") setIsSuggestionsOpen(false);
-      }}
-    >
-      <form onSubmit={handleSubmit}>
-        <Icon name="search" size={17} />
-        <input
-          aria-label="Search preview area by city, neighborhood, or ZIP"
-          autoComplete="off"
-          onClick={() => setIsSuggestionsOpen(true)}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setMessage("");
-            setIsUnsupported(false);
-            setIsSuggestionsOpen(true);
-          }}
-          placeholder="City, neighborhood, or ZIP"
-          value={query}
-        />
-        {query ? (
-          <button aria-label="Clear preview area" className="public-map-search-clear" onClick={clearArea} type="button">
-            &times;
-          </button>
-        ) : null}
-        <button className="public-map-search-submit" type="submit">
-          Search
-        </button>
-      </form>
-      {isSuggestionsOpen ? <ServiceAreaSuggestions marketSlug={marketSlug} onSelect={pushArea} query={query} /> : null}
-      {message ? <span className="public-map-search-message">{message}</span> : null}
+    <div className="map-search-box public-map-search-box">
+      <ServiceAreaCombobox
+        ariaLabel="Search preview area by city, neighborhood, or ZIP"
+        clearLabel="Clear preview area"
+        defaultValue={unsupportedArea || defaultArea}
+        inputId="public-map-area-search"
+        marketSlug={marketSlug}
+        onClear={clearArea}
+        onNoMatch={showUnsupported}
+        onQueryChange={() => setDismissedUnsupported(unsupportedArea)}
+        onSelect={selectArea}
+        submitClassName="public-map-search-submit"
+        submitLabel="Search"
+      />
       {isUnsupported ? <UnsupportedAreaState onSearchAnother={clearArea} /> : null}
     </div>
   );
-}
-
-function queryPath(params: URLSearchParams) {
-  const query = params.toString();
-  return query ? `/?${query}` : "/";
 }

@@ -10,7 +10,9 @@ import {
   normalizeZip,
   resolveServiceArea,
   searchServiceAreas,
+  serviceAreaContextLabel,
   serviceAreaDisplayLabel,
+  serviceAreaShortName,
 } from "./service-areas";
 
 const publicRoot = path.resolve(process.cwd(), "public");
@@ -65,6 +67,17 @@ describe("service area metadata", () => {
     };
     expect(serviceAreaDisplayLabel(city)).toBe("Arcadia");
     expect(serviceAreaDisplayLabel(community)).toBe("Arcadia (Unincorporated)");
+  });
+
+  it("labels suggestion rows with a short name and their type context", () => {
+    const zip = { city: null, county: "Los Angeles County", label: "91364", postalCode: "91364", type: "zip" as const };
+    expect(serviceAreaShortName(zip)).toBe("91364");
+    expect(serviceAreaContextLabel(zip)).toBe("ZIP code · approximate area");
+    expect(serviceAreaContextLabel({ ...zip, matchedTerm: "woodland hills 91364" })).toBe("ZIP code · Woodland Hills");
+    expect(serviceAreaContextLabel({ city: "Los Angeles", county: "Los Angeles County", type: "neighborhood" })).toBe("Neighborhood · Los Angeles");
+    const community = { city: null, county: "Los Angeles County", label: "Altadena (Unincorporated)", postalCode: null, type: "neighborhood" as const };
+    expect(serviceAreaShortName(community)).toBe("Altadena");
+    expect(serviceAreaContextLabel(community)).toBe("Unincorporated community · Los Angeles County");
   });
 
   it("derives active market bounds from service-area metadata", () => {

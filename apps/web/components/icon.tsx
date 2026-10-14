@@ -9,6 +9,7 @@ type IconName =
   | "check"
   | "check-shield"
   | "chevron-right"
+  | "clock"
   | "compass"
   | "diamond"
   | "doc"
@@ -65,6 +66,12 @@ const paths: Record<IconName, ReactElement> = {
     </>
   ),
   "chevron-right": <path d="m9 6 6 6-6 6" />,
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </>
+  ),
   compass: (
     <>
       <circle cx="12" cy="12" r="8.5" />

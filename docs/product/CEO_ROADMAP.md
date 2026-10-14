@@ -171,7 +171,9 @@ Launch as the trusted buyer-demand layer:
 
 The LA beta boundary is Los Angeles County. The reviewed v2 geography was
 activated on July 12: 88 cities, 304 approximate Census ZCTA areas and three
-reviewed neighborhoods. Product availability remains controlled preview until
+reviewed neighborhoods. Every County community (Granada Hills, Sherman Oaks,
+Altadena and the other 266) became selectable with the October 13 community
+release. Product availability remains controlled preview until
 the outstanding security, operational and release gates pass. Geography
 activation alone is not a public-launch approval; keep availability within the
 reviewed service areas so marketplace quality can be manually managed.

@@ -106,7 +106,6 @@ export default async function SellerSearchPage({
             <div className="seller-preview-location-search">
               <SellerMapLocationSearch
                 defaultArea={selectedServiceAreaLabel}
-                defaultServiceArea={requestedServiceArea || ""}
                 marketSlug={market.slug}
               />
             </div>
@@ -179,7 +178,6 @@ export default async function SellerSearchPage({
           <h1>Showing {results.length} buyers</h1>
           <SellerMapLocationSearch
             defaultArea={selectedServiceAreaLabel}
-            defaultServiceArea={requestedServiceArea || ""}
             marketSlug={market.slug}
           />
           <div className="interactive-map-container seller-profile-map-frame">

@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { formatRange } from "../lib/format";
 import { groupMapPoints } from "../lib/map-point-groups";
 import { approximateBuyerPoint } from "../lib/buyer-map-point";
 import { syncSelectedAreaLayer } from "../lib/map-boundary-layers";
-import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
-import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
+import { clusterBounds, clusterMarkerGroups, clusterZoomLimit } from "../lib/map-marker-clusters";
+import { selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
+import type { MapboxMarker } from "../lib/mapbox-gl-loader";
 import type { SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
 import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
+import { fitMapTo, fitMapToMarket, useMarketMap } from "../lib/use-market-map";
 import { StaticBuyerMap } from "./static-buyer-map";
 
 type Props = {
@@ -26,12 +28,14 @@ type BuyerPoint = {
 
 export function InteractiveBuyerMap({ buyers, market, selectedServiceArea: selectedArea = null, token }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<MapboxMap | null>(null);
-  const markersRef = useRef<Map<string, MapboxMarker>>(new Map());
+  const markersRef = useRef<MapboxMarker[]>([]);
   const markerNodesRef = useRef<Map<string, HTMLElement>>(new Map());
-  const [isReady, setIsReady] = useState(false);
-  const [status, setStatus] = useState("Loading interactive map");
-  const [didFail, setDidFail] = useState(false);
+  const { didFail, isReady, mapRef } = useMarketMap({
+    containerRef,
+    initialBounds: selectedArea ? selectedAreaBounds(selectedArea) : null,
+    market,
+    token,
+  });
   const selectedAreaGeojson = useKeyedGeoJson(selectedArea?.geojsonPath);
 
   const buyerPoints = useMemo(
@@ -44,145 +48,87 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea: selec
         .filter((point): point is BuyerPoint => point !== null),
     [buyers],
   );
-  const markerPoints = useMemo(() => groupMapPoints(buyerPoints), [buyerPoints]);
-  const initialCenter = useMemo(() => mapCenter(buyerPoints, selectedArea, market), [buyerPoints, selectedArea, market]);
+  const centerGroups = useMemo(() => groupMapPoints(buyerPoints), [buyerPoints]);
   const highlightBuyer = useCallback((buyerId: string, active: boolean) => {
     markerNodesRef.current.get(buyerId)?.classList.toggle("active", active);
     document
       .querySelector<HTMLElement>(`.buyer-card[data-buyer-id="${cssEscape(buyerId)}"], .buyer-row[data-buyer-id="${cssEscape(buyerId)}"]`)
       ?.classList.toggle("active", active);
   }, []);
-  const mapInstanceKey = marketMapInstanceKey(market, token);
-  const [marketWest, marketSouth, marketEast, marketNorth] = market.bbox;
-  const marketCenterLat = market.center.lat;
-  const marketCenterLng = market.center.lng;
-
-  useEffect(() => {
-    setDidFail(false);
-  }, [mapInstanceKey]);
-
-  useEffect(() => {
-    if (didFail) return;
-    let canceled = false;
-    setIsReady(false);
-    setStatus("Loading interactive map");
-
-    function fallBackToStaticMap() {
-      if (canceled) return;
-      markersRef.current.forEach((marker) => marker.remove());
-      markersRef.current.clear();
-      markerNodesRef.current.clear();
-      mapRef.current?.remove();
-      mapRef.current = null;
-      setDidFail(true);
-    }
-
-    async function setupMap() {
-      if (!containerRef.current) return;
-
-      try {
-        const mapboxgl = await loadMapboxGl();
-        if (canceled || !containerRef.current) return;
-
-        let loaded = false;
-        mapboxgl.accessToken = token;
-        mapRef.current = new mapboxgl.Map({
-          antialias: true,
-          attributionControl: true,
-          center: [marketCenterLng, marketCenterLat],
-          cooperativeGestures: false,
-          container: containerRef.current,
-          maxBounds: [[marketWest, marketSouth], [marketEast, marketNorth]],
-          style: "mapbox://styles/mapbox/streets-v12",
-          zoom: 10.4,
-        });
-
-        mapRef.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "bottom-right");
-        mapRef.current.on("load", () => {
-          if (canceled) return;
-          loaded = true;
-          setIsReady(true);
-          setStatus("");
-        });
-        mapRef.current.on("error", () => {
-          if (!loaded) fallBackToStaticMap();
-        });
-      } catch {
-        fallBackToStaticMap();
-      }
-    }
-
-    setupMap();
-
-    const markers = markersRef.current;
-    const markerNodes = markerNodesRef.current;
-    return () => {
-      canceled = true;
-      markers.forEach((marker) => marker.remove());
-      markers.clear();
-      markerNodes.clear();
-      mapRef.current?.remove();
-      mapRef.current = null;
-    };
-  }, [
-    didFail,
-    mapInstanceKey,
-    marketCenterLat,
-    marketCenterLng,
-    marketEast,
-    marketNorth,
-    marketSouth,
-    marketWest,
-    token,
-  ]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current) return;
     syncSelectedAreaLayer(mapRef.current, selectedAreaGeojson);
-  }, [isReady, selectedAreaGeojson]);
+  }, [isReady, mapRef, selectedAreaGeojson]);
 
+  // Markers re-cluster after every zoom so overlapping centers combine and split.
   useEffect(() => {
-    if (!isReady || !mapRef.current || !window.mapboxgl) return;
+    const map = mapRef.current;
+    const mapboxgl = window.mapboxgl;
+    if (!isReady || !map || !mapboxgl) return;
 
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current.clear();
-    markerNodesRef.current.clear();
+    const clearMarkers = () => {
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current = [];
+      markerNodesRef.current.clear();
+    };
 
-    for (const group of markerPoints) {
-      const markerNode = document.createElement("button");
-      markerNode.type = "button";
-      markerNode.className = "buyer-map-marker";
-      const buyersHere = group.points.map((point) => point.buyer);
-      markerNode.setAttribute("aria-label", buyersHere.length > 1
-        ? "Open " + buyersHere.length + " buyers targeting " + buyersHere[0].location
-        : "Open " + (buyersHere[0].isDemo ? "demo buyer " : "") + buyersHere[0].name + " map marker");
-      markerNode.innerHTML = "<span>" + (buyersHere.length > 1 ? buyersHere.length + " buyers" : escapeHtml(budgetPinLabel(buyersHere[0]))) + "</span>";
-      markerNode.addEventListener("mouseenter", () => buyersHere.forEach((buyer) => highlightBuyer(buyer.id, true)));
-      markerNode.addEventListener("mouseleave", () => buyersHere.forEach((buyer) => highlightBuyer(buyer.id, false)));
-      const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(
-        '<div class="buyer-map-popup-group">' + buyersHere.map(popupHtml).join("") + "</div>",
-      );
-      const marker = new window.mapboxgl.Marker({ element: markerNode, anchor: "center" })
-        .setLngLat([group.lng, group.lat])
-        .setPopup(popup)
-        .addTo(mapRef.current);
-      for (const buyer of buyersHere) {
-        markersRef.current.set(buyer.id, marker);
-        markerNodesRef.current.set(buyer.id, markerNode);
+    const renderMarkers = () => {
+      clearMarkers();
+      for (const cluster of clusterMarkerGroups(centerGroups, (lngLat) => map.project(lngLat))) {
+        const buyersHere = cluster.members.flatMap((group) => group.points.map((point) => point.buyer));
+        const markerNode = document.createElement("button");
+        markerNode.type = "button";
+        const isMultiCenter = cluster.members.length > 1;
+        let marker = new mapboxgl.Marker({ anchor: "center", element: markerNode })
+          .setLngLat([cluster.anchor.lng, cluster.anchor.lat]);
+
+        if (isMultiCenter) {
+          markerNode.className = "buyer-map-marker cluster";
+          markerNode.setAttribute("aria-label", `Zoom in to ${buyersHere.length} buyers in ${cluster.members.length} nearby areas`);
+          markerNode.innerHTML = `<span>${buyersHere.length} buyers</span>`;
+          markerNode.addEventListener("click", () => fitMapTo(map, clusterBounds(cluster.members), clusterZoomLimit(map)));
+        } else {
+          markerNode.className = buyersHere.length > 1 ? "buyer-map-marker group" : "buyer-map-marker";
+          markerNode.setAttribute("aria-label", buyersHere.length > 1
+            ? `Open ${buyersHere.length} buyers targeting ${buyersHere[0].location}`
+            : `Open ${buyersHere[0].isDemo ? "demo buyer " : ""}${buyersHere[0].name} map marker`);
+          markerNode.innerHTML = `<span>${buyersHere.length > 1 ? `${buyersHere.length} buyers` : escapeHtml(budgetPinLabel(buyersHere[0]))}</span>`;
+          const popup = new mapboxgl.Popup({ closeButton: true, maxWidth: "300px", offset: 20 }).setHTML(
+            `<div class="buyer-map-popup-group">${buyersHere.map(popupHtml).join("")}</div>`,
+          );
+          marker = marker.setPopup(popup);
+        }
+
+        markerNode.addEventListener("mouseenter", () => buyersHere.forEach((buyer) => highlightBuyer(buyer.id, true)));
+        markerNode.addEventListener("mouseleave", () => buyersHere.forEach((buyer) => highlightBuyer(buyer.id, false)));
+        markersRef.current.push(marker.addTo(map));
+        for (const buyer of buyersHere) markerNodesRef.current.set(buyer.id, markerNode);
       }
-    }
+    };
 
+    renderMarkers();
+    map.on("zoomend", renderMarkers);
+    return () => {
+      map.off("zoomend", renderMarkers);
+      clearMarkers();
+    };
+  }, [centerGroups, highlightBuyer, isReady, mapRef]);
+
+  // The camera follows the search: the selected boundary first, otherwise the buyers.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!isReady || !map || !window.mapboxgl) return;
     if (selectedArea) {
-      mapRef.current.fitBounds(selectedAreaBounds(selectedArea), { maxZoom: 12.6, padding: 104 });
+      fitMapTo(map, selectedAreaBounds(selectedArea), 13.2);
     } else if (buyerPoints.length > 1) {
       const bounds = new window.mapboxgl.LngLatBounds();
       buyerPoints.forEach((point) => bounds.extend([point.lng, point.lat]));
-      mapRef.current.fitBounds(bounds, { maxZoom: 12.4, padding: 96 });
-    } else {
-      mapRef.current.flyTo({ center: [initialCenter.lng, initialCenter.lat], zoom: buyerPoints.length === 1 ? 11.5 : 10.4 });
+      fitMapTo(map, bounds, 12.4);
+    } else if (buyerPoints.length === 1) {
+      map.easeTo({ center: [buyerPoints[0].lng, buyerPoints[0].lat], duration: 600, zoom: 11.5 });
     }
-
-  }, [buyerPoints, highlightBuyer, initialCenter.lat, initialCenter.lng, isReady, markerPoints, selectedArea]);
+  }, [buyerPoints, isReady, mapRef, selectedArea]);
 
   useEffect(() => {
     const cards = Array.from(document.querySelectorAll<HTMLElement>(".buyer-card[data-buyer-id], .buyer-row[data-buyer-id]"));
@@ -231,7 +177,9 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea: selec
       <button
         aria-label="Fit map to all of Los Angeles County"
         className="map-view-all-control"
-        onClick={() => mapRef.current?.fitBounds(marketMapBounds(market), { padding: 72 })}
+        onClick={() => {
+          if (mapRef.current) fitMapToMarket(mapRef.current, market);
+        }}
         type="button"
       >
         View all LA County
@@ -241,23 +189,10 @@ export function InteractiveBuyerMap({ buyers, market, selectedServiceArea: selec
         <span><i className="legend-dot active" /> Hover match</span>
         <span>{selectedArea ? "Selected area boundary" : "Search an area to show its boundary"}</span>
       </div>
-      {status ? <div className="map-status">{status}</div> : null}
+      {isReady ? null : <div className="map-status">Loading interactive map</div>}
       {buyers.length === 0 ? <div className="map-empty">No active buyers match this area yet.</div> : null}
     </aside>
   );
-}
-
-function mapCenter(points: BuyerPoint[], selectedArea: SelectedMapArea | null, market: MarketMapContext) {
-  if (selectedArea) {
-    return selectedArea.center;
-  }
-
-  if (points.length > 0) {
-    const total = points.reduce((sum, point) => ({ lat: sum.lat + point.lat, lng: sum.lng + point.lng }), { lat: 0, lng: 0 });
-    return { lat: total.lat / points.length, lng: total.lng / points.length };
-  }
-
-  return market.center;
 }
 
 function budgetPinLabel(buyer: SellerBuyerSummaryDTO) {

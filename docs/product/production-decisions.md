@@ -48,6 +48,16 @@ changes are deployed. Provider findings retain the dates of their source audits.
 - Los Angeles County is the approved v1 geography boundary. The exact reviewed
   v2 release activates 88 incorporated cities and 304 approximate Census ZCTA
   service areas while preserving three reviewed neighborhoods.
+- Approved 2026-10-13: every County statistical community is selectable. The
+  guarded community release activates the 266 retained communities from the
+  same v2 dataset plus 30 reviewed nickname terms. It requires migration
+  `20261013090000_activate_la_county_communities`, a rollback-only rehearsal,
+  and `--activate-communities`. It completed in production on 2026-10-13 with
+  661 active areas and zero invalid active buyers; see
+  `GEOGRAPHY_LA_COMMUNITIES_RELEASE_EVIDENCE_2026-10-13.md`.
+- The deployed `vercel.json` has no crons, so `EmailOutbox` is not drained
+  (8 pending invite/LOI emails with zero attempts on 2026-10-13). Deploying the
+  per-minute crons is required before relying on email delivery.
 - The guarded v2 stage and activation completed in production on 2026-07-12;
   the release and 2026-07-13 security hardening migrations are applied with zero
   unresolved Prisma rows and zero invalid active buyers.
@@ -279,8 +289,8 @@ the existing invite quota.
 - Remove clearly marked demo buyer data before true public launch.
 - LA County coverage uses deterministic versioned data, not runtime provider
   lookups: one County outline, 88 city service areas, 304 approximate ZCTA
-  service areas, and three existing reviewed neighborhoods. The 266 remaining
-  statistical communities stay inactive.
+  service areas, and all 269 County statistical communities (activated
+  2026-10-13).
 
 ### Public-launch blocker: restore scheduled maintenance
 

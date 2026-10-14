@@ -17,7 +17,11 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - `apps/web/lib/map-boundary-layers.ts`
 - `apps/web/lib/use-keyed-geojson.ts`
 - `apps/web/lib/service-areas.ts`
-- `apps/web/components/service-area-suggestions.tsx`
+- `apps/web/components/service-area-combobox.tsx`
+- `apps/web/lib/service-area-search.ts`
+- `apps/web/lib/use-service-area-search.ts`
+- `apps/web/lib/use-market-map.ts`
+- `apps/web/lib/map-marker-clusters.ts`
 - `apps/web/app/api/geo/geocode/route.ts`
 - `apps/web/app/api/service-areas/**/route.ts`
 - `apps/web/server/service-area-matching.ts`
@@ -48,7 +52,9 @@ Owns buyer search geography, map rendering, fallback maps, Mapbox integration, a
 - Seller and public pins must use the buyer's selected DB service-area center; static catalog lookup and stale city text must not place pins.
 - Mapbox address results must use typed postcode/place fields. Never extract the first five-digit substring from a formatted address.
 - Production database failures must return controlled unavailable errors; static service-area data is test/development fixture data only.
-- Search suggestions and exact resolution are separate; ambiguous place terms and unique prefixes must ask the user to choose a specific supported area.
+- Search suggestions and exact resolution are separate; ambiguous place terms and unique prefixes must ask the user to choose a specific supported area. Typo, word, and abbreviation matches are suggestions only.
+- Every service-area search box uses `ServiceAreaCombobox`: debounced, cached per tab, ARIA combobox with arrow/Enter/Escape/Tab, highlighted matches, and per-viewer recent searches in `localStorage` (convenience only).
+- Selected boundaries dim the surrounding map and render beneath basemap labels. Overlapping markers cluster at real area centers only.
 - Service-area API submit flows may auto-select only exact `resolution.status === "resolved"` results, not single search suggestions.
 - Searching a parent city or neighborhood filters results and changes the viewport; it must not move buyers away from their own selected service-area centers. No coordinate jitter or pixel fan-out is applied. Identical centers share a count marker whose popup lists the matching buyers.
 - The customer-facing destination and map headings are named Map. Public ZIP previews display the selected ZIP label.

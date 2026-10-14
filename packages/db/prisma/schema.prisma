@@ -1066,6 +1066,8 @@ model TourSchedule {
   updatedAt        DateTime                @updatedAt
   outboxJobs       EmailOutbox[]
 
+  @@index([conversationId, proposedByUserId])
+  @@index([conversationId, lastActorUserId])
   @@index([status, startsAt])
 }
 
@@ -1140,6 +1142,8 @@ model PropertyVerificationDecision {
   createdAt                 DateTime                   @default(now())
 
   @@unique([propertyId, propertyIdentityVersion])
+  @@index([governmentIdDocumentId])
+  @@index([addressEvidenceDocumentId])
   @@index([reviewerUserId])
 }
 

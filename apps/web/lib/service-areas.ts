@@ -1,3 +1,9 @@
+import {
+  createServiceAreaSearchIndex,
+  normalizeServiceAreaQuery,
+  type ServiceAreaSearchIndex,
+} from "./service-area-search";
+
 export type ServiceAreaType = "zip" | "city" | "neighborhood" | "custom";
 
 export type ServiceArea = {
@@ -357,48 +363,11 @@ export function findServiceAreaBySlug(slug: string, areas: ServiceArea[] = activ
 }
 
 export function searchServiceAreas(query: string, areas: ServiceArea[] = activeServiceAreas, limit = 8) {
-  const normalized = normalizeServiceAreaSearchTerm(query);
-  if (!normalized) return [];
-
-  const zip = normalizeZip(query);
-  const postalExact = zip ? areas.filter((area) => area.postalCode === zip) : [];
-  const exact = areas.filter((area) => !postalExact.includes(area) && serviceAreaTerms(area).includes(normalized));
-  const zipPrefix = !zip && /^\d{1,5}$/.test(normalized)
-    ? areas.filter((area) => !postalExact.includes(area) && !exact.includes(area) && area.postalCode?.startsWith(normalized))
-    : [];
-  const prefix = areas.filter(
-    (area) =>
-      !postalExact.includes(area) &&
-      !exact.includes(area) &&
-      !zipPrefix.includes(area) &&
-      serviceAreaTerms(area).some((term) => term.startsWith(normalized)),
-  );
-
-  return [...postalExact, ...exact, ...zipPrefix, ...prefix].slice(0, limit);
+  return fixtureSearchIndex(areas).search(query, limit).suggestions.map((hit) => hit.area);
 }
 
 export function resolveServiceArea(query: string, areas: ServiceArea[] = activeServiceAreas): ServiceAreaResolution {
-  const normalized = normalizeServiceAreaSearchTerm(query);
-  if (!normalized) return { status: "none" };
-
-  const slugMatches = areas.filter((area) => area.slug === normalized);
-  const slugResolution = resolutionFromMatches(slugMatches);
-  if (slugResolution.status !== "none") return slugResolution;
-
-  const zip = normalizeZip(query);
-  if (zip) {
-    const postalResolution = resolutionFromMatches(areas.filter((area) => area.postalCode === zip));
-    if (postalResolution.status !== "none") return postalResolution;
-  }
-
-  const labelResolution = resolutionFromMatches(
-    areas.filter((area) => normalizeServiceAreaSearchTerm(area.label) === normalized),
-  );
-  if (labelResolution.status !== "none") return labelResolution;
-
-  return resolutionFromMatches(
-    areas.filter((area) => serviceAreaTerms(area).includes(normalized)),
-  );
+  return fixtureSearchIndex(areas).search(query).resolution;
 }
 
 export function serviceAreaDisplayLabel(area: ServiceArea) {
@@ -407,20 +376,46 @@ export function serviceAreaDisplayLabel(area: ServiceArea) {
   return area.label;
 }
 
-function serviceAreaTerms(area: ServiceArea) {
-  return Array.from(new Set([area.slug, area.label, area.postalCode, ...(area.searchTerms ?? []), ...(area.aliases ?? [])]
-    .filter((value): value is string => Boolean(value))
-    .map(normalizeServiceAreaSearchTerm)));
+/** Name shown on a suggestion row; the context line carries the type and parent area. */
+export function serviceAreaShortName(area: Pick<ServiceArea, "label" | "postalCode" | "type">) {
+  if (area.type === "zip") return area.postalCode ?? area.label;
+  return area.label.replace(/\s*\(unincorporated\)\s*$/i, "");
 }
 
-function resolutionFromMatches(matches: ServiceArea[]): ServiceAreaResolution {
-  if (matches.length === 0) return { status: "none" };
-  if (matches.length === 1) return { status: "resolved", area: matches[0] };
-  return { status: "ambiguous", areas: matches };
+export function serviceAreaContextLabel(
+  area: Pick<ServiceArea, "city" | "county" | "type"> & { matchedTerm?: string },
+) {
+  const county = area.county || "Los Angeles County";
+  if (area.type === "zip") {
+    const place = area.matchedTerm?.replace(/\b(ca|\d{5})\b/g, "").trim();
+    return place && /[a-z]/.test(place) ? `ZIP code · ${titleCase(place)}` : "ZIP code · approximate area";
+  }
+  if (area.type === "city") return `City · ${county}`;
+  if (area.type === "neighborhood") return area.city ? `Neighborhood · ${area.city}` : `Unincorporated community · ${county}`;
+  return "Service area";
+}
+
+function titleCase(value: string) {
+  return value.replace(/\s+/g, " ").replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+}
+
+export function serviceAreaSearchTerms(area: Pick<ServiceArea, "aliases" | "searchTerms">) {
+  return [...(area.searchTerms ?? []), ...(area.aliases ?? [])];
 }
 
 export function normalizeServiceAreaSearchTerm(value: string) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return normalizeServiceAreaQuery(value);
+}
+
+const fixtureSearchIndexes = new WeakMap<ServiceArea[], ServiceAreaSearchIndex<ServiceArea>>();
+
+function fixtureSearchIndex(areas: ServiceArea[]) {
+  let index = fixtureSearchIndexes.get(areas);
+  if (!index) {
+    index = createServiceAreaSearchIndex(areas.map((area) => ({ area, terms: serviceAreaSearchTerms(area) })));
+    fixtureSearchIndexes.set(areas, index);
+  }
+  return index;
 }
 
 function marketFromServiceAreas({

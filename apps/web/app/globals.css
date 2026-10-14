@@ -5314,22 +5314,42 @@ body:has(.map-landing) .site-footer {
 .buyer-map-marker {
   align-items: center;
   background: var(--sage-deep);
-  border: 3px solid #fff;
+  border: 2px solid #fff;
   border-radius: var(--r-pill);
-  box-shadow: 0 10px 22px rgba(12, 35, 28, 0.24), 0 0 0 7px rgba(22, 131, 76, 0.16);
+  box-shadow: 0 4px 12px rgba(12, 35, 28, 0.28);
   color: #fff;
   cursor: pointer;
   display: grid;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 800;
-  height: 44px;
+  height: 30px;
   justify-content: center;
+  letter-spacing: -0.01em;
   line-height: 1;
-  min-width: 44px;
-  padding: 0 9px;
+  min-width: 30px;
+  padding: 0 10px;
+  position: relative;
   transition: box-shadow 0.16s ease, transform 0.16s ease, background 0.16s ease;
   white-space: nowrap;
   width: auto;
+}
+
+/* Compact pins keep a 44px touch target. */
+.buyer-map-marker::before {
+  content: "";
+  inset: -7px;
+  position: absolute;
+}
+
+.buyer-map-marker.group {
+  background: var(--sage-strong);
+}
+
+.buyer-map-marker.cluster {
+  background: var(--ink-strong);
+  box-shadow: 0 4px 14px rgba(12, 35, 28, 0.32), 0 0 0 5px rgba(36, 35, 38, 0.14);
+  height: 34px;
+  min-width: 34px;
 }
 
 .map-filter-button {
@@ -5376,9 +5396,15 @@ body:has(.map-landing) .site-footer {
 
 .buyer-map-marker.active,
 .buyer-map-marker:hover {
-  background: var(--sage-strong);
-  box-shadow: 0 18px 32px rgba(12, 35, 28, 0.28), 0 0 0 10px rgba(22, 131, 76, 0.22);
+  background: var(--ink-strong);
+  box-shadow: 0 10px 22px rgba(12, 35, 28, 0.3), 0 0 0 6px rgba(22, 131, 76, 0.22);
   transform: scale(1.08);
+  z-index: 3;
+}
+
+.buyer-map-marker.cluster.active,
+.buyer-map-marker.cluster:hover {
+  background: var(--sage-deep);
 }
 
 .buyer-map-marker.public-demand-pin:hover {
@@ -8508,4 +8534,303 @@ body:has(.map-landing) .site-footer {
 
 .buyer-invite-actions textarea {
   width: 100%;
+}
+
+/* ==========================================================================
+   Service-area combobox (homepage map, seller map, filters, buyer profile)
+   ========================================================================== */
+
+.sr-only {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.area-search {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  position: relative;
+}
+
+.area-search-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.area-search-field {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.area-search-field .area-search-icon {
+  color: var(--sage-strong);
+  left: 12px;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.area-search-field input {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  color: var(--ink-strong);
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 42px;
+  padding: 0 64px 0 38px;
+  text-overflow: ellipsis;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  width: 100%;
+}
+
+.area-search-field input::placeholder {
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+
+.area-search-field input:focus {
+  border-color: var(--sage-strong);
+  box-shadow: var(--focus-ring);
+  outline: 0;
+}
+
+.area-search-clear {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-pill);
+  color: var(--ink-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 20px;
+  height: 30px;
+  justify-content: center;
+  line-height: 1;
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+}
+
+.area-search-clear:hover,
+.area-search-clear:focus-visible {
+  background: var(--surface-muted);
+  color: var(--ink-strong);
+  outline: 0;
+}
+
+.area-search-spinner {
+  animation: area-search-spin 0.7s linear infinite;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  border-top-color: var(--sage-strong);
+  height: 14px;
+  position: absolute;
+  right: 40px;
+  top: calc(50% - 7px);
+  width: 14px;
+}
+
+@keyframes area-search-spin {
+  to { transform: rotate(360deg); }
+}
+
+.area-search-submit {
+  background: var(--sage-deep);
+  border: 0;
+  border-radius: var(--r-sm);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 42px;
+  padding: 0 16px;
+}
+
+.area-search-popover {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: 0 20px 48px rgba(24, 35, 31, 0.18);
+  left: 0;
+  max-height: min(380px, 60vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+}
+
+.area-search-popover[hidden] {
+  display: none;
+}
+
+.area-search-note {
+  color: var(--ink-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  margin: 0;
+  padding: 6px 10px 4px;
+}
+
+.area-search-note.attention {
+  color: var(--info);
+}
+
+.area-search-options {
+  display: grid;
+  gap: 1px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.area-search-options:empty {
+  display: none;
+}
+
+.area-search-option {
+  align-items: center;
+  border-radius: var(--r-sm);
+  color: var(--ink-strong);
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  min-height: 46px;
+  padding: 6px 10px;
+}
+
+.area-search-option[aria-selected="true"] {
+  background: var(--sage-tint);
+}
+
+.area-search-option-icon {
+  align-items: center;
+  background: var(--surface-muted);
+  border-radius: var(--r-pill);
+  color: var(--ink-soft);
+  display: inline-flex;
+  flex: 0 0 30px;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.area-search-option-icon.neighborhood {
+  background: var(--sage-tint-strong);
+  color: var(--sage-deep);
+}
+
+.area-search-option-icon.city {
+  background: var(--amber-tint);
+  color: var(--amber-strong);
+}
+
+.area-search-option-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.area-search-option-text strong {
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.area-search-option-text mark {
+  background: transparent;
+  color: var(--ink-strong);
+  font-weight: 800;
+}
+
+.area-search-option-text small {
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.area-search-message {
+  color: var(--info);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* Homepage rail: the outer box owns the border, so the field is borderless. */
+.public-map-search-box .area-search-row {
+  min-height: 48px;
+  padding: 0 6px 0 2px;
+}
+
+.public-map-search-box .area-search-field input {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  font-size: 15px;
+  font-weight: 700;
+  min-height: 44px;
+}
+
+.public-map-search-box .area-search-popover {
+  left: -1px;
+  right: -1px;
+}
+
+.public-map-search-box .area-search-message {
+  padding: 0 10px 8px 38px;
+}
+
+.seller-map-search .area-search-row .button {
+  min-height: 42px;
+  padding-inline: 18px;
+}
+
+.filter-area-search .area-search-field input {
+  min-height: 40px;
+}
+
+@media (max-width: 640px) {
+  .seller-map-search .area-search-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .area-search-popover {
+    max-height: 50vh;
+  }
+
+  .area-search-option {
+    min-height: 50px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .area-search-spinner {
+    animation-duration: 2s;
+  }
 }

@@ -1,18 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
-import {
-  serviceAreaDisplayLabel,
-  type ServiceArea,
-} from "../lib/service-areas";
-import {
-  hasSearchSuggestions,
-  resolvedAreaFromSearchPayload,
-  type ServiceAreaSearchResponse,
-} from "../lib/service-area-api";
+import { useEffect, useState, type FormEvent } from "react";
+import { serviceAreaDisplayLabel } from "../lib/service-areas";
 import { propertyTypeOptions } from "../lib/property-types";
 import { Icon } from "./icon";
+import { ServiceAreaCombobox } from "./service-area-combobox";
 
 type Props = {
   defaultAmenities?: string[];
@@ -57,8 +50,6 @@ export function SearchFiltersSidebar({
   const router = useRouter();
   const [area, setArea] = useState(defaultArea);
   const [serviceArea, setServiceArea] = useState(defaultServiceArea);
-  const [locationMessage, setLocationMessage] = useState("");
-  const [isLookingUp, setIsLookingUp] = useState(false);
   const [minBudget, setMinBudget] = useState(String(defaultBudgetMin || ""));
   const [maxBudget, setMaxBudget] = useState(String(defaultBudgetMax || ""));
   const [checkedBadges, setCheckedBadges] = useState<string[]>(defaultBadges);
@@ -72,71 +63,7 @@ export function SearchFiltersSidebar({
   useEffect(() => {
     setArea(defaultArea);
     setServiceArea(defaultServiceArea);
-    setLocationMessage("");
-    setIsLookingUp(false);
   }, [defaultArea, defaultServiceArea, marketSlug]);
-
-  function handleLocationChange(value: string) {
-    setArea(value);
-    setLocationMessage("");
-
-    setServiceArea("");
-  }
-
-  async function handleLocationLookup() {
-    if (!area.trim()) return;
-    setLocationMessage("");
-
-    if (area.trim().length < 3) {
-      setLocationMessage("Enter a supported city, neighborhood, or ZIP.");
-      return;
-    }
-
-    setIsLookingUp(true);
-    try {
-      const params = new URLSearchParams({ market: marketSlug, q: area });
-      const response = await fetch(`/api/service-areas/search?${params}`, { cache: "no-store" });
-      const payload = await response.json() as ServiceAreaSearchResponse;
-
-      if (!response.ok) {
-        setLocationMessage("We're not active there yet.");
-        return;
-      }
-      const resolvedArea = resolvedAreaFromSearchPayload(payload);
-      if (resolvedArea) {
-        applyServiceArea(resolvedArea);
-        setLocationMessage(`${resolvedArea.label} verified.`);
-        return;
-      }
-      if (hasSearchSuggestions(payload)) {
-        setLocationMessage("Choose a specific supported city, neighborhood, or ZIP.");
-        return;
-      }
-
-      setLocationMessage("We're not active there yet.");
-    } catch {
-      setLocationMessage("Location lookup failed.");
-    } finally {
-      setIsLookingUp(false);
-    }
-  }
-
-  function handleLocationKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key !== "Enter") return;
-    event.preventDefault();
-    void handleLocationLookup();
-  }
-
-  function handleClearLocation() {
-    setArea("");
-    setServiceArea("");
-    setLocationMessage("");
-  }
-
-  function applyServiceArea(matchedArea: ServiceArea) {
-    setArea(serviceAreaDisplayLabel(matchedArea));
-    setServiceArea(matchedArea.slug);
-  }
 
   function toggleBadge(badge: string) {
     setCheckedBadges((current) =>
@@ -183,36 +110,27 @@ export function SearchFiltersSidebar({
       <form className="filters-form" onSubmit={handleFormSubmit}>
         <div className="filter-section">
           <h4 className="filter-section-title">Location</h4>
-          <div className="location-input-container">
-            <div className="input-with-clear">
-              <Icon name="search" className="search-field-icon" size={15} />
-              <input
-                autoComplete="off"
-                id="search-area-input"
-                name="area"
-                onBlur={handleLocationLookup}
-                onChange={(event) => handleLocationChange(event.target.value)}
-                onKeyDown={handleLocationKeyDown}
-                placeholder="Search city, neighborhood, or ZIP"
-                type="text"
-                value={area}
-              />
-              {area ? (
-                <button
-                  aria-label="Clear location input"
-                  className="clear-input-btn"
-                  onClick={handleClearLocation}
-                  type="button"
-                >
-                  &times;
-                </button>
-              ) : null}
-            </div>
-          </div>
-          <button className="link-button" disabled={isLookingUp || !area.trim()} onClick={handleLocationLookup} type="button">
-            {isLookingUp ? "Checking..." : "Verify area"}
-          </button>
-          {locationMessage ? <span className="location-message-info">{locationMessage}</span> : null}
+          <ServiceAreaCombobox
+            ariaLabel="Filter buyers by city, neighborhood, or ZIP"
+            className="filter-area-search"
+            clearLabel="Clear location filter"
+            defaultValue={area}
+            inputId="search-area-input"
+            marketSlug={marketSlug}
+            onClear={() => {
+              setArea("");
+              setServiceArea("");
+            }}
+            onQueryChange={() => setServiceArea("")}
+            onSelect={(selected) => {
+              setArea(serviceAreaDisplayLabel(selected));
+              setServiceArea(selected.slug);
+            }}
+            placeholder="Search city, neighborhood, or ZIP"
+          />
+          <span className="location-message-info" role="status">
+            {serviceArea ? `Filtering to ${area}` : area ? "Choose an area from the list to filter." : "Any LA County area"}
+          </span>
         </div>
 
         <div className="filter-section">

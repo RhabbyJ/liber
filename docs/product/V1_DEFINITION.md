@@ -70,9 +70,11 @@ The approved v1 launch market is Los Angeles County, California (County GEOID `0
 
 - all 88 incorporated cities;
 - 304 County-associated 2020 Census ZCTAs, labeled as approximate ZIP service areas rather than official USPS ZIP boundaries;
-- the three previously reviewed pilot neighborhoods: Encino, Northridge, and Tarzana.
+- all 269 County statistical communities as approximate neighborhoods: 139 City of Los Angeles communities (for example Granada Hills, Sherman Oaks, Van Nuys), 10 Long Beach communities, and 120 unincorporated communities (for example Altadena and East Los Angeles).
 
-The remaining County statistical communities are retained as inactive reviewed geography and are not public selection options. Liber does not infer ZIP-to-city or ZIP-to-neighborhood membership at runtime; only explicit reviewed relationships may broaden a seller search.
+Encino, Northridge, and Tarzana were the reviewed pilot communities. The remaining 266 became selectable on 2026-10-13 through the guarded community release (`la-county-06037-2026-07-12-v2-communities-2026-10-13`), which can be rolled back while no published buyer depends on them. Liber does not infer ZIP-to-city or ZIP-to-neighborhood membership at runtime; only explicit reviewed relationships may broaden a seller search. Searching a city still includes its reviewed communities, so a City of Los Angeles search includes buyers who chose Granada Hills.
+
+Area search accepts any word of a name ("hills"), common spacing and abbreviation variants ("silver lake", "mount washington"), state suffixes ("Granada Hills, CA"), accents ("La Cañada"), a short reviewed nickname list (for example NoHo, WeHo, DTLA), and small typos. Only exact reviewed names auto-select an area; looser matches are suggestions the person must choose.
 
 Interactive Mapbox maps may pan and zoom throughout the County bounds, but they do not show ambient County, city, or ZCTA borders. Selecting a supported ZIP, city, or neighborhood draws only that canonical service-area polygon and scopes the same privacy-safe or seller-authorized result set. Clearing the selection removes the polygon.
 

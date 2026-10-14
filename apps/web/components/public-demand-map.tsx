@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PublicBuyerPreviewDTO } from "../lib/buyer-dtos";
 import { syncSelectedAreaLayer } from "../lib/map-boundary-layers";
-import { loadMapboxGl, type MapboxMap, type MapboxMarker } from "../lib/mapbox-gl-loader";
-import { marketMapBounds, marketMapInstanceKey, selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
+import type { MapboxMarker } from "../lib/mapbox-gl-loader";
+import { selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
+import { clusterBounds, clusterMarkerGroups, clusterZoomLimit } from "../lib/map-marker-clusters";
 import { groupMapPoints } from "../lib/map-point-groups";
 import { mapboxStaticImageUrl } from "../lib/mapbox-static-image";
 import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
+import { fitMapTo, fitMapToMarket, useMarketMap } from "../lib/use-market-map";
 
 type Props = {
   market: MarketMapContext;
@@ -45,13 +47,18 @@ export function PublicDemandMap({
   token,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<MapboxMap | null>(null);
   const markersRef = useRef<MapboxMarker[]>([]);
-  const [didFail, setDidFail] = useState(false);
-  const [isReady, setIsReady] = useState(false);
   const [hasLiveMarkers, setHasLiveMarkers] = useState(false);
   const mapboxToken = token?.trim() ?? "";
   const shouldUseMapbox = Boolean(mapboxToken);
+  const { didFail, isReady, mapRef } = useMarketMap({
+    containerRef,
+    enabled: shouldUseMapbox,
+    initialBounds: selectedArea ? selectedAreaBounds(selectedArea) : null,
+    initialZoom: 10.6,
+    market,
+    token: mapboxToken,
+  });
   const selectedAreaGeojson = useKeyedGeoJson(shouldUseMapbox ? selectedArea?.geojsonPath : undefined);
 
   const points = useMemo<PreviewPoint[]>(
@@ -66,134 +73,76 @@ export function PublicDemandMap({
         .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng)),
     [previews],
   );
-  const mapInstanceKey = marketMapInstanceKey(market, mapboxToken);
-  const [marketWest, marketSouth, marketEast, marketNorth] = market.bbox;
-  const marketCenterLat = market.center.lat;
-  const marketCenterLng = market.center.lng;
-
-  useEffect(() => {
-    setDidFail(false);
-  }, [mapInstanceKey]);
-
-  useEffect(() => {
-    if (didFail) return;
-    let canceled = false;
-    setIsReady(false);
-
-    async function setupMap() {
-      if (!containerRef.current || !shouldUseMapbox) return;
-
-      try {
-        const mapboxgl = await loadMapboxGl();
-        if (canceled || !containerRef.current) return;
-
-        mapboxgl.accessToken = mapboxToken;
-        mapRef.current = new mapboxgl.Map({
-          antialias: true,
-          attributionControl: true,
-          center: [marketCenterLng, marketCenterLat],
-          container: containerRef.current,
-          cooperativeGestures: false,
-          maxBounds: [[marketWest, marketSouth], [marketEast, marketNorth]],
-          style: "mapbox://styles/mapbox/streets-v12",
-          zoom: 10.6,
-        });
-
-        let loaded = false;
-        mapRef.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "bottom-right");
-        mapRef.current.on("load", () => {
-          if (canceled) return;
-          loaded = true;
-          setIsReady(true);
-        });
-        // Only treat errors before first load as fatal; later tile hiccups are recoverable.
-        mapRef.current.on("error", () => {
-          if (!canceled && !loaded) setDidFail(true);
-        });
-      } catch {
-        if (!canceled) setDidFail(true);
-      }
-    }
-
-    setHasLiveMarkers(false);
-    setupMap();
-
-    return () => {
-      canceled = true;
-      markersRef.current.forEach((marker) => marker.remove());
-      markersRef.current = [];
-      mapRef.current?.remove();
-      mapRef.current = null;
-    };
-  }, [
-    didFail,
-    mapInstanceKey,
-    mapboxToken,
-    marketCenterLat,
-    marketCenterLng,
-    marketEast,
-    marketNorth,
-    marketSouth,
-    marketWest,
-    shouldUseMapbox,
-  ]);
+  const centerGroups = useMemo(() => groupMapPoints(points), [points]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current) return;
     syncSelectedAreaLayer(mapRef.current, selectedAreaGeojson);
-  }, [isReady, selectedAreaGeojson]);
+  }, [isReady, mapRef, selectedAreaGeojson]);
 
   useEffect(() => {
-    if (!isReady || !mapRef.current || !window.mapboxgl) return;
+    const map = mapRef.current;
+    const mapboxgl = window.mapboxgl;
+    if (!isReady || !map || !mapboxgl) return;
+    const cta = {
+      primaryHref: primaryCtaHref,
+      primaryLabel: primaryCtaLabel,
+      secondaryHref: secondaryCtaHref,
+      secondaryLabel: secondaryCtaLabel,
+    };
 
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current = [];
-    setHasLiveMarkers(false);
+    const clearMarkers = () => {
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current = [];
+    };
 
-    for (const group of groupMapPoints(points)) {
-      const point = group.points[0];
-      const markerNode = document.createElement("button");
-      markerNode.type = "button";
-      markerNode.className = "buyer-map-marker public-demand-pin";
-      markerNode.dataset.publicDemandPreviewIndexes = group.points.map((item) => item.index).join(",");
-      markerNode.setAttribute("aria-label", `${group.points.length} ${group.points.length === 1 ? "buyer targeting" : "buyers targeting"} ${point.preview.area}`);
-      markerNode.innerHTML = group.points.length > 1
-        ? `<span class="public-demand-count" aria-hidden="true">${group.points.length}</span>`
-        : `<span aria-hidden="true"></span>`;
+    const renderMarkers = () => {
+      clearMarkers();
+      for (const cluster of clusterMarkerGroups(centerGroups, (lngLat) => map.project(lngLat))) {
+        const items = cluster.members.flatMap((group) => group.points);
+        const markerNode = document.createElement("button");
+        markerNode.type = "button";
+        markerNode.className = "buyer-map-marker public-demand-pin";
+        markerNode.dataset.publicDemandPreviewIndexes = items.map((item) => item.index).join(",");
+        markerNode.innerHTML = items.length > 1
+          ? `<span class="public-demand-count" aria-hidden="true">${items.length}</span>`
+          : `<span aria-hidden="true"></span>`;
+        let marker = new mapboxgl.Marker({ anchor: "center", element: markerNode })
+          .setLngLat([cluster.anchor.lng, cluster.anchor.lat]);
 
-      const popup = new window.mapboxgl.Popup({ closeButton: true, offset: 18 }).setHTML(
-        `<div class="buyer-map-popup-group">${group.points.map((item) => previewPopupHtml(item.preview, {
-          primaryHref: primaryCtaHref,
-          primaryLabel: primaryCtaLabel,
-          secondaryHref: secondaryCtaHref,
-          secondaryLabel: secondaryCtaLabel,
-        })).join("")}</div>`,
-      );
-      const marker = new window.mapboxgl.Marker({ element: markerNode, anchor: "center" })
-        .setLngLat([point.lng, point.lat])
-        .setPopup(popup)
-        .addTo(mapRef.current);
+        if (cluster.members.length > 1) {
+          markerNode.setAttribute("aria-label", `Zoom in to ${items.length} buyers in ${cluster.members.length} nearby areas`);
+          markerNode.addEventListener("click", () => fitMapTo(map, clusterBounds(cluster.members), clusterZoomLimit(map)));
+        } else {
+          markerNode.setAttribute("aria-label", `${items.length} ${items.length === 1 ? "buyer targeting" : "buyers targeting"} ${items[0].preview.area}`);
+          marker = marker.setPopup(new mapboxgl.Popup({ closeButton: true, maxWidth: "300px", offset: 18 }).setHTML(
+            `<div class="buyer-map-popup-group">${items.map((item) => previewPopupHtml(item.preview, cta)).join("")}</div>`,
+          ));
+        }
+        markersRef.current.push(marker.addTo(map));
+      }
+      setHasLiveMarkers(true);
+    };
 
-      markersRef.current.push(marker);
-    }
-    setHasLiveMarkers(true);
+    renderMarkers();
+    map.on("zoomend", renderMarkers);
+    return () => {
+      map.off("zoomend", renderMarkers);
+      clearMarkers();
+    };
+  }, [centerGroups, isReady, mapRef, primaryCtaHref, primaryCtaLabel, secondaryCtaHref, secondaryCtaLabel]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!isReady || !map || !window.mapboxgl) return;
     if (selectedArea) {
-      mapRef.current.fitBounds(selectedAreaBounds(selectedArea), { maxZoom: 12.6, padding: 92 });
+      fitMapTo(map, selectedAreaBounds(selectedArea), 13.2);
     } else if (points.length > 1) {
       const bounds = new window.mapboxgl.LngLatBounds();
       points.forEach((point) => bounds.extend([point.lng, point.lat]));
-      mapRef.current.fitBounds(bounds, { maxZoom: 12, padding: 90 });
+      fitMapTo(map, bounds, 12);
     }
-  }, [
-    isReady,
-    points,
-    primaryCtaHref,
-    primaryCtaLabel,
-    secondaryCtaHref,
-    secondaryCtaLabel,
-    selectedArea,
-  ]);
+  }, [isReady, mapRef, points, selectedArea]);
 
   if (!shouldUseMapbox || didFail) {
     return <PublicStaticDemandMap market={market} points={points} selectedArea={selectedArea} token={mapboxToken} />;
@@ -209,7 +158,9 @@ export function PublicDemandMap({
       <button
         aria-label="Fit map to all of Los Angeles County"
         className="map-view-all-control"
-        onClick={() => mapRef.current?.fitBounds(marketMapBounds(market), { padding: 64 })}
+        onClick={() => {
+          if (mapRef.current) fitMapToMarket(mapRef.current, market);
+        }}
         type="button"
       >
         View all LA County
