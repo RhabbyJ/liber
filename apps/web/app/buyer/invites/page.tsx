@@ -4,8 +4,9 @@ import { BuyerInviteCard } from "../../../components/buyer-invite-card";
 import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
 import { PageTitle } from "../../../components/page-title";
+import { WorkspaceTabs } from "../../../components/workspace-tabs";
 import type { InviteDTO } from "../../../lib/marketplace-dtos";
-import { listBuyerInvites } from "../../../server/contracts";
+import { listBuyerInvites, listNotifications } from "../../../server/contracts";
 import { respondToBuyerInvite } from "../../../server/form-actions";
 import { groupBuyerInvites } from "./invite-groups";
 import "./invites.css";
@@ -14,7 +15,8 @@ export default async function BuyerInvitesPage({ searchParams }: {
   searchParams?: Promise<{ error?: string; status?: string }>;
 }) {
   const { error = "", status = "" } = searchParams ? await searchParams : {};
-  const { data: invites } = await listBuyerInvites();
+  const [{ data: invites }, { data: notifications }] = await Promise.all([listBuyerInvites(), listNotifications()]);
+  const unread = notifications.filter((notification) => !notification.readAt).length;
   const awaitingReply = invites.filter((invite) => invite.status === "Sent" || invite.status === "Viewed").length;
   const groups = groupBuyerInvites(invites);
 
@@ -26,6 +28,14 @@ export default async function BuyerInvitesPage({ searchParams }: {
       >
         {awaitingReply ? `${awaitingReply} awaiting your reply` : "Properties shared just with you"}
       </PageTitle>
+      <WorkspaceTabs
+        current="/buyer/invites"
+        label="Buyer activity"
+        tabs={[
+          { href: "/buyer/invites", label: "Received invites" },
+          { badge: unread, href: "/buyer/notifications", label: "Notifications" },
+        ]}
+      />
       {status === "accepted" ? <Notice tone="success">Invite accepted. Continue in your private chat with the seller.</Notice> : null}
       {status === "declined" ? <Notice tone="success">Invite declined. You can still receive invites from other sellers.</Notice> : null}
       {status === "blocked" ? <Notice tone="success">Seller blocked. Future invites from this seller are unavailable.</Notice> : null}
