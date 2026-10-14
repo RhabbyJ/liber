@@ -143,7 +143,7 @@ export function LocationLookupFields({
           }}
         >
           <div className="buyer-location-input-wrap">
-            <Icon name="search" size={16} />
+            <Icon name="search" size={18} />
             <input
               aria-activedescendant={isOpen && activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
               aria-autocomplete="list"
@@ -172,7 +172,7 @@ export function LocationLookupFields({
                 }}
                 type="button"
               >
-                &times;
+                <Icon name="close" size={16} />
               </button>
             ) : null}
           </div>
@@ -212,7 +212,7 @@ export function LocationLookupFields({
           className={`location-selection-status ${serviceAreaSlug ? "selected" : ""}`}
           id={`${inputId}-status`}
         >
-          {serviceAreaSlug ? <Icon name="check" size={12} /> : null}
+          {serviceAreaSlug ? <Icon name="check" size={16} /> : null}
           {serviceAreaSlug ? `Selected area: ${query}` : message || "Start typing, then choose a matching area."}
         </span>
       </div>

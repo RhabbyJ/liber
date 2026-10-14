@@ -1,0 +1,813 @@
+/* ==========================================================================
+   Buyer area (profile setup/edit, saved profile, verification).
+   Loaded after globals.css from app/buyer/layout.tsx; every rule is scoped
+   to a buyer-area class so it is inert elsewhere once the sheet is cached.
+   ========================================================================== */
+
+/* Page frames: one 720px column, like Zillow's account and preference forms. */
+.buyer-profile-page.page,
+.buyer-verification-page.page {
+  max-width: calc(720px + 2 * var(--gutter));
+}
+
+.buyer-profile-summary-page {
+  display: grid;
+  gap: 32px;
+}
+
+.buyer-profile-setup .buyer-profile-shell {
+  gap: 24px;
+  max-width: none;
+}
+
+/* Section headings across buyer pages: 20/28 semibold over a hairline. */
+.buyer-profile-page .settings-section h2,
+.buyer-verification-page .settings-section h2,
+.buyer-form-section h2 {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+/* Setup progress ---------------------------------------------------------- */
+
+.buyer-setup-progress {
+  display: grid;
+  gap: 8px;
+}
+
+.buyer-setup-progress-bar {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.buyer-setup-progress-bar > span {
+  border-radius: 2px;
+  height: 4px;
+}
+
+.buyer-setup-progress-bar > .done {
+  background: var(--sage-deep);
+}
+
+.buyer-setup-progress-bar > .current {
+  background: linear-gradient(to right, var(--sage-deep) 0 40%, var(--surface-band) 40% 100%);
+}
+
+.buyer-setup-progress p {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.buyer-profile-setup .buyer-profile-intro {
+  gap: 4px;
+}
+
+.buyer-profile-setup .buyer-profile-intro h1 {
+  font-size: 32px;
+  line-height: 40px;
+}
+
+/* Wizard form ------------------------------------------------------------- */
+
+.buyer-profile-form .buyer-form-section,
+.buyer-profile-form .buyer-form-section:first-of-type {
+  border-top: 1px solid var(--line);
+  gap: 20px;
+  padding: 24px 0 32px;
+}
+
+.buyer-form-section .optional-tag {
+  font-size: 16px;
+}
+
+.buyer-profile-form .buyer-form-fields {
+  gap: 24px;
+}
+
+.buyer-profile-form .form-grid {
+  gap: 24px;
+}
+
+.buyer-identity-preview {
+  gap: 16px;
+}
+
+.buyer-identity-preview small {
+  max-width: 520px;
+}
+
+.buyer-choice-field {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.buyer-profile-form fieldset > legend {
+  padding: 0;
+}
+
+.buyer-choice-field > legend,
+.buyer-amenities-field > legend {
+  margin-bottom: 8px;
+}
+
+/* Segmented radios (Redfin beds/baths): hairline boxes that share edges. */
+.buyer-choice-group {
+  display: flex;
+  width: 100%;
+}
+
+.buyer-choice {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  color: var(--ink-strong);
+  cursor: pointer;
+  display: flex;
+  flex: 1 1 0;
+  font-size: 14px;
+  font-weight: 700;
+  justify-content: center;
+  line-height: 18px;
+  margin-left: -1px;
+  min-height: 44px;
+  min-width: 0;
+  padding: 4px 8px;
+  position: relative;
+  text-align: center;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  user-select: none;
+}
+
+.buyer-choice-group.segmented .buyer-choice:first-child {
+  border-radius: var(--r-xs) 0 0 var(--r-xs);
+  margin-left: 0;
+}
+
+.buyer-choice-group.segmented .buyer-choice:last-child {
+  border-radius: 0 var(--r-xs) var(--r-xs) 0;
+}
+
+/* The native radio stays focusable and keyboard-operable; the box draws its state. */
+.buyer-choice-group .buyer-choice input[type="radio"],
+.buyer-chip-row .buyer-chip input[type="checkbox"] {
+  height: 1px;
+  margin: 0;
+  min-height: 0;
+  opacity: 0;
+  padding: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 1px;
+}
+
+.buyer-choice:has(input:checked) {
+  background: var(--sage-tint);
+  border-color: var(--sage-deep);
+  box-shadow: inset 0 0 0 1px var(--sage-deep);
+  z-index: 2;
+}
+
+.buyer-choice:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+  z-index: 3;
+}
+
+.buyer-choice-group.wrap {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.buyer-choice-group.wrap .buyer-choice {
+  border-radius: var(--r-xs);
+  flex: 0 0 auto;
+  margin-left: 0;
+  padding: 4px 16px;
+}
+
+/* Toggle chips (search filter amenities): pill, plus icon, check when on. */
+.buyer-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.buyer-chip {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  color: var(--ink-strong);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 6px;
+  height: 40px;
+  line-height: 24px;
+  padding: 0 16px 0 12px;
+  position: relative;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  user-select: none;
+}
+
+.buyer-chip::after {
+  content: "";
+  inset: -2px 0;
+  position: absolute;
+}
+
+.buyer-chip .icon {
+  color: var(--ink-soft);
+}
+
+.buyer-chip .buyer-chip-on {
+  display: none;
+}
+
+.buyer-chip:has(input:checked) {
+  background: var(--sage-tint);
+  border-color: var(--sage-deep);
+  box-shadow: inset 0 0 0 1px var(--sage-deep);
+}
+
+.buyer-chip:has(input:checked) .buyer-chip-add {
+  display: none;
+}
+
+.buyer-chip:has(input:checked) .buyer-chip-on {
+  color: var(--sage-deep);
+  display: inline-flex;
+}
+
+.buyer-chip:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .buyer-choice:not(:has(input:checked)):hover {
+    background: var(--sage-tint);
+    border-color: var(--sage-deep);
+    z-index: 1;
+  }
+
+  .buyer-chip:hover {
+    border-color: var(--sage-deep);
+  }
+}
+
+/* Min / Max boxes: labels above, an en dash between, as in the search budget filter. */
+.buyer-profile-form .range-field {
+  gap: 4px;
+}
+
+.buyer-profile-form .range-input-pair {
+  align-items: end;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.buyer-profile-form .range-field > legend {
+  margin-bottom: 4px;
+}
+
+.buyer-profile-form .range-number-box {
+  gap: 4px;
+}
+
+/* Min / Max sit under a bold legend, so they read as secondary labels. */
+.buyer-profile-form .field label.range-number-box {
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+/* Min and Max stay side by side on phones too (globals stack them under 640px). */
+.buyer-profile-form .range-to {
+  color: var(--ink-soft);
+  display: block;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 44px;
+  padding: 0;
+}
+
+.buyer-profile-form .range-prefix {
+  color: var(--ink-soft);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.buyer-profile-form .range-suffix {
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.buyer-profile-form .field .range-number-input.has-prefix {
+  padding-left: 28px;
+}
+
+/* Target area lookup */
+.buyer-profile-form .location-selection-status {
+  color: var(--ink-meta);
+  font-size: 14px;
+  font-weight: 400;
+  gap: 6px;
+  line-height: 20px;
+  margin-top: 4px;
+}
+
+/* Ink text with a green check: #47a62f text alone is 3.1:1 at this size. */
+.buyer-profile-form .location-selection-status.selected {
+  color: var(--ink-strong);
+}
+
+.buyer-profile-form .location-selection-status.selected .icon {
+  color: var(--sage-deep);
+}
+
+.buyer-profile-form .buyer-location-input-wrap > svg {
+  color: var(--ink-soft);
+}
+
+.buyer-profile-form .buyer-location-clear {
+  border-radius: var(--r-xs);
+  height: 36px;
+  width: 36px;
+}
+
+@media (pointer: coarse) {
+  .buyer-profile-form .buyer-location-clear {
+    height: 44px;
+    right: 0;
+    width: 44px;
+  }
+}
+
+.buyer-profile-form .buyer-area-option {
+  margin-bottom: 0;
+}
+
+.buyer-profile-form .buyer-area-option[aria-selected="true"] {
+  background: var(--sage-tint-strong);
+  border-color: transparent;
+}
+
+.buyer-profile-form .buyer-profile-form-error {
+  margin: 8px 0 24px;
+}
+
+.buyer-profile-form .buyer-profile-form-error:focus {
+  outline: none;
+}
+
+.buyer-profile-form .buyer-profile-form-error:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+/* Save bar: right-aligned on desktop; a sticky white bar on phones. */
+.buyer-profile-form .buyer-profile-submit {
+  border-top: 1px solid var(--line);
+  justify-content: flex-end;
+  margin-top: 0;
+  padding: 24px 0 0;
+}
+
+.buyer-profile-form .buyer-profile-submit .button {
+  min-height: 48px;
+  min-width: 220px;
+  width: auto;
+}
+
+.buyer-test-notice .trust-badge {
+  margin-right: 4px;
+}
+
+/* Saved profile summary --------------------------------------------------- */
+
+/* Zillow profile header: avatar, name with the account code, one meta line, status, then actions. */
+.profile-header.buyer-summary-header {
+  align-items: center;
+  display: grid;
+  gap: 12px 24px;
+  grid-template-columns: 96px minmax(0, 1fr);
+}
+
+.buyer-summary-header .generated-avatar {
+  align-self: start;
+  grid-row: span 2;
+}
+
+.buyer-summary-header .profile-header-text {
+  gap: 4px;
+}
+
+.buyer-summary-header .profile-header-text h1 {
+  overflow-wrap: anywhere;
+}
+
+.buyer-summary-code {
+  color: var(--ink-soft);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 28px;
+  white-space: nowrap;
+}
+
+.buyer-summary-header .profile-header-text .meta-line {
+  color: var(--ink-soft);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.buyer-summary-header .status-tag {
+  margin-top: 4px;
+}
+
+.buyer-summary-header .profile-header-actions {
+  grid-column: 2;
+}
+
+.buyer-summary-rows {
+  display: grid;
+  margin: 0;
+}
+
+.buyer-summary-rows.settings-dl {
+  gap: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.buyer-summary-rows .buyer-summary-row {
+  align-items: center;
+  border-bottom: 1px solid var(--line-soft);
+  display: grid;
+  gap: 4px 24px;
+  grid-template-columns: 200px minmax(0, 1fr);
+  min-height: 56px;
+  padding: 12px 0;
+}
+
+.buyer-summary-rows .buyer-summary-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.buyer-summary-label,
+.buyer-summary-rows .avatar-color-label {
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.buyer-summary-value {
+  color: var(--ink-strong);
+  font-size: 16px;
+  line-height: 24px;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.buyer-summary-value.is-empty {
+  color: var(--ink-meta);
+}
+
+.buyer-summary-rows .avatar-swatch-grid {
+  gap: 4px;
+}
+
+.buyer-summary-rows .avatar-swatch {
+  padding: 2px;
+}
+
+.buyer-summary-rows .avatar-swatch:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.buyer-financing-row {
+  gap: 16px;
+}
+
+.buyer-financing-row .status-list-icon {
+  height: 40px;
+  width: 40px;
+}
+
+.buyer-financing-row .settings-status-text strong {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.buyer-summary-empty {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* Verification ------------------------------------------------------------ */
+
+.verification-status-list {
+  display: grid;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.verification-status-row {
+  align-items: start;
+  border-bottom: 1px solid var(--line-soft);
+  display: grid;
+  gap: 4px 16px;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  min-height: 72px;
+  padding: 16px 0;
+}
+
+.verification-status-row:first-child {
+  padding-top: 4px;
+}
+
+.verification-status-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.verification-status-icon {
+  align-items: center;
+  align-self: start;
+  background: var(--surface-muted);
+  border-radius: 50%;
+  color: var(--ink-soft);
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.verification-status-row.active .verification-status-icon {
+  background: var(--sage-tint-strong);
+  color: var(--sage-deep);
+}
+
+.verification-status-row.pending .verification-status-icon {
+  background: var(--amber-tint);
+  color: var(--amber-strong);
+}
+
+.verification-status-row.expired .verification-status-icon,
+.verification-status-row.rejected .verification-status-icon {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
+.verification-status-row.test .verification-status-icon {
+  background: var(--warning-tint);
+  color: var(--warning);
+}
+
+.verification-status-text {
+  display: grid;
+  justify-items: start;
+  min-width: 0;
+}
+
+.verification-status-text strong {
+  color: var(--ink-strong);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.verification-status-text > span {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.verification-status-text .text-link,
+.verification-document-rejection .text-link {
+  font-size: 14px;
+  line-height: 20px;
+  position: relative;
+}
+
+.verification-status-text .text-link {
+  margin-top: 4px;
+}
+
+/* Inline links keep a 44px touch target without adding row height. */
+.verification-status-text .text-link::after,
+.verification-document-rejection .text-link::after {
+  content: "";
+  inset: -12px -4px;
+  position: absolute;
+}
+
+.verification-status-row > .status-tag {
+  margin-top: 4px;
+}
+
+.verification-status-row .status-tag.warning {
+  background: var(--warning-tint);
+  color: var(--warning);
+}
+
+.verification-documents {
+  gap: 16px;
+}
+
+.verification-document-list {
+  display: grid;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.verification-document {
+  border-bottom: 1px solid var(--line-soft);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 40px minmax(0, 1fr);
+  padding: 16px 0;
+}
+
+.verification-document:first-child {
+  padding-top: 4px;
+}
+
+.verification-document:last-child {
+  border-bottom: 0;
+}
+
+.verification-document-icon {
+  align-items: center;
+  background: var(--surface-muted);
+  border-radius: var(--r-md);
+  color: var(--ink-soft);
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.verification-document-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.verification-document-head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  justify-content: space-between;
+}
+
+.verification-document-head h3 {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+.verification-document-meta {
+  color: var(--ink-meta);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 14px;
+  gap: 0 12px;
+  line-height: 20px;
+}
+
+.verification-document-file {
+  color: var(--ink-strong);
+  overflow-wrap: anywhere;
+}
+
+.verification-document-note {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+  margin-top: 4px;
+}
+
+.verification-document-rejection {
+  background: var(--danger-tint);
+  border-radius: var(--r-md);
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  margin-top: 8px;
+  padding: 12px 16px;
+}
+
+.verification-document-rejection p {
+  color: var(--ink-strong);
+  font-size: 14px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.verification-documents-empty {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* Phones ------------------------------------------------------------------ */
+
+@media (max-width: 767px) {
+  .buyer-profile-setup .buyer-profile-intro h1 {
+    font-size: 24px;
+    line-height: 32px;
+  }
+
+  .buyer-profile-form .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .buyer-profile-form .buyer-form-section,
+  .buyer-profile-form .buyer-form-section:first-of-type {
+    padding: 20px 0 28px;
+  }
+
+  .buyer-profile-form .buyer-profile-submit {
+    background: var(--surface);
+    border-top: 0;
+    bottom: 0;
+    box-shadow: var(--shadow-sticky-bar);
+    margin: 0 calc(var(--gutter) * -1);
+    padding: 12px var(--gutter) calc(12px + env(safe-area-inset-bottom));
+    position: sticky;
+    z-index: 20;
+  }
+
+  .buyer-profile-form .buyer-profile-submit .button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .profile-header.buyer-summary-header {
+    gap: 16px;
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .buyer-summary-header .generated-avatar {
+    grid-row: auto;
+  }
+
+  .buyer-summary-header .generated-avatar.xl {
+    --generated-avatar-font: 28px;
+    --generated-avatar-size: 72px;
+  }
+
+  .buyer-summary-code {
+    display: block;
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  .buyer-summary-header .profile-header-actions {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  }
+
+  .buyer-summary-rows .buyer-summary-row {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .buyer-summary-rows .avatar-swatch-grid {
+    display: grid;
+    gap: 8px 16px;
+    grid-template-columns: repeat(4, 44px);
+  }
+
+  .buyer-financing-row {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .buyer-financing-row .button {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buyer-choice,
+  .buyer-chip {
+    transition: none;
+  }
+}

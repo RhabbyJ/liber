@@ -36,14 +36,14 @@ export function BuyerBudgetRange({ defaultMin, defaultMax }: { defaultMin: strin
             <input aria-describedby="budget-range-hint budget-range-error" aria-invalid={reversed || undefined} className="range-number-input has-prefix" id="budgetMin" inputMode="decimal" min={0} max={BUYER_BUDGET_MAX} name="budgetMin" placeholder="Minimum price" required step="any" type="number" value={minimum} onBlur={() => setTyping(false)} onChange={(event) => setMinimum(event.target.value)} onFocus={() => setTyping(true)} />
           </span>
         </label>
-        <span className="range-to" aria-hidden="true">to</span>
+        <span className="range-to" aria-hidden="true">–</span>
         <label className="range-number-box" htmlFor="budgetMax">
           <span>Max</span><span className="range-number-wrap"><span className="range-prefix" aria-hidden="true">$</span>
             <input aria-describedby="budget-range-hint budget-range-error" aria-invalid={reversed || undefined} className="range-number-input has-prefix" id="budgetMax" inputMode="decimal" min={0} max={BUYER_BUDGET_MAX} name="budgetMax" placeholder="Maximum price" required step="any" type="number" value={maximum} onBlur={() => setTyping(false)} onChange={(event) => setMaximum(event.target.value)} onFocus={() => setTyping(true)} />
           </span>
         </label>
       </div>
-      <p className="field-hint" id="budget-range-hint">Drag each handle or enter an exact amount. Slider steps grow from $25k to $1M as prices rise.</p>
+      <p className="field-hint" id="budget-range-hint">Drag the handles or type an exact amount.</p>
       <p className="field-hint invalid" id="budget-range-error" role={reversed ? "alert" : undefined}>{reversed ? "Minimum budget must be at or below maximum budget." : ""}</p>
     </fieldset>
   );

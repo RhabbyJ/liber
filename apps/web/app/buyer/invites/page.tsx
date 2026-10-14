@@ -4,8 +4,10 @@ import { BuyerInviteCard } from "../../../components/buyer-invite-card";
 import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
 import { PageTitle } from "../../../components/page-title";
+import type { InviteDTO } from "../../../lib/marketplace-dtos";
 import { listBuyerInvites } from "../../../server/contracts";
 import { respondToBuyerInvite } from "../../../server/form-actions";
+import { groupBuyerInvites } from "./invite-groups";
 import "./invites.css";
 
 export default async function BuyerInvitesPage({ searchParams }: {
@@ -14,6 +16,7 @@ export default async function BuyerInvitesPage({ searchParams }: {
   const { error = "", status = "" } = searchParams ? await searchParams : {};
   const { data: invites } = await listBuyerInvites();
   const awaitingReply = invites.filter((invite) => invite.status === "Sent" || invite.status === "Viewed").length;
+  const groups = groupBuyerInvites(invites);
 
   return (
     <div className="page stack loose buyer-invite-page">
@@ -29,10 +32,21 @@ export default async function BuyerInvitesPage({ searchParams }: {
       {error === "invite-locked" ? <Notice tone="warning">This invite has closed or changed. Refresh to see the latest status.</Notice> : null}
       {error === "question" ? <Notice tone="warning">Add a question of up to 500 characters. Keep personal information out of chat.</Notice> : null}
       {invites.length ? (
-        <div className="buyer-invite-grid">
-          {invites.map((invite) => <BuyerInviteCard action={respondToBuyerInvite} actionId={crypto.randomUUID()} invite={invite} key={invite.id} />)}
-        </div>
+        groups.length > 1 ? groups.map((group) => (
+          <section aria-labelledby={`invite-group-${group.key}`} className="buyer-invite-group" key={group.key}>
+            <h2 className="buyer-invite-group-title" id={`invite-group-${group.key}`}>{group.title} <span>{group.invites.length}</span></h2>
+            <InviteList invites={group.invites} />
+          </section>
+        )) : <InviteList invites={invites} />
       ) : <EmptyState icon="mail" title="No invites yet" description="When a seller finds a match, their property invite appears here. Keep your buyer profile current so they know what you want." actions={<Link className="button primary" href="/buyer/profile">Review your profile</Link>} />}
+    </div>
+  );
+}
+
+function InviteList({ invites }: { invites: InviteDTO[] }) {
+  return (
+    <div className="buyer-invite-list">
+      {invites.map((invite) => <BuyerInviteCard action={respondToBuyerInvite} actionId={crypto.randomUUID()} invite={invite} key={invite.id} />)}
     </div>
   );
 }

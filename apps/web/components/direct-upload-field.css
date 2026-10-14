@@ -1,0 +1,257 @@
+/* Direct upload: Zillow/Redfin-style drag-and-drop zone over the native file input.
+   The transparent input covers the zone, so clicking or tapping anywhere browses,
+   keyboard focus lands on the input, and the zone draws its focus ring. */
+
+.direct-upload {
+  align-content: start;
+  gap: 8px;
+}
+
+.direct-upload-type {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+  max-width: 360px;
+}
+
+.upload-dropzone {
+  align-content: center;
+  background: var(--surface);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-lg);
+  color: var(--ink-strong);
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  min-height: 168px;
+  padding: 24px 20px;
+  position: relative;
+  text-align: center;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+/* Specificity beats `.field input` and page-level `.x-form .field input` rules. */
+.field .upload-dropzone > input.upload-dropzone-input[type="file"] {
+  border: 0;
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  height: 100%;
+  inset: 0;
+  min-height: 0;
+  opacity: 0;
+  padding: 0;
+  position: absolute;
+  width: 100%;
+  z-index: 1;
+}
+
+.field .upload-dropzone > input.upload-dropzone-input[type="file"]:disabled {
+  cursor: not-allowed;
+}
+
+.upload-dropzone-icon {
+  align-items: center;
+  background: var(--sage-tint);
+  border-radius: 50%;
+  color: var(--sage-deep);
+  display: inline-flex;
+  height: 48px;
+  justify-content: center;
+  margin-bottom: 8px;
+  transition: background-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+  width: 48px;
+}
+
+.upload-dropzone-title {
+  color: var(--ink-strong);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+/* Ink, like .text-link: #47a62f text is 3.1:1 at this size. */
+.upload-dropzone-browse {
+  color: var(--ink-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.upload-dropzone-touch {
+  display: none;
+}
+
+.upload-dropzone-hint {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+  max-width: 420px;
+}
+
+.upload-dropzone:has(input:focus-visible) {
+  border-color: var(--sage-deep);
+  border-style: solid;
+  box-shadow: var(--focus-ring);
+}
+
+.upload-dropzone.is-dragover {
+  background: var(--sage-tint);
+  border-color: var(--sage-deep);
+  border-style: solid;
+  box-shadow: inset 0 0 0 1px var(--sage-deep);
+}
+
+.upload-dropzone.is-dragover .upload-dropzone-icon {
+  background: var(--surface);
+  transform: translateY(-2px);
+}
+
+.upload-dropzone.is-busy {
+  background: var(--surface-subtle);
+}
+
+.upload-dropzone.is-disabled {
+  background: var(--surface-muted);
+  border-color: var(--line);
+}
+
+.upload-dropzone.is-disabled .upload-dropzone-icon {
+  background: var(--surface);
+  color: var(--ink-soft);
+}
+
+.upload-dropzone.is-disabled .upload-dropzone-title {
+  color: var(--ink-soft);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .upload-dropzone:not(.is-disabled):not(.is-busy):not(.is-dragover):hover {
+    background: var(--surface-subtle);
+    border-color: var(--sage-deep);
+  }
+
+  .upload-dropzone:not(.is-disabled):not(.is-busy):not(.is-dragover):hover .upload-dropzone-icon {
+    background: var(--sage-tint-strong);
+  }
+}
+
+/* Touch devices cannot drag files in; say what a tap does. */
+@media (hover: none) and (pointer: coarse) {
+  .upload-dropzone {
+    min-height: 144px;
+  }
+
+  .upload-dropzone-pointer {
+    display: none;
+  }
+
+  .upload-dropzone-touch {
+    color: var(--ink-strong);
+    display: inline;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.direct-upload-files {
+  border-top: 1px solid var(--line-soft);
+  display: grid;
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.direct-upload-files li {
+  align-items: center;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--ink-strong);
+  display: grid;
+  font-size: 14px;
+  gap: 12px;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  line-height: 20px;
+  min-height: 48px;
+  padding: 8px 0;
+}
+
+.direct-upload-files li > .icon {
+  color: var(--ink-soft);
+}
+
+.direct-upload-file-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.direct-upload-file-size {
+  color: var(--ink-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+.direct-upload-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.direct-upload-message {
+  align-items: start;
+  border-radius: var(--r-md);
+  color: var(--ink-strong);
+  display: grid;
+  font-size: 14px;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr);
+  line-height: 20px;
+  margin: 4px 0 0;
+}
+
+.direct-upload-message.idle {
+  color: var(--ink-soft);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.direct-upload-message.success,
+.direct-upload-message.error {
+  padding: 12px 16px;
+}
+
+.direct-upload-message.success {
+  background: var(--sage-tint);
+}
+
+.direct-upload-message.success > .icon {
+  color: var(--sage-deep);
+}
+
+.direct-upload-message.error {
+  background: var(--danger-tint);
+}
+
+.direct-upload-message.error > .icon {
+  color: var(--danger);
+}
+
+@media (max-width: 767px) {
+  .direct-upload-type {
+    max-width: none;
+  }
+
+  .direct-upload-actions .button {
+    flex: 1 1 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upload-dropzone,
+  .upload-dropzone-icon {
+    transition: none;
+  }
+
+  .upload-dropzone.is-dragover .upload-dropzone-icon {
+    transform: none;
+  }
+}

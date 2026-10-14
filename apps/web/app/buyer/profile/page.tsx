@@ -64,6 +64,7 @@ export default async function BuyerProfileBuilderPage({
   const canSubmitVerification = buyer.id !== "new-profile" && buyer.visibility !== "draft";
   const accountName = buyer.accountName || "buyer";
   const displayName = buyer.name || accountName;
+  const [displayLabel, displayCode] = splitAccountCode(displayName);
   const visibilityLabel = isActive
     ? "Live to sellers"
     : buyer.visibility === "hidden"
@@ -104,7 +105,7 @@ export default async function BuyerProfileBuilderPage({
         ? "Upload a current document to renew your badge. Your evidence remains private."
         : "Upload a pre-approval letter or proof of funds. Liber keeps your documents private.";
   const verificationCard = (
-    <section className="settings-section" aria-labelledby="buyer-verification-title" id="buyer-verification-card">
+    <section className="settings-section buyer-verification-card" aria-labelledby="buyer-verification-title" id="buyer-verification-card">
       <h2 id="buyer-verification-title">Get pre-approved</h2>
       <p className="settings-help">
         {hasPreApproval
@@ -113,26 +114,30 @@ export default async function BuyerProfileBuilderPage({
             ? "Evidence is in review. You can upload an updated file if needed."
             : "Upload a pre-approval letter or proof of funds. Sellers only see an approved badge."}
       </p>
-      <div className="form-grid">
-        {verification === "missing" ? (
-          <p className="field-hint field full" role="status">Choose a file before submitting for review.</p>
-        ) : null}
-        {verification === "submitted" ? (
-          <p className="field-hint field full" role="status">Submitted for review. Sellers only see an approved badge.</p>
-        ) : null}
-        <DirectUploadField
-          accept="application/pdf,image/png,image/jpeg,image/webp"
-          disabledReason={confidentialDocumentAccessEnabled() ? undefined : "Document verification is temporarily unavailable."}
-          documentTypes={[
-            { label: "Pre-approval letter", value: "PRE_APPROVAL" },
-            { label: "Proof of funds", value: "VERIFIED_FUNDS" },
-            { label: "Government-issued identity", value: "IDENTITY" },
-          ]}
-          hint="PDF, PNG, JPEG, or WebP; 20 MB max. Uploads go directly to private Storage."
-          label="File"
-          purpose="BUYER_VERIFICATION"
-        />
-      </div>
+      {verification === "missing" ? (
+        <div className="inline-alert warning" role="status">
+          <Icon name="info" size={20} />
+          <p>Choose a file before submitting for review.</p>
+        </div>
+      ) : null}
+      {verification === "submitted" ? (
+        <div className="inline-alert success" role="status">
+          <Icon name="check" size={20} />
+          <p>Submitted for review. Sellers only see an approved badge.</p>
+        </div>
+      ) : null}
+      <DirectUploadField
+        accept="application/pdf,image/png,image/jpeg,image/webp"
+        disabledReason={confidentialDocumentAccessEnabled() ? undefined : "Document verification is temporarily unavailable."}
+        documentTypes={[
+          { label: "Pre-approval letter", value: "PRE_APPROVAL" },
+          { label: "Proof of funds", value: "VERIFIED_FUNDS" },
+          { label: "Government-issued identity", value: "IDENTITY" },
+        ]}
+        hint="PDF, PNG, JPEG, or WebP; 20 MB max. Uploads go directly to private Storage."
+        label="File"
+        purpose="BUYER_VERIFICATION"
+      />
     </section>
   );
 
@@ -140,28 +145,32 @@ export default async function BuyerProfileBuilderPage({
     const isFirstSetup = buyer.visibility === "draft";
 
     return (
-      <div className="page wide stack loose buyer-profile-page">
+      <div className="page buyer-profile-page buyer-profile-setup">
         <div className="buyer-profile-shell">
+          {isFirstSetup ? (
+            <div className="buyer-setup-progress">
+              <span aria-hidden="true" className="buyer-setup-progress-bar">
+                <span className="done" />
+                <span className="current" />
+              </span>
+              <p>Step 2 of 2: Buyer profile</p>
+            </div>
+          ) : (
+            <Link className="page-back" href="/buyer/profile">
+              <Icon name="chevron-left" size={18} />
+              Buyer profile
+            </Link>
+          )}
           <header className="buyer-profile-intro">
-            {isFirstSetup ? (
-              <p className="step-meta">Step 2 of 2</p>
-            ) : (
-              <Link className="page-back" href="/buyer/profile">
-                <Icon name="chevron-left" size={18} />
-                Buyer profile
-              </Link>
-            )}
             <h1>{isFirstSetup ? "Tell sellers what you’re looking for" : "Edit your buyer profile"}</h1>
-            {isFirstSetup ? <p>Takes about three minutes. Your personal details stay private.</p> : null}
+            {isFirstSetup ? <p className="meta-line">Takes about three minutes. Your personal details stay private.</p> : null}
           </header>
-          <div className="profile-builder-card">
-            <BuyerProfileWizard
-              action={submitBuyerProfile}
-              buyer={wizardBuyer}
-              isPublished={isActive}
-              marketSlug={market.slug}
-            />
-          </div>
+          <BuyerProfileWizard
+            action={submitBuyerProfile}
+            buyer={wizardBuyer}
+            isPublished={isActive}
+            marketSlug={market.slug}
+          />
           {activeTestPreApproval ? <TestPreApprovalNotice badge={activeTestPreApproval} /> : null}
           {canSubmitVerification ? verificationCard : null}
         </div>
@@ -170,7 +179,7 @@ export default async function BuyerProfileBuilderPage({
   }
 
   return (
-    <div className="page narrow stack loose buyer-profile-page buyer-profile-summary-page">
+    <div className="page buyer-profile-page buyer-profile-summary-page">
       {isAdminControlled ? (
         <div className="inline-alert warning" role="status">
           <Icon name="info" size={20} />
@@ -184,7 +193,7 @@ export default async function BuyerProfileBuilderPage({
         </div>
       ) : null}
 
-      <header className="profile-header">
+      <header className="profile-header buyer-summary-header">
         <GeneratedAvatar
           decorative
           name={displayName}
@@ -193,16 +202,24 @@ export default async function BuyerProfileBuilderPage({
           variant={buyer.avatarVariant}
         />
         <div className="profile-header-text">
-          <h1>{displayName}</h1>
-          <p>{[buyer.location || "Location not set", buyer.type || "Purchase type not set"].join(" · ")}</p>
+          <h1>{displayLabel}{displayCode ? <> <span className="buyer-summary-code">{displayCode}</span></> : null}</h1>
+          <p className="meta-line">{[buyer.location || "Location not set", buyer.type || "Purchase type not set"].join(" · ")}</p>
           <span className={`status-tag ${isActive ? "active" : buyer.visibility === "hidden" ? "expired" : "pending"}`}>
             {visibilityLabel}
           </span>
         </div>
         {isAdminControlled ? null : (
           <div className="profile-header-actions">
-            <Link className="button primary" href="/buyer/profile?edit=profile">Edit profile</Link>
-            {isActive ? <Link className="button secondary" href={`/buyers/${buyer.id}`}>Preview</Link> : null}
+            <Link className="button secondary" href="/buyer/profile?edit=profile">
+              <Icon name="pencil" size={16} />
+              Edit profile
+            </Link>
+            {isActive ? (
+              <Link className="button secondary" href={`/buyers/${buyer.id}`}>
+                <Icon name="eye" size={16} />
+                Preview
+              </Link>
+            ) : null}
           </div>
         )}
       </header>
@@ -211,43 +228,43 @@ export default async function BuyerProfileBuilderPage({
         <section className="settings-section" aria-labelledby="buyer-identity-title">
           <h2 id="buyer-identity-title">Public identity</h2>
           <p className="settings-help">Sellers see your first name, last initial, account code, and avatar. Your full surname and contact details stay private.</p>
-          <div className="settings-row-static">
-            <span>
-              <small>Shown to sellers</small>
-              <strong>{buyer.name}</strong>
-            </span>
-          </div>
-          <form action={setBuyerAvatar} className="avatar-color-picker">
-            <p className="avatar-color-label" id="avatar-color-label">Avatar color</p>
-            <div aria-labelledby="avatar-color-label" className="avatar-swatch-grid" role="group">
-              {avatarColorOptions().map((variant, index) => {
-                const selected = avatarColorIndex(buyer.avatarVariant, buyer.userId || buyer.id) === index;
-                return (
-                  <button
-                    aria-label={avatarColorNames[index]}
-                    aria-pressed={selected}
-                    className={`avatar-swatch${selected ? " selected" : ""}`}
-                    key={variant}
-                    name="avatarVariant"
-                    type="submit"
-                    value={variant}
-                  >
-                    <GeneratedAvatar decorative name={displayName} seed={buyer.userId || buyer.id} size="sm" variant={variant} />
-                  </button>
-                );
-              })}
+          <div className="buyer-summary-rows">
+            <div className="buyer-summary-row">
+              <span className="buyer-summary-label">Shown to sellers</span>
+              <strong className="buyer-summary-value">{buyer.name}</strong>
             </div>
-          </form>
+            <form action={setBuyerAvatar} className="avatar-color-picker buyer-summary-row">
+              <p className="avatar-color-label buyer-summary-label" id="avatar-color-label">Avatar color</p>
+              <div aria-labelledby="avatar-color-label" className="avatar-swatch-grid" role="group">
+                {avatarColorOptions().map((variant, index) => {
+                  const selected = avatarColorIndex(buyer.avatarVariant, buyer.userId || buyer.id) === index;
+                  return (
+                    <button
+                      aria-label={avatarColorNames[index]}
+                      aria-pressed={selected}
+                      className={`avatar-swatch${selected ? " selected" : ""}`}
+                      key={variant}
+                      name="avatarVariant"
+                      type="submit"
+                      value={variant}
+                    >
+                      <GeneratedAvatar decorative name={displayName} seed={buyer.userId || buyer.id} size="sm" variant={variant} />
+                    </button>
+                  );
+                })}
+              </div>
+            </form>
+          </div>
         </section>
       )}
 
       <section className="settings-section" aria-labelledby="buyer-details-title">
         <h2 id="buyer-details-title">Profile details</h2>
-        <dl className="settings-dl">
+        <dl className="settings-dl buyer-summary-rows">
           {generalInformation.map((item) => (
-            <div key={item.label}>
-              <dt>{item.label}</dt>
-              <dd>{item.value}</dd>
+            <div className="buyer-summary-row" key={item.label}>
+              <dt className="buyer-summary-label">{item.label}</dt>
+              <dd className={`buyer-summary-value${item.value === "Not set" ? " is-empty" : ""}`}>{item.value}</dd>
             </div>
           ))}
         </dl>
@@ -255,7 +272,7 @@ export default async function BuyerProfileBuilderPage({
 
       <section className="settings-section" aria-labelledby="buyer-preapproval-title">
         <h2 id="buyer-preapproval-title">Financing</h2>
-        <div className="settings-status">
+        <div className="settings-status buyer-financing-row">
           <span
             aria-hidden="true"
             className={`status-list-icon ${hasPreApproval ? "active" : hasPendingPreApproval ? "pending" : expiredPreApproval ? "expired" : ""}`}
@@ -288,7 +305,7 @@ export default async function BuyerProfileBuilderPage({
             ))}
           </ul>
         ) : (
-          <p className="muted">No verified information yet.</p>
+          <p className="buyer-summary-empty">No verified information yet.</p>
         )}
       </section>
     </div>
@@ -297,9 +314,15 @@ export default async function BuyerProfileBuilderPage({
 
 function TestPreApprovalNotice({ badge }: { badge: Parameters<typeof BadgePill>[0]["badge"] }) {
   return (
-    <aside className="inline-alert warning" role="status">
+    <aside className="inline-alert warning buyer-test-notice" role="status">
       <Icon name="info" size={20} />
       <p><BadgePill badge={badge} /> Testing only. Financing has not been verified. This badge expires automatically within 24 hours.</p>
     </aside>
   );
+}
+
+// Public labels end in the stable account code ("Julie P. #7C4E2A91B6D0"); the code renders as secondary text.
+function splitAccountCode(label: string): [string, string] {
+  const match = /^(.*\S)\s+(#[A-Za-z0-9]+)$/u.exec(label);
+  return match ? [match[1], match[2]] : [label, ""];
 }

@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { BuyerProfileFormState } from "../lib/buyer-profile-form";
 import { GeneratedAvatar } from "./generated-avatar";
+import { Icon } from "./icon";
 import { LocationLookupFields } from "./location-lookup-fields";
 import { PropertyTypePicker } from "./property-type-picker";
 import { BuyerBudgetRange } from "./buyer-budget-range";
@@ -19,20 +20,20 @@ const purchaseTypeOptions = ["Cash", "Conventional financing", "Other"];
 const seekingPropertyTypeOptions = ["House", "Condo", "Townhouse", "Manufactured", "Land"];
 
 const bedroomsOptions = [
-  { label: "Any bedrooms", value: "" },
-  { label: "1+ bedrooms", value: "1" },
-  { label: "2+ bedrooms", value: "2" },
-  { label: "3+ bedrooms", value: "3" },
-  { label: "4+ bedrooms", value: "4" },
-  { label: "5+ bedrooms", value: "5" },
+  { label: "Any", value: "" },
+  { label: "1+", value: "1" },
+  { label: "2+", value: "2" },
+  { label: "3+", value: "3" },
+  { label: "4+", value: "4" },
+  { label: "5+", value: "5" },
 ];
 
 const bathroomsOptions = [
-  { label: "Any bathrooms", value: "" },
-  { label: "1+ bathrooms", value: "1" },
-  { label: "2+ bathrooms", value: "2" },
-  { label: "3+ bathrooms", value: "3" },
-  { label: "4+ bathrooms", value: "4" },
+  { label: "Any", value: "" },
+  { label: "1+", value: "1" },
+  { label: "2+", value: "2" },
+  { label: "3+", value: "3" },
+  { label: "4+", value: "4" },
 ];
 
 const yearBuiltOptions = [
@@ -43,7 +44,12 @@ const yearBuiltOptions = [
   { label: "2010 or newer", value: "2010" },
 ];
 
-const conditionOptions = ["Any condition", "Move-in ready", "Mild fixer", "Fixer"];
+const conditionOptions = [
+  { label: "Any", value: "" },
+  { label: "Move-in ready", value: "Move-in ready" },
+  { label: "Mild fixer", value: "Mild fixer" },
+  { label: "Fixer", value: "Fixer" },
+];
 
 const amenityOptions = ["Pool", "Parking", "ADU", "Yard", "Garage"];
 
@@ -125,7 +131,7 @@ export function BuyerProfileWizard({
     <form aria-busy={isPending} className="buyer-profile-form profile-reference-form" onSubmit={submitProfile}>
       <input name="profileIntent" type="hidden" value={isPublished ? "save" : "publish"} />
       <ProfileFormSection title="Public identity">
-        <div className="identity-preview">
+        <div className="identity-preview buyer-identity-preview">
           <GeneratedAvatar
             decorative
             name={buyer.name}
@@ -142,14 +148,13 @@ export function BuyerProfileWizard({
 
       <ProfileFormSection title="Budget & basics">
         <div className="form-grid">
-          <div className="field">
-            <label htmlFor="buyerType">Purchase type</label>
-            <select id="buyerType" name="buyerType" defaultValue={selectedPurchaseType} required>
-              {purchaseTypeOptions.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-          </div>
+          <ChoiceGroup
+            defaultValue={selectedPurchaseType}
+            legend="Purchase type"
+            name="buyerType"
+            options={purchaseTypeOptions.map((option) => ({ label: option, value: option }))}
+            required
+          />
           <PropertyTypePicker
             defaultValue={selectedSeekingPropertyType}
             legend="Seeking property type"
@@ -173,22 +178,20 @@ export function BuyerProfileWizard({
             prefix="$"
             step={5_000}
           />
-          <div className="field">
-            <label htmlFor="bedroomsMin">Bedrooms</label>
-            <select id="bedroomsMin" name="bedroomsMin" defaultValue={String(criteria?.bedroomsMin || "")}>
-              {bedroomsOptions.map((option) => (
-                <option key={option.label} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="bathroomsMin">Bathrooms</label>
-            <select id="bathroomsMin" name="bathroomsMin" defaultValue={String(criteria?.bathroomsMin || "")}>
-              {bathroomsOptions.map((option) => (
-                <option key={option.label} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </div>
+          <ChoiceGroup
+            defaultValue={String(criteria?.bedroomsMin || "")}
+            half
+            legend="Bedrooms"
+            name="bedroomsMin"
+            options={bedroomsOptions}
+          />
+          <ChoiceGroup
+            defaultValue={String(criteria?.bathroomsMin || "")}
+            half
+            legend="Bathrooms"
+            name="bathroomsMin"
+            options={bathroomsOptions}
+          />
         </div>
       </ProfileFormSection>
 
@@ -218,7 +221,7 @@ export function BuyerProfileWizard({
             step={500}
             suffix="sqft"
           />
-          <div className="field full">
+          <div className="field buyer-year-field">
             <label htmlFor="yearBuiltMin">Year built</label>
             <select id="yearBuiltMin" name="yearBuiltMin" defaultValue={String(criteria?.yearBuiltMin || "")}>
               {yearBuiltOptions.map((option) => (
@@ -231,26 +234,26 @@ export function BuyerProfileWizard({
 
       <ProfileFormSection optional title="Preferences">
         <div className="form-grid">
-          <div className="field full">
-            <label htmlFor="condition">Condition</label>
-            <select id="condition" name="condition" defaultValue={criteria?.condition ?? ""}>
-              {conditionOptions.map((option) => (
-                <option key={option} value={option === "Any condition" ? "" : option}>{option}</option>
-              ))}
-            </select>
-          </div>
+          <ChoiceGroup
+            defaultValue={criteria?.condition ?? ""}
+            legend="Condition"
+            name="condition"
+            options={conditionOptions}
+            variant="wrap"
+          />
           <fieldset className="field full buyer-amenities-field">
             <legend>Amenities you need</legend>
-            <div className="pill-row buyer-amenity-row">
+            <div className="buyer-chip-row">
               {amenityOptions.map((amenity) => (
-                <label className="checkbox-container" key={amenity}>
+                <label className="buyer-chip" key={amenity}>
                   <input
                     defaultChecked={selectedAmenities.has(amenity.toLowerCase())}
                     name="features"
                     type="checkbox"
                     value={amenity}
                   />
-                  <span className="checkmark" />
+                  <Icon className="buyer-chip-add" name="plus" size={14} />
+                  <Icon className="buyer-chip-on" name="check" size={14} />
                   {amenity}
                 </label>
               ))}
@@ -282,18 +285,18 @@ export function BuyerProfileWizard({
 
       {state.message ? (
         <div
-          className="auth-alert warning buyer-profile-form-error"
+          className="inline-alert danger buyer-profile-form-error"
           ref={errorRef}
           role="alert"
           tabIndex={-1}
         >
-          <strong>Check your profile</strong>
-          <span>{state.message}</span>
+          <Icon name="info" size={20} />
+          <p><strong>Check your profile.</strong> {state.message}</p>
         </div>
       ) : null}
 
       <div className="buyer-profile-submit">
-        <button className="button primary" disabled={isPending} type="submit">
+        <button className="button primary lg" disabled={isPending} type="submit">
           {isPending
             ? isPublished ? "Saving changes..." : "Publishing profile..."
             : isPublished ? "Save changes" : "Publish buyer profile"}
@@ -320,6 +323,47 @@ function ProfileFormSection({
       </h2>
       <div className="buyer-form-fields">{children}</div>
     </section>
+  );
+}
+
+/** Redfin-style segmented radios: one native radio per option, so the form submits exactly the old select values. */
+function ChoiceGroup({
+  defaultValue,
+  half = false,
+  legend,
+  name,
+  options,
+  required = false,
+  variant = "segmented",
+}: {
+  defaultValue: string;
+  half?: boolean;
+  legend: string;
+  name: string;
+  options: Array<{ label: string; value: string }>;
+  required?: boolean;
+  variant?: "segmented" | "wrap";
+}) {
+  const checkedValue = options.some((option) => option.value === defaultValue) ? defaultValue : options[0]?.value;
+
+  return (
+    <fieldset className={`field${half ? "" : " full"} buyer-choice-field`}>
+      <legend>{legend}</legend>
+      <div className={`buyer-choice-group ${variant}`}>
+        {options.map((option) => (
+          <label className="buyer-choice" key={option.value || "any"}>
+            <input
+              defaultChecked={option.value === checkedValue}
+              name={name}
+              required={required}
+              type="radio"
+              value={option.value}
+            />
+            <span>{option.label}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 
@@ -376,7 +420,7 @@ function NumberRangeField({
             {suffix ? <span className="range-suffix" aria-hidden="true">{suffix}</span> : null}
           </span>
         </label>
-        <span className="range-to" aria-hidden="true">to</span>
+        <span className="range-to" aria-hidden="true">–</span>
         <label className="range-number-box" htmlFor={maxId}>
           <span>Max</span>
           <span className="range-number-wrap">

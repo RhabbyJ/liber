@@ -6,17 +6,23 @@ import { PageTitle } from "../../../components/page-title";
 import { getCurrentBuyerProfile } from "../../../server/contracts";
 import { confidentialDocumentAccessEnabled } from "../../../server/verification/document-access";
 import { listCurrentBuyerVerificationDocuments } from "../../../server/verification/buyer-documents";
+import { VerificationStatusList } from "./verification-status-list";
 
 export default async function BuyerBadgesPage() {
   const [{ data: buyer }, documents] = await Promise.all([getCurrentBuyerProfile(), listCurrentBuyerVerificationDocuments()]);
 
   return (
-    <div className="page narrow stack loose">
+    <div className="page narrow stack loose buyer-verification-page">
       <Link className="page-back" href="/buyer/profile">
         <Icon name="chevron-left" size={18} />
         Buyer profile
       </Link>
       <PageTitle title="Get verified">Sellers see your badge, never your documents.</PageTitle>
+
+      <section className="settings-section" aria-labelledby="verification-status-title">
+        <h2 id="verification-status-title">Verification status</h2>
+        <VerificationStatusList badges={buyer.badges} documents={documents} />
+      </section>
 
       <section className="settings-section" aria-labelledby="verification-upload-title" id="verification-upload">
         <h2 id="verification-upload-title">Upload a document</h2>
@@ -35,32 +41,6 @@ export default async function BuyerBadgesPage() {
       </section>
 
       <BuyerVerificationDocuments documents={documents} />
-
-      <section className="settings-section" aria-labelledby="verification-badges-title">
-        <h2 id="verification-badges-title">Your badges</h2>
-        {buyer.badges.length === 0 ? (
-          <p className="muted">No badges yet.</p>
-        ) : (
-          <ul className="status-list">
-            {buyer.badges.map((badge) => (
-              <li key={badge.label}>
-                <span className={`status-list-icon ${badge.status}`} aria-hidden="true">
-                  <Icon name={badge.status === "active" ? "check-shield" : badge.status === "pending" ? "lock" : "info"} size={18} />
-                </span>
-                <strong>{badge.label}</strong>
-                <span className={`status-tag ${badge.status}`}>{badgeStatusLabel(badge)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   );
-}
-
-function badgeStatusLabel(badge: { expiresInDays?: number; status: string }) {
-  if (badge.status === "pending") return "In review";
-  if (badge.status === "expired" || (badge.expiresInDays !== undefined && badge.expiresInDays < 0)) return "Expired";
-  if (badge.expiresInDays !== undefined) return `Active · ${badge.expiresInDays} days left`;
-  return "Active";
 }

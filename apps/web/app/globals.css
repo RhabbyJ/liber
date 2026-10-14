@@ -1749,12 +1749,6 @@ input[type="radio"]:disabled {
   }
 }
 
-.step-meta {
-  color: var(--ink-meta);
-  font-size: 14px;
-  line-height: 20px;
-}
-
 /* Settings-style lists and sections (account, admin, buyer profile) */
 
 .settings-list {
@@ -1834,29 +1828,6 @@ input[type="radio"]:disabled {
   font-size: 14px;
   line-height: 20px;
   margin-top: -8px;
-}
-
-.settings-row-static {
-  align-items: center;
-  display: flex;
-  gap: 16px;
-  justify-content: space-between;
-}
-
-.settings-row-static > span {
-  display: grid;
-}
-
-.settings-row-static small,
-.settings-dl dt {
-  color: var(--ink-soft);
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.settings-row-static strong {
-  font-size: 16px;
-  line-height: 24px;
 }
 
 .settings-dl {
@@ -3622,7 +3593,6 @@ input[type="radio"]:disabled {
   }
 }
 
-
 /* ==========================================================================
    Property-type artwork
    ========================================================================== */
@@ -3763,7 +3733,7 @@ input[type="radio"]:disabled {
   line-height: 40px;
 }
 
-.buyer-profile-intro > p:not(.step-meta) {
+.buyer-profile-intro > p {
   color: var(--ink-soft);
 }
 
@@ -3788,10 +3758,6 @@ input[type="radio"]:disabled {
   display: grid;
   gap: 20px;
   max-width: none;
-}
-
-.buyer-identity-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .property-type-picker {
@@ -3947,10 +3913,6 @@ input[type="radio"]:disabled {
   padding-bottom: 13px;
 }
 
-.buyer-amenity-row {
-  gap: 12px 20px;
-}
-
 .buyer-profile-submit {
   border-top: 1px solid var(--line-soft);
   display: flex;
@@ -3966,25 +3928,12 @@ input[type="radio"]:disabled {
   width: 100%;
 }
 
-.profile-builder-card {
-  border-top: 1px solid var(--line);
-  padding-top: 24px;
-}
-
 .buyer-profile-shell {
   display: grid;
   gap: 24px;
   margin: 0 auto;
   max-width: 720px;
   width: 100%;
-}
-
-.buyer-profile-page.page.wide {
-  max-width: 880px;
-}
-
-.buyer-profile-summary-page.page.wide {
-  max-width: 980px;
 }
 
 .location-selection-status {
@@ -4084,7 +4033,6 @@ input[type="radio"]:disabled {
   font-size: 16px;
   font-weight: 700;
 }
-
 
 /* ==========================================================================
    Invite compose
@@ -4987,7 +4935,6 @@ input[type="radio"]:disabled {
   transform: scale(0.72);
 }
 
-
 /* LOI negotiation workspace */
 .loi-page {
   min-width: 0;
@@ -5588,8 +5535,6 @@ input[type="radio"]:disabled {
   justify-content: center;
   width: 48px;
 }
-
-
 
 /* ==========================================================================
    Search experience: toolbar, filters, map/list split, pins, listing cards
@@ -8564,9 +8509,6 @@ a.map-card:focus-visible {
 @media (max-width: 920px) {
   .invite-compose-grid,
   .summary-grid,
-  .buyer-identity-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
 
   .buyer-form-section {
     gap: 14px;

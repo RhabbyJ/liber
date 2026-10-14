@@ -7,9 +7,9 @@ const documentLabels = {
 };
 
 const reviewLabels = {
-  PENDING: { label: "Awaiting review", tone: "warning" },
-  APPROVED: { label: "Approved", tone: "success" },
-  REJECTED: { label: "Rejected", tone: "danger" },
+  PENDING: { label: "Awaiting review", tone: "pending" },
+  APPROVED: { label: "Approved", tone: "active" },
+  REJECTED: { label: "Rejected", tone: "expired" },
 };
 
 const submittedDate = new Intl.DateTimeFormat("en-US", {
@@ -22,59 +22,60 @@ const submittedDate = new Intl.DateTimeFormat("en-US", {
   timeZoneName: "short",
 });
 
+// Self-contained (no local component imports) so tests can SSR it from source.
+function DocumentIcon() {
+  return (
+    <svg aria-hidden="true" fill="none" height="20" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" viewBox="0 0 24 24" width="20">
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5M9 13h6M9 17h4" />
+    </svg>
+  );
+}
+
 export function BuyerVerificationDocuments({ documents }: { documents: BuyerVerificationDocument[] }) {
   return (
-    <section aria-labelledby="submitted-documents-heading" className="stack">
-      <div className="section-head compact">
-        <div>
-          <p className="eyebrow">Your documents</p>
-          <h2 id="submitted-documents-heading">Submitted for review</h2>
-        </div>
-      </div>
-      <p className="muted small">
-        Documents listed here have already been submitted. There is no additional submit step.
-        Only you and Liber admins can see these document details.
-      </p>
+    <section aria-labelledby="submitted-documents-heading" className="settings-section verification-documents">
+      <h2 id="submitted-documents-heading">Submitted documents</h2>
+      <p className="settings-help">Only you and Liber admins can see these details. Nothing else needs to be submitted.</p>
       {documents.length === 0 ? (
-        <div className="card compact">
-          <p>No documents submitted yet. Upload a document above to send it for review.</p>
-        </div>
+        <p className="verification-documents-empty">No documents submitted yet. Upload a document above to send it for review.</p>
       ) : (
-        <ul className="stack" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        <ul className="verification-document-list">
           {documents.map((document) => {
             const status = reviewLabels[document.reviewStatus];
             return (
-              <li className="card compact stack tight" key={document.id}>
-                <div className="section-head compact">
-                  <h3>{documentLabels[document.documentType]}</h3>
-                  <span className={`status-dot ${status.tone}`}>{status.label}</span>
-                </div>
-                {document.originalFilename ? (
-                  <p className="small" style={{ overflowWrap: "anywhere" }}>{document.originalFilename}</p>
-                ) : null}
-                <p className="muted small">
-                  Submitted <time dateTime={document.createdAt}>{submittedDate.format(new Date(document.createdAt))}</time>
-                </p>
-                {document.reviewStatus === "PENDING" ? (
-                  <p className="small">Your document is in the review queue. No further submission is needed.</p>
-                ) : document.reviewStatus === "APPROVED" ? (
-                  <p className="small">
-                    This document is approved. An admin can use it to grant the matching badge; badge status appears below.
-                  </p>
-                ) : (
-                  <div className="stack tight small">
-                    <p style={{ overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>
-                      {document.rejectionReason || "This document could not be approved. Upload a replacement for another review."}
-                    </p>
-                    <p><a href="#verification-upload">Upload a replacement</a></p>
+              <li className={`verification-document ${status.tone}`} key={document.id}>
+                <span className="verification-document-icon"><DocumentIcon /></span>
+                <div className="verification-document-body">
+                  <div className="verification-document-head">
+                    <h3>{documentLabels[document.documentType]}</h3>
+                    <span className={`status-tag ${status.tone}`}>{status.label}</span>
                   </div>
-                )}
+                  <p className="verification-document-meta">
+                    {document.originalFilename ? <span className="verification-document-file">{document.originalFilename}</span> : null}
+                    <span>Submitted <time dateTime={document.createdAt}>{submittedDate.format(new Date(document.createdAt))}</time></span>
+                  </p>
+                  {document.reviewStatus === "PENDING" ? (
+                    <p className="verification-document-note">In the review queue. No further submission is needed.</p>
+                  ) : document.reviewStatus === "APPROVED" ? (
+                    <p className="verification-document-note">
+                      This document is approved. An admin can use it to grant the matching badge; badge status appears above.
+                    </p>
+                  ) : (
+                    <div className="verification-document-rejection">
+                      <p>
+                        {document.rejectionReason || "This document could not be approved. Upload a replacement for another review."}
+                      </p>
+                      <a className="text-link" href="#verification-upload">Upload a replacement</a>
+                    </div>
+                  )}
+                </div>
               </li>
             );
           })}
         </ul>
       )}
-      {documents.length === 50 ? <p className="muted small">Showing your 50 most recent documents.</p> : null}
+      {documents.length === 50 ? <p className="settings-help">Showing your 50 most recent documents.</p> : null}
     </section>
   );
 }

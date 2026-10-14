@@ -493,6 +493,7 @@ function inviteFromDb(invite: {
     id: invite.id,
     buyerProfileId: invite.buyerProfileId,
     propertyId: invite.propertyId,
+    propertyType: invite.property.propertyType,
     buyer: publicNameForDisplay(invite.buyerProfile.user?.name, invite.buyerProfile.userId),
     property: invite.property.addressLine1 || `${invite.property.city || "Property"} ${propertySubtypeLabel(invite.property.propertyType).toLowerCase()}`,
     propertyStatus: propertyStatusLabel(invite.property.ownershipVerificationStatus),

@@ -24,6 +24,8 @@ export type InviteDTO = {
   id: string;
   buyerProfileId: string;
   propertyId: string;
+  /** Picks a representative photo when the seller has not shared property images. */
+  propertyType?: PropertySubtype;
   buyer: string;
   property: string;
   propertyStatus?: string;
