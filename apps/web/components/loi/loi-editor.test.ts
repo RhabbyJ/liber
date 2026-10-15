@@ -67,6 +67,16 @@ describe("LOI editor and presentation registry", () => {
     expect(validators.loiEditableTermsV1Schema.safeParse({ ...cashTerms, purchasePriceCents: 0 }).success).toBe(false);
   });
 
+  it("states the City of LA seller-only ULA rule and asks for a separate ULA quote only in quoted mode", () => {
+    const quoted = render({ ...cashTerms, purchasePriceCents: 600_000_000, costsAndCredits: { ...cashTerms.costsAndCredits, transferTaxSchedule: "MANUAL" } });
+    expect(quoted).toContain("Measure ULA applies only inside the City of Los Angeles and is always charged to the seller:");
+    expect(quoted).toContain("4.0% of the full price for sales above $5,400,000 and below $10,900,000; 5.5% at $10,900,000 or above.");
+    expect(quoted).toContain('id="loi-estimate-seller-ula"');
+    const scheduled = render({ ...cashTerms, purchasePriceCents: 600_000_000, costsAndCredits: { ...cashTerms.costsAndCredits, transferTaxSchedule: "LA_CITY_2026_2027" } });
+    expect(scheduled).not.toContain('id="loi-estimate-seller-ula"');
+    expect(scheduled).toContain("seller ULA $240,000.00 (4.0%).");
+  });
+
   it("offers Buyer, Seller, and Other for warranty and asks legacy each-own drafts to choose a payer", () => {
     for (const payer of ["SELLER", "EACH_OWN"] as const) {
       const html = render({ ...cashTerms, costsAndCredits: { ...cashTerms.costsAndCredits, homeWarranty: { ...cashTerms.costsAndCredits.homeWarranty, included: true, company: "Fixture", maximumCents: 60000, payer } } });

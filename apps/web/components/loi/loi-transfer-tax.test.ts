@@ -23,8 +23,25 @@ describe("LA City transfer-tax schedule",()=>{
   const buyer=payer==="BUYER"?3_360_000:payer==="SPLIT_EQUALLY"?1_680_000:0;
   const seller=3_360_000-buyer+24_000_000;const summary=calculateLoiSummary(value);
   expect(summary).toMatchObject({measureUlaCents:24_000_000,buyerTransferTaxCents:buyer,sellerTransferTaxCents:seller,buyerClosingCostsCents:buyer+1_080_000,sellerClosingCostsCents:seller+1_080_000});
-  const rows=loiFeeBreakdown(value,summary);expect(rows.find(row=>row.label==="Measure ULA (seller)")).toMatchObject({buyerCents:0,sellerCents:24_000_000});
+  const rows=loiFeeBreakdown(value,summary);expect(rows.find(row=>row.label==="Measure ULA (seller · City of LA only)")).toMatchObject({buyerCents:0,sellerCents:24_000_000});
   expect(rows.reduce((sum,row)=>sum+(row.buyerCents??0)+(row.sellerCents??0),0)).toBe(summary.buyerClosingCostsCents+summary.sellerClosingCostsCents);
+ });
+ it.each(["BUYER","SELLER","SPLIT_EQUALLY"] as const)("charges a quoted ULA to the seller only while base tax payer is %s",payer=>{
+  const value=terms(600_000_000);value.costsAndCredits.transferTaxSchedule="MANUAL";value.costsAndCredits.customaryClosingCosts=false;value.costsAndCredits.closingCostPayers={transferTaxes:payer,governmentRetrofitItems:"SELLER"};
+  value.costsAndCredits.closingCostEstimates!.itemizedCosts!.transferTaxes={amountCents:3_360_000};value.costsAndCredits.closingCostEstimates!.sellerMeasureUlaCents=24_000_000;
+  const buyer=payer==="BUYER"?3_360_000:payer==="SPLIT_EQUALLY"?1_680_000:0;const summary=calculateLoiSummary(value);
+  expect(summary).toMatchObject({transferTaxSchedule:"MANUAL",measureUlaCents:24_000_000,measureUlaRateBps:null,buyerTransferTaxCents:buyer,sellerTransferTaxCents:3_360_000-buyer+24_000_000});
+  const rows=loiFeeBreakdown(value,summary);expect(rows.find(row=>row.label==="Measure ULA (seller · City of LA only)")).toMatchObject({buyerCents:0,sellerCents:24_000_000});
+  expect(rows.reduce((sum,row)=>sum+(row.buyerCents??0)+(row.sellerCents??0),0)).toBe(summary.buyerClosingCostsCents+summary.sellerClosingCostsCents);
+  expect(loiSummaryRows(summary)).toContainEqual(expect.objectContaining({fieldId:"measureUlaCents",formattedValue:"$240,000.00"}));
+  expect(loiTermSections(value,"SELLER").flatMap(section=>section.rows)).toContainEqual(expect.objectContaining({fieldId:"costsAndCredits.closingCostEstimates.sellerMeasureUlaCents"}));
+ });
+ it("ignores a stored ULA quote while LA City rates are selected",()=>{
+  const value=terms(600_000_000);value.costsAndCredits.closingCostEstimates!.sellerMeasureUlaCents=1;
+  expect(calculateLoiSummary(value)).toMatchObject({measureUlaCents:24_000_000,measureUlaRateBps:400});
+  expect(loiTermSections(value,"SELLER").flatMap(section=>section.rows).some(row=>row.fieldId.endsWith("sellerMeasureUlaCents"))).toBe(false);
+  expect(loiSummaryRows(calculateLoiSummary(value))).toContainEqual(expect.objectContaining({fieldId:"measureUlaRateBps",formattedValue:"4.0% of the full price"}));
+  expect(loiSummaryRows(calculateLoiSummary(terms(540_000_000)))).toContainEqual(expect.objectContaining({fieldId:"measureUlaRateBps",formattedValue:"None — price at or below $5,400,000"}));
  });
  it("requires quoted mode for exemptions and keeps non-LA locations manual by default",()=>{
   const value=terms(600_000_000);delete value.costsAndCredits.transferTaxSchedule;
@@ -56,5 +73,9 @@ describe("LA City transfer-tax schedule",()=>{
   expect(template.terms.costsAndCredits.transferTaxSchedule).toBeUndefined();
   const other=terms();other.costsAndCredits.transferTaxSchedule="MANUAL";expect(applyLoiTemplate(other,template).costsAndCredits.transferTaxSchedule).toBe("MANUAL");
   const oldTemplate={...template,terms:{...template.terms,costsAndCredits:{...template.terms.costsAndCredits,transferTaxSchedule:"LA_CITY_2026_2027" as const}}};expect(applyLoiTemplate(other,oldTemplate).costsAndCredits.transferTaxSchedule).toBe("MANUAL");
+  const quoted=terms();quoted.costsAndCredits.transferTaxSchedule="MANUAL";quoted.costsAndCredits.closingCostEstimates!.sellerMeasureUlaCents=24_000_000;
+  const quotedTemplate=createLoiTemplate({id:"22222222-2222-4222-8222-222222222222",name:"Quoted",terms:quoted,now:"2026-10-07T12:00:00.000Z"});
+  expect(quotedTemplate.terms.costsAndCredits.closingCostEstimates?.sellerMeasureUlaCents).toBeUndefined();
+  other.costsAndCredits.closingCostEstimates!.sellerMeasureUlaCents=5_000;expect(applyLoiTemplate(other,quotedTemplate).costsAndCredits.closingCostEstimates?.sellerMeasureUlaCents).toBe(5_000);
  });
 });

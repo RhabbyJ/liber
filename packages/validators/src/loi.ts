@@ -98,6 +98,9 @@ export const loiClosingCostEstimatesSchema = z.object({
   note: optionalText(1000),
   itemizedCosts: loiItemizedCostEstimatesSchema.optional(),
   otherCostsExcludeItemized: z.boolean().optional(),
+  // Quote mode only: Measure ULA (City of Los Angeles) is always the seller's cost,
+  // so it is never folded into the transfer-tax quote that follows the base-tax payer.
+  sellerMeasureUlaCents: cents.nullable().optional(),
 }).strict();
 
 export const loiTermsV1Schema = z.object({
@@ -506,7 +509,9 @@ function allocateCost(payer: string | null | undefined, estimate?: ItemizedCostE
 }
 
 // LA City schedule effective July 1, 2026 through June 30, 2027. Base taxes
-// round up to each $500; ULA uses the full price and excludes the exact lower threshold.
+// round up to each $500. Measure ULA (City of Los Angeles only, charged to the seller):
+// 4.0% on sales above $5,400,000 and below $10,900,000, 5.5% at $10,900,000 or above,
+// on the full price; a sale of exactly $5,400,000 owes none.
 // Sources: finance.lacity.gov/faq/measure-ula and lavote.gov documentary transfer taxes.
 export function calculateLoiLaCityTransferTaxes(priceCents: number) {
   if (!Number.isSafeInteger(priceCents) || priceCents <= 0 || priceCents > LOI_MAX_PRICE_CENTS) return null;
@@ -523,7 +528,10 @@ function calculateAdditionalCosts(terms: LoiCalculationInput) {
   const taxes = scheduled ? calculateLoiLaCityTransferTaxes(terms.purchasePriceCents) : null;
   const taxAllocation = allocateCost(customary ? "SELLER" : terms.costsAndCredits.closingCostPayers?.transferTaxes,
     scheduled ? { amountCents: taxes ? taxes.laCountyTransferTaxCents + taxes.laCityTransferTaxCents : null } : itemized?.transferTaxes);
-  const ula = taxes?.measureUlaCents ?? 0;
+  // ULA is the seller's alone in both modes: scheduled from the price, or the seller-only quote.
+  const quotedUla = scheduled ? null : terms.costsAndCredits.closingCostEstimates?.sellerMeasureUlaCents ?? null;
+  const measureUlaCents = scheduled ? taxes?.measureUlaCents ?? null : quotedUla;
+  const ula = measureUlaCents ?? 0;
   const allocations = [
     taxAllocation,
     allocateCost(customary ? "SELLER" : terms.costsAndCredits.closingCostPayers?.governmentRetrofitItems, itemized?.governmentRetrofit),
@@ -546,8 +554,8 @@ function calculateAdditionalCosts(terms: LoiCalculationInput) {
     transferTaxSchedule: scheduled ? "LA_CITY_2026_2027" as const : "MANUAL" as const,
     laCountyTransferTaxCents: taxes?.laCountyTransferTaxCents ?? null,
     laCityTransferTaxCents: taxes?.laCityTransferTaxCents ?? null,
-    measureUlaCents: taxes?.measureUlaCents ?? null,
-    measureUlaRateBps: taxes?.measureUlaRateBps ?? null,
+    measureUlaCents,
+    measureUlaRateBps: scheduled ? taxes?.measureUlaRateBps ?? null : null,
     buyerTransferTaxCents: taxAllocation.buyerCents,
     sellerTransferTaxCents: taxAllocation.sellerCents === null ? null : taxAllocation.sellerCents + ula,
     buyerHomeWarrantyCents: warrantyAllocation.buyerCents,

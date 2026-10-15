@@ -70,7 +70,17 @@ export function extractLoiTemplateTerms(terms: LoiTermsV1): LoiTemplateTerms {
   return loiTemplateTermsSchema.parse({
     additionalTerms: terms.additionalTerms,
     // A seller credit is a deal-specific price concession, not a reusable preference.
-    costsAndCredits: { ...terms.costsAndCredits, sellerCreditCents: 0, sellerCreditIncluded: false, sellerCreditNote: "", transferTaxSchedule: undefined },
+    costsAndCredits: {
+      ...terms.costsAndCredits,
+      sellerCreditCents: 0,
+      sellerCreditIncluded: false,
+      sellerCreditNote: "",
+      transferTaxSchedule: undefined,
+      // A ULA quote depends on this property's city and price, like the tax schedule.
+      closingCostEstimates: terms.costsAndCredits.closingCostEstimates
+        ? { ...terms.costsAndCredits.closingCostEstimates, sellerMeasureUlaCents: undefined }
+        : undefined,
+    },
     hoa: terms.hoa,
     personalProperty: terms.personalProperty,
     possession: terms.possession,
@@ -121,7 +131,13 @@ export function applyLoiTemplate(target: LoiTermsV1, value: LoiTemplate, options
       homeWarranty,
       // Jurisdiction is specific to this deal; a template cannot assert LA city limits.
       transferTaxSchedule: target.costsAndCredits.transferTaxSchedule,
-      closingCostEstimates: template.costsAndCredits.closingCostEstimates ? { ...template.costsAndCredits.closingCostEstimates, otherCostsExcludeItemized: false } : undefined,
+      closingCostEstimates: template.costsAndCredits.closingCostEstimates
+        ? {
+          ...template.costsAndCredits.closingCostEstimates,
+          otherCostsExcludeItemized: false,
+          sellerMeasureUlaCents: target.costsAndCredits.closingCostEstimates?.sellerMeasureUlaCents,
+        }
+        : undefined,
     },
     hoa: template.hoa,
     personalProperty: template.personalProperty,

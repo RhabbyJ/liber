@@ -19,7 +19,7 @@ export function loiFeeBreakdown(terms: LoiTermsV1, summary: LoiComputedSummary):
     for (const field of LOI_ITEMIZED_COST_FIELDS) {
       if (field.key === "transferTaxes" && summary.calculationVersion === 5) {
         rows.push({label: field.label, buyerCents: summary.buyerTransferTaxCents, sellerCents: summary.sellerTransferTaxCents === null ? null : summary.sellerTransferTaxCents - (summary.measureUlaCents ?? 0)});
-        if (summary.measureUlaCents !== null) rows.push({label: "Measure ULA (seller)", buyerCents: 0, sellerCents: summary.measureUlaCents});
+        if (summary.measureUlaCents !== null) rows.push({label: "Measure ULA (seller · City of LA only)", buyerCents: 0, sellerCents: summary.measureUlaCents});
         continue;
       }
       const allocated = calculateLoiCostAllocation(loiItemizedCostPayer(terms, field.key), estimates?.itemizedCosts?.[field.key]);
