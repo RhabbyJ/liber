@@ -7,7 +7,12 @@ Owns internal admin review and moderation tools: users, seller access, buyer pro
 ## Main files
 
 - `apps/web/app/admin/**`
-- `apps/web/server/contracts.ts`
+- `apps/web/server/contracts.ts` — `"use server"` re-export barrel; the logic lives in `apps/web/server/domain/**`
+- `apps/web/server/domain/admin-users.ts` — users list, seller-access review, suspension
+- `apps/web/server/domain/admin-moderation.ts` — buyer-profile and invite moderation
+- `apps/web/server/domain/audit-log.ts`
+- `apps/web/server/domain/document-review.ts` and `badges.ts`
+- `apps/web/server/seller-access-review.ts`
 - `apps/web/server/authz.ts`
 - `apps/web/server/messaging/service.ts`
 

@@ -7,7 +7,7 @@ vi.mock("@liber/db", async () => ({
   Prisma: (await import("../../../packages/db/src/generated/client")).Prisma,
   prisma: { buyerProfile: { findMany: mocks.buyers }, verificationDocument: { findMany: mocks.documents } },
 }));
-vi.mock("./session", () => ({ getSessionUser: mocks.getSessionUser }));
+vi.mock("./session", async () => (await import("./session-mock.test-helper")).sessionModuleMock(mocks.getSessionUser));
 vi.mock("./seller-search-query", async (importOriginal) => ({
   ...await importOriginal<typeof import("./seller-search-query")>(),
   querySellerSearchIds: mocks.queryIds,

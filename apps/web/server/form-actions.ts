@@ -9,13 +9,11 @@ import {
   createSellerProperty,
   grantBadge,
   hideBuyerProfile,
-  regenerateBuyerAlias,
   reviewDocument,
   reviewSellerAccess,
   revokeBadge,
   sendInvite,
   setBuyerAvatarVariant,
-  shuffleBuyerAvatarVariant,
   suspendUser,
   updateSellerProperty,
 } from "./contracts";
@@ -65,20 +63,6 @@ export async function setBuyerAvatar(formData: FormData) {
   redirect("/buyer/profile");
 }
 
-export async function shuffleBuyerAvatar() {
-  const { data } = await shuffleBuyerAvatarVariant();
-  revalidatePath("/buyer/profile");
-  if (data.buyerProfileId) revalidatePath(`/buyers/${data.buyerProfileId}`);
-  redirect("/buyer/profile");
-}
-
-export async function regenerateBuyerPublicAlias() {
-  const { data } = await regenerateBuyerAlias();
-  revalidatePath("/buyer/profile");
-  revalidatePath(`/buyers/${data.buyerProfileId}`);
-  redirect("/buyer/profile");
-}
-
 export async function respondToBuyerInvite(
   _state: BuyerInviteResponseState,
   formData: FormData,
@@ -100,16 +84,6 @@ export async function blockBuyerProfile(formData: FormData) {
   await blockUserByBuyerProfile({ buyerProfileId });
   revalidatePath("/");
   redirect("/");
-}
-
-export async function blockInviteConversation(formData: FormData) {
-  const conversationId = formData.get("conversationId");
-  if (typeof conversationId !== "string") throw new Error("This conversation is unavailable.");
-  const { blockConversationUser } = await import("./messaging/service");
-  await blockConversationUser({ conversationId, reason: "Invite block" });
-  revalidatePath("/buyer/invites");
-  revalidatePath("/messages");
-  redirect("/buyer/invites?status=blocked");
 }
 
 export async function submitSellerProperty(

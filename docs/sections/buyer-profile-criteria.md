@@ -15,7 +15,9 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - `apps/web/server/form-actions.ts`
 - `apps/web/server/buyer/commands.ts`
 - `apps/web/server/buyer/commands.test.ts`
-- `apps/web/server/contracts.ts`
+- `apps/web/server/domain/buyer-profile.ts` and `buyer-projection.ts` — owner profile read and owner/admin projection
+- `apps/web/server/domain/seller-directory.ts` — approved-seller search and profile reads
+- `apps/web/server/contracts.ts` — `"use server"` re-export barrel for the domain modules
 - `apps/web/app/messages/**`
 - `apps/web/server/buyer/read-models.ts`
 - `apps/web/lib/buyer-dtos.ts`

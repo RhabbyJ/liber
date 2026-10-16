@@ -14,7 +14,7 @@ Owns buyer verification evidence, seller ownership evidence, private document st
 - `apps/web/components/buyer-verification-documents.tsx`
 - `apps/web/components/admin-badge-review-form.tsx`
 - `apps/web/server/verification/buyer-documents.ts` and `badge-review.ts`
-- `apps/web/server/contracts.ts`
+- `apps/web/server/domain/document-review.ts` and `apps/web/server/domain/badges.ts` (exported through the `apps/web/server/contracts.ts` barrel)
 - `apps/web/server/ownership-evidence.ts`
 - `packages/db/prisma/schema.prisma`
 - `packages/db/prisma/migrations/**`

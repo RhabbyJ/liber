@@ -16,7 +16,9 @@ Owns private seller property records, property images, ownership evidence upload
 - `apps/web/components/seller-property-form.tsx`
 - `apps/web/lib/seller-property-form.ts`
 - `apps/web/server/seller-property-form-errors.ts`
-- `apps/web/server/contracts.ts`
+- `apps/web/server/domain/seller-properties.ts` — owner property commands and reads
+- `apps/web/server/domain/invite-send.ts`, `invites.ts`, and `invite-projection.ts` — invite send, buyer response, lists, and DTO projection
+- `apps/web/server/contracts.ts` — `"use server"` re-export barrel for the domain modules
 - `apps/web/server/form-actions.ts`
 - `apps/web/components/seller-invite-form.tsx`
 - `apps/web/server/invite-send-errors.ts`

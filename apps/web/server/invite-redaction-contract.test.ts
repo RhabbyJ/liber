@@ -2,15 +2,21 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+const read = (file: string) => readFile(path.resolve(`server/domain/${file}`), "utf8");
+
 describe("invite-list moderation projection", () => {
   it("projects the canonical invite-message redaction into every invite list", async () => {
-    const source = await readFile(path.resolve("server/contracts.ts"), "utf8");
-    const mapper = between(source, "function inviteFromDb", "const buyerInclude");
-    const selector = between(source, "const inviteModerationMessages", "async function requireCurrentUser");
+    const [projection, invites, moderation] = await Promise.all([
+      read("invite-projection.ts"),
+      read("invites.ts"),
+      read("admin-moderation.ts"),
+    ]);
+    const mapper = between(projection, "export function inviteFromDb", "export async function labelSyntheticInvites");
+    const selector = between(projection, "export const inviteModerationMessages", "\n};");
     const listQueries = [
-      between(source, "export async function listBuyerInvites", "export async function respondToInvite"),
-      between(source, "export async function listSellerInvites", "export async function listUsers"),
-      between(source, "export async function listAdminInvites", "export async function listPendingDocuments"),
+      between(invites, "export async function listBuyerInvites", "export async function respondToInvite"),
+      between(invites, "export async function listSellerInvites"),
+      between(moderation, "export async function listAdminInvites"),
     ];
 
     expect(selector).toContain('where: { kind: "INVITE" as const }');
@@ -24,12 +30,11 @@ describe("invite-list moderation projection", () => {
     expect(mapper).toContain("visibleMessageBody(");
     expect(mapper).toContain('"REDACTED"');
     expect(mapper).toContain("message: displayMessage");
-    expect(source).toContain('import { normalizeMessageBody, visibleMessageBody }');
+    expect(projection).toContain('import { visibleMessageBody } from "../messaging/content"');
   });
 
   it("keeps the newly sent invite response on the unredacted fallback", async () => {
-    const source = await readFile(path.resolve("server/contracts.ts"), "utf8");
-    const sendInvite = between(source, "export async function sendInvite", "export async function listSellerInvites");
+    const sendInvite = between(await read("invite-send.ts"), "export async function sendInvite");
 
     expect(sendInvite).toContain(
       "inviteFromDb({ ...result.created, conversation: { id: result.conversationId } })",
@@ -38,11 +43,12 @@ describe("invite-list moderation projection", () => {
   });
 });
 
-function between(source: string, start: string, end: string) {
+/** The source from `start` up to `end`, or to the end of the module when `end` is omitted. */
+function between(source: string, start: string, end?: string) {
   const startIndex = source.indexOf(start);
-  const endIndex = source.indexOf(end, startIndex);
-
   expect(startIndex).toBeGreaterThanOrEqual(0);
+  if (end === undefined) return source.slice(startIndex);
+  const endIndex = source.indexOf(end, startIndex);
   expect(endIndex).toBeGreaterThan(startIndex);
   return source.slice(startIndex, endIndex);
 }

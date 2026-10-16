@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   user: vi.fn(), buyer: vi.fn(), seller: vi.fn(), property: vi.fn(), invite: vi.fn(), auth: vi.fn(), audit: vi.fn(),
 }));
 vi.mock("@liber/db", () => ({ prisma: { $transaction: mocks.transaction }, Prisma: {} }));
-vi.mock("./session", () => ({ getSessionUser: mocks.session }));
+vi.mock("./session", async () => (await import("./session-mock.test-helper")).sessionModuleMock(mocks.session));
 vi.mock("./rate-limit", () => ({ assertRateLimit: mocks.rateLimit, checkRateLimit: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: (path: string) => { throw new Error(`redirect:${path}`); } }));
 
