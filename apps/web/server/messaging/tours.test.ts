@@ -105,6 +105,32 @@ describe("tour lifecycle", () => {
     await expect(prepareTourEmail(job)).resolves.toBeNull();
   });
 
+  it("reads the schedule and lease one at a time on the locked delivery connection", async () => {
+    await mutateConversationTour(conversationId, proposal);
+    const job = { id: "outbox-job", attempts: 1, tourScheduleId: id, tourRevision: 1, tourRecipientUserId: buyer, tourEvent: "PROPOSED", idempotencyKey: tourOutboxKey(id, 1, "PROPOSED", buyer) };
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const tracked = <T,>(read: () => Promise<T>) => async () => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      // Timers are faked here; microtask turns are enough to expose a fan-out.
+      for (let turn = 0; turn < 3; turn += 1) await Promise.resolve();
+      inFlight -= 1;
+      return read();
+    };
+    mocks.lockedDelivery.mockImplementation(async (_conversation, _recipient, operation) => {
+      const findSchedule = tracked(async () => current);
+      const findLease = tracked(async () => ({ id: "outbox-job" }));
+      return operation({
+        ...mocks.prisma,
+        tourSchedule: { ...mocks.prisma.tourSchedule, findUnique: vi.fn(findSchedule) },
+        emailOutbox: { ...mocks.prisma.emailOutbox, findFirst: vi.fn(findLease) },
+      }, { email: "current-recipient@example.test" });
+    });
+    await expect(sendCurrentTourEmail(job, "worker")).resolves.toMatchObject({ provider: "resend" });
+    expect(maxInFlight).toBe(1);
+  });
+
   it("cancels a notification when rescheduling wins the lock before dispatch", async () => {
     await mutateConversationTour(conversationId, proposal);
     const job = { id: "outbox-job", attempts: 1, tourScheduleId: id, tourRevision: 1, tourRecipientUserId: buyer, tourEvent: "PROPOSED", idempotencyKey: tourOutboxKey(id, 1, "PROPOSED", buyer) };

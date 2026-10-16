@@ -102,6 +102,12 @@ describe("messaging API security contracts", () => {
     expect(respond.indexOf("lockAndAssertInvitePairAvailable(")).toBeLessThan(respond.indexOf("FOR UPDATE"));
   });
 
+  it("never fans out concurrent queries on an interactive transaction client", async () => {
+    // node-postgres serializes them on one connection today and rejects them in pg@9.
+    const source = await messagingServiceSources();
+    expect(source).not.toMatch(/Promise\.all(Settled)?\(\[\s*tx\./);
+  });
+
   it("projects advisory-lock void results to a driver-supported scalar", async () => {
     const [service, contracts] = await Promise.all([
       readFile(path.resolve("server/messaging/locks.ts"), "utf8"),

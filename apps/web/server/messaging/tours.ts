@@ -156,10 +156,9 @@ export async function sendCurrentTourEmail(job: TourEmailJob & { id: string; att
     return await withConversationScheduleDelivery(prepared.conversationId, job.tourRecipientUserId, async (tx, recipient) => {
       // Hold the same locks as reschedule/cancel/block through provider dispatch.
       // Provider idempotency protects retry if delivery succeeds but this transaction fails.
-      const [schedule, lease] = await Promise.all([
-        tx.tourSchedule.findUnique({ where: { id: job.tourScheduleId! } }),
-        tx.emailOutbox.findFirst({ where: { id: job.id, attempts: job.attempts, status: "SENDING", workerId, leaseUntil: { gt: new Date() } }, select: { id: true } }),
-      ]);
+      // One interactive transaction is one connection: run its queries sequentially.
+      const schedule = await tx.tourSchedule.findUnique({ where: { id: job.tourScheduleId! } });
+      const lease = await tx.emailOutbox.findFirst({ where: { id: job.id, attempts: job.attempts, status: "SENDING", workerId, leaseUntil: { gt: new Date() } }, select: { id: true } });
       if (!lease || !schedule || !tourEventIsCurrent({
         event: job.tourEvent!, revision: job.tourRevision!, currentRevision: schedule.revision,
         status: schedule.status, startsAt: schedule.startsAt, durationMinutes: schedule.durationMinutes, now: new Date(),

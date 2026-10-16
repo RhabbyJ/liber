@@ -80,22 +80,21 @@ export async function sendConversationMessage(input: SendConversationMessageInpu
 
     await lockMessageSender(tx, currentUser.id);
     const now = new Date();
-    const [conversationUsage, userUsage] = await Promise.all([
-      tx.$queryRaw<Array<{ count: number }>>`
-        SELECT count(*)::integer AS count
-        FROM public."Message"
-        WHERE "conversationId" = ${input.conversationId}::uuid
-          AND kind IN ('GUIDED'::public."MessageKind", 'FREE_TEXT'::public."MessageKind")
-          AND "createdAt" >= ${new Date(now.getTime() - 60 * 60_000)}
-      `,
-      tx.$queryRaw<Array<{ count: number }>>`
-        SELECT count(*)::integer AS count
-        FROM public."Message"
-        WHERE "senderUserId" = ${currentUser.id}::uuid
-          AND kind IN ('GUIDED'::public."MessageKind", 'FREE_TEXT'::public."MessageKind")
-          AND "createdAt" >= ${new Date(now.getTime() - 24 * 60 * 60_000)}
-      `,
-    ]);
+    // One interactive transaction is one connection: run its queries sequentially.
+    const conversationUsage = await tx.$queryRaw<Array<{ count: number }>>`
+      SELECT count(*)::integer AS count
+      FROM public."Message"
+      WHERE "conversationId" = ${input.conversationId}::uuid
+        AND kind IN ('GUIDED'::public."MessageKind", 'FREE_TEXT'::public."MessageKind")
+        AND "createdAt" >= ${new Date(now.getTime() - 60 * 60_000)}
+    `;
+    const userUsage = await tx.$queryRaw<Array<{ count: number }>>`
+      SELECT count(*)::integer AS count
+      FROM public."Message"
+      WHERE "senderUserId" = ${currentUser.id}::uuid
+        AND kind IN ('GUIDED'::public."MessageKind", 'FREE_TEXT'::public."MessageKind")
+        AND "createdAt" >= ${new Date(now.getTime() - 24 * 60 * 60_000)}
+    `;
     if (
       Number(conversationUsage[0]?.count ?? 0) >= MESSAGE_CONVERSATION_LIMIT_PER_HOUR
       || Number(userUsage[0]?.count ?? 0) >= MESSAGE_USER_LIMIT_PER_24_HOURS
