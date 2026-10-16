@@ -5,7 +5,7 @@ import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
 import { PageTitle } from "../../../components/page-title";
 import { WorkspaceTabs } from "../../../components/workspace-tabs";
-import type { InviteDTO } from "../../../lib/marketplace-dtos";
+import type { InviteView } from "../../../lib/invite-status";
 import { listBuyerInvites, listNotifications } from "../../../server/contracts";
 import { respondToBuyerInvite } from "../../../server/form-actions";
 import { groupBuyerInvites } from "./invite-groups";
@@ -53,7 +53,7 @@ export default async function BuyerInvitesPage({ searchParams }: {
   );
 }
 
-function InviteList({ invites }: { invites: InviteDTO[] }) {
+function InviteList({ invites }: { invites: InviteView[] }) {
   return (
     <div className="buyer-invite-list">
       {invites.map((invite) => <BuyerInviteCard action={respondToBuyerInvite} actionId={crypto.randomUUID()} invite={invite} key={invite.id} />)}

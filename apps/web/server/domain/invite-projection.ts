@@ -1,7 +1,8 @@
 import "server-only";
 
 import { prisma } from "@liber/db";
-import type { InviteDTO, SellerPropertyDTO } from "../../lib/marketplace-dtos";
+import type { InviteStatusLabel, InviteView } from "../../lib/invite-status";
+import type { SellerPropertyDTO } from "../../lib/marketplace-dtos";
 import { propertySubtypeLabel } from "../../lib/property-types";
 import { visibleMessageBody } from "../messaging/content";
 import { messagingV1EnabledForPair } from "../messaging/feature";
@@ -10,7 +11,7 @@ import { activeSyntheticPropertyApprovals, syntheticPropertyVersionKey, TEST_PRO
 import { propertyStatusLabel } from "./seller-properties";
 import { dateKey } from "./shared";
 
-type Invite = InviteDTO;
+type Invite = InviteView;
 type Property = SellerPropertyDTO;
 
 // Every invite list reads the canonical invite message's moderation state so redactions apply everywhere.
@@ -20,12 +21,22 @@ export const inviteModerationMessages = {
   take: 1,
 };
 
-function titleFromStatus(value: string): Invite["status"] {
-  if (value === "VIEWED") return "Viewed";
-  if (value === "ACCEPTED") return "Accepted";
-  if (value === "DECLINED") return "Declined";
-  if (value === "EXPIRED" || value === "WITHDRAWN") return "Expired";
-  return "Sent";
+/**
+ * Display status. Terminal statuses keep their own label; an open invite reads as
+ * Expired once its deadline passes even before maintenance persists EXPIRED.
+ */
+export function inviteStatusLabel(
+  invite: { expiresAt: Date | null; status: string },
+  currentIdentity: boolean,
+): InviteStatusLabel {
+  if (invite.status === "WITHDRAWN") return "Withdrawn";
+  if (invite.status === "DECLINED") return "Declined";
+  if (invite.status === "EXPIRED") return "Expired";
+  // A property identity change withdraws open invites in the same transaction.
+  if (!currentIdentity) return "Withdrawn";
+  if (invite.status === "ACCEPTED") return "Accepted";
+  if (invite.expiresAt && invite.expiresAt.getTime() <= Date.now()) return "Expired";
+  return invite.status === "VIEWED" ? "Viewed" : "Sent";
 }
 
 function inviteListingFacts(property: { bathrooms?: number | null; bedrooms?: number | null; description?: string | null; price?: unknown; squareFeet?: number | null }) {
@@ -93,9 +104,7 @@ export function inviteFromDb(invite: {
     propertyCondition: currentIdentity ? invite.property.condition ?? undefined : undefined,
     propertyFeatures: currentIdentity ? invite.property.features ?? [] : [],
     ...(currentIdentity ? inviteListingFacts(invite.property) : {}),
-    status: !currentIdentity || (invite.expiresAt && invite.expiresAt.getTime() <= Date.now() && ["SENT", "VIEWED"].includes(invite.status))
-      ? "Expired"
-      : titleFromStatus(invite.status),
+    status: inviteStatusLabel(invite, currentIdentity),
     sentAt: invite.sentAt.toISOString(),
     sentAtDate: dateKey(invite.sentAt),
     expiresAt: invite.expiresAt?.toISOString(),

@@ -62,6 +62,7 @@ Owns private seller property records, property images, ownership evidence upload
 - A block in either direction prevents a new invite and returns a generic
   unavailable result rather than disclosing the block.
 - Expired invites are rejected whenever they are read or used, even if the maintenance job has not updated their stored status yet.
+- Invite lists label each terminal status as itself: `WITHDRAWN` (seller or admin withdrawal, a block, a suspension, or a property identity change) reads **Withdrawn**, never Expired. Only a persisted `EXPIRED` or an unanswered invite past its deadline reads **Expired**. `InviteView` in `lib/invite-status.ts` carries the Withdrawn label until `InviteDTO` includes it.
 - Only current `READY_FOR_INVITES` properties can send invites. Invite quota means the preceding rolling 24 hours, not a calendar day.
 - The invite page distinguishes no property from an existing property that is not invite-ready. Existing blocked properties show their ownership state and link back to the property record; the server-side invite gate remains unchanged.
 - Property images are private. The owner/admin may view them; invited buyers may view them only while invite status is `SENT`, `VIEWED`, or `ACCEPTED`.

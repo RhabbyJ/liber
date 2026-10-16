@@ -2,18 +2,11 @@ import Link from "next/link";
 import { EmptyState } from "../../../components/empty-state";
 import { GeneratedAvatar } from "../../../components/generated-avatar";
 import { Icon } from "../../../components/icon";
+import { inviteStatusTone } from "../../../lib/invite-status";
 import { relativeDay } from "../../../lib/notification-format";
 import { PageTitle } from "../../../components/page-title";
 import { WorkspaceTabs } from "../../../components/workspace-tabs";
 import { listNotifications, listSellerInvites } from "../../../server/contracts";
-
-const statusTone: Record<string, "active" | "pending" | "declined" | "closed"> = {
-  Accepted: "active",
-  Declined: "declined",
-  Expired: "closed",
-  Sent: "pending",
-  Viewed: "pending",
-};
 
 export default async function SellerInvitesPage() {
   const [{ data: invites }, { data: notifications }] = await Promise.all([listSellerInvites(), listNotifications()]);
@@ -60,7 +53,7 @@ export default async function SellerInvitesPage() {
                 <div className="activity-row-main">
                   <p className="activity-row-title">
                     <Link href={`/buyers/${invite.buyerProfileId}`}>{invite.buyer}</Link>
-                    <span className={`status-tag ${statusTone[invite.status] ?? "pending"}`}>{invite.status}</span>
+                    <span className={`status-tag ${inviteStatusTone(invite.status)}`}>{invite.status}</span>
                   </p>
                   <p className="activity-row-meta">
                     <Icon name="home" size={14} />
