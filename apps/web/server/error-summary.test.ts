@@ -1,6 +1,6 @@
 import { PrismaClientKnownRequestError, PrismaClientValidationError } from "@prisma/client/runtime/client";
 import { describe, expect, it } from "vitest";
-import { redactErrorMessage, summarizeError } from "./error-summary";
+import { redactErrorMessage, routeLabel, summarizeError } from "./error-summary";
 
 describe("log-safe error summaries", () => {
   it("reports the Prisma code and the PostgreSQL SQLSTATE of a failed raw query", () => {
@@ -70,7 +70,10 @@ describe("log-safe error summaries", () => {
       "token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbmF0dXJl",
       "key sb_secret_abcdefghijkl",
       "url https://project.supabase.co/storage/v1/object/sign/verification-documents/user/file.pdf?token=abc",
+      "dsn postgres://user:secret@db.example.test:5432/postgres?sslmode=require",
+      "signed upload token=opaque-upload-token&expires=60",
       "path verification-documents/019f62c5-1c07-4a62-9f9a-8302778aa011/evidence.pdf",
+      "object private/identity.pdf named Passport Scan.jpeg",
       "phone 3105550123",
     ].join("\n");
 
@@ -78,16 +81,30 @@ describe("log-safe error summaries", () => {
 
     for (const secret of [
       "buyer.one", "example.co.uk", "re_live_secret_value", "eyJhbGci", "sb_secret_abcdefghijkl",
-      "token=abc", "verification-documents/", "evidence.pdf", "3105550123",
+      "token=abc", "postgres", "user:secret", "opaque-upload-token", "verification-documents/",
+      "evidence.pdf", "identity.pdf", "Scan.jpeg", "3105550123",
     ]) {
       expect(redacted).not.toContain(secret);
     }
     expect(redacted).not.toContain("\n");
     expect(redacted).toContain("[email]");
+    expect(redacted).toContain("[url]");
     expect(redacted).toContain("Bearer [redacted]");
+    expect(redactErrorMessage("Raw query failed. Code: `N/A`. Message: `and/or`"))
+      .toBe("Raw query failed. Code: `N/A`. Message: `and/or`");
   });
 
   it("truncates long messages", () => {
     expect(redactErrorMessage("x ".repeat(400))).toHaveLength(300);
+  });
+
+  it("labels routes without identifiers or query strings", () => {
+    expect(routeLabel({ url: "https://liber.example/api/property-images/cmfz1q2w30000abcd1234efgh?size=large" }))
+      .toBe("/api/property-images/:id");
+    expect(routeLabel({ url: "https://liber.example/api/loi/negotiations/019F62C5-1C07-4A62-9F9A-8302778AA011/pdf" }))
+      .toBe("/api/loi/negotiations/:id/pdf");
+    expect(routeLabel("/api/uploads/sessions")).toBe("/api/uploads/sessions");
+    expect(routeLabel({ url: "not a url" })).toBe("unspecified");
+    expect(routeLabel()).toBe("unspecified");
   });
 });

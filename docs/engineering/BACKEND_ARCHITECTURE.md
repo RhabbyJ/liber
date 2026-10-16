@@ -703,6 +703,19 @@ Do not create unauthenticated maintenance endpoints.
 - Resend transactional email is used only when configured.
 - Missing external keys should not break local development.
 
+## Error logging
+
+Server logs never carry request bodies, cookies, headers, recipient
+addresses, or message and LOI content. `server/error-summary.ts` reduces an
+unknown error to its class, Prisma code, PostgreSQL SQLSTATE, and a redacted,
+truncated message: URLs, tokens, addresses, private paths, file names, quoted
+input values, and long numbers are removed, and Prisma validation messages are
+replaced entirely because they echo query arguments. LOI, private-file, and
+maintenance failures log that summary with a route label whose identifier
+segments are replaced (`loiErrorResponse(error, request)` and
+`uploadErrorResponse(error, request)` accept the route template or the
+incoming request).
+
 ## Security invariants
 
 - No auth bypasses.

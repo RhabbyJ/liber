@@ -17,19 +17,42 @@ const MAX_MESSAGE_LENGTH = 300;
 // Five-character SQLSTATE, excluding Prisma's P1000-P6999 codes (PL/pgSQL uses P0xxx).
 const SQLSTATE = /^(?!P[1-9]\d{3}$)[0-9A-Z]{5}$/;
 
-// Order matters: tokens and URLs are removed before the generic path rule.
+// Order matters: whole URLs (which may embed credentials, private paths, and
+// signed tokens) go first, then tokens, addresses, paths, and quoted values.
 const REDACTIONS: Array<[RegExp, string]> = [
+  [/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'`]+/gi, "[url]"],
   [/\bBearer\s+\S+/gi, "Bearer [redacted]"],
   [/\beyJ[\w-]+\.[\w-]+\.[\w-]*/g, "[token]"],
   [/\b(?:sb_(?:secret|publishable)_|re_|sk_|pk_)[\w-]{8,}/g, "[token]"],
+  [/\b(api_?key|key|password|secret|sig|signature|token)=[^\s&"'`]+/gi, "$1=[redacted]"],
   [/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, "[email]"],
-  [/(https?:\/\/[^\s?#"'`]+)[?#][^\s"'`]*/g, "$1?[query]"],
   [/[\w.-]+(?:\/[\w.-]+){2,}/g, "[path]"],
+  [/[\w.-]+\/[\w-]+\.[\w]+/g, "[path]"],
+  [/\b[\w-]+\.(?:csv|docx?|gif|heic|jpe?g|pdf|png|txt|webp)\b/gi, "[file]"],
   // PostgreSQL quotes rejected input after a colon and in key details.
   [/: "(?:[^"\\]|\\.)*"/g, ': "[value]"'],
   [/=\((?:[^()]|\([^()]*\))*\)/g, "=([value])"],
   [/\b\d{7,}\b/g, "[number]"],
 ];
+
+const IDENTIFIER_SEGMENT = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[\w-]{20,})$/i;
+
+/**
+ * Route label for logs: a route template as given, or a request's path with
+ * identifier segments replaced and the query string dropped.
+ */
+export function routeLabel(route?: string | { url: string }) {
+  if (!route) return "unspecified";
+  if (typeof route === "string") return route;
+  try {
+    return new URL(route.url).pathname
+      .split("/")
+      .map((segment) => (IDENTIFIER_SEGMENT.test(segment) ? ":id" : segment))
+      .join("/");
+  } catch {
+    return "unspecified";
+  }
+}
 
 export function redactErrorMessage(message: string) {
   let redacted = message.replace(/\s+/g, " ").trim();
