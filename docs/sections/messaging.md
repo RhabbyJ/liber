@@ -22,6 +22,17 @@ and report-driven admin moderation.
 - `packages/db/prisma/current-baseline/migrations/20260717033000_harden_app_private_function_defaults/migration.sql`
 - `scripts/realtime-branch-proof-subscriber.mjs`
 
+`server/messaging/service.ts` is the public API that routes, pages and other
+server modules import; it re-exports cohesive modules. `access.ts` holds the
+session guards and the eligibility SQL every operation rechecks; `locks.ts` the
+pair -> `Invite` -> `Conversation` -> sender lock helpers; `message-rows.ts` the
+qualified Message projection; `conversation-reads.ts` inbox, thread and history
+reads; `send.ts` sends and quotas; `read-state.ts` read markers;
+`blocks-and-mutes.ts` mutes, permanent blocks and invite pair checks;
+`reports.ts` reports and the admin queue; `tour-gate.ts` tour eligibility; and
+`unread-email.ts` the content-free unread outbox jobs. New SQL belongs in the
+module that owns its data, not back in the facade.
+
 ## Invariants
 
 - One valid invite creates exactly one conversation, one seller participant,

@@ -19,6 +19,22 @@ export function normalizeMessageBody(value: string) {
   return normalized;
 }
 
+export function normalizeOptionalText(value: string | undefined, maxLength: number, label: string) {
+  if (value === undefined) return null;
+  if (!value.trim()) return null;
+  const normalized = normalizeMessageBody(value);
+  if (Array.from(normalized).length > maxLength) {
+    throw new MessagingError("INVALID_INPUT", `${label} is too long.`, 400);
+  }
+  return normalized;
+}
+
+export function normalizeRequiredText(value: string | undefined, maxLength: number, label: string) {
+  const normalized = normalizeOptionalText(value, maxLength, label);
+  if (!normalized) throw new MessagingError("INVALID_INPUT", `${label} is required.`, 400);
+  return normalized;
+}
+
 function hasUnpairedSurrogate(value: string) {
   for (let index = 0; index < value.length; index += 1) {
     const code = value.charCodeAt(index);
