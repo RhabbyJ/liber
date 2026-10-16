@@ -4,7 +4,7 @@
 
 **Last reviewed:** 2026-09-27 (meeting follow-ups: closing-cost estimates, seller disclosure, and aligned-summary export; original cohort launch gates remain recorded below)
 
-**Implementation disposition:** complete in source; exact two-user cohort must remain disabled until the release gates in this document are recorded
+**Implementation disposition:** complete in source; enabled in production on 2026-10-16 for an explicit reviewed cohort of every account existing that day (product-owner decision). Opening it to new signups still requires the release gates in this document
 
 **Product classification:** separately gated V2 offer-preparation initiative; it does not expand the core V1 marketplace boundary
 
@@ -500,7 +500,7 @@ of the following:
 - property ownership still bound to the authoritative seller;
 - no block in either direction;
 - a usable current buyer-account name; and
-- both immutable participant UUIDs as the exact enabled two-user cohort.
+- both immutable participant UUIDs on the explicit reviewed cohort list.
 
 Runtime gating and production readiness apply the same cohort rule to the raw
 comma-separated member list: it must contain exactly two entries and exactly two
@@ -1000,7 +1000,7 @@ worker revalidates:
 - approved seller access;
 - property ownership, readiness, approval, and identity version;
 - no participant block; and
-- the exact two-user cohort.
+- both participants on the explicit reviewed cohort list.
 
 Ineligible jobs are cancelled rather than sent. These checks do not replace the
 open live-provider and scheduled-worker release evidence.
