@@ -177,6 +177,25 @@ describe("signup role initialization", () => {
     },
   );
 
+  it.each(["/\t/evil.example", "/\n/evil.example", "/\r/evil.example", "/%09/evil.example", "/\\evil.example"])(
+    "keeps the hostile next %j out of the confirmation link and redirect",
+    async (next) => {
+      vi.stubEnv("SITE_URL", "https://liber.example.test");
+      const form = new FormData();
+      form.set("email", "new@example.test");
+      form.set("name", "New User");
+      form.set("password", "long-enough-password");
+      form.set("role", "buyer");
+      form.set("next", next);
+
+      await expect(signupWithPassword(form)).rejects.toThrow(
+        "REDIRECT:/signup/verify?email=new%40example.test&next=%2Fbuyer%2Fprofile",
+      );
+      const emailRedirectTo = mocks.signUp.mock.calls[0][0].options.emailRedirectTo;
+      expect(emailRedirectTo).toBe("https://liber.example.test/auth/callback?next=%2Fbuyer%2Fprofile");
+    },
+  );
+
   it("sends only the normalized name to Auth metadata and the application user", async () => {
     const form = new FormData();
     form.set("email", "new@example.test");
