@@ -102,6 +102,34 @@ describe("password login recovery throttling", () => {
     expect(response.headers.get("location")).toBe("https://liber.example/seller/properties");
   });
 
+  it.each(["/\t/evil.example", "/\n/evil.example", "/\r/evil.example", "/%09/evil.example", "/.//evil.example"])(
+    "sends a successful login with next=%j to the user's workspace, not off-site",
+    async (next) => {
+      mocks.enforceLimit.mockReset();
+      mocks.enforceLimit.mockResolvedValue({ allowed: true, limit: 10, retryAfterSeconds: 0 });
+      mocks.resolveIdentity.mockResolvedValue({
+        kind: "linked",
+        user: { email: "buyer@example.test", id: "11111111-1111-4111-8111-111111111111", roles: ["BUYER"], status: "ACTIVE" },
+      });
+
+      const response = await POST(new Request("https://liber.example/api/auth/login", {
+        method: "POST", body: new URLSearchParams({ email: "buyer@example.test", next, password: "not-a-real-password" }),
+      }) as never);
+
+      expect(response.headers.get("location")).toBe("https://liber.example/buyer/profile");
+    },
+  );
+
+  it("does not reflect a hostile next into the retry link", async () => {
+    const response = await POST(new Request("https://liber.example/api/auth/login", {
+      method: "POST", body: new URLSearchParams({ email: "buyer@example.test", next: "/\t/evil.example", password: "" }),
+    }) as never);
+
+    expect(response.headers.get("location")).toBe(
+      "https://liber.example/login?status=missing-credentials&email=buyer%40example.test&next=%2F",
+    );
+  });
+
   it("rejects a streamed oversized form before database quotas or Auth", async () => {
     const response = await POST(new Request("https://liber.example/api/auth/login", {
       method: "POST", body: new URLSearchParams({ email: "x".repeat(20 * 1024), password: "private" }),

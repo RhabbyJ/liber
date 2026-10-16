@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { apiResultToServiceArea, type ServiceAreaSearchResponse } from "../lib/service-area-api";
 import { serviceAreaDisplayLabel, type ServiceArea } from "../lib/service-areas";
+import { fieldErrorProps, SellerPropertyFieldError, useSellerPropertyFieldErrors } from "./seller-property-form";
 
 type PropertyDefaults = {
   addressLine1?: string;
@@ -47,6 +48,7 @@ export function PropertyAddressLookup({
   const [invalidField, setInvalidField] = useState<"address" | "zip" | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [zipSuggestions, setZipSuggestions] = useState<ServiceArea[]>([]);
+  const fieldErrors = useSellerPropertyFieldErrors();
   const addressInputRef = useRef<HTMLInputElement>(null);
   const detailsHeadingRef = useRef<HTMLHeadingElement>(null);
   const identityRevisionRef = useRef(0);
@@ -209,6 +211,7 @@ export function PropertyAddressLookup({
       <div className="field full">
         <label htmlFor="addressLine2">Address line 2</label>
         <input
+          {...fieldErrorProps("addressLine2", fieldErrors.addressLine2)}
           autoComplete="address-line2"
           id="addressLine2"
           maxLength={160}
@@ -216,10 +219,12 @@ export function PropertyAddressLookup({
           onChange={(event) => setAddressLine2(event.target.value)}
           value={addressLine2}
         />
+        <SellerPropertyFieldError field="addressLine2" />
       </div>
       <div className="field">
         <label htmlFor="city">City</label>
         <input
+          {...fieldErrorProps("city", fieldErrors.city)}
           autoComplete="address-level2"
           id="city"
           maxLength={80}
@@ -231,10 +236,12 @@ export function PropertyAddressLookup({
           placeholder="Sherman Oaks"
           value={city}
         />
+        <SellerPropertyFieldError field="city" />
       </div>
       <div className="field">
         <label htmlFor="state">State</label>
         <input
+          {...fieldErrorProps("state", fieldErrors.state)}
           autoComplete="address-level1"
           id="state"
           maxLength={2}
@@ -246,6 +253,7 @@ export function PropertyAddressLookup({
           placeholder={marketState}
           value={state}
         />
+        <SellerPropertyFieldError field="state" />
       </div>
     </>
   );
@@ -256,19 +264,23 @@ export function PropertyAddressLookup({
       <input name="lng" type="hidden" value={lng} />
       <div className="field">
         <label htmlFor="beds">Bedrooms</label>
-        <input id="beds" inputMode="numeric" name="bedrooms" onChange={(event) => setBedrooms(event.target.value)} placeholder="4" value={bedrooms} />
+        <input {...fieldErrorProps("bedrooms", fieldErrors.bedrooms)} id="beds" inputMode="numeric" name="bedrooms" onChange={(event) => setBedrooms(event.target.value)} placeholder="4" value={bedrooms} />
+        <SellerPropertyFieldError field="bedrooms" />
       </div>
       <div className="field">
         <label htmlFor="baths">Bathrooms</label>
-        <input id="baths" inputMode="decimal" name="bathrooms" onChange={(event) => setBathrooms(event.target.value)} placeholder="2" value={bathrooms} />
+        <input {...fieldErrorProps("bathrooms", fieldErrors.bathrooms)} id="baths" inputMode="decimal" name="bathrooms" onChange={(event) => setBathrooms(event.target.value)} placeholder="2" value={bathrooms} />
+        <SellerPropertyFieldError field="bathrooms" />
       </div>
       <div className="field">
         <label htmlFor="area">Square feet</label>
-        <input id="area" inputMode="numeric" name="squareFeet" onChange={(event) => setSquareFeet(event.target.value)} placeholder="2140" value={squareFeet} />
+        <input {...fieldErrorProps("squareFeet", fieldErrors.squareFeet)} id="area" inputMode="numeric" name="squareFeet" onChange={(event) => setSquareFeet(event.target.value)} placeholder="2,140" value={squareFeet} />
+        <SellerPropertyFieldError field="squareFeet" />
       </div>
       <div className="field">
         <label htmlFor="lot">Lot size</label>
-        <input id="lot" inputMode="numeric" name="lotSize" onChange={(event) => setLotSize(event.target.value)} placeholder="7200" value={lotSize} />
+        <input {...fieldErrorProps("lotSize", fieldErrors.lotSize)} id="lot" inputMode="numeric" name="lotSize" onChange={(event) => setLotSize(event.target.value)} placeholder="7,200" value={lotSize} />
+        <SellerPropertyFieldError field="lotSize" />
       </div>
     </>
   );
@@ -280,8 +292,8 @@ export function PropertyAddressLookup({
           <div className="property-intake-control property-intake-address-control">
             <label className="visually-hidden" htmlFor="address">Street address</label>
             <input
-              aria-describedby="property-lookup-status"
-              aria-invalid={invalidField === "address" || undefined}
+              {...fieldErrorProps("addressLine1", fieldErrors.addressLine1, "property-lookup-status")}
+              aria-invalid={invalidField === "address" || Boolean(fieldErrors.addressLine1) || undefined}
               autoComplete="address-line1"
               id="address"
               maxLength={160}
@@ -299,8 +311,8 @@ export function PropertyAddressLookup({
           <div className="property-intake-control property-intake-zip-control">
             <label className="visually-hidden" htmlFor="zip">ZIP code</label>
             <input
-              aria-describedby="property-lookup-status"
-              aria-invalid={invalidField === "zip" || undefined}
+              {...fieldErrorProps("zip", fieldErrors.zip, "property-lookup-status")}
+              aria-invalid={invalidField === "zip" || Boolean(fieldErrors.zip) || undefined}
               autoComplete="postal-code"
               id="zip"
               inputMode="numeric"
@@ -323,6 +335,8 @@ export function PropertyAddressLookup({
           </button>
         </div>
         {lookupStatus}
+        <SellerPropertyFieldError field="addressLine1" />
+        <SellerPropertyFieldError field="zip" />
         <p className="property-intake-privacy">Private &mdash; never posted publicly.</p>
 
         <section className="seller-property-intake-section property-address-details" aria-labelledby="property-address-details-heading">
@@ -342,8 +356,8 @@ export function PropertyAddressLookup({
         <label htmlFor="address">Address</label>
         <div className="lookup-row">
           <input
-            aria-describedby="property-lookup-status"
-            aria-invalid={invalidField === "address" || undefined}
+            {...fieldErrorProps("addressLine1", fieldErrors.addressLine1, "property-lookup-status")}
+            aria-invalid={invalidField === "address" || Boolean(fieldErrors.addressLine1) || undefined}
             autoComplete="address-line1"
             id="address"
             maxLength={160}
@@ -362,13 +376,14 @@ export function PropertyAddressLookup({
           </button>
         </div>
         {lookupStatus}
+        <SellerPropertyFieldError field="addressLine1" />
       </div>
       {locationDetails}
       <div className="field">
         <label htmlFor="zip">ZIP</label>
         <input
-          aria-describedby="property-lookup-status"
-          aria-invalid={invalidField === "zip" || undefined}
+          {...fieldErrorProps("zip", fieldErrors.zip, "property-lookup-status")}
+          aria-invalid={invalidField === "zip" || Boolean(fieldErrors.zip) || undefined}
           autoComplete="postal-code"
           id="zip"
           inputMode="numeric"
@@ -384,6 +399,7 @@ export function PropertyAddressLookup({
           value={zip}
         />
         {zipDatalist}
+        <SellerPropertyFieldError field="zip" />
       </div>
       {propertyFacts}
     </>

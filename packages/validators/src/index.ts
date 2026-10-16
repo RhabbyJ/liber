@@ -226,10 +226,50 @@ export const conversationListQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(50).default(25),
 }).strict();
 
-const optionalMoney = z.coerce.number().min(0).optional();
-// Saved budgets are Decimal(12, 2); larger input must fail validation instead of overflowing the column.
-const optionalBuyerBudget = z.coerce.number().min(0).max(9_999_999_999.99, "Budget cannot exceed $9,999,999,999.99.").optional();
-const optionalInteger = z.coerce.number().int().min(0).optional();
+// Grouped ("925,000" or "925 000") or plain digits, with optional decimals.
+const NUMBER_TEXT_PATTERN = /^(?:\d{1,3}(?:,\d{3})+|\d{1,3}(?: \d{3})+|\d+)(?:\.\d+)?$/;
+// Money columns are Decimal(12, 2) and counts are 4-byte integers; larger input
+// must fail validation instead of overflowing the column.
+const MAX_MONEY = 9_999_999_999.99;
+const MAX_INTEGER = 2_147_483_647;
+
+/**
+ * Number fields are text inputs with inputMode hints, so values arrive as typed:
+ * "$925,000", "2,140", "7 200". Accepts a leading "$" and comma or space digit
+ * grouping; blank becomes undefined, and anything else (including ambiguous
+ * "2,5") becomes NaN so it fails validation instead of being guessed at.
+ */
+export function parseNumberInput(value: unknown) {
+  if (typeof value !== "string") return value;
+  const text = value.trim().replace(/^\$\s*/, "").replace(/\s+/g, " ");
+  if (text === "") return undefined;
+  return NUMBER_TEXT_PATTERN.test(text) ? Number(text.replace(/[, ]/g, "")) : Number.NaN;
+}
+
+function optionalDollarAmount(invalidMessage: string, maxMessage = "Enter an amount under $10 billion.") {
+  return z.preprocess(
+    parseNumberInput,
+    z.number({ error: invalidMessage }).min(0, invalidMessage).max(MAX_MONEY, maxMessage).optional(),
+  );
+}
+
+function optionalWholeNumber(invalidMessage: string, fractionMessage = invalidMessage) {
+  return z.preprocess(
+    parseNumberInput,
+    z.number({ error: invalidMessage })
+      .int(fractionMessage)
+      .min(0, invalidMessage)
+      .max(MAX_INTEGER, "Enter a smaller number.")
+      .optional(),
+  );
+}
+
+const optionalMoney = optionalDollarAmount("Enter a dollar amount, like 925,000.");
+const optionalBuyerBudget = optionalDollarAmount(
+  "Enter a dollar amount, like 925,000.",
+  "Budget cannot exceed $9,999,999,999.99.",
+);
+const optionalInteger = optionalWholeNumber("Enter a whole number, like 3.");
 export const marketSlugSchema = z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/);
 const nullableServiceAreaSlug = z.union([
   z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/),
@@ -355,25 +395,29 @@ export const upsertBuyerCriteriaSchema = z.object({
 );
 
 export const createSellerPropertySchema = z.object({
-  addressLine1: z.string().trim().max(160).optional(),
-  addressLine2: z.string().trim().max(160).optional(),
-  city: z.string().trim().max(80).optional(),
-  state: z.string().trim().length(2).optional(),
-  zip: z.string().trim().max(16).optional(),
+  addressLine1: z.string().trim().max(160, "Shorten the street address to 160 characters.").optional(),
+  addressLine2: z.string().trim().max(160, "Shorten address line 2 to 160 characters.").optional(),
+  city: z.string().trim().max(80, "Shorten the city to 80 characters.").optional(),
+  state: z.string().trim().length(2, "Enter the 2-letter state, like CA.").optional(),
+  zip: z.string().trim().max(16, "Enter a ZIP code, like 91423.").optional(),
   lat: z.coerce.number().min(-90).max(90).optional(),
   lng: z.coerce.number().min(-180).max(180).optional(),
   providerPropertyId: z.string().trim().min(1).max(160).optional(),
   propertyType: propertySubtypeSchema,
-  bedrooms: optionalInteger,
-  bathrooms: optionalInteger,
-  squareFeet: optionalInteger,
-  lotSize: optionalInteger,
+  bedrooms: optionalWholeNumber("Enter bedrooms as a whole number, like 3."),
+  // SellerProperty.bathrooms is an integer column, so half baths cannot be stored.
+  bathrooms: optionalWholeNumber(
+    "Enter bathrooms as a whole number, like 2.",
+    "Enter bathrooms as a whole number, like 2. Half baths can't be saved.",
+  ),
+  squareFeet: optionalWholeNumber("Enter square feet as a whole number, like 2,140."),
+  lotSize: optionalWholeNumber("Enter the lot size in square feet, like 7,200."),
   condition: z.string().trim().max(80).optional(),
   features: z.array(z.string().trim().min(1).max(80)).default([]),
-  description: z.string().trim().max(2000).optional(),
-  price: optionalMoney,
+  description: z.string().trim().max(2000, "Shorten the notes to 2,000 characters.").optional(),
+  price: optionalDollarAmount("Enter the asking price in dollars, like 925,000."),
   // Sellers must confirm ownership/authority before a property can back invites.
-  ownershipConfirmed: z.literal(true),
+  ownershipConfirmed: z.literal(true, "Confirm you own this property or are authorized to represent its owner."),
 });
 
 export const updateSellerPropertySchema = createSellerPropertySchema.partial().extend({

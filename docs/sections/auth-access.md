@@ -17,6 +17,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - `apps/web/server/shared-rate-limit.ts`
 - `apps/web/lib/auth-identity.ts`
 - `apps/web/server/request-origin.ts`
+- `apps/web/lib/redirect.ts`
 - `apps/web/proxy.ts`
 - `apps/web/app/api/auth/login/route.ts`
 - `apps/web/app/auth/callback/route.ts`
@@ -74,6 +75,11 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
   returns with the password step open.
 - Signed-in users should continue only when they already have the role needed for the requested path; a role mismatch returns them to their existing default workspace.
 - Auth routes must not use `/login`, `/signup`, `/signup/*`, `/auth/callback`, or the removed legacy `/onboarding/role` path as post-login destinations; resolve stale auth-flow `next` values to the user's role-aware default.
+- Every `next` value passes through `safeInternalPath`. It rejects ASCII control
+  characters (URL parsing deletes tab/LF/CR, so `/\t/evil.example` would become
+  `//evil.example`), backslashes, `//`, `..` segments, and values that turn
+  unsafe after one more percent-decode, then returns the URL parser's own
+  same-origin serialization. Do not hand-roll redirect-target checks.
 - Auth POST redirects and same-origin checks must use `request-origin.ts` to keep the incoming request host/protocol and avoid local `127.0.0.1`/`localhost` CSP and cookie mismatches. Mutations accept an exact matching `Origin`, or `Sec-Fetch-Site: same-origin` only when `Origin` is absent; missing both signals fails closed.
 - Password login has one write path: `POST /api/auth/login`. Do not reintroduce a duplicate login server action with separate identity checks. The log-in form is a native POST to that route; it never calls Supabase from the browser.
 - Server-side signup errors return to the signup form with the role and email restored instead of restarting the user. Do not put the private signup account name in URLs; same-browser draft recovery is acceptable for error recovery.

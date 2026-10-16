@@ -28,6 +28,8 @@ import {
   buyerProfileFormMessage,
   type BuyerProfileFormState,
 } from "../lib/buyer-profile-form";
+import type { SellerPropertyFormState } from "../lib/seller-property-form";
+import { sellerPropertyFormFeedback } from "./seller-property-form-errors";
 
 function safeSellerNext(formData: FormData) {
   const next = formData.get("next");
@@ -110,8 +112,18 @@ export async function blockInviteConversation(formData: FormData) {
   redirect("/buyer/invites?status=blocked");
 }
 
-export async function submitSellerProperty(formData: FormData) {
-  const { data: property } = await createSellerProperty(formData);
+export async function submitSellerProperty(
+  _state: SellerPropertyFormState,
+  formData: FormData,
+): Promise<SellerPropertyFormState> {
+  let property: Awaited<ReturnType<typeof createSellerProperty>>["data"];
+  try {
+    ({ data: property } = await createSellerProperty(formData));
+  } catch (error) {
+    const state = sellerPropertyFormFeedback(error);
+    if (state) return state;
+    throw error;
+  }
   const next = safeSellerNext(formData);
 
   revalidatePath("/seller/properties");
@@ -119,8 +131,17 @@ export async function submitSellerProperty(formData: FormData) {
   redirect(next ?? `/seller/properties/${property.id}/edit`);
 }
 
-export async function submitSellerPropertyUpdate(formData: FormData) {
-  await updateSellerProperty(formData);
+export async function submitSellerPropertyUpdate(
+  _state: SellerPropertyFormState,
+  formData: FormData,
+): Promise<SellerPropertyFormState> {
+  try {
+    await updateSellerProperty(formData);
+  } catch (error) {
+    const state = sellerPropertyFormFeedback(error);
+    if (state) return state;
+    throw error;
+  }
   const propertyId = formData.get("propertyId");
 
   if (typeof propertyId !== "string") {

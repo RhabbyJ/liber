@@ -13,6 +13,9 @@ Owns private seller property records, property images, ownership evidence upload
 - `apps/web/app/seller/invites/page.tsx`
 - `apps/web/app/seller/notifications/page.tsx`
 - `apps/web/components/property-address-lookup.tsx`
+- `apps/web/components/seller-property-form.tsx`
+- `apps/web/lib/seller-property-form.ts`
+- `apps/web/server/seller-property-form-errors.ts`
 - `apps/web/server/contracts.ts`
 - `apps/web/server/form-actions.ts`
 - `apps/web/components/seller-invite-form.tsx`
@@ -25,6 +28,8 @@ Owns private seller property records, property images, ownership evidence upload
 - Seller properties are private invite context, not public listings.
 - New-property creation presents one scroll flow as `Address -> Details -> Confirm`: it begins with a focused street-address and active-ZIP lookup, then keeps the complete review, matching context, and ownership attestation form available below. Lookup never creates or saves a property; only the final `Save and continue` server action does.
 - Property creation requires `ownershipConfirmed` (validated in `createSellerPropertySchema`); the confirmation is audited but is not a substitute for admin-reviewed ownership evidence.
+- Price, bedrooms, bathrooms, square feet, and lot size are text inputs. `parseNumberInput` accepts a leading `$` and comma or space digit grouping (`$925,000`, `2,140`, `7 200`) and rejects ambiguous text such as `2,5` instead of guessing. Bathrooms are whole numbers because `SellerProperty.bathrooms` is an integer column; decimals get a field error.
+- Create and edit forms use `useActionState` through `SellerPropertyForm`. Validation failures return a message plus field-level errors next to each control and keep everything the seller entered; unknown errors and framework redirects are rethrown.
 - Seller property type choices are the v1 buyer-demand choices: house (`HOME` legacy enum value), condo, townhouse, manufactured, and land.
 - Condition uses the shared Move-in ready / Mild fixer / Fixer dropdown. Property features use checkboxes for Pool, Fireplace, Garage, Parking, ADU, Yard, Single story, and Central air conditioning. Historical custom conditions and features remain selectable on edit; unchecking every feature clears the saved selections. The existing condition/features database fields remain the source of truth.
 - Garage square footage is no longer collected, accepted by property writes, or included in property DTOs; historical database values remain untouched. Garage availability is a feature checkbox.

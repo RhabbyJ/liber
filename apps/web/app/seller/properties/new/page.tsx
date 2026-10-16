@@ -4,6 +4,13 @@ import { PropertyAddressLookup } from "../../../../components/property-address-l
 import { PropertyDetailsFields } from "../../../../components/property-details-fields";
 import { PropertyHeroIllustration } from "../../../../components/property-intake-illustration";
 import { PropertyTypePicker } from "../../../../components/property-type-picker";
+import {
+  PropertyNotesField,
+  PropertyPriceField,
+  SellerPropertyFieldError,
+  SellerPropertyForm,
+  SellerPropertyFormAlert,
+} from "../../../../components/seller-property-form";
 import { DEFAULT_MARKET_SLUG } from "../../../../lib/service-areas";
 import { submitSellerProperty } from "../../../../server/form-actions";
 import { getActiveMarketBySlug } from "../../../../server/service-areas";
@@ -24,7 +31,7 @@ export default async function NewSellerPropertyPage({
         Your properties
       </Link>
 
-      <form action={submitSellerProperty} className="seller-property-intake-form">
+      <SellerPropertyForm action={submitSellerProperty} className="seller-property-intake-form">
         {safeNext ? <input name="next" type="hidden" value={safeNext} /> : null}
 
         <div className="seller-property-intake-hero">
@@ -47,15 +54,9 @@ export default async function NewSellerPropertyPage({
               name="propertyType"
               required
             />
-            <div className="field">
-              <label htmlFor="price">Asking price</label>
-              <input id="price" name="price" placeholder="925000" inputMode="numeric" />
-            </div>
+            <PropertyPriceField />
             <PropertyDetailsFields />
-            <div className="field full">
-              <label htmlFor="description">Notes for invited buyers</label>
-              <textarea id="description" name="description" placeholder="Add useful private context." />
-            </div>
+            <PropertyNotesField placeholder="Add useful private context." />
           </div>
         </section>
 
@@ -66,11 +67,13 @@ export default async function NewSellerPropertyPage({
             <span className="checkmark" />
             I confirm I legally own this property or am authorized to represent the owner.
           </label>
+          <SellerPropertyFieldError field="ownershipConfirmed" />
           <p className="fine-print">
             Only add a property you own or are authorized to represent. Claiming another person&rsquo;s property may be illegal.
             After saving, you&rsquo;ll upload your ID and a matching property bill for Liber&rsquo;s private review.
           </p>
 
+          <SellerPropertyFormAlert />
           <div className="form-actions">
             <button className="button primary" type="submit">
               Save and continue
@@ -78,7 +81,7 @@ export default async function NewSellerPropertyPage({
             <Link className="text-link" href="/seller/properties">Cancel</Link>
           </div>
         </section>
-      </form>
+      </SellerPropertyForm>
     </div>
   );
 }

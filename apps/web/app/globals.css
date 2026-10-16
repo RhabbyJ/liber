@@ -4845,6 +4845,11 @@ input[type="radio"]:disabled {
   min-width: 160px;
 }
 
+.listing-editor-form > .seller-property-form-alert,
+.listing-editor-form > .field-error {
+  grid-column: 1 / -1;
+}
+
 .listing-editor-rail {
   display: grid;
   gap: 16px;

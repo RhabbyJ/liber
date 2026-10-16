@@ -62,4 +62,19 @@ describe("verified Auth callback role initialization", () => {
     expect(mocks.ensureSellerAccess).not.toHaveBeenCalled();
     expect(response.headers.get("location")).toBe("https://liber.example/buyer/profile");
   });
+
+  it.each(["/%09/evil.example", "/%0A/evil.example", "/%0D/evil.example", "%2F%2Fevil.example", "/%5Cevil.example", "/%2509/evil.example"])(
+    "keeps a confirmation link with next=%s on this site",
+    async (encodedNext) => {
+      const authUser = { email: "buyer@example.test", id: "11111111-1111-4111-8111-111111111111" };
+      mocks.getUser.mockResolvedValue({ data: { user: authUser }, error: null });
+      mocks.establishSession.mockResolvedValue({ ...authUser, roles: ["BUYER"], status: "ACTIVE" });
+
+      const response = await GET({
+        url: `https://liber.example/auth/callback?code=verified&next=${encodedNext}`,
+      } as never);
+
+      expect(response.headers.get("location")).toBe("https://liber.example/buyer/profile");
+    },
+  );
 });

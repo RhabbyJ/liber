@@ -1,5 +1,48 @@
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+import ts from "typescript";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sendInviteEmail, sendLoiUpdateEmail, sendTourEmail, sendUnreadMessageEmail } from "./email";
+
+function directives(file: string) {
+  const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest);
+  const prologue: string[] = [];
+  for (const statement of source.statements) {
+    if (!ts.isExpressionStatement(statement) || !ts.isStringLiteral(statement.expression)) break;
+    prologue.push(statement.expression.text);
+  }
+  return { prologue, source };
+}
+
+function sourceFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) return entry.name === "node_modules" || entry.name.startsWith(".") ? [] : sourceFiles(entryPath);
+    return /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name) ? [entryPath] : [];
+  });
+}
+
+describe("email module boundary", () => {
+  it("is server-only and never a Server Action module", () => {
+    const { prologue, source } = directives(path.resolve("server/email.ts"));
+
+    // Regression: "use server" made every unauthenticated sender a callable action endpoint.
+    expect(prologue).not.toContain("use server");
+    expect(source.statements.some((statement) => ts.isImportDeclaration(statement)
+      && ts.isStringLiteral(statement.moduleSpecifier)
+      && statement.moduleSpecifier.text === "server-only"
+      && !statement.importClause)).toBe(true);
+  });
+
+  it("is not imported by client modules", () => {
+    const clientImporters = ["app", "components", "lib", "server"]
+      .flatMap((directory) => sourceFiles(path.resolve(directory)))
+      .filter((file) => directives(file).prologue.includes("use client"))
+      .filter((file) => /from\s+["'][./]+(?:server\/)?email["']/.test(readFileSync(file, "utf8")));
+
+    expect(clientImporters).toEqual([]);
+  });
+});
 
 describe("invite email adapter", () => {
   afterEach(() => {

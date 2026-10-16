@@ -1,5 +1,7 @@
-"use server";
-
+// Unauthenticated senders: server-only so a client import fails the build.
+// Never mark this module "use server", which would expose every export as a
+// callable Server Action endpoint.
+import "server-only";
 import { fetchWithRetry } from "./external-fetch";
 import { configuredSiteOrigin } from "./site-origin";
 import type { TourEvent } from "../lib/tour-scheduling";
