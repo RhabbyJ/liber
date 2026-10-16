@@ -34,6 +34,7 @@ vi.mock("../rate-limit", () => ({
 
 import { blockConversationUser, getConversationThread, getConversationScheduleContext, getConversationScheduleDeliveryContext, withConversationScheduleMutation, withConversationScheduleDelivery, listConversations, sendConversationMessage } from "./service";
 import { normalizeConversationThread } from "../../components/messaging/normalize";
+import { SCHEDULE_DELIVERY_TRANSACTION_TIMEOUT_MS } from "./tour-gate";
 
 describe("messaging service query shape", () => {
   beforeEach(() => {
@@ -85,7 +86,7 @@ describe("messaging service query shape", () => {
     await expect(getConversationScheduleDeliveryContext(conversationId, sellerId)).resolves.toEqual({ email: "seller@example.test" });
   });
 
-  it("serializes final notification delivery with schedule changes and gives the provider a bounded transaction", async () => {
+  it("serializes the final delivery decision with schedule changes in a bounded transaction", async () => {
     mocks.prisma.$queryRaw
       .mockResolvedValueOnce([conversationAccessRow()])
       .mockResolvedValueOnce([{ locked: true }])
@@ -95,7 +96,8 @@ describe("messaging service query shape", () => {
     const send = vi.fn().mockResolvedValue("sent");
     await expect(withConversationScheduleDelivery(conversationId, sellerId, send)).resolves.toBe("sent");
     expect(send).toHaveBeenCalledWith(mocks.prisma, { email: "seller@example.test" });
-    expect(mocks.prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { timeout: 30_000 });
+    expect(mocks.prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { timeout: SCHEDULE_DELIVERY_TRANSACTION_TIMEOUT_MS });
+    expect(SCHEDULE_DELIVERY_TRANSACTION_TIMEOUT_MS).toBeLessThan(30_000);
   });
 
   it("loads a conversation list in two set-based queries using the DB-backed session snapshot", async () => {

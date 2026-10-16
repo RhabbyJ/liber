@@ -202,7 +202,13 @@ identity changes, and the exact enabled cohort. Read-only conversations retain
 authorized tour history and cannot schedule or receive reminders.
 
 `server/messaging/tours.ts` owns the lifecycle, content-free outbox jobs and
-audits. `components/messaging/tour-scheduler.tsx` is an independent chat sidecar;
+audits. Dispatch rechecks eligibility, the schedule revision and the worker's
+outbox lease in a short transaction under the pair -> invite -> conversation
+locks, commits, and only then calls the provider with the job's idempotency
+key, so no lock or pooled connection is held across HTTP. A reschedule, cancel
+or block that commits before that decision suppresses the email; one that
+commits after it cannot recall it. Provider failures leave the job to the
+outbox retry with the same key. `components/messaging/tour-scheduler.tsx` is an independent chat sidecar;
 its request timeout or failure cannot prevent ordinary chat. System messages
 record proposals, confirmation and cancellation, so the inbox also shows tour
 updates when email is unavailable. The UI shows a follow-up prompt after the

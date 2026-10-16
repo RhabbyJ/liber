@@ -11,6 +11,10 @@ import {
 import { MessagingError, messagingUnavailable } from "./errors";
 import { lockConversation, lockInvite, lockPair, type TransactionClient } from "./locks";
 
+// The delivery recheck makes no external calls; this leaves room to wait behind
+// one default-timeout (5 s) transaction that holds the pair lock.
+export const SCHEDULE_DELIVERY_TRANSACTION_TIMEOUT_MS = 10_000;
+
 export async function getConversationScheduleContext(conversationId: string) {
   const user = await requireMessagingUser();
   const access = await requireConversationAccess(prisma, conversationId, user.id);
@@ -41,6 +45,12 @@ export async function getConversationScheduleDeliveryContext(conversationId: str
   return scheduleDeliveryContext(access, userId);
 }
 
+/**
+ * Rechecks delivery eligibility under the schedule lock order. `operation` must
+ * only read or write the database: callers make external (provider) calls after
+ * this transaction commits so locks and the pooled connection are never held
+ * across HTTP.
+ */
 export async function withConversationScheduleDelivery<T>(
   conversationId: string,
   userId: string,
@@ -54,7 +64,7 @@ export async function withConversationScheduleDelivery<T>(
     const access = await requireConversationAccess(tx, conversationId, userId);
     const recipient = scheduleDeliveryContext(access, userId);
     return recipient ? operation(tx, recipient) : null;
-  }, { timeout: 30_000 });
+  }, { timeout: SCHEDULE_DELIVERY_TRANSACTION_TIMEOUT_MS });
 }
 
 function scheduleDeliveryContext(access: ConversationAccessRow, userId: string) {
