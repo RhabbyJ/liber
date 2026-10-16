@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { isElementRendered } from "./element-visibility";
+import { isElementRendered } from "../element-visibility";
 
 const source = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 

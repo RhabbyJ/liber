@@ -14,7 +14,7 @@ import {
 import type { ConversationSummary, MessagingListPageInfo } from "./types";
 import { createRecoveryPolling, MESSAGING_FALLBACK_POLL_MS } from "./recovery-polling";
 import { CONVERSATION_READ_EVENT, type ConversationReadDetail } from "./unread-conversations";
-import { isElementRendered } from "./element-visibility";
+import { isElementRendered } from "../element-visibility";
 
 const conversationDateFormatter = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
 const conversationMonthDayFormatter = new Intl.DateTimeFormat("en", { day: "numeric", month: "short" });
