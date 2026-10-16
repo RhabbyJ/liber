@@ -12,10 +12,11 @@
   "dependencies": {
     "@liber/db": "*",
     "@liber/validators": "*",
+    "@next/env": "16.4.2",
     "@pdf-lib/fontkit": "1.1.1",
     "@supabase/ssr": "0.12.3",
     "@supabase/supabase-js": "2.110.5",
-    "next": "16.3.5",
+    "next": "16.4.2",
     "pdf-lib": "1.17.1",
     "polygon-clipping": "0.15.7",
     "react": "19.2.6",
@@ -27,7 +28,7 @@
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",
     "eslint": "^9.39.5",
-    "eslint-config-next": "16.3.5",
+    "eslint-config-next": "16.4.2",
     "typescript": "6.0.3",
     "typescript-eslint": "8.63.0",
     "vitest": "4.1.11"

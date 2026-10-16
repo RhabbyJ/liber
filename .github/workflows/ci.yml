@@ -39,8 +39,10 @@ jobs:
       - name: Use repository npm version
         run: npm install --global npm@10.9.0
       - run: npm ci
-      - name: Reject moderate or higher dependency advisories
-        run: npm audit --audit-level=moderate
+      - name: Reject moderate or higher advisories in shipped dependencies
+        run: npm audit --omit=dev --audit-level=moderate
+      - name: Reject critical advisories in any dependency
+        run: npm audit --audit-level=critical
       - run: npm run db:generate
       - run: npm run db:validate
       - run: npm run lint

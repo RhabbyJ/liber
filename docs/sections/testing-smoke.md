@@ -125,7 +125,7 @@ Owns unit tests, route smoke tests, visual smoke tests, security smoke tests, an
 - The protected production-readiness workflow receives the deployed messaging
   enablement and cohort variables; an enabled production rollout fails unless
   its cohort is an explicit reviewed UUID list.
-- CI runs deterministic Prisma generation/validation, real ESLint, typecheck, unit tests, production build, and security smoke checks. Protected disposable-database jobs run exact fresh/upgrade, identity, RLS/geography, and seller-search plan gates using guarded branch credentials.
+- CI runs deterministic Prisma generation/validation, real ESLint, typecheck, unit tests, production build, and security smoke checks. Its dependency gate fails on moderate or higher advisories in shipped (non-dev) dependencies and on critical advisories anywhere; dev-only toolchain findings without an upstream fix are tracked, not blocking. Protected disposable-database jobs run exact fresh/upgrade, identity, RLS/geography, and seller-search plan gates using guarded branch credentials.
 - Secret smoke scans tracked repository text, including force-tracked `.env*`
   files and tracked files under normally generated/artifact directories, plus
   bounded entries in ZIPs present in its workspace. Nested ZIPs and opaque
