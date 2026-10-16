@@ -18,6 +18,8 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - `packages/db/prisma/migrations/20261016040000_codify_auth_user_sync_triggers/migration.sql`
 - `packages/db/prisma/current-baseline/migrations/20261016040000_codify_auth_user_sync_triggers/migration.sql`
 - `docs/engineering/AUTH_USER_SYNC_DRIFT_CHECK.sql`
+- `packages/db/prisma/migrations/20261016050000_index_notification_feed_and_outbox_claims/migration.sql`
+- `packages/db/prisma/current-baseline/migrations/20261016050000_index_notification_feed_and_outbox_claims/migration.sql`
 - `packages/db/src/**`
 - `prisma.config.ts`
 - `apps/web/public/geo/service-areas/**`
@@ -145,6 +147,15 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
   `TRIGGER` privilege on `auth.users`, not ownership.
   `auth-user-sync.sql.test.ts` proves the old and new behavior in PGlite and
   that the migration is a no-op in effect on the hand-applied state.
+- Forward migration `20261016050000_index_notification_feed_and_outbox_claims`
+  adds `Notification_userId_createdAt_id_idx` on
+  `("userId", "createdAt" DESC, id DESC)` for the feed, bell, and popup reads,
+  and the SQL-only partial index `EmailOutbox_claimable_createdAt_idx` on
+  `("createdAt") WHERE status IN ('PENDING', 'FAILED', 'SENDING') AND
+  attempts < 5` for worker claims. The claim query repeats that status list so
+  the planner can prove the predicate, and the attempts bound mirrors the
+  email worker's `MAX_ATTEMPTS`; change them together.
+  `query-indexes.sql.test.ts` checks both plans in PGlite.
 - Production also carries `app_private.is_active_user()` and
   `app_private.owns_property(text)`, unused leftovers of the hand-applied
   proposal. They are known production-only objects that no migration creates

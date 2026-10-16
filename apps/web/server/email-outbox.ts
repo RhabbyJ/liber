@@ -191,9 +191,12 @@ export async function claimEmailJobs(limit: number, workerId: string): Promise<C
       WHERE job.id = exhausted_candidates.id
       RETURNING job.id
     ), candidates AS (
+      -- The redundant status list lets the planner prove the predicate of
+      -- "EmailOutbox_claimable_createdAt_idx" and read it in "createdAt" order.
       SELECT id
       FROM public."EmailOutbox"
       WHERE attempts < ${MAX_ATTEMPTS}
+        AND status IN ('PENDING', 'FAILED', 'SENDING')
         AND (
           (status IN ('PENDING', 'FAILED') AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= now()))
           OR (status = 'SENDING' AND ("leaseUntil" IS NULL OR "leaseUntil" <= now()))
