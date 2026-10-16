@@ -52,6 +52,13 @@ changes are deployed. Provider findings retain the dates of their source audits.
 - 2026-10-16: 21 of 29 production accounts hold ADMIN, almost all from the
   CEO-preview self-grant (`admin_role_preview_self_grant`). The owner chose to
   keep them for now; review and remove them before any public launch.
+- 2026-10-16 owner decision: production testing mode is on
+  (`LIBER_PRODUCTION_TESTING_MODE=enabled-until-launch`). Every signed-in account
+  becomes ADMIN with approved seller access, messaging and LOI cohorts are `*`,
+  unscanned documents can be uploaded and reviewed, admins can test-approve any
+  property, and crawling is disallowed. Signup stays open by owner choice, so
+  anyone who signs up becomes an admin. `readiness:production` fails until the
+  switch is removed; the earlier 29-account cohort lists are superseded.
 - The supported fresh-database path is the locked generated Prisma baseline
   through Guided Messaging V1. Existing production retains its immutable
   historical ledger and uses forward migrations only. Promotion still requires

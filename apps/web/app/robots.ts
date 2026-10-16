@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { productionTestingModeEnabled } from "../server/preview-environment";
 import { configuredSiteOrigin } from "../server/site-origin";
 
 /**
@@ -7,6 +8,8 @@ import { configuredSiteOrigin } from "../server/site-origin";
  * tools also send `X-Robots-Tag: noindex`. Built with the server-only `SITE_URL`.
  */
 export default function robots(): MetadataRoute.Robots {
+  // While the team tests in production, every account becomes an admin: keep crawlers out.
+  if (productionTestingModeEnabled()) return { rules: { disallow: "/", userAgent: "*" } };
   const origin = configuredSiteOrigin();
   return {
     rules: {

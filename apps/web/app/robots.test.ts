@@ -30,6 +30,16 @@ describe("robots.txt", () => {
     expect(result.sitemap).toBe("https://liber.example/sitemap.xml");
   });
 
+  it("blocks every crawler while production testing mode grants every account ADMIN", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("SITE_URL", "https://liber.example");
+    vi.stubEnv("LIBER_CEO_PREVIEW_TARGET", "ceo-preview");
+    vi.stubEnv("LIBER_PRODUCTION_TESTING_MODE", "enabled-until-launch");
+
+    expect(robots()).toEqual({ rules: { disallow: "/", userAgent: "*" } });
+  });
+
   it("omits the sitemap line when production has no canonical origin", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("SITE_URL", "");

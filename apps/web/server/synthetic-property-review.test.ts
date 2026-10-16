@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Prisma } from "@liber/db";
 
 const mocks = vi.hoisted(() => ({
@@ -171,6 +171,49 @@ describe("closed synthetic property test approval", () => {
   it("leaves ordinary property invite eligibility unchanged", async () => {
     expect(await assertSyntheticPropertyInvite(tx, property, "ordinary-buyer")).toBe(false);
     expect(mocks.users).not.toHaveBeenCalled();
+  });
+
+  describe("in production testing mode", () => {
+    const ordinary = { ...property, owner: { ...property.owner, email: "ordinary-seller@example.com" } };
+    beforeEach(() => {
+      vi.stubEnv("VERCEL_ENV", "production");
+      vi.stubEnv("LIBER_CEO_PREVIEW_TARGET", "ceo-preview");
+      vi.stubEnv("LIBER_PRODUCTION_TESTING_MODE", "enabled-until-launch");
+      mocks.property.mockResolvedValue(ordinary);
+      mocks.properties.mockResolvedValue([ordinary]);
+    });
+    afterEach(() => vi.unstubAllEnvs());
+
+    it("lets an admin test-approve any eligible seller property, audited as testing mode", async () => {
+      expect(await reviewSyntheticProperty(approve)).toMatchObject({ ok: true, message: expect.stringContaining("can now send invites") });
+      expect(mocks.update).toHaveBeenCalledWith({ where: { id: property.id }, data: { status: "READY_FOR_INVITES", ownershipVerificationStatus: "APPROVED" } });
+      expect(mocks.audit).toHaveBeenCalledWith({ data: expect.objectContaining({ metadata: expect.objectContaining({ source: "production-testing-mode", evidenceBypassed: true }) }) });
+    });
+
+    it("lists every non-archived property instead of only the fixture seller's", async () => {
+      expect(await listSyntheticPropertyReviewCandidates()).toEqual([expect.objectContaining({ id: property.id, unavailableReason: null })]);
+      expect(mocks.properties).toHaveBeenCalledWith(expect.objectContaining({ where: { status: { not: "ARCHIVED" } }, take: 100 }));
+    });
+
+    it("still requires an admin, the preview gate, seller access, and current attestation", async () => {
+      mocks.property.mockResolvedValue({ ...ordinary, owner: { ...ordinary.owner, sellerAccess: { status: "PENDING" } } });
+      expect(await reviewSyntheticProperty(approve)).toMatchObject({ ok: false });
+      mocks.property.mockResolvedValue({ ...ordinary, authorityAttestedAt: null });
+      expect(await reviewSyntheticProperty(approve)).toMatchObject({ ok: false });
+      mocks.session.mockResolvedValue({ id: "seller", roles: ["SELLER"] });
+      expect(await reviewSyntheticProperty(approve)).toMatchObject({ ok: false });
+      mocks.enabled.mockReturnValue(false);
+      expect(await listSyntheticPropertyReviewCandidates()).toEqual([]);
+      expect(mocks.update).not.toHaveBeenCalled();
+    });
+
+    it("lets a test-approved property invite any active buyer", async () => {
+      mocks.audits.mockResolvedValue([marker()]);
+      mocks.users.mockResolvedValue([{ id: property.ownerUserId, email: "ordinary-seller@example.com" }, { id: "any-buyer", email: "buyer@example.com" }]);
+      expect(await assertSyntheticPropertyInvite(tx, property, "any-buyer")).toBe(true);
+      mocks.users.mockResolvedValue([{ id: property.ownerUserId, email: "ordinary-seller@example.com" }]);
+      await expect(assertSyntheticPropertyInvite(tx, property, "suspended-buyer")).rejects.toThrow("active accounts");
+    });
   });
 
   it("classifies demo buyer profiles only by the closed fixture email without fake seed audit writes", async () => {

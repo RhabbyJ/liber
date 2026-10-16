@@ -67,6 +67,7 @@ checkPostgresUrl("DIRECT_URL", failures);
 checkEmailPair(warnings, failures);
 checkAutoConfirm(failures);
 checkPreviewSellerSelfApproval(failures);
+checkProductionTestingMode(failures);
 checkRateLimitPepper(productionMode ? failures : warnings);
 checkMinimumSecret("CRON_SECRET", 32, productionMode ? failures : warnings);
 checkSupabaseKeyClasses(failures);
@@ -200,6 +201,13 @@ function checkPreviewSellerSelfApproval(collection) {
   }
   if (productionMode) {
     collection.push("LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL must be unset or false for true production readiness.");
+  }
+}
+
+function checkProductionTestingMode(collection) {
+  // The owner-approved testing switch grants every account ADMIN; it must be off before launch.
+  if (productionMode && env.LIBER_PRODUCTION_TESTING_MODE?.trim()) {
+    collection.push("LIBER_PRODUCTION_TESTING_MODE must be unset for true production readiness.");
   }
 }
 

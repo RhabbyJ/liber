@@ -341,6 +341,17 @@ test("production readiness rejects private-preview seller self-approval", () => 
   assert.match(result.stdout, /must be unset or false for true production readiness/);
 });
 
+test("production readiness rejects the production testing-mode switch", () => {
+  const result = spawnSync(process.execPath, [readinessScript, "--production"], {
+    cwd: path.dirname(readinessScript),
+    encoding: "utf8",
+    env: { ...process.env, LIBER_PRODUCTION_TESTING_MODE: "enabled-until-launch" },
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /LIBER_PRODUCTION_TESTING_MODE must be unset for true production readiness/);
+});
+
 test("production dependency readiness detects persisted preview seller approvals", () => {
   const readinessSource = readFileSync(readinessScript, "utf8");
   assert.match(readinessSource, /seller_access_preview_self_approval/);

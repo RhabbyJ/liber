@@ -104,8 +104,19 @@ The controlled CEO demo / private preview may also enable an authenticated
 `/preview-tools` surface for trusted workflow testing. It requires both
 server-only values `LIBER_CEO_PREVIEW_TARGET=ceo-preview` and
 `LIBER_CEO_PREVIEW_SELLER_SELF_APPROVAL=true`, in development/test or a Vercel
-Preview deployment (`VERCEL_ENV=preview`). `VERCEL_ENV=production` always denies
-these capabilities, even with stale preview flags. In an allowed environment, every
+Preview deployment (`VERCEL_ENV=preview`). `VERCEL_ENV=production` denies these
+capabilities, even with stale preview flags, unless production testing mode is on.
+
+Production testing mode (product-owner decision, 2026-10-16): while only the team
+tests the shared deployment, production may enable the same capabilities with
+`LIBER_PRODUCTION_TESTING_MODE=enabled-until-launch` plus the preview target and
+self-approval values. Signup stays open, so any new account becomes an ADMIN;
+messaging and LOI cohorts may be `*`; confidential documents can be uploaded and
+reviewed without malware scanning; admins can give any seller property a labeled
+"Test approval — ownership not verified" that lets it invite any buyer; and
+`robots.txt` disallows all crawling. Production readiness fails while the switch is
+set. Before launch: unset it, then review the preview admin grants, seller
+approvals, test approvals and synthetic data. In an allowed environment, every
 active signed-in session automatically receives `ADMIN`, and every active
 seller automatically receives non-suspended `SellerAccess.status = APPROVED`
 (suspended access is never restored). `/preview-tools` remains available as a

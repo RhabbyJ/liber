@@ -2,6 +2,7 @@ import { Prisma, prisma } from "@liber/db";
 import { z } from "zod";
 import { hasRole } from "./authz";
 import { ceoPreviewToolsEnabled } from "./ceo-preview";
+import { productionTestingModeEnabled } from "./preview-environment";
 import { checkRateLimit } from "./rate-limit";
 import { getSessionUser } from "./session";
 
@@ -11,6 +12,14 @@ export const TEST_PROPERTY_APPROVAL = "property_synthetic_test_approval";
 export const TEST_PROPERTY_REVOCATION = "property_synthetic_test_revocation";
 export const TEST_PROPERTY_LABEL = "Test approval — ownership not verified";
 const TEST_ACTIONS = [TEST_PROPERTY_APPROVAL, TEST_PROPERTY_REVOCATION];
+
+/**
+ * Production testing mode opens test approvals to every seller property and lets them
+ * invite any buyer; elsewhere they stay limited to the closed journey fixture pair.
+ */
+export function testApprovalsOpenToAllProperties() {
+  return productionTestingModeEnabled();
+}
 
 type ReadClient = Pick<Prisma.TransactionClient, "adminAuditLog" | "buyerProfile" | "user">;
 type PropertyVersion = { id: string; identityVersion: number };
@@ -66,6 +75,10 @@ export async function assertSyntheticPropertyInvite(client: ReadClient, property
   if (!active.has(syntheticPropertyVersionKey(property))) return false;
   if (!ceoPreviewToolsEnabled()) throw new Error("This test property is unavailable outside the private preview.");
   const users = await client.user.findMany({ where: { id: { in: [property.ownerUserId, buyerUserId] }, status: "ACTIVE" }, select: { id: true, email: true } });
+  if (testApprovalsOpenToAllProperties()) {
+    if (users.length !== 2) throw new Error("Test-approved properties can only invite active accounts.");
+    return true;
+  }
   if (!users.some((user) => user.id === property.ownerUserId && user.email === JOURNEY_SELLER_EMAIL)
     || !users.some((user) => user.id === buyerUserId && user.email === JOURNEY_BUYER_EMAIL)) {
     throw new Error("Test-approved properties can only invite the designated demo buyer.");
@@ -88,8 +101,8 @@ const candidateSelect = {
 type Candidate = Prisma.SellerPropertyGetPayload<{ select: typeof candidateSelect }>;
 
 function approvalUnavailableReason(property: Candidate) {
-  if (property.owner.email !== JOURNEY_SELLER_EMAIL) return "This property is not in the designated demo cohort.";
-  if (property.owner.status !== "ACTIVE" || !property.owner.roles.includes("SELLER") || property.owner.sellerAccess?.status !== "APPROVED") return "The demo seller needs active, approved seller access.";
+  if (!testApprovalsOpenToAllProperties() && property.owner.email !== JOURNEY_SELLER_EMAIL) return "This property is not in the designated demo cohort.";
+  if (property.owner.status !== "ACTIVE" || !property.owner.roles.includes("SELLER") || property.owner.sellerAccess?.status !== "APPROVED") return "The seller needs active, approved seller access.";
   if (property.flaggedForReviewAt || property.status === "ARCHIVED") return "Flagged or archived properties cannot receive a test approval.";
   if (!property.authorityAttestedAt || property.attestationVersion !== "v1-property-authority-2026-07" || property.authorityAttestedByUserId !== property.ownerUserId || property.authorityAttestedIdentityVersion !== property.identityVersion) return "The seller must confirm authority for the current property version first.";
   return null;
@@ -97,12 +110,17 @@ function approvalUnavailableReason(property: Candidate) {
 
 export async function listSyntheticPropertyReviewCandidates() {
   if (!await authorizedPreviewAdmin()) return [];
-  const properties = await prisma.sellerProperty.findMany({ where: { owner: { email: JOURNEY_SELLER_EMAIL } }, select: candidateSelect, orderBy: { createdAt: "desc" } });
+  const properties = await prisma.sellerProperty.findMany({
+    where: testApprovalsOpenToAllProperties() ? { status: { not: "ARCHIVED" } } : { owner: { email: JOURNEY_SELLER_EMAIL } },
+    select: candidateSelect,
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
   const active = await activeSyntheticPropertyApprovals(prisma, properties);
   return properties.map((property) => ({
     id: property.id,
     identityVersion: property.identityVersion,
-    title: [property.addressLine1, property.city].filter(Boolean).join(", ") || "Demo property",
+    title: [property.addressLine1, property.city].filter(Boolean).join(", ") || "Untitled property",
     testApproved: active.has(syntheticPropertyVersionKey(property)),
     unavailableReason: approvalUnavailableReason(property),
     ownershipStatus: property.ownershipVerificationStatus,
@@ -143,7 +161,8 @@ export async function reviewSyntheticProperty(input: unknown): Promise<Synthetic
     await tx.$queryRaw`SELECT id FROM public."User" WHERE id = ${initial.ownerUserId}::uuid FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM public."SellerProperty" WHERE id = ${data.propertyId} FOR UPDATE`;
     const property = await tx.sellerProperty.findUnique({ where: { id: data.propertyId }, select: candidateSelect });
-    if (!property || property.ownerUserId !== initial.ownerUserId || property.owner.email !== JOURNEY_SELLER_EMAIL || property.identityVersion !== data.identityVersion) return { ok: false, message: "The demo property changed. Refresh this page before reviewing it." };
+    const openCohort = testApprovalsOpenToAllProperties();
+    if (!property || property.ownerUserId !== initial.ownerUserId || (!openCohort && property.owner.email !== JOURNEY_SELLER_EMAIL) || property.identityVersion !== data.identityVersion) return { ok: false, message: "The property changed. Refresh this page before reviewing it." };
     const active = (await activeSyntheticPropertyApprovals(tx, [property])).has(syntheticPropertyVersionKey(property));
     if (data.decision === "APPROVE") {
       const reason = approvalUnavailableReason(property);
@@ -160,8 +179,11 @@ export async function reviewSyntheticProperty(input: unknown): Promise<Synthetic
       actorUserId: admin.id,
       targetType: "seller_property",
       targetId: property.id,
-      metadata: { source: "closed-journey-fixture-20260925", synthetic: true, evidenceBypassed: data.decision === "APPROVE", propertyIdentityVersion: property.identityVersion, ownerUserId: property.ownerUserId, previousStatus: property.status, previousOwnershipStatus: property.ownershipVerificationStatus, ...next },
+      metadata: { source: openCohort ? "production-testing-mode" : "closed-journey-fixture-20260925", synthetic: true, evidenceBypassed: data.decision === "APPROVE", propertyIdentityVersion: property.identityVersion, ownerUserId: property.ownerUserId, previousStatus: property.status, previousOwnershipStatus: property.ownershipVerificationStatus, ...next },
     } });
-    return { ok: true, message: data.decision === "APPROVE" ? "Test approval recorded. Ownership was not verified. Only the designated demo buyer can be invited." : "Test approval revoked. The property now reflects its actual evidence review state." };
+    const approvedMessage = openCohort
+      ? "Test approval recorded. Ownership was not verified. The seller can now send invites."
+      : "Test approval recorded. Ownership was not verified. Only the designated demo buyer can be invited.";
+    return { ok: true, message: data.decision === "APPROVE" ? approvedMessage : "Test approval revoked. The property now reflects its actual evidence review state." };
   });
 }

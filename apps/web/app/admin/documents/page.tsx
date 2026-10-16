@@ -6,7 +6,7 @@ import { PageTitle } from "../../../components/page-title";
 import { listPendingDocuments } from "../../../server/contracts";
 import { submitDocumentReview } from "../../../server/form-actions";
 import { AdminSyntheticPropertyReview } from "../../../components/admin-synthetic-property-review";
-import { listSyntheticPropertyReviewCandidates } from "../../../server/synthetic-property-review";
+import { listSyntheticPropertyReviewCandidates, testApprovalsOpenToAllProperties } from "../../../server/synthetic-property-review";
 
 export const metadata: Metadata = { title: "Documents · Admin" };
 
@@ -37,8 +37,12 @@ export default async function AdminDocumentsPage({ searchParams }: { searchParam
       )}
       {testProperties.length ? (
         <section className="card flat stack">
-          <h2>Synthetic journey test controls</h2>
-          <p className="muted">Only the designated demo seller’s properties appear here. Test approvals let that seller invite the designated demo buyer. They do not verify ownership or approve any document.</p>
+          <h2>{testApprovalsOpenToAllProperties() ? "Testing-mode property approvals" : "Synthetic journey test controls"}</h2>
+          <p className="muted">
+            {testApprovalsOpenToAllProperties()
+              ? "Testing mode: approve any seller property so it can send invites to any buyer. A test approval is labeled as unverified everywhere and does not verify ownership or approve any document."
+              : "Only the designated demo seller’s properties appear here. Test approvals let that seller invite the designated demo buyer. They do not verify ownership or approve any document."}
+          </p>
           {testProperties.map((property) => <AdminSyntheticPropertyReview key={property.id} property={property} />)}
         </section>
       ) : null}
