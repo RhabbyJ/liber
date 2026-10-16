@@ -60,6 +60,31 @@ describe("invite duplicate recovery authorization", () => {
     expect(mocks.create).not.toHaveBeenCalled();
   });
 
+  it("takes the seller lock, then issues each transaction read one at a time", async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const serial = <T,>(value: T) => async () => {
+      maxInFlight = Math.max(maxInFlight, ++inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      inFlight -= 1;
+      return value;
+    };
+    mocks.buyer.mockImplementation(serial({ userId: "synthetic-buyer-user" }));
+    mocks.property.mockImplementation(serial(property));
+    mocks.count.mockImplementation(serial(1));
+    mocks.duplicate.mockImplementation(serial({ id: "synthetic-invite", conversation: { id: "synthetic-conversation" } }));
+    mocks.access.mockImplementation(serial({ id: "synthetic-access" }));
+
+    await expect(sendInvite(input)).rejects.toMatchObject({ code: "DUPLICATE" });
+    expect(maxInFlight).toBe(1);
+    const lockSql = (mocks.query.mock.calls[0][0] as TemplateStringsArray).join("?");
+    expect(lockSql).toContain("pg_advisory_xact_lock(hashtextextended(");
+    for (const read of [mocks.buyer, mocks.property, mocks.count, mocks.duplicate, mocks.access]) {
+      expect(read).toHaveBeenCalledTimes(1);
+      expect(mocks.query.mock.invocationCallOrder[0]).toBeLessThan(read.mock.invocationCallOrder[0]);
+    }
+  });
+
   it("preserves unexpected transaction errors", async () => {
     const error = new Error("database fixture failure");
     mocks.transaction.mockRejectedValue(error);

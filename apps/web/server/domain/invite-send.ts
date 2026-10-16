@@ -35,31 +35,31 @@ export async function sendInvite(input: unknown) {
     await tx.$queryRaw`
       SELECT pg_advisory_xact_lock(hashtextextended(${seller.id}::text, 0)) IS NULL AS locked
     `;
-    const [buyer, property, sentInviteCount, activeDuplicate, access] = await Promise.all([
-      tx.buyerProfile.findFirst({
-        where: {
-          id: data.buyerProfileId,
-          visibilityStatus: "ACTIVE",
-          user: { status: "ACTIVE" },
-          ...activePrimaryServiceAreaWhere(),
-        },
-        select: sellerBuyerSelect(),
-      }),
-      tx.sellerProperty.findFirst({ where: { id: data.propertyId, ownerUserId: seller.id } }),
-      tx.invite.count({
-        where: { sellerId: seller.id, sentAt: { gte: new Date(Date.now() - 86_400_000) } },
-      }),
-      tx.invite.findFirst({
-        where: {
-          buyerProfileId: data.buyerProfileId,
-          propertyId: data.propertyId,
-          sellerId: seller.id,
-          status: { in: ["SENT", "VIEWED", "ACCEPTED"] },
-        },
-        select: { id: true, conversation: { select: { id: true } } },
-      }),
-      tx.sellerAccess.findFirst({ where: { userId: seller.id, status: "APPROVED" }, select: { id: true } }),
-    ]);
+    // An interactive transaction owns one connection: query it sequentially.
+    // node-postgres would queue concurrent queries anyway and pg@9 rejects them.
+    const buyer = await tx.buyerProfile.findFirst({
+      where: {
+        id: data.buyerProfileId,
+        visibilityStatus: "ACTIVE",
+        user: { status: "ACTIVE" },
+        ...activePrimaryServiceAreaWhere(),
+      },
+      select: sellerBuyerSelect(),
+    });
+    const property = await tx.sellerProperty.findFirst({ where: { id: data.propertyId, ownerUserId: seller.id } });
+    const sentInviteCount = await tx.invite.count({
+      where: { sellerId: seller.id, sentAt: { gte: new Date(Date.now() - 86_400_000) } },
+    });
+    const activeDuplicate = await tx.invite.findFirst({
+      where: {
+        buyerProfileId: data.buyerProfileId,
+        propertyId: data.propertyId,
+        sellerId: seller.id,
+        status: { in: ["SENT", "VIEWED", "ACCEPTED"] },
+      },
+      select: { id: true, conversation: { select: { id: true } } },
+    });
+    const access = await tx.sellerAccess.findFirst({ where: { userId: seller.id, status: "APPROVED" }, select: { id: true } });
     if (!access) throw new InviteSendError("ACCESS_REQUIRED", "Seller directory access must be approved before sending invites.");
     if (!buyer) throw messagingInviteUnavailable();
     await lockAndAssertInvitePairAvailable(tx, seller.id, buyer.userId);
