@@ -87,10 +87,29 @@ describe("buyer invite responses", () => {
     expect(activate.slice(1)).toEqual([inviteId]);
   });
 
-  it("declines without activating the conversation", async () => {
+  it("notifies the seller in the same transaction when the buyer accepts", async () => {
+    await respondToInvite({ inviteId, response: "ACCEPTED" });
+    expect(mocks.notification).toHaveBeenCalledTimes(1);
+    expect(mocks.notification).toHaveBeenCalledWith({
+      data: {
+        body: "A buyer accepted your property invite. Continue in your private conversation.",
+        metadata: { buyerProfileId: "synthetic-profile", inviteId, propertyId: "synthetic-property" },
+        title: "Invite accepted",
+        type: "invite_accepted",
+        userId: sellerId,
+      },
+    });
+    expect(mocks.execute.mock.invocationCallOrder[0]).toBeLessThan(mocks.notification.mock.invocationCallOrder[0]);
+  });
+
+  it("declines without activating the conversation and tells the seller", async () => {
     await expect(respondToInvite({ inviteId, response: "DECLINED" })).resolves.toMatchObject({ ok: true });
     expect(mocks.execute).toHaveBeenCalledTimes(1);
     expect(mocks.execute.mock.calls[0].slice(1)).toEqual(["DECLINED", inviteId, buyerId]);
+    expect(mocks.notification).toHaveBeenCalledWith({
+      data: expect.objectContaining({ title: "Invite declined", type: "invite_declined", userId: sellerId }),
+    });
+    expect(JSON.stringify(mocks.notification.mock.calls)).not.toContain(buyerId);
   });
 
   it("treats repeating the current response as a no-op", async () => {
@@ -107,12 +126,14 @@ describe("buyer invite responses", () => {
     await expect(respondToInvite({ inviteId, response: "ACCEPTED" }))
       .rejects.toThrow("Invite cannot be changed after response, identity change, or expiration.");
     expect(mocks.execute).toHaveBeenCalledTimes(1);
+    expect(mocks.notification).not.toHaveBeenCalled();
   });
 
   it("accepts a concurrent identical response that won the race", async () => {
     mocks.execute.mockResolvedValue(0);
     mocks.currentInvite.mockResolvedValue({ status: "DECLINED" });
     await expect(respondToInvite({ inviteId, response: "DECLINED" })).resolves.toMatchObject({ ok: true });
+    expect(mocks.notification).not.toHaveBeenCalled();
   });
 
   it("does not update an invite whose pair is blocked", async () => {

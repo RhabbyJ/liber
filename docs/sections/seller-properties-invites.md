@@ -52,6 +52,7 @@ Owns private seller property records, property images, ownership evidence upload
 - The HTML invite form's guided-template version is normalized from FormData text to an integer before strict validation; JSON messaging contracts remain numeric-only.
 - Expected invite-send failures stay on the form with plain-language recovery guidance and preserved property/terms selections. Duplicates link to the existing seller-scoped conversation only after account, pair, ownership, and current-property checks and the messaging feature gate; otherwise they link to Sent invites. Unavailable buyers/blocks share generic copy. Unknown failures and framework redirects are rethrown, with the global error page displaying only the Next support digest, never internal error messages.
 - Invite response does not create an offer, escrow, or transaction.
+- A buyer's Accept (Start LOI) or Decline notifies the seller in the same transaction as the status change (`invite_accepted` / `invite_declined`, metadata `buyerProfileId`, `inviteId`, `propertyId`). Repeated or refused responses notify nobody. A question or tour reply accepts the invite through the messaging trigger and is announced by the message itself, not this notice. `lib/notification-links.ts` does not map these types yet, so they link to the map until it routes them to `/seller/invites`.
 - Invite creation binds its queued email to the new invite row. The outbox must
   use the canonical invite reference and worker lease; retired generic
   recipient/UUID-lease artifacts are not part of this flow.

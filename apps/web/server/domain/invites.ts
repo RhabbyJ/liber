@@ -56,7 +56,7 @@ export async function respondToInvite(input: unknown) {
   const changed = await prisma.$transaction(async (tx) => {
     const invite = await tx.invite.findFirst({
       where: { id: data.inviteId, buyerProfile: { userId: user.id } },
-      select: { sellerId: true },
+      select: { buyerProfileId: true, propertyId: true, sellerId: true },
     });
     if (!invite) return 0;
 
@@ -91,6 +91,9 @@ export async function respondToInvite(input: unknown) {
           AND status = 'AWAITING_BUYER'::public."ConversationStatus"
       `;
     }
+    if (updated === 1) {
+      await tx.notification.create({ data: inviteResponseNotification(invite, data.inviteId, data.response) });
+    }
     return updated;
   });
   if (changed !== 1) {
@@ -104,6 +107,24 @@ export async function respondToInvite(input: unknown) {
     throw new Error("Invite cannot be changed after response, identity change, or expiration.");
   }
   return { ok: true, data };
+}
+
+// Seller copy of a buyer's response; like other seller invite notices it carries the buyer profile.
+function inviteResponseNotification(
+  invite: { buyerProfileId: string; propertyId: string; sellerId: string },
+  inviteId: string,
+  response: "ACCEPTED" | "DECLINED",
+) {
+  const accepted = response === "ACCEPTED";
+  return {
+    body: accepted
+      ? "A buyer accepted your property invite. Continue in your private conversation."
+      : "A buyer declined your property invite. The conversation is now read-only.",
+    metadata: { buyerProfileId: invite.buyerProfileId, inviteId, propertyId: invite.propertyId },
+    title: accepted ? "Invite accepted" : "Invite declined",
+    type: accepted ? "invite_accepted" : "invite_declined",
+    userId: invite.sellerId,
+  };
 }
 
 export async function listSellerInvites() {
