@@ -1,12 +1,14 @@
 import Link from "next/link";
+import { AdminPagination } from "../../../components/admin-pagination";
 import { AdminReasonAction } from "../../../components/admin-reason-action";
 import { PageTitle } from "../../../components/page-title";
 import { SellerAccessReviewForm } from "../../../components/seller-access-review-form";
 import { listUsers } from "../../../server/contracts";
 import { submitSellerAccessReview, submitUserReinstatement, submitUserSuspension } from "../../../server/form-actions";
+import { readAdminPage, type AdminPageSearchParams } from "../page-cursor";
 
-export default async function AdminUsersPage() {
-  const { data: users } = await listUsers();
+export default async function AdminUsersPage({ searchParams }: { searchParams: AdminPageSearchParams }) {
+  const { cursor, page: { data: users, nextCursor } } = await readAdminPage(searchParams, listUsers);
 
   return (
     <div className="page stack">
@@ -82,6 +84,7 @@ export default async function AdminUsersPage() {
           </tbody>
         </table>
       </section>
+      <AdminPagination basePath="/admin/users" cursor={cursor} label="Users" nextCursor={nextCursor} />
     </div>
   );
 }

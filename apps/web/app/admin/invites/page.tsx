@@ -1,11 +1,13 @@
+import { AdminPagination } from "../../../components/admin-pagination";
 import { AdminReasonAction } from "../../../components/admin-reason-action";
 import { PageTitle } from "../../../components/page-title";
 import { isOpenInvite } from "../../../lib/invite-status";
 import { listAdminInvites } from "../../../server/contracts";
 import { submitAdminInviteWithdrawal } from "../../../server/form-actions";
+import { readAdminPage, type AdminPageSearchParams } from "../page-cursor";
 
-export default async function AdminInvitesPage() {
-  const { data: invites } = await listAdminInvites();
+export default async function AdminInvitesPage({ searchParams }: { searchParams: AdminPageSearchParams }) {
+  const { cursor, page: { data: invites, nextCursor } } = await readAdminPage(searchParams, listAdminInvites);
 
   return (
     <div className="page stack">
@@ -47,6 +49,7 @@ export default async function AdminInvitesPage() {
           </tbody>
         </table>
       </section>
+      <AdminPagination basePath="/admin/invites" cursor={cursor} label="Invites" nextCursor={nextCursor} />
     </div>
   );
 }

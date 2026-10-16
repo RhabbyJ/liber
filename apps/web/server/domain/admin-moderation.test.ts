@@ -14,15 +14,23 @@ const mocks = vi.hoisted(() => ({
   profileUpdate: vi.fn(),
   profileFields: vi.fn(),
   owner: vi.fn(),
+  invites: vi.fn(),
+  syntheticMarkers: vi.fn(),
 }));
 
-vi.mock("@liber/db", () => ({ prisma: { $transaction: mocks.transaction } }));
+vi.mock("@liber/db", () => ({
+  prisma: {
+    $transaction: mocks.transaction,
+    adminAuditLog: { findMany: mocks.syntheticMarkers },
+    invite: { findMany: mocks.invites },
+  },
+}));
 vi.mock("../session", async () => (await import("../session-mock.test-helper")).sessionModuleMock(mocks.session));
 vi.mock("../rate-limit", () => ({ checkRateLimit: mocks.rateLimit }));
 vi.mock("../messaging/service", () => ({ lockAndAssertInvitePairAvailable: mocks.pairLock }));
 vi.mock("next/navigation", () => ({ redirect: (path: string) => { throw new Error(`redirect:${path}`); } }));
 
-import { hideBuyerProfile, unhideBuyerProfile, withdrawInviteAsAdmin } from "./admin-moderation";
+import { hideBuyerProfile, listAdminInvites, unhideBuyerProfile, withdrawInviteAsAdmin } from "./admin-moderation";
 
 const adminId = "11111111-1111-4111-8111-111111111111";
 const buyerId = "10000000-0000-4000-8000-000000000001";
@@ -37,6 +45,49 @@ const tx = {
   user: { findUnique: mocks.owner },
 };
 const sql = (call: unknown[]) => (call[0] as TemplateStringsArray).join("?");
+
+describe("admin invite list", () => {
+  const invite = (index: number) => ({
+    buyerProfile: { displayName: "Synthetic", userId: buyerId, user: { name: "Synthetic Buyer" } },
+    buyerProfileId: "synthetic-profile",
+    conversation: { messages: [] },
+    expiresAt: new Date(Date.now() + 86_400_000),
+    id: `invite-${String(index).padStart(2, "0")}`,
+    message: "Synthetic opening",
+    property: { addressLine1: "123 Example St", city: "Los Angeles", identityVersion: 1, ownershipVerificationStatus: "APPROVED", propertyType: "HOME" },
+    propertyId: "synthetic-property",
+    propertyIdentityVersion: 1,
+    sellerId,
+    sentAt: new Date("2026-10-12T17:00:00Z"),
+    status: index === 0 ? "WITHDRAWN" : "SENT",
+    title: "Property invitation",
+  });
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mocks.session.mockResolvedValue({ id: adminId, roles: ["ADMIN"] });
+    mocks.syntheticMarkers.mockResolvedValue([]);
+  });
+
+  it("pages invites newest first by cursor", async () => {
+    mocks.invites.mockResolvedValue(Array.from({ length: 51 }, (_, index) => invite(index)));
+    const result = await listAdminInvites("invite-cursor");
+    expect(mocks.invites).toHaveBeenCalledWith(expect.objectContaining({
+      orderBy: [{ sentAt: "desc" }, { id: "desc" }],
+      cursor: { id: "invite-cursor" },
+      skip: 1,
+      take: 51,
+    }));
+    expect(result.data).toHaveLength(50);
+    expect(result.nextCursor).toBe("invite-49");
+    expect(result.data[0].status).toBe("Withdrawn");
+  });
+
+  it("refuses a malformed cursor", async () => {
+    await expect(listAdminInvites("invite cursor")).rejects.toThrow("Invalid page.");
+    expect(mocks.invites).not.toHaveBeenCalled();
+  });
+});
 
 describe("admin invite withdrawal", () => {
   beforeEach(() => {

@@ -9,15 +9,19 @@ import { normalizeInput } from "../normalize-input";
 import { checkRateLimit } from "../rate-limit";
 import { reviewSellerAccessCommand } from "../seller-access-review";
 import { requireSessionRole } from "../session";
+import { cursorPage, cursorPageArgs } from "./shared";
 
-export async function listUsers() {
+export async function listUsers(cursor?: string) {
   const admin = await requireSessionRole("ADMIN");
-  const users = await prisma.user.findMany({
+  const rows = await prisma.user.findMany({
     include: { sellerAccess: { select: { status: true } } },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    ...cursorPageArgs(cursor, "uuid"),
   });
+  const { items: users, nextCursor } = cursorPage(rows);
   return {
     ok: true,
+    nextCursor,
     data: users.map((user) => ({
       id: user.id,
       isCurrentUser: user.id === admin.id,

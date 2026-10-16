@@ -45,6 +45,8 @@ Owns internal admin review and moderation tools: users, seller access, buyer pro
   status/fallback page for those same current-user-only elevations. It must not
   reimplement admin review queues or act on other users.
 
+- Admin users, buyer profiles (and the badges page built on them), and invites are cursor-paginated at 50 rows; the audit log at 100. Each list orders by its sort column plus `id` and passes `?cursor=<last row id>`; a malformed or repeated cursor renders the 404 page. Buyer approved-evidence reads are scoped to the page's profiles. Buyer profiles sort by `updatedAt`, so a profile edited mid-browse can move between pages.
+
 ## Agent notes
 
 Admin UX can be utilitarian. Correctness, auditability, and privacy matter more than polish.

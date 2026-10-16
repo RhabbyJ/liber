@@ -1,14 +1,16 @@
 import { BadgePill } from "../../../components/badge-pill";
 import Link from "next/link";
 import { AdminBadgeGrantForm, AdminBadgeRevokeForm } from "../../../components/admin-badge-review-form";
+import { AdminPagination } from "../../../components/admin-pagination";
 import { PageTitle } from "../../../components/page-title";
 import { AdminTestPreapproval } from "../../../components/admin-test-preapproval";
 import { getSelfTestPreapprovalState } from "../../../server/test-preapproval";
 import { listAdminBuyerProfiles } from "../../../server/contracts";
 import { submitBadgeGrant, submitBadgeRevoke } from "../../../server/form-actions";
+import { readAdminPage, type AdminPageSearchParams } from "../page-cursor";
 
-export default async function AdminBadgesPage() {
-  const { data: buyers } = await listAdminBuyerProfiles();
+export default async function AdminBadgesPage({ searchParams }: { searchParams: AdminPageSearchParams }) {
+  const { cursor, page: { data: buyers, nextCursor } } = await readAdminPage(searchParams, listAdminBuyerProfiles);
   const testBadge = await getSelfTestPreapprovalState();
 
   return (
@@ -48,6 +50,7 @@ export default async function AdminBadgesPage() {
         ))}
       </section>
       {!buyers.length ? <p className="muted">No buyer profiles yet. Create a buyer profile before requesting verification.</p> : null}
+      <AdminPagination basePath="/admin/badges" cursor={cursor} label="Buyer profiles" nextCursor={nextCursor} />
     </div>
   );
 }

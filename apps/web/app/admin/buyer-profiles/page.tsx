@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { AdminPagination } from "../../../components/admin-pagination";
 import { AdminReasonAction } from "../../../components/admin-reason-action";
 import { PageTitle } from "../../../components/page-title";
 import { listAdminBuyerProfiles } from "../../../server/contracts";
 import { submitProfileHide, submitProfileUnhide } from "../../../server/form-actions";
+import { readAdminPage, type AdminPageSearchParams } from "../page-cursor";
 
 const moderationLabels: Record<string, string> = {
   ACTIVE: "Live",
@@ -11,8 +13,8 @@ const moderationLabels: Record<string, string> = {
   SUSPENDED: "Account suspended",
 };
 
-export default async function AdminBuyerProfilesPage() {
-  const { data: buyers } = await listAdminBuyerProfiles();
+export default async function AdminBuyerProfilesPage({ searchParams }: { searchParams: AdminPageSearchParams }) {
+  const { cursor, page: { data: buyers, nextCursor } } = await readAdminPage(searchParams, listAdminBuyerProfiles);
 
   return (
     <div className="page stack">
@@ -62,6 +64,7 @@ export default async function AdminBuyerProfilesPage() {
           </article>
         ))}
       </section>
+      <AdminPagination basePath="/admin/buyer-profiles" cursor={cursor} label="Buyer profiles" nextCursor={nextCursor} />
     </div>
   );
 }

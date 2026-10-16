@@ -18,31 +18,34 @@ import {
   inviteWithdrawnBuyerNotice,
   withdrawInviteInTransaction,
 } from "./invites";
+import { cursorPage, cursorPageArgs } from "./shared";
 
 const adminInviteWithdrawalSchema = inviteIdSchema.extend({ reason: z.string().trim().min(1).max(500) });
 
-export async function listAdminBuyerProfiles() {
+export async function listAdminBuyerProfiles(cursor?: string) {
   await requireSessionRole("ADMIN");
-  const [buyers, documents] = await Promise.all([
-    prisma.buyerProfile.findMany({
-      include: { ...buyerInclude, user: { select: { avatarVariant: true, name: true, email: true } } },
-      orderBy: { updatedAt: "desc" },
-    }),
-    prisma.verificationDocument.findMany({
-      where: {
-        buyerProfileId: { not: null },
-        reviewStatus: "APPROVED",
-      },
-      orderBy: { reviewedAt: "desc" },
-      select: {
-        documentType: true,
-        fileSha256: true,
-        id: true,
-        buyerProfileId: true,
-        originalFilename: true,
-      },
-    }),
-  ]);
+  const rows = await prisma.buyerProfile.findMany({
+    include: { ...buyerInclude, user: { select: { avatarVariant: true, name: true, email: true } } },
+    orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    ...cursorPageArgs(cursor, "rowId"),
+  });
+  const { items: buyers, nextCursor } = cursorPage(rows);
+  const documents = buyers.length
+    ? await prisma.verificationDocument.findMany({
+        where: {
+          buyerProfileId: { in: buyers.map((buyer) => buyer.id) },
+          reviewStatus: "APPROVED",
+        },
+        orderBy: { reviewedAt: "desc" },
+        select: {
+          documentType: true,
+          fileSha256: true,
+          id: true,
+          buyerProfileId: true,
+          originalFilename: true,
+        },
+      })
+    : [];
   const documentsByBuyer = new Map<string, typeof documents>();
   for (const document of documents) {
     if (!document.buyerProfileId) continue;
@@ -55,6 +58,7 @@ export async function listAdminBuyerProfiles() {
 
   return {
     ok: true,
+    nextCursor,
     data: buyers.map((buyer) => ({
       ...withOwnerTestPreapproval(buyerFromDb(buyer), testPreapprovalIds),
       accountName: buyer.user.name,
@@ -178,9 +182,9 @@ export async function unhideBuyerProfile(input: unknown): Promise<ActionFeedback
   });
 }
 
-export async function listAdminInvites() {
+export async function listAdminInvites(cursor?: string) {
   await requireSessionRole("ADMIN");
-  const invites = await prisma.invite.findMany({
+  const rows = await prisma.invite.findMany({
     include: {
       buyerProfile: { select: { displayName: true, userId: true, user: { select: { name: true } } } },
       conversation: {
@@ -190,9 +194,11 @@ export async function listAdminInvites() {
       },
       property: { select: { addressLine1: true, city: true, identityVersion: true, ownershipVerificationStatus: true, propertyType: true } },
     },
-    orderBy: { sentAt: "desc" },
+    orderBy: [{ sentAt: "desc" }, { id: "desc" }],
+    ...cursorPageArgs(cursor, "rowId"),
   });
-  return { ok: true, data: await labelSyntheticInvites(invites.map(inviteFromDb), invites) };
+  const { items: invites, nextCursor } = cursorPage(rows);
+  return { ok: true, nextCursor, data: await labelSyntheticInvites(invites.map(inviteFromDb), invites) };
 }
 
 /** Audited moderation withdrawal of any open invite; the reason stays in the audit log. */

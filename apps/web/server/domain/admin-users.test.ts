@@ -19,14 +19,15 @@ const mocks = vi.hoisted(() => ({
   authSupersede: vi.fn(),
   authCreate: vi.fn(),
   notification: vi.fn(),
+  users: vi.fn(),
 }));
 
-vi.mock("@liber/db", () => ({ prisma: { $transaction: mocks.transaction } }));
+vi.mock("@liber/db", () => ({ prisma: { $transaction: mocks.transaction, user: { findMany: mocks.users } } }));
 vi.mock("../session", async () => (await import("../session-mock.test-helper")).sessionModuleMock(mocks.session));
 vi.mock("../rate-limit", () => ({ checkRateLimit: mocks.rateLimit }));
 vi.mock("next/navigation", () => ({ redirect: (path: string) => { throw new Error(`redirect:${path}`); } }));
 
-import { reinstateUser, suspendUser } from "./admin-users";
+import { listUsers, reinstateUser, suspendUser } from "./admin-users";
 
 const adminId = "11111111-1111-4111-8111-111111111111";
 const userId = "22222222-2222-4222-8222-222222222222";
@@ -67,6 +68,37 @@ beforeEach(() => {
   mocks.propertyFindMany.mockResolvedValue([]);
   mocks.profileFind.mockResolvedValue({ id: "buyer-profile-1", visibilityStatus: "SUSPENDED" });
   mocks.lastDecision.mockResolvedValue(null);
+});
+
+describe("admin users list", () => {
+  const row = (index: number) => ({
+    createdAt: new Date(), email: `user-${index}@example.test`, id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+    name: null, roles: ["SELLER"], sellerAccess: { status: "PENDING" }, status: "ACTIVE",
+  });
+
+  it("pages users newest first with a UUID cursor", async () => {
+    mocks.users.mockResolvedValue(Array.from({ length: 51 }, (_, index) => row(index)));
+    const result = await listUsers(userId);
+    expect(mocks.users).toHaveBeenCalledWith({
+      include: { sellerAccess: { select: { status: true } } },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      cursor: { id: userId },
+      skip: 1,
+      take: 51,
+    });
+    expect(result.data).toHaveLength(50);
+    expect(result.nextCursor).toBe(row(49).id);
+    expect(result.data[0]).toEqual({
+      id: row(0).id, isCurrentUser: false, name: "user-0@example.test", roles: ["SELLER"], sellerAccessStatus: "PENDING", status: "ACTIVE",
+    });
+  });
+
+  it("has no next page on the last page and refuses a non-UUID cursor", async () => {
+    mocks.users.mockResolvedValue([row(1)]);
+    await expect(listUsers()).resolves.toMatchObject({ nextCursor: null });
+    await expect(listUsers("cm1notauuid")).rejects.toThrow("Invalid page.");
+    expect(mocks.users).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("user suspension", () => {

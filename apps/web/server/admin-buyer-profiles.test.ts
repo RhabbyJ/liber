@@ -77,8 +77,12 @@ describe("admin buyer identity projection", () => {
     expect(mocks.buyers).toHaveBeenCalledWith(expect.objectContaining({
       include: expect.objectContaining({ user: { select: { avatarVariant: true, name: true, email: true } } }),
     }));
+    expect(mocks.buyers).toHaveBeenCalledWith(expect.objectContaining({
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      take: 51,
+    }));
     expect(mocks.documents).toHaveBeenCalledWith({
-      where: { buyerProfileId: { not: null }, reviewStatus: "APPROVED" },
+      where: { buyerProfileId: { in: [buyer.id, secondBuyer.id] }, reviewStatus: "APPROVED" },
       orderBy: { reviewedAt: "desc" },
       select: { documentType: true, fileSha256: true, id: true, buyerProfileId: true, originalFilename: true },
     });
@@ -90,6 +94,23 @@ describe("admin buyer identity projection", () => {
     ]);
     expect(result.data[0]).not.toHaveProperty("user");
     expect(JSON.stringify(result.data[0].approvedDocuments)).not.toContain(secondDocument.id);
+  });
+
+  it("pages profiles by cursor and reads evidence only for the page", async () => {
+    const page = Array.from({ length: 51 }, (_, index) => ({ ...buyer, id: `buyer-${String(index).padStart(2, "0")}` }));
+    mocks.buyers.mockResolvedValue(page);
+    mocks.documents.mockResolvedValue([]);
+    const result = await listAdminBuyerProfiles("buyer-cursor");
+    expect(mocks.buyers).toHaveBeenCalledWith(expect.objectContaining({ cursor: { id: "buyer-cursor" }, skip: 1, take: 51 }));
+    expect(result.data).toHaveLength(50);
+    expect(result.nextCursor).toBe("buyer-49");
+    expect(mocks.documents.mock.calls[0][0].where.buyerProfileId.in).toHaveLength(50);
+    expect(mocks.documents.mock.calls[0][0].where.buyerProfileId.in).not.toContain("buyer-50");
+  });
+
+  it("rejects a malformed cursor before querying", async () => {
+    await expect(listAdminBuyerProfiles("bad cursor!")).rejects.toThrow("Invalid page.");
+    expect(mocks.buyers).not.toHaveBeenCalled();
   });
 
   it("returns an empty approved-evidence list when none belongs to the listed buyer", async () => {

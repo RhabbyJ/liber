@@ -25,6 +25,36 @@ export function expiresInDays(value?: Date | null) {
   return Math.ceil((value.getTime() - Date.now()) / 86_400_000);
 }
 
+export const ADMIN_PAGE_SIZE = 50;
+
+export class InvalidPageCursorError extends Error {
+  constructor() {
+    super("Invalid page.");
+    this.name = "InvalidPageCursorError";
+  }
+}
+
+const cursorFormats = {
+  // Application user ids are Supabase Auth UUIDs; other admin lists page by cuid-style row ids.
+  rowId: /^[A-Za-z0-9_-]{1,200}$/,
+  uuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+};
+
+/**
+ * Prisma cursor arguments for one admin page: rows after the last row id of the
+ * previous page, plus one extra row to detect a next page. Callers must order by
+ * a unique tiebreaker (id) after their sort column.
+ */
+export function cursorPageArgs(cursor: string | undefined, format: keyof typeof cursorFormats, pageSize = ADMIN_PAGE_SIZE) {
+  if (cursor !== undefined && !cursorFormats[format].test(cursor)) throw new InvalidPageCursorError();
+  return { ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}), take: pageSize + 1 };
+}
+
+export function cursorPage<T extends { id: string }>(rows: T[], pageSize = ADMIN_PAGE_SIZE) {
+  const items = rows.slice(0, pageSize);
+  return { items, nextCursor: rows.length > pageSize ? items[items.length - 1].id : null };
+}
+
 export async function auditSecurityEvent(
   user: SessionUser,
   action: string,
