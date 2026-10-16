@@ -34,7 +34,12 @@ Raw metadata never reaches the browser. Targets are fixed internal paths; the
 only interpolated value is a negotiation ID that must match
 `[A-Za-z0-9_-]{1,64}`, otherwise the link falls back to `/messages`. The
 client also rejects activity whose hrefs are not same-site paths. Destination
-pages keep their own authorization; a link grants nothing.
+pages keep their own authorization; a link grants nothing. Seller copies of
+invite notices (`invite_sent`, `invite_accepted`, `invite_declined`, and the
+seller side of `invite_expired`/`invite_withdrawn`) carry `buyerProfileId` and
+open Sent invites; buyer copies open Invites. `buyer_profile_unhidden` opens
+the buyer profile, and `account_reinstated` opens the buyer profile, seller
+properties, or the account page depending on what the account needs next.
 
 PATCH accepts exactly `{ "all": true }` or `{ "notificationId": "..." }`, with
 bounded JSON, same-origin checks, and owner-filtered idempotent writes. Every

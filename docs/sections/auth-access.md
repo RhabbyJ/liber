@@ -60,6 +60,10 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
   and unexpired lease; stale responses cannot replace a newer claim. Expired
   eighth-attempt claims become terminal `FAILED` records for operator review.
   Repeating the ban remains safe when an external response is uncertain.
+- Admin reinstatement reverses suspension through the same queue with an
+  `UNBAN_USER` operation. The worker processes one account's operations in
+  order and rechecks the account status before each Supabase call, so a later
+  suspension is never undone by an earlier unban.
 - Authorization must be server-side.
 - Only the validated active server session may switch the homepage from the
   four-record guest teaser to all eligible privacy-safe previews. The query

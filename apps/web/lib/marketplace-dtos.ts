@@ -37,7 +37,7 @@ export type InviteDTO = {
   propertyBathrooms?: number;
   propertySquareFeet?: number;
   propertyNote?: string;
-  status: "Sent" | "Viewed" | "Accepted" | "Declined" | "Expired";
+  status: "Sent" | "Viewed" | "Accepted" | "Declined" | "Expired" | "Withdrawn";
   sentAt: string;
   sentAtDate: string;
   expiresAt?: string;

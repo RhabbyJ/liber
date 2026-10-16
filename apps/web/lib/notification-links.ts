@@ -28,7 +28,8 @@ export function notificationTarget(type: string, rawMetadata: unknown): Notifica
   }
   if (kind === "invite_received") return { href: "/buyer/invites", label: "View invite" };
   if (kind === "invite_sent") return { href: "/seller/invites", label: "View sent invites" };
-  if (kind === "invite_expired") {
+  if (kind === "invite_accepted" || kind === "invite_declined") return { href: "/seller/invites", label: "View sent invites" };
+  if (kind === "invite_expired" || kind === "invite_withdrawn") {
     // The seller copy carries the buyer profile; the buyer copy does not.
     return metadata.buyerProfileId === undefined
       ? { href: "/buyer/invites", label: "View invites" }
@@ -49,6 +50,15 @@ export function notificationTarget(type: string, rawMetadata: unknown): Notifica
     return metadata.sellerAccessStatus === "APPROVED"
       ? { href: "/", label: "Find buyers" }
       : { href: "/seller/properties", label: "View properties" };
+  }
+  if (kind === "buyer_profile_unhidden") return { href: "/buyer/profile", label: "View profile" };
+  if (kind === "account_reinstated") {
+    if (metadata.buyerProfileVisibility !== undefined && metadata.buyerProfileVisibility !== null) {
+      return { href: "/buyer/profile", label: "Review your profile" };
+    }
+    return metadata.sellerAccessStatus
+      ? { href: "/seller/properties", label: "View properties" }
+      : { href: "/profile", label: "Open account" };
   }
   if (kind === "seller_access_preview_enabled") return { href: "/", label: "Find buyers" };
   if (kind === "admin_access_preview_enabled") return { href: "/admin", label: "Open admin" };

@@ -166,6 +166,8 @@ After email verification, buyer onboarding clearly hands off from account setup 
 A buyer can:
 
 - create and edit a buyer profile,
+- pause their profile (it leaves search and previews and withdraws their open
+  invites, closing those conversations) and republish it later,
 - add property criteria,
 - upload verification evidence,
 - receive admin-reviewed badges,
@@ -195,7 +197,9 @@ A seller can:
 - send manual invites from properties they own,
 - exchange guided or plain-text messages inside eligible invite conversations,
 - block the other participant and report a specific message,
-- view sent invites and seller notifications.
+- view sent invites and seller notifications, including a notice when a buyer
+  accepts or declines,
+- withdraw an open invite, which makes its conversation read-only.
 
 A seller cannot:
 
@@ -210,13 +214,17 @@ A seller cannot:
 An admin can:
 
 - review users,
-- approve/reject seller access,
+- approve seller access, or reject it with a reason the seller sees,
 - review verification documents,
 - grant/revoke badges when evidence rules allow it,
 - review properties/invites,
 - review reported messages through an audited report queue,
-- hide buyer profiles,
-- suspend users,
+- hide buyer profiles and restore them (a restored profile is live again only if
+  it was live when hidden and still meets the publishing rules),
+- withdraw an invite after review, with a reason kept in the audit log; both
+  participants are notified,
+- suspend users and reinstate them (reinstatement queues the Supabase Auth
+  unban; seller access returns to pending review and invites stay withdrawn),
 - view audit logs.
 
 Admin role assignment is not self-service.

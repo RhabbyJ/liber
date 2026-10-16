@@ -2,12 +2,11 @@ import type { InviteDTO } from "./marketplace-dtos";
 
 /**
  * Display status of an invite. "Withdrawn" covers seller, admin, block,
- * suspension, and property-identity withdrawals; it extends InviteDTO's status
- * union until that DTO carries it directly.
+ * suspension, and property-identity withdrawals.
  */
-export type InviteStatusLabel = InviteDTO["status"] | "Withdrawn";
+export type InviteStatusLabel = InviteDTO["status"];
 
-export type InviteView = Omit<InviteDTO, "status"> & { status: InviteStatusLabel };
+export type InviteView = InviteDTO;
 
 /** Statuses a seller can still withdraw: awaiting a reply or accepted and messageable. */
 export const openInviteStatuses: readonly InviteStatusLabel[] = ["Sent", "Viewed", "Accepted"];
