@@ -184,9 +184,10 @@ export async function withdrawInviteInTransaction(
   try {
     await lockAndAssertInvitePairAvailable(tx, invite.sellerId, invite.buyerProfile.userId);
   } catch (error) {
-    // A block between the pair has already withdrawn every open invite.
-    if (error instanceof MessagingError && error.code === "UNAVAILABLE") return { outcome: "closed" };
-    throw error;
+    // The pair lock is held before the block check throws. A block has already withdrawn
+    // every open invite between the pair, so the status checks below answer exactly as
+    // they would without one, and the response never reveals the block.
+    if (!(error instanceof MessagingError && error.code === "UNAVAILABLE")) throw error;
   }
   const [locked] = await tx.$queryRaw<Array<{ status: string }>>`
     SELECT status::text AS status

@@ -250,11 +250,18 @@ describe("seller invite withdrawal", () => {
     expect(mocks.audit).not.toHaveBeenCalled();
   });
 
-  it("reports a blocked pair's invite as closed without disclosing the block", async () => {
+  it.each([
+    ["WITHDRAWN", 0, { ok: true, message: "This invite was already withdrawn." }],
+    ["DECLINED", 0, { ok: false, message: "This invite is no longer open, so it can't be withdrawn. Refresh to see its status." }],
+  ])("answers a %s invite identically whether or not the pair is blocked", async (status, count, feedback) => {
+    mocks.lockRow.mockResolvedValue([{ status }]);
+    mocks.updateMany.mockResolvedValue({ count });
+    await expect(withdrawSellerInvite({ inviteId })).resolves.toEqual(feedback);
     mocks.pairLock.mockRejectedValue(new MessagingError("UNAVAILABLE", "Invitation is unavailable.", 409));
-    await expect(withdrawSellerInvite({ inviteId })).resolves.toMatchObject({ ok: false, message: expect.stringContaining("no longer open") });
-    expect(mocks.lockRow).not.toHaveBeenCalled();
-    expectNoWithdrawal();
+    await expect(withdrawSellerInvite({ inviteId })).resolves.toEqual(feedback);
+    expect(mocks.lockRow).toHaveBeenCalledTimes(2);
+    expect(mocks.notification).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
   });
 
   it("propagates unexpected lock failures", async () => {
