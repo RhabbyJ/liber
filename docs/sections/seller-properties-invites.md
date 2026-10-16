@@ -60,6 +60,7 @@ Owns private seller property records, property images, ownership evidence upload
   two authoritative participants, and the immutable rendered opening message.
 - Accepted invites remain messageable; decline, effective expiry, withdrawal,
   property identity invalidation, and participant blocking disable sends.
+- Sellers can withdraw their own open invite (Sent or Viewed before the deadline, or Accepted) from Sent invites after a confirm step. `withdrawInviteInTransaction` takes the pair lock, then the invite row, and moves only an open invite to `WITHDRAWN`; the invite status triggers close the conversation read-only (`INVITE_WITHDRAWN`) and cancel queued invite email. The buyer gets an `invite_withdrawn` notice and the audit log records `withdraw_invite` with the previous status. Repeating it is a no-op; closed invites report that they can no longer be withdrawn, and a blocked pair's invite reads as closed without disclosing the block. Limit: 60 withdrawals per seller per hour.
 - A block in either direction prevents a new invite and returns a generic
   unavailable result rather than disclosing the block.
 - Expired invites are rejected whenever they are read or used, even if the maintenance job has not updated their stored status yet.

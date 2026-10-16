@@ -16,7 +16,10 @@ import {
   setBuyerAvatarVariant,
   suspendUser,
   updateSellerProperty,
+  withdrawInviteAsAdmin,
+  withdrawSellerInvite,
 } from "./contracts";
+import type { ActionFeedbackState } from "../lib/action-feedback";
 import { saveBuyerProfile } from "./buyer/commands";
 import type { BuyerInviteResponseState } from "../lib/buyer-invite-response";
 import type { SellerAccessReviewFormState } from "../lib/seller-access-review-form";
@@ -32,6 +35,12 @@ import { sellerPropertyFormFeedback } from "./seller-property-form-errors";
 function safeSellerNext(formData: FormData) {
   const next = formData.get("next");
   return typeof next === "string" && next.startsWith("/seller/") ? next : null;
+}
+
+function revalidateInviteViews() {
+  for (const path of ["/seller/invites", "/seller/notifications", "/buyer/invites", "/buyer/notifications", "/admin/invites", "/messages"]) {
+    revalidatePath(path);
+  }
 }
 
 export async function submitBuyerProfile(
@@ -159,6 +168,24 @@ export async function submitInvite(
     redirect(`/messages/${invite.conversationId}`);
   }
   redirect("/seller/invites");
+}
+
+export async function submitInviteWithdrawal(
+  _state: ActionFeedbackState,
+  formData: FormData,
+): Promise<ActionFeedbackState> {
+  const result = await withdrawSellerInvite(formData);
+  if (result.ok) revalidateInviteViews();
+  return result;
+}
+
+export async function submitAdminInviteWithdrawal(
+  _state: ActionFeedbackState,
+  formData: FormData,
+): Promise<ActionFeedbackState> {
+  const result = await withdrawInviteAsAdmin(formData);
+  if (result.ok) revalidateInviteViews();
+  return result;
 }
 
 export async function submitDocumentReview(formData: FormData) {

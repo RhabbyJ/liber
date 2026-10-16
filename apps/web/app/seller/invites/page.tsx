@@ -2,11 +2,13 @@ import Link from "next/link";
 import { EmptyState } from "../../../components/empty-state";
 import { GeneratedAvatar } from "../../../components/generated-avatar";
 import { Icon } from "../../../components/icon";
-import { inviteStatusTone } from "../../../lib/invite-status";
+import { SellerInviteWithdrawForm } from "../../../components/seller-invite-withdraw-form";
+import { inviteStatusTone, isOpenInvite } from "../../../lib/invite-status";
 import { relativeDay } from "../../../lib/notification-format";
 import { PageTitle } from "../../../components/page-title";
 import { WorkspaceTabs } from "../../../components/workspace-tabs";
 import { listNotifications, listSellerInvites } from "../../../server/contracts";
+import { submitInviteWithdrawal } from "../../../server/form-actions";
 
 export default async function SellerInvitesPage() {
   const [{ data: invites }, { data: notifications }] = await Promise.all([listSellerInvites(), listNotifications()]);
@@ -67,7 +69,7 @@ export default async function SellerInvitesPage() {
                 <p className="activity-row-date">
                   Sent <time dateTime={invite.sentAtDate}>{invite.sentAtDate ? relativeDay(invite.sentAtDate, today) : invite.sentAt}</time>
                 </p>
-                <div className="activity-row-action">
+                <div className="activity-row-action stack tight">
                   {canOpen ? (
                     <Link className="button secondary sm" href={`/messages/${invite.conversationId}`}>
                       <Icon name="message" size={16} />
@@ -76,6 +78,9 @@ export default async function SellerInvitesPage() {
                   ) : (
                     <span className="activity-row-muted">Conversation unavailable</span>
                   )}
+                  {isOpenInvite(invite.status) ? (
+                    <SellerInviteWithdrawForm action={submitInviteWithdrawal} buyer={invite.buyer} inviteId={invite.id} />
+                  ) : null}
                 </div>
               </li>
             );

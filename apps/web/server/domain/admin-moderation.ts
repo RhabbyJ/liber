@@ -2,12 +2,23 @@ import "server-only";
 
 import { prisma } from "@liber/db";
 import { buyerProfileModerationSchema } from "@liber/validators";
+import { z } from "zod";
+import type { ActionFeedbackState } from "../../lib/action-feedback";
 import { withOwnerTestPreapproval } from "../../lib/test-preapproval";
 import { normalizeInput } from "../normalize-input";
+import { checkRateLimit } from "../rate-limit";
 import { requireSessionRole } from "../session";
 import { activeTestPreapprovalProfileIds } from "../test-preapproval";
 import { buyerFromDb, buyerInclude } from "./buyer-projection";
 import { inviteFromDb, inviteModerationMessages, labelSyntheticInvites } from "./invite-projection";
+import {
+  inviteIdSchema,
+  inviteWithdrawalFeedback,
+  inviteWithdrawnBuyerNotice,
+  withdrawInviteInTransaction,
+} from "./invites";
+
+const adminInviteWithdrawalSchema = inviteIdSchema.extend({ reason: z.string().trim().min(1).max(500) });
 
 export async function listAdminBuyerProfiles() {
   await requireSessionRole("ADMIN");
@@ -88,4 +99,46 @@ export async function listAdminInvites() {
     orderBy: { sentAt: "desc" },
   });
   return { ok: true, data: await labelSyntheticInvites(invites.map(inviteFromDb), invites) };
+}
+
+/** Audited moderation withdrawal of any open invite; the reason stays in the audit log. */
+export async function withdrawInviteAsAdmin(input: unknown): Promise<ActionFeedbackState> {
+  const admin = await requireSessionRole("ADMIN");
+  const limit = await checkRateLimit(`admin-moderation:${admin.id}`, 30, 60 * 60_000);
+  if (!limit.allowed) return { ok: false, message: "Moderation limit reached. Try again later." };
+  const parsed = adminInviteWithdrawalSchema.safeParse(normalizeInput(input));
+  if (!parsed.success) return { ok: false, message: "Add an internal reason of up to 500 characters, then try again." };
+  const { inviteId, reason } = parsed.data;
+  const outcome = await prisma.$transaction(async (tx) => {
+    const withdrawal = await withdrawInviteInTransaction(tx, inviteId);
+    if (withdrawal.outcome !== "withdrawn") return withdrawal.outcome;
+    const { invite } = withdrawal;
+    await tx.notification.create({ data: inviteWithdrawnBuyerNotice(invite) });
+    await tx.notification.create({
+      data: {
+        body: "Liber withdrew one of your invites after review. The conversation is now read-only.",
+        metadata: { buyerProfileId: invite.buyerProfileId, inviteId: invite.id, propertyId: invite.propertyId },
+        title: "Invite withdrawn by Liber",
+        type: "invite_withdrawn",
+        userId: invite.sellerId,
+      },
+    });
+    await tx.adminAuditLog.create({
+      data: {
+        action: "admin_withdraw_invite",
+        actorUserId: admin.id,
+        metadata: {
+          buyerProfileId: invite.buyerProfileId,
+          previousStatus: invite.previousStatus,
+          propertyId: invite.propertyId,
+          reason,
+          sellerId: invite.sellerId,
+        },
+        targetId: invite.id,
+        targetType: "invite",
+      },
+    });
+    return withdrawal.outcome;
+  });
+  return inviteWithdrawalFeedback(outcome, "admin");
 }

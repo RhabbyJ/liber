@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   lockRow: vi.fn(),
   execute: vi.fn(),
   notification: vi.fn(),
+  updateMany: vi.fn(),
+  audit: vi.fn(),
+  rateLimit: vi.fn(),
 }));
 
 vi.mock("@liber/db", () => ({
@@ -17,9 +20,10 @@ vi.mock("@liber/db", () => ({
 }));
 vi.mock("../session", async () => (await import("../session-mock.test-helper")).sessionModuleMock(mocks.session));
 vi.mock("../messaging/service", () => ({ lockAndAssertInvitePairAvailable: mocks.pairLock }));
+vi.mock("../rate-limit", () => ({ checkRateLimit: mocks.rateLimit }));
 vi.mock("next/navigation", () => ({ redirect: (path: string) => { throw new Error(`redirect:${path}`); } }));
 
-import { respondToInvite } from "./invites";
+import { respondToInvite, withdrawSellerInvite } from "./invites";
 
 const buyerId = "10000000-0000-4000-8000-000000000001";
 const sellerId = "10000000-0000-4000-8000-000000000002";
@@ -27,7 +31,8 @@ const inviteId = "synthetic-invite";
 const tx = {
   $executeRaw: mocks.execute,
   $queryRaw: mocks.lockRow,
-  invite: { findFirst: mocks.ownedInvite },
+  adminAuditLog: { create: mocks.audit },
+  invite: { findFirst: mocks.ownedInvite, updateMany: mocks.updateMany },
   notification: { create: mocks.notification },
 };
 const sql = (call: unknown[]) => (call[0] as TemplateStringsArray).join("?");
@@ -142,5 +147,120 @@ describe("buyer invite responses", () => {
     await expect(respondToInvite({ inviteId, response: "ACCEPTED" })).rejects.toBe(unavailable);
     expect(mocks.lockRow).not.toHaveBeenCalled();
     expect(mocks.execute).not.toHaveBeenCalled();
+  });
+});
+
+describe("seller invite withdrawal", () => {
+  const sellerInvite = {
+    buyerProfile: { userId: buyerId },
+    buyerProfileId: "synthetic-profile",
+    id: inviteId,
+    propertyId: "synthetic-property",
+    sellerId,
+  };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mocks.session.mockResolvedValue({ id: sellerId, roles: ["SELLER"] });
+    mocks.rateLimit.mockResolvedValue({ allowed: true, limit: 60, retryAfterSeconds: 0 });
+    mocks.transaction.mockImplementation(async (callback) => callback(tx));
+    mocks.ownedInvite.mockResolvedValue(sellerInvite);
+    mocks.lockRow.mockResolvedValue([{ status: "ACCEPTED" }]);
+    mocks.updateMany.mockResolvedValue({ count: 1 });
+  });
+
+  function expectNoWithdrawal() {
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(mocks.notification).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
+  }
+
+  it("requires a seller session, a withdrawal budget, and an invite id before opening a transaction", async () => {
+    mocks.session.mockResolvedValue({ id: buyerId, roles: ["BUYER"] });
+    await expect(withdrawSellerInvite({ inviteId })).rejects.toThrow("redirect:/buyer/profile");
+    mocks.session.mockResolvedValue({ id: sellerId, roles: ["SELLER"] });
+    mocks.rateLimit.mockResolvedValue({ allowed: false, limit: 60, retryAfterSeconds: 60 });
+    await expect(withdrawSellerInvite({ inviteId })).resolves.toEqual({ ok: false, message: "Withdrawal limit reached. Try again later." });
+    expect(mocks.rateLimit).toHaveBeenCalledWith(`invite-withdraw:${sellerId}`, 60, 3_600_000);
+    mocks.rateLimit.mockResolvedValue({ allowed: true, limit: 60, retryAfterSeconds: 0 });
+    await expect(withdrawSellerInvite({ inviteId: "" })).resolves.toMatchObject({ ok: false });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("withdraws an open invite under the pair and row locks, then notifies the buyer and audits it", async () => {
+    const form = new FormData();
+    form.set("inviteId", inviteId);
+    form.set("$ACTION_REF_1", "");
+    await expect(withdrawSellerInvite(form)).resolves.toEqual({
+      ok: true,
+      message: "Invite withdrawn. The buyer was notified and the conversation is now read-only.",
+    });
+    expect(mocks.ownedInvite).toHaveBeenCalledWith(expect.objectContaining({ where: { id: inviteId, sellerId } }));
+    expect(mocks.pairLock).toHaveBeenCalledWith(tx, sellerId, buyerId);
+    expect(sql(mocks.lockRow.mock.calls[0])).toContain("FOR UPDATE");
+    expect(mocks.pairLock.mock.invocationCallOrder[0]).toBeLessThan(mocks.lockRow.mock.invocationCallOrder[0]);
+    expect(mocks.lockRow.mock.invocationCallOrder[0]).toBeLessThan(mocks.updateMany.mock.invocationCallOrder[0]);
+    expect(mocks.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: inviteId,
+        OR: [
+          { status: "ACCEPTED" },
+          { status: { in: ["SENT", "VIEWED"] }, expiresAt: { gt: expect.any(Date) } },
+        ],
+      },
+      data: { status: "WITHDRAWN" },
+    });
+    expect(mocks.notification).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        metadata: { inviteId, propertyId: "synthetic-property" },
+        title: "Invite withdrawn",
+        type: "invite_withdrawn",
+        userId: buyerId,
+      }),
+    });
+    expect(mocks.audit).toHaveBeenCalledWith({
+      data: {
+        action: "withdraw_invite",
+        actorUserId: sellerId,
+        metadata: { buyerProfileId: "synthetic-profile", previousStatus: "ACCEPTED", propertyId: "synthetic-property" },
+        targetId: inviteId,
+        targetType: "invite",
+      },
+    });
+  });
+
+  it("cannot reach another seller's invite", async () => {
+    mocks.ownedInvite.mockResolvedValue(null);
+    await expect(withdrawSellerInvite({ inviteId })).resolves.toMatchObject({ ok: false, message: expect.stringContaining("unavailable") });
+    expect(mocks.pairLock).not.toHaveBeenCalled();
+    expectNoWithdrawal();
+  });
+
+  it("treats a repeated withdrawal as a no-op", async () => {
+    mocks.lockRow.mockResolvedValue([{ status: "WITHDRAWN" }]);
+    await expect(withdrawSellerInvite({ inviteId })).resolves.toEqual({ ok: true, message: "This invite was already withdrawn." });
+    expectNoWithdrawal();
+  });
+
+  it("refuses declined, expired, or past-deadline invites", async () => {
+    mocks.lockRow.mockResolvedValue([{ status: "SENT" }]);
+    mocks.updateMany.mockResolvedValue({ count: 0 });
+    await expect(withdrawSellerInvite({ inviteId })).resolves.toMatchObject({ ok: false, message: expect.stringContaining("no longer open") });
+    expect(mocks.notification).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
+  });
+
+  it("reports a blocked pair's invite as closed without disclosing the block", async () => {
+    mocks.pairLock.mockRejectedValue(new MessagingError("UNAVAILABLE", "Invitation is unavailable.", 409));
+    await expect(withdrawSellerInvite({ inviteId })).resolves.toMatchObject({ ok: false, message: expect.stringContaining("no longer open") });
+    expect(mocks.lockRow).not.toHaveBeenCalled();
+    expectNoWithdrawal();
+  });
+
+  it("propagates unexpected lock failures", async () => {
+    const failure = new Error("database fixture failure");
+    mocks.pairLock.mockRejectedValue(failure);
+    await expect(withdrawSellerInvite({ inviteId })).rejects.toBe(failure);
+    expectNoWithdrawal();
   });
 });

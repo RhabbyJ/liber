@@ -1,0 +1,46 @@
+/* A confirm-first action: the summary opens a small form panel instead of acting on one click. */
+.disclosure-action {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.disclosure-action > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.disclosure-action > summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure-action-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  max-width: 320px;
+  padding: 12px;
+  text-align: left;
+}
+
+.disclosure-action-panel p {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+  margin: 0;
+}
+
+.disclosure-action-panel .field {
+  width: 100%;
+}
+
+.disclosure-action-result {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 20px;
+  margin: 0;
+  max-width: 320px;
+}
