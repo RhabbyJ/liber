@@ -10,12 +10,21 @@ import {
   persistUserRolesForAuthIdentity,
   signupStatusForAuthFailure,
 } from "./auth-identity";
+import { defaultPathForSessionUser } from "./auth-intent";
 import { enforceSharedAuthRateLimit } from "./auth-rate-limit";
 import type { AppRole } from "./authz";
+import { clearPasswordRecovery, hasPasswordRecoveryFor, PASSWORD_RESET_PATH } from "./password-recovery";
 import { clientIpFromHeaders } from "./rate-limit";
+import { getSessionUser } from "./session";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "./supabase";
 import { configuredSiteOrigin } from "./site-origin";
 import { isControlledPreviewEnvironment } from "./preview-environment";
+
+const MIN_PASSWORD_LENGTH = 12;
+const MAX_PASSWORD_LENGTH = 1024;
+const EMAIL_PATTERN = /^\S+@\S+\.\S+$/;
+
+type SupabaseServerClient = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
 
 function requiredText(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -68,7 +77,7 @@ export async function signupWithPassword(formData: FormData) {
     redirect(signupRedirectPath(formData, "missing-fields", email));
   }
 
-  if (name.length > 160 || email.length > 254 || password.length > 1024) {
+  if (name.length > 160 || email.length > 254 || password.length > MAX_PASSWORD_LENGTH) {
     redirect(signupRedirectPath(formData, "missing-fields", email.length <= 254 ? email : ""));
   }
 
@@ -76,7 +85,7 @@ export async function signupWithPassword(formData: FormData) {
     redirect(signupRedirectPath(formData, "invalid-role", email));
   }
 
-  if (password.length < 12) {
+  if (password.length < MIN_PASSWORD_LENGTH) {
     redirect(signupRedirectPath(formData, "weak-password", email));
   }
 
@@ -208,6 +217,141 @@ export async function resendSignupConfirmation(formData: FormData) {
 
   if (error) throw new Error(error.message);
   redirect(`/signup/verify?email=${encodeURIComponent(email)}&next=${encodeURIComponent(next ?? "/")}&resent=1`);
+}
+
+/**
+ * Emails a password-reset link. Every address that passes the shared limiter gets the same
+ * confirmation, whether Supabase sent, skipped (no account), or throttled the email, so the
+ * response never reveals which addresses have accounts.
+ */
+export async function requestPasswordReset(formData: FormData) {
+  const email = textValue(formData, "email");
+  if (!email || email.length > 254 || !EMAIL_PATTERN.test(email)) {
+    redirect("/forgot-password?status=invalid-email");
+  }
+
+  const limit = await enforceSharedAuthRateLimit({
+    action: "reset",
+    email,
+    ip: clientIpFromHeaders(await headers()),
+  });
+  if (!limit.allowed) redirect("/forgot-password?status=rate-limited");
+
+  const supabase = await createSupabaseServerClient();
+  const origin = configuredSiteOrigin();
+  if (!supabase || !origin) redirect("/forgot-password?status=unavailable");
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: await authCallbackUrl(PASSWORD_RESET_PATH),
+  });
+  if (error) logAuthFailure("password reset email request failed", error);
+  redirect("/forgot-password?status=sent");
+}
+
+/** Sets a new password from a verified recovery link (see the Auth callback), then opens the workspace. */
+export async function completePasswordReset(formData: FormData) {
+  const user = await getSessionUser();
+  // The reset page explains an expired or missing recovery link.
+  if (!user || !(await hasPasswordRecoveryFor(user.id))) redirect(PASSWORD_RESET_PATH);
+
+  const password = textValue(formData, "password");
+  const invalid = newPasswordProblem(password);
+  if (invalid) redirect(`${PASSWORD_RESET_PATH}?status=${invalid}`);
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) redirect(`${PASSWORD_RESET_PATH}?status=error`);
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) redirect(`${PASSWORD_RESET_PATH}?status=${passwordUpdateFailureStatus(error)}`);
+
+  await clearPasswordRecovery();
+  await signOutOtherSessions(supabase);
+  redirect(defaultPathForSessionUser(user));
+}
+
+/** Profile password change: the current password is checked against the login rate limit first. */
+export async function changePassword(formData: FormData) {
+  const user = await getSessionUser();
+  if (!user) redirect("/login?next=%2Fprofile");
+  const email = user.email;
+  if (!email) redirect(profilePasswordPath("error"));
+
+  const currentPassword = textValue(formData, "currentPassword");
+  const newPassword = textValue(formData, "newPassword");
+  if (!currentPassword || currentPassword.length > MAX_PASSWORD_LENGTH) {
+    redirect(profilePasswordPath("missing-current"));
+  }
+  const invalid = newPasswordProblem(newPassword);
+  if (invalid) redirect(profilePasswordPath(invalid));
+
+  // Checking the current password is a sign-in attempt, so it spends the login budget.
+  const limit = await enforceSharedAuthRateLimit({
+    action: "login",
+    email,
+    ip: clientIpFromHeaders(await headers()),
+  });
+  if (!limit.allowed) redirect(profilePasswordPath("rate-limited"));
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) redirect(profilePasswordPath("error"));
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
+  if (error) {
+    redirect(profilePasswordPath(currentPasswordFailureStatus(error)));
+  }
+  if (data.user?.id !== user.id) {
+    // Never keep a session for a different Auth identity than the one that asked.
+    await supabase.auth.signOut({ scope: "local" });
+    redirect("/login?status=account-unavailable");
+  }
+
+  const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+  if (updateError) redirect(profilePasswordPath(passwordUpdateFailureStatus(updateError)));
+
+  await signOutOtherSessions(supabase);
+  redirect(profilePasswordPath("password-updated"));
+}
+
+function newPasswordProblem(password: string) {
+  if (!password || password.length < MIN_PASSWORD_LENGTH) return "too-short";
+  if (password.length > MAX_PASSWORD_LENGTH) return "too-long";
+  return null;
+}
+
+function currentPasswordFailureStatus(error: AuthFailure) {
+  if (isAuthRateLimit(error)) return "rate-limited";
+  if (error.code === "invalid_credentials" || error.status === 400) return "wrong-password";
+  logAuthFailure("current password check failed", error);
+  return "error";
+}
+
+function passwordUpdateFailureStatus(error: AuthFailure) {
+  if (error.code === "same_password") return "same-password";
+  if (error.code === "weak_password") return "weak-password";
+  if (isAuthRateLimit(error)) return "rate-limited";
+  logAuthFailure("password update failed", error);
+  return "error";
+}
+
+type AuthFailure = { code?: string; status?: number };
+
+function isAuthRateLimit(error: AuthFailure) {
+  return error.status === 429 || error.code === "over_request_rate_limit" || error.code === "over_email_send_rate_limit";
+}
+
+// A new password ends every other session, so a stolen session cannot outlive the reset.
+async function signOutOtherSessions(supabase: SupabaseServerClient) {
+  const { error } = await supabase.auth.signOut({ scope: "others" });
+  if (error) logAuthFailure("could not end other sessions after a password change", error);
+}
+
+function profilePasswordPath(status: string) {
+  return `/profile?status=${status}#password`;
+}
+
+// Status and code only: never the email address or the Supabase message text.
+function logAuthFailure(message: string, error: AuthFailure) {
+  console.error(`[auth] ${message}`, error.status ?? "", error.code ?? "");
 }
 
 function shouldAutoConfirmLocalSignup() {

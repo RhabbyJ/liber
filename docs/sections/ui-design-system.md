@@ -77,9 +77,9 @@ Owns shared visual language, navigation, layouts, reusable components, and globa
 - Segmented controls (filters, signup role) mark the selected option with a 2px `#47a62f` edge on the `#f2fbef` tint and ink text; white text on the greens fails AA at control sizes.
 - Empty states sit where the list would be: a 40px `#47a62f` line icon (no grey circle), a 20/24 title, 16/24 ink body, and at most one action.
 - Status styling uses one semantic icon or text label. Do not inject decorative dots beside an existing icon, and reserve warning/success color for real state.
-- Liber's production light-green palette and assignments are authoritative: `#67c94f`, `#5fbe43`, and `#47a62f`, with `#f2fbef`, `#e0f6d8`, and `#bceaad` for tints and decorative lines. Primary controls use `#5fbe43` with white foregrounds and deepen to `#47a62f`; public search and map signals use `#47a62f` with white foregrounds and the production muted-green halos. Do not add substitute green tokens that change this treatment.
+- Liber's production light-green palette and assignments are authoritative: `#67c94f`, `#5fbe43`, and `#47a62f`, with `#f2fbef`, `#e0f6d8`, and `#bceaad` for tints and decorative lines. Primary controls use `#5fbe43` with near-black `#2a2a33` text (6:1) and deepen to `#47a62f` on hover and press (4.6:1); disabled green buttons switch to the `#bceaad` tint with `#54545a` text (5.5:1) rather than fading (owner decision, October 2026, matching the LOI workspace). Public search and map signals use `#47a62f` with white foregrounds and the production muted-green halos. Do not add substitute green tokens that change this treatment.
 - Demand visuals may reuse the abstract atlas grammar inside maps only. Canonical service-area geometry remains the only source for real selected boundaries. Explain trust in one line near the upload or badge, not with a decorative step diagram.
-- Log in, signup, and email verification use Zillow's split sign-in page (`components/auth-shell.tsx`), measured from Zillow's 2026 page: a 480px white form panel with a 320px column centred vertically (logo, 24/32 title, 14/700 labels, white 48px inputs with a `#a7a6ab` edge and 8px radius, 16px gaps, a full-width 48px primary button that stays pale until there is input, then the "New to Liber? Create account" line) beside a full-height photograph (`public/images/homes/auth-hero.webp`, cover-cropped, a short settle-in fade that reduced motion disables). The site header and footer are hidden on these pages; below 900px only the form shows. Log in is email first, then password with a Show toggle. Auth notices use the inline-alert pattern.
+- Log in, signup, email verification, and password reset (`/forgot-password`, `/reset-password`) use Zillow's split sign-in page (`components/auth-shell.tsx`), measured from Zillow's 2026 page: a 480px white form panel with a 320px column centred vertically (logo, 24/32 title, 14/700 labels, white 48px inputs with a `#a7a6ab` edge and 8px radius, 16px gaps, a full-width 48px primary button that stays pale until there is input, then the "New to Liber? Create account" line) beside a full-height photograph (`public/images/homes/auth-hero.webp`, cover-cropped, a short settle-in fade that reduced motion disables). The site header and footer are hidden on these pages; below 900px only the form shows. Log in is email first, then password with a Show toggle and a "Forgot password?" link under it. Auth notices use the inline-alert pattern.
 - On narrow screens the homepage may stack and scroll, but the map, preview cards, and mobile navigation actions must all remain reachable.
 - Do not use real-looking buyer imagery as a trust shortcut.
 - Avatars are initials avatars (`components/generated-avatar.tsx`): one or two letters (first letters of the first and last words; one glyph for caseless scripts) in white Open Sans 600, about 40% of the diameter up to 48px and easing to 35% at 160px, on one of eight `--avatar-color-N` backgrounds (Pine, Lagoon, Harbor, Iris, Plum, Rosewood, Terracotta, Moss; 5.5–7.5:1 with white). Sizes: 36px header trigger, 40px list rows, 44px card overlay with a 2px white ring, 72px summaries, 96px profile header, 160px buyer-page hero. Avatars next to a visible name or inside a labelled control are `decorative` (hidden from assistive tech); colors carry no meaning. Buyer surfaces use the generated public alias; the header account trigger and `/profile` use the signed-in user's own account name, which only that user sees.
@@ -133,7 +133,8 @@ Liber's own features and palette. Keep new surfaces inside this system:
   at 16/24 on `#2a2a33`, secondary text `#54545a`/`#596b82`, `#d1d1d5`
   hairlines, `#f6f6fa` inputs, a 4px control radius (8px for large cards and
   sheets), and three 30%-black elevations (`--shadow-card`, `--shadow-popover`,
-  `--shadow-modal`). Focus is the two-ring `--focus-ring` box-shadow. Motion
+  `--shadow-modal`). Focus is the two-ring `--focus-ring` box-shadow; forced-colors
+  mode (Windows High Contrast drops box-shadow) draws a 2px `Highlight` outline instead. Motion
   stays between 0.1s and 0.3s with `ease`.
 - Hover styling lives inside `@media (hover: hover) and (pointer: fine)`.
   Buttons keep a 44px touch target through `.button::after` whatever their
@@ -148,13 +149,19 @@ Liber's own features and palette. Keep new surfaces inside this system:
   slider over Min / Max boxes; home type is a single-select radio list; trust
   badges are a 24px checkbox list.
   Below 1100px the popovers collapse into one Filters sheet, portaled to
-  `document.body` so it covers the header. The map and results list sit side by
+  `document.body` so it covers the header. The sheet is a modal dialog named by
+  its title: the page behind it is inert, focus starts on the title, Tab wraps
+  inside it, and Escape, the close button, and the scrim all discard unapplied
+  edits and return focus to the Filters button; only Show matching buyers
+  applies them. The result count is a `role="status"` region, so screen readers
+  hear the new count after each change. The map and results list sit side by
   side (list 750px, 390px below 1280px). Below 1007px the map stays sticky, the
   results slide over it as a sheet, and a floating List/Map pill jumps between
   them. Search pages use the compact footer; other pages use the full footer.
 - Listing cards (`.listing-card`): 12px radius, 177px media with at most two
-  trust tags (Zillow's white photo tags with dark bold text) and the generated
-  avatar, a 24/32 budget or price headline, `|`-separated facts ending in the
+  trust tags (Zillow's white photo tags with dark bold text; a Demo buyer or
+  test label always takes a slot first), the generated avatar, a "Sample photo"
+  tag at the bottom right (map mini-cards carry a smaller one), a 24/32 budget or price headline, `|`-separated facts ending in the
   home kind, a grey address line, and uppercase fine print. The whole card
   is one stretched link. `.listing-card.static` (seller properties, invite
   overview) drops the stretched link and adds a bottom actions row.
@@ -167,20 +174,21 @@ Liber's own features and palette. Keep new surfaces inside this system:
   tile), budget headline with stat dividers, glance tiles, divided sections, a
   sticky contact rail at 900px and wider, and a sticky bottom CTA below 900px.
   The invite disclaimer sits directly under Send invite in the rail.
-- `/login`, `/signup`, and `/signup/verify` use the split sign-in page.
+- `/login`, `/signup`, `/signup/verify`, `/forgot-password`, and `/reset-password` use the split sign-in page. `/profile` adds a Password settings section (current and new password, Show toggles) below the workspace links.
 - Header notifications are a 40px icon button with a red count badge and a 380px dropdown on the account menu's surface: title row with Mark all read, the five newest notifications as clickable rows (32px type icon, title, two-line body, relative time, unread tint and dot), and "See all notifications". The list scrolls past 520px.
 - Sibling workspace pages share `WorkspaceTabs` (Redfin "My Redfin" tabs: 16px labels, 3px ink underline): Sent invites / Notifications for sellers, Received invites / Notifications for buyers. Admin pages share a persistent `AdminNav` built from the same tabs.
 - Notification feeds (`NotificationList`) sit under an All/Unread segmented filter with a Mark all as read link. Each row is one link: 40px type icon, title (bold when unread, on a green tint with a dot), body, then relative time ("4m ago", "Yesterday", "Sep 25") · green action label ("Open LOI"); read rows end in a chevron. Sent invites are activity rows: avatar, buyer and status tag, property and ownership line, sent day, one action.
 - `/seller/properties/[propertyId]/edit` is a listing editor: cover thumb, title and status, sticky section tabs (Home details, Photos, Ownership), white section cards, an unverified-ownership alert, and a sticky summary rail; the save bar sticks to the bottom on phones. `/seller/properties/new` opens with a photo banner whose address search overlaps its bottom edge.
 - The invite composer is a white card: property choice cards (cover thumb, title, status, check), a "what the buyer receives" note, the manual-invite confirmation, and a full-width Send invite.
 - The buyer detail media collage uses a listing photo and a real Mapbox street tile centred on the approximate area center (`mapboxAreaImageUrl`), never a drawn map.
-- Known gap: white text measures about 2.4:1 on `#5fbe43` and about 3.1:1 on
-  `#47a62f`, below WCAG AA for 16px text. The palette above is mandated, so
-  changing it needs an explicit brand decision.
+- Known gap: buttons now carry near-black text, but white still sits on the
+  greens for map budget pins (about 3.1:1 on `#47a62f`), count badges, and the
+  checked-box tick, below WCAG AA. Changing those needs the same kind of brand
+  decision.
 
 - Buyer workspace: the profile wizard is one 720px column with Redfin segmented controls, the search filter's budget slider and toggle chips (native radios/checkboxes, unchanged names); verification shows per-badge status rows (test pre-approvals always read Not verified) above a shared drag-and-drop `DirectUploadField` zone; received invites are horizontal saved-homes cards grouped Awaiting your reply / Accepted / Closed. Invite cards without shared photos use the property type's photo labelled "Sample photo".
 - Messages look like WhatsApp Web / iMessage for Mac: inbox list (pill search, All/Unread/Active chips, 52px avatars, green unread time and count) beside the thread; avatar header; pinned listing bar with LOI strip and tour bar; `--chat-bg` history with white incoming and `#d6f5c9` outgoing bubbles (ink text for AA), tails on the last bubble of a group, times inside bubbles; invite as a photo card; pill composer with `+` quick-reply tray and a round `#2f7d1f` send button. The site footer is hidden on messages pages.
-- Status labels (`.status-tag`, `.status-dot`, `.message-status-chip`) are Zillow-style: an 8px colored dot (green active, `--status-pending` amber pending, red expired/declined, grey neutral) then 13px ink text, with no tinted pill background. Do not reintroduce tinted status pills.
+- Status labels (`.status-tag`, `.status-dot`) are Zillow-style: an 8px colored dot (green active, `--status-pending` amber pending, red expired/declined, grey neutral) then 13px ink text, with no tinted pill background. Do not reintroduce tinted status pills.
 - LOI workspace: checkout-style stepper, numbered white section cards, sticky deal snapshot, definition-grid reviews, modal decision sheets, and a white sticky action bar. Area rules live in `components/loi/loi-workspace.css` and `app/messages/messages.css`; older globals.css rules for these areas are overridden, not deleted, because the area sheets still rely on some of their base properties.
 
 ## Agent notes

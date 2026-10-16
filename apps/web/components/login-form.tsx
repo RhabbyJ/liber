@@ -104,6 +104,7 @@ export function LoginForm({
               {showPassword ? "Hide" : "Show"}
             </button>
           </div>
+          <Link className="auth-inline-link" href="/forgot-password">Forgot password?</Link>
         </div>
       ) : null}
       <button className="button primary block lg" disabled={hydrated && !email.trim()} type="submit">

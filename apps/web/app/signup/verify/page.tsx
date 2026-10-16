@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthShell } from "../../../components/auth-shell";
@@ -5,6 +6,10 @@ import { Icon } from "../../../components/icon";
 import { safeInternalPath } from "../../../lib/redirect";
 import { resendSignupConfirmation } from "../../../server/auth-actions";
 import { defaultPathForSessionUser, getSessionUser } from "../../../server/session";
+
+export const metadata: Metadata = {
+  title: "Confirm your email",
+};
 
 export default async function VerifySignupPage({
   searchParams,

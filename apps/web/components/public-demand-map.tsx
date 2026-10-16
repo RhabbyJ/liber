@@ -52,8 +52,12 @@ export function PublicDemandMap({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<MapboxMarker[]>([]);
+  const markerNodesRef = useRef<Map<number, HTMLElement>>(new Map());
+  const markerMembersRef = useRef<Map<HTMLElement, number[]>>(new Map());
   const popupRef = useRef<MapboxPopup | null>(null);
   const pinnedPopupRef = useRef<number | null>(null);
+  // First preview of the marker whose mini-card is showing, to send focus back on Escape.
+  const popupOwnerRef = useRef<number | null>(null);
   const [hasLiveMarkers, setHasLiveMarkers] = useState(false);
   const mapboxToken = token?.trim() ?? "";
   const shouldUseMapbox = Boolean(mapboxToken);
@@ -97,8 +101,28 @@ export function PublicDemandMap({
       popupRef.current?.remove();
       popupRef.current = null;
       pinnedPopupRef.current = null;
+      popupOwnerRef.current = null;
     };
   }, [isReady, mapRef]);
+
+  // Escape closes the mini-card (hovered or pinned) and returns focus to its marker.
+  useEffect(() => {
+    if (!isReady) return;
+    function closePopupOnEscape(event: KeyboardEvent) {
+      const popup = popupRef.current;
+      if (event.key !== "Escape" || event.defaultPrevented || !popup?.isOpen()) return;
+      // A modal (the filters sheet) owns Escape while it is open.
+      if (event.target instanceof Element && event.target.closest('[aria-modal="true"]')) return;
+      const focusWasInPopup = Boolean(popup.getElement()?.contains(document.activeElement));
+      const owner = popupOwnerRef.current;
+      popup.remove();
+      pinnedPopupRef.current = null;
+      popupOwnerRef.current = null;
+      if (focusWasInPopup && owner !== null) markerNodesRef.current.get(owner)?.focus({ preventScroll: true });
+    }
+    document.addEventListener("keydown", closePopupOnEscape);
+    return () => document.removeEventListener("keydown", closePopupOnEscape);
+  }, [isReady]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current) return;
@@ -120,6 +144,7 @@ export function PublicDemandMap({
     function showPopup(group: { lat: number; lng: number; points: PreviewPoint[] }, pinned: boolean) {
       if (!popupRef.current || !map) return;
       pinnedPopupRef.current = pinned ? group.points[0].index : null;
+      popupOwnerRef.current = group.points[0].index;
       const html = group.points.length > 1
         ? `<div class="buyer-map-popup-group">${group.points.map((item) => previewPopupHtml(item.preview, cta, item.photo)).join("")}</div>`
         : previewPopupHtml(group.points[0].preview, cta, group.points[0].photo);
@@ -129,9 +154,16 @@ export function PublicDemandMap({
     const clearMarkers = () => {
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
+      markerNodesRef.current.clear();
+      markerMembersRef.current.clear();
     };
 
     const renderMarkers = () => {
+      // Re-clustering replaces every marker. A keyboard-focused marker hands focus to the new
+      // marker holding its first preview, so zooming into a cluster keeps your place.
+      const active = document.activeElement;
+      const focusedIndexes = active instanceof HTMLElement ? markerMembersRef.current.get(active) : undefined;
+      const keepFocus = Boolean(focusedIndexes && active instanceof HTMLElement && active.matches(":focus-visible"));
       clearMarkers();
       for (const cluster of clusterMarkerGroups(centerGroups, (lngLat) => map.project(lngLat))) {
         const items = cluster.members.flatMap((group) => group.points);
@@ -162,13 +194,20 @@ export function PublicDemandMap({
           markerNode.addEventListener("click", (event) => {
             event.stopPropagation();
             showPopup(group, true);
+            // Enter or Space on a marker moves into its mini-card so the links are reachable.
+            if (event.detail === 0) {
+              popupRef.current?.getElement()?.querySelector<HTMLElement>("a[href]")?.focus({ preventScroll: true });
+            }
           });
         }
 
         markersRef.current.push(new mapboxgl.Marker({ anchor: "center", element: markerNode })
           .setLngLat([cluster.anchor.lng, cluster.anchor.lat])
           .addTo(map));
+        markerMembersRef.current.set(markerNode, items.map((item) => item.index));
+        for (const item of items) markerNodesRef.current.set(item.index, markerNode);
       }
+      if (keepFocus && focusedIndexes?.length) markerNodesRef.current.get(focusedIndexes[0])?.focus({ preventScroll: true });
       setHasLiveMarkers(true);
     };
 
@@ -297,14 +336,16 @@ function previewPopupHtml(
   photo: string,
 ) {
   const facts = criteriaFacts(preview).map((fact) => `<b>${escapeHtml(fact.value)}</b> ${escapeHtml(fact.label)}`);
+  const isDemo = preview.badges.includes("Demo buyer");
 
   return `
     <div class="map-card preview">
-      <span class="map-card-media"><img alt="" src="${escapeHtml(photo)}" /></span>
+      <span class="map-card-media"><img alt="" src="${escapeHtml(photo)}" /><span class="sample-photo-tag">Sample photo</span></span>
       <span class="map-card-body">
         <strong class="map-card-price">${escapeHtml(preview.budgetLabel)}</strong>
         ${facts.length > 0 ? `<span class="map-card-facts">${facts.join("<i></i>")}</span>` : ""}
         <span class="map-card-address">${escapeHtml(preview.area)}</span>
+        ${isDemo ? `<span class="map-card-meta">Demo buyer</span>` : ""}
         <span class="map-card-actions">
           <a class="map-card-cta" href="${escapeHtml(cta.primaryHref)}">${escapeHtml(cta.primaryLabel)}</a>
           ${cta.secondaryHref && cta.secondaryLabel ? `<a class="map-card-link" href="${escapeHtml(cta.secondaryHref)}">${escapeHtml(cta.secondaryLabel)}</a>` : ""}

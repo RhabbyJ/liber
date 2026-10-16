@@ -1,14 +1,21 @@
+import type { Metadata } from "next";
 import { publicNameForDisplay } from "../../server/public-identity";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { GeneratedAvatar } from "../../components/generated-avatar";
 import { Icon } from "../../components/icon";
 import { PageTitle } from "../../components/page-title";
+import { ChangePasswordForm } from "../../components/password-forms";
 import { getSessionUser } from "../../server/session";
 
-export default async function AccountProfilePage() {
+export const metadata: Metadata = {
+  title: "Your profile",
+};
+
+export default async function AccountProfilePage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const user = await getSessionUser();
   if (!user) redirect("/login?next=%2Fprofile");
+  const { status = "" } = await searchParams;
 
   const workspaces = [
     user.roles.includes("BUYER") ? { href: "/buyer/profile", label: "Buyer profile" } : null,
@@ -49,6 +56,11 @@ export default async function AccountProfilePage() {
           ))}
         </nav>
       ) : null}
+
+      <section aria-labelledby="password-heading" className="settings-section" id="password">
+        <h2 id="password-heading">Password</h2>
+        <ChangePasswordForm email={user.email ?? ""} status={status} />
+      </section>
     </div>
   );
 }

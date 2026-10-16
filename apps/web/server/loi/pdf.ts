@@ -26,8 +26,10 @@ export async function createAlignedLoiPdf(negotiation: LoiNegotiation) {
   const revision = alignedLoiRevision(negotiation);
   const document = await PDFDocument.create();
   document.registerFontkit(fontkit);
-  // Read the bundled font once per server instance; retry after a failed read.
-  fontBytes ??= readFile(path.join(process.cwd(), "public/fonts/DejaVuSans.ttf")).catch((error: unknown) => { fontBytes = null; throw error; });
+  // Read the bundled font once per server instance; retry after a failed read. It sits beside
+  // this module rather than in /public, so it is never served as a static file. The path stays a
+  // literal so build file tracing can follow it.
+  fontBytes ??= readFile(path.join(process.cwd(), "server/loi/fonts/DejaVuSans.ttf")).catch((error: unknown) => { fontBytes = null; throw error; });
   const font = await document.embedFont(await fontBytes);
   document.setTitle(`Liber - Aligned LOI - Revision ${revision.sequence}`);
   document.setAuthor("Liber");

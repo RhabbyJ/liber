@@ -32,7 +32,10 @@ function isPathSegment(pathname: string, prefix: string) {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
+const AUTH_FLOW_PATHS = new Set(["/auth/callback", "/forgot-password", "/login", "/onboarding/role", "/reset-password"]);
+
+// Only a verified recovery link (see the Auth callback) may continue to /reset-password.
 function isAuthFlowPath(path: string) {
   const pathname = path.split(/[?#]/, 1)[0] || "/";
-  return pathname === "/login" || pathname === "/onboarding/role" || pathname === "/auth/callback" || pathname.startsWith("/signup");
+  return AUTH_FLOW_PATHS.has(pathname) || pathname.startsWith("/signup");
 }

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  getSessionUser: vi.fn(), buyers: vi.fn(), documents: vi.fn(), queryIds: vi.fn(), syntheticProfiles: vi.fn(), testPreapprovalIds: vi.fn(),
+  getSessionUser: vi.fn(), buyers: vi.fn(), demoAuditRows: vi.fn(), documents: vi.fn(), queryIds: vi.fn(), syntheticProfiles: vi.fn(), testPreapprovalIds: vi.fn(),
 }));
 vi.mock("@liber/db", async () => ({
   Prisma: (await import("../../../packages/db/src/generated/client")).Prisma,
-  prisma: { buyerProfile: { findMany: mocks.buyers }, verificationDocument: { findMany: mocks.documents } },
+  prisma: { adminAuditLog: { findMany: mocks.demoAuditRows }, buyerProfile: { findMany: mocks.buyers }, verificationDocument: { findMany: mocks.documents } },
 }));
 vi.mock("./session", () => ({ getSessionUser: mocks.getSessionUser }));
 vi.mock("./seller-search-query", async (importOriginal) => ({
@@ -60,6 +60,8 @@ describe("admin buyer identity projection", () => {
     mocks.documents.mockResolvedValue([firstDocument, secondDocument]);
     mocks.syntheticProfiles.mockResolvedValue(new Set());
     mocks.testPreapprovalIds.mockResolvedValue(new Set());
+    // Public previews also look up seeded demo buyers (seed_demo_buyer audit rows) for the Demo buyer label.
+    mocks.demoAuditRows.mockResolvedValue([]);
   });
 
   it.each([{ roles: null }, { roles: ["BUYER"] }, { roles: ["SELLER"] }, { roles: ["BUYER", "SELLER"] }])("blocks a non-admin session (%j) before querying account identity or evidence", async ({ roles }) => {

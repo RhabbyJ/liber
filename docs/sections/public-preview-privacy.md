@@ -54,6 +54,14 @@ seller data.
   matching preview. Filtering or sorting never changes the geographic position.
 - Hovering or keyboard-focusing a preview card highlights the matching
   area marker (shared when several previews target the same center); it does not expose additional data or move the map.
+- Controlled demo profiles (a `seed_demo_buyer` audit row from the demo
+  tooling, or the designated journey fixture) carry the `Demo buyer` label
+  in the existing `badges` list, checked only for the profiles on the page,
+  the same detection approved seller search uses for `isDemo`. Cards show
+  demo and test labels before any trust badge, and the results header says
+  "Includes clearly labeled demo profiles" only when a visible card is one.
+- Card and mini-card photos are representative photos of the home type,
+  tagged "Sample photo" so they are never mistaken for a listing.
 - Serialized-response and recursive forbidden-field assertions cover the
   homepage, seller search API, and shared seller read model; preserve them
   when a contract changes. Route test fixtures must use the live response type.

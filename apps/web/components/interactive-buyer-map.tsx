@@ -40,8 +40,11 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
   const containerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<MapboxMarker[]>([]);
   const markerNodesRef = useRef<Map<string, HTMLElement>>(new Map());
+  const markerMembersRef = useRef<Map<HTMLElement, string[]>>(new Map());
   const popupRef = useRef<MapboxPopup | null>(null);
   const pinnedPopupRef = useRef<string | null>(null);
+  // First buyer of the marker whose mini-card is showing, to send focus back on Escape.
+  const popupOwnerRef = useRef<string | null>(null);
   const { didFail, isReady, mapRef } = useMarketMap({
     containerRef,
     initialBounds: selectedArea ? selectedAreaBounds(selectedArea) : null,
@@ -91,8 +94,28 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
       popupRef.current?.remove();
       popupRef.current = null;
       pinnedPopupRef.current = null;
+      popupOwnerRef.current = null;
     };
   }, [isReady, mapRef]);
+
+  // Escape closes the mini-card (hovered or pinned) and returns focus to its marker.
+  useEffect(() => {
+    if (!isReady) return;
+    function closePopupOnEscape(event: KeyboardEvent) {
+      const popup = popupRef.current;
+      if (event.key !== "Escape" || event.defaultPrevented || !popup?.isOpen()) return;
+      // A modal (the filters sheet) owns Escape while it is open.
+      if (event.target instanceof Element && event.target.closest('[aria-modal="true"]')) return;
+      const focusWasInPopup = Boolean(popup.getElement()?.contains(document.activeElement));
+      const owner = popupOwnerRef.current;
+      popup.remove();
+      pinnedPopupRef.current = null;
+      popupOwnerRef.current = null;
+      if (focusWasInPopup && owner) markerNodesRef.current.get(owner)?.focus({ preventScroll: true });
+    }
+    document.addEventListener("keydown", closePopupOnEscape);
+    return () => document.removeEventListener("keydown", closePopupOnEscape);
+  }, [isReady]);
 
   useEffect(() => {
     if (!isReady || !mapRef.current) return;
@@ -110,6 +133,7 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
       if (!popup || !map) return;
       const buyersHere = group.points.map((point) => point.buyer);
       pinnedPopupRef.current = pinned ? buyersHere[0].id : null;
+      popupOwnerRef.current = buyersHere[0].id;
       popup
         .setLngLat([group.lng, group.lat])
         .setOffset(popupOffsets([0, 0]))
@@ -123,9 +147,16 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
       markerNodesRef.current.clear();
+      markerMembersRef.current.clear();
     };
 
     const renderMarkers = () => {
+      // Re-clustering replaces every marker. A keyboard-focused marker hands focus to the new
+      // marker holding its first buyer, so zooming into a cluster keeps your place.
+      const active = document.activeElement;
+      const focusedBuyerIds = active instanceof HTMLElement ? markerMembersRef.current.get(active) : undefined;
+      const keepFocus = Boolean(focusedBuyerIds && active instanceof HTMLElement && active.matches(":focus-visible"));
+      focusedBuyerIds?.forEach((buyerId) => highlightBuyer(buyerId, false));
       clearMarkers();
       for (const cluster of clusterMarkerGroups(centerGroups, (lngLat) => map.project(lngLat))) {
         const buyersHere = cluster.members.flatMap((group) => group.points.map((point) => point.buyer));
@@ -161,6 +192,8 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
           markerNode.addEventListener("click", (event) => {
             event.stopPropagation();
             showPopup(group, true);
+            // Enter or Space on a marker moves into its mini-card so the links are reachable.
+            if (event.detail === 0) focusPopupLink(popupRef.current);
           });
         }
 
@@ -172,8 +205,10 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
           .setLngLat([cluster.anchor.lng, cluster.anchor.lat])
           .addTo(map);
         markersRef.current.push(marker);
+        markerMembersRef.current.set(markerNode, buyersHere.map((buyer) => buyer.id));
         for (const buyer of buyersHere) markerNodesRef.current.set(buyer.id, markerNode);
       }
+      if (keepFocus && focusedBuyerIds?.length) markerNodesRef.current.get(focusedBuyerIds[0])?.focus({ preventScroll: true });
     };
 
     renderMarkers();
@@ -260,6 +295,10 @@ export function InteractiveBuyerMap({ buyers, clearAreaHref, market, selectedSer
   );
 }
 
+function focusPopupLink(popup: MapboxPopup | null) {
+  popup?.getElement()?.querySelector<HTMLElement>("a[href]")?.focus({ preventScroll: true });
+}
+
 function popupOffsets([x, y]: [number, number]): Record<string, [number, number]> {
   return {
     bottom: [x, y - 40],
@@ -281,7 +320,7 @@ function popupHtml(buyer: SellerBuyerSummaryDTO, photo: string) {
 
   return `
     <a class="map-card" href="/buyers/${encodeURIComponent(buyer.id)}">
-      <span class="map-card-media"><img alt="" src="${escapeHtml(photo)}" /></span>
+      <span class="map-card-media"><img alt="" src="${escapeHtml(photo)}" /><span class="sample-photo-tag">Sample photo</span></span>
       <span class="map-card-body">
         <strong class="map-card-price">${escapeHtml(compactBudgetRange(buyer.budgetMin, buyer.budgetMax))}</strong>
         ${facts.length > 0 ? `<span class="map-card-facts">${facts.join("<i></i>")}</span>` : ""}

@@ -2,7 +2,7 @@ import { normalizeIdentityEmail } from "../lib/auth-identity";
 import type { RateLimitResult } from "./rate-limit";
 import { consumeSharedRateLimit } from "./shared-rate-limit";
 
-export type AuthRateLimitAction = "login" | "recovery" | "resend" | "signup";
+export type AuthRateLimitAction = "login" | "recovery" | "resend" | "reset" | "signup";
 
 type AuthRateLimitConfig = {
   email: { limit: number; windowSeconds: number };
@@ -19,6 +19,11 @@ const AUTH_LIMITS: Record<AuthRateLimitAction, AuthRateLimitConfig> = {
     ip: { limit: 5, windowSeconds: 60 * 60 },
   },
   resend: {
+    email: { limit: 3, windowSeconds: 60 * 60 },
+    ip: { limit: 5, windowSeconds: 60 * 60 },
+  },
+  // Password-reset emails. Every submitted address is counted, whether or not an account uses it.
+  reset: {
     email: { limit: 3, windowSeconds: 60 * 60 },
     ip: { limit: 5, windowSeconds: 60 * 60 },
   },

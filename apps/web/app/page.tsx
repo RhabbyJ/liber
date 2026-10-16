@@ -1,6 +1,7 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import type { ReactNode } from "react";
+import { cache, type ReactNode } from "react";
 import { searchBuyersSchema, type SearchBuyersInput } from "@liber/validators";
 import { BuyerCard } from "../components/buyer-card";
 import { BuyerMap } from "../components/buyer-map";
@@ -18,11 +19,29 @@ import { selectedMapArea } from "../lib/map-area";
 import { distinctPropertyPhotos } from "../lib/property-photos";
 import { DEFAULT_MARKET_SLUG, serviceAreaDisplayLabel } from "../lib/service-areas";
 import { canViewBuyerDirectory } from "../server/access";
-import { hasControlledDemoBuyerPreviews, searchDemandPreviews } from "../server/buyer-preview";
+import { DEMO_BUYER_LABEL, searchDemandPreviews } from "../server/buyer-preview";
 import { getCurrentSellerAccess, searchBuyers } from "../server/contracts";
 import { SellerSearchCursorError } from "../server/seller-search-query";
 import { getActiveMarketBySlug, getActiveServiceAreaBySlug, resolveActiveServiceArea } from "../server/service-areas";
 import { getSessionUser } from "../server/session";
+
+// Shared by generateMetadata and the page within one request.
+const activeMarket = cache((slug: string) => getActiveMarketBySlug(slug));
+const activeServiceArea = cache((slug: string, marketSlug: string) => getActiveServiceAreaBySlug(slug, marketSlug));
+
+/** The root page shares the layout's segment, so its title is absolute rather than templated. */
+export async function generateMetadata({ searchParams }: { searchParams: Promise<DemandSearchParams> }): Promise<Metadata> {
+  const params = await searchParams;
+  try {
+    const market = await activeMarket(slugParam(params.market) ?? DEFAULT_MARKET_SLUG);
+    const serviceAreaSlug = slugParam(params.serviceArea);
+    const area = serviceAreaSlug ? await activeServiceArea(serviceAreaSlug, market.slug) : null;
+    return { title: { absolute: `${area ? serviceAreaDisplayLabel(area) : market.label} buyer demand · Liber` } };
+  } catch {
+    // The page renders its own error state; the title stays generic.
+    return { title: { absolute: "Buyer demand map · Liber" } };
+  }
+}
 
 /**
  * The one buyer-demand map. Everyone gets the same map, filters, sort and list:
@@ -36,7 +55,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const isSeller = roles.includes("SELLER");
   const isBuyer = roles.includes("BUYER");
   const canSearch = user ? await canViewBuyerDirectory(user) : false;
-  const market = await getActiveMarketBySlug(slugParam(params.market) ?? DEFAULT_MARKET_SLUG);
+  const market = await activeMarket(slugParam(params.market) ?? DEFAULT_MARKET_SLUG);
 
   // Older homepage links carried a free-text ?area=; settle them on one canonical serviceArea slug.
   if (params.area && !params.serviceArea) {
@@ -45,7 +64,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   }
 
   const requestedServiceArea = slugParam(params.serviceArea);
-  const selectedServiceArea = requestedServiceArea ? await getActiveServiceAreaBySlug(requestedServiceArea, market.slug) : null;
+  const selectedServiceArea = requestedServiceArea ? await activeServiceArea(requestedServiceArea, market.slug) : null;
   const selectedArea = selectedMapArea(selectedServiceArea);
   const selectedAreaLabel = selectedServiceArea ? serviceAreaDisplayLabel(selectedServiceArea) : "";
   const amenities = listParam(params.amenities);
@@ -89,9 +108,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     if (params.cursor && error instanceof SellerSearchCursorError) redirect(demandSearchHref(params, ["cursor"]));
     throw error;
   }
-  const hasDemoPreviews = await hasControlledDemoBuyerPreviews();
-
   const resultCount = canSearch ? buyers.length : previews.length;
+  // Mention demo profiles only when a card on this page carries the "Demo buyer" label.
+  const showsDemoProfiles = canSearch
+    ? buyers.some((buyer) => buyer.isDemo)
+    : previews.some((preview) => preview.badges.includes(DEMO_BUYER_LABEL));
   const photos = distinctPropertyPhotos(canSearch
     ? buyers.map((buyer) => ({ seed: buyer.id, value: buyer.purpose }))
     : previews.map((preview) => ({ seed: preview.alias, value: preview.label })));
@@ -107,8 +128,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   return (
     <div className="search-page home-search-page">
       <SearchFilterBar
-        // Remount when the applied URL filters change so cleared or back-navigated filters reset the drafts.
-        key={demandSearchHref({ ...params, market: market.slug }, ["cursor", "view"])}
+        // Remount only when the location changes: the area search reads its text once. Filter drafts
+        // follow the URL inside the bar, so applying filters keeps keyboard focus on the control used.
+        key={`${market.slug}:${selectedServiceArea?.slug ?? ""}`}
         actions={toolbarAction({ canSearch, isBuyer, isSeller, signedIn: Boolean(user), signupSellerHref })}
         filters={{
           amenities,
@@ -160,10 +182,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <header className="search-results-head">
             <div>
               <h1 id="demand-results-title">{selectedAreaLabel || market.label} buyer demand</h1>
-              <p>
+              {/* Announced after every filter, sort, or area change. */}
+              <p role="status">
                 <strong>{resultCount}{hasMore && user ? "+" : ""} {resultCount === 1 ? "buyer" : "buyers"}</strong>
                 {hasFilters ? <span> matched to your filters</span> : null}
-                {hasDemoPreviews && resultCount > 0 ? <span> · Includes clearly labeled demo profiles</span> : null}
+                {showsDemoProfiles ? <span> · Includes clearly labeled demo profiles</span> : null}
               </p>
             </div>
             <SortSelect value={input.sort} />

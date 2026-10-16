@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { searchBuyersSchema } from "@liber/validators";
 
 const mocks = vi.hoisted(() => ({
+  demoAuditRows: vi.fn(),
   findMany: vi.fn(),
   fixtureProfiles: vi.fn(),
   queryIds: vi.fn(),
@@ -9,7 +10,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@liber/db", () => ({
-  prisma: { buyerProfile: { findMany: (query: { where: { user?: { email?: string } } }) => query.where.user?.email ? mocks.fixtureProfiles(query) : mocks.findMany(query) } },
+  prisma: {
+    adminAuditLog: { findMany: mocks.demoAuditRows },
+    buyerProfile: { findMany: (query: { where: { user?: { email?: string } } }) => query.where.user?.email ? mocks.fixtureProfiles(query) : mocks.findMany(query) },
+  },
 }));
 vi.mock("./seller-search-query", async (importOriginal) => ({
   ...await importOriginal<typeof import("./seller-search-query")>(),
@@ -68,6 +72,7 @@ describe("public buyer preview controller", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.findMany.mockResolvedValue([previewProfileRow]);
+    mocks.demoAuditRows.mockResolvedValue([]);
     mocks.fixtureProfiles.mockResolvedValue([]);
     mocks.queryIds.mockResolvedValue(idPage([previewProfileRow.id]));
     mocks.testPreapprovalIds.mockResolvedValue(new Set());
@@ -228,6 +233,42 @@ describe("public buyer preview controller", () => {
     expect(previews[0].badges).toEqual(["Demo buyer", "Pre-approved"]);
     expect(JSON.stringify(previews)).not.toContain(previewProfileRow.id);
     expectNoForbiddenFields(previews);
+  });
+
+  it("labels buyers seeded by the demo tooling, checking only the profiles on this page", async () => {
+    const seeded = { ...previewProfileRow, badges: [], id: "seeded-demo-profile", user: { ...previewProfileRow.user, name: "Liber Demo Buyer Alpha" } };
+    mocks.findMany.mockResolvedValue([seeded, previewProfileRow]);
+    mocks.queryIds.mockResolvedValue(idPage([seeded.id, previewProfileRow.id]));
+    mocks.demoAuditRows.mockResolvedValue([{ targetId: seeded.id }]);
+
+    const { items: previews } = await searchDemandPreviews(filters());
+
+    expect(mocks.demoAuditRows).toHaveBeenCalledWith({
+      select: { targetId: true },
+      where: { action: "seed_demo_buyer", targetId: { in: [seeded.id, previewProfileRow.id] }, targetType: "buyer_profile" },
+    });
+    expect(previews.map((preview) => preview.badges)).toEqual([["Demo buyer"], ["Pre-approved"]]);
+    expect(JSON.stringify(previews)).not.toContain(seeded.id);
+    expectNoForbiddenFields(previews);
+  });
+
+  it("never lets trust badges crowd out the demo label", async () => {
+    mocks.findMany.mockResolvedValue([{
+      ...previewProfileRow,
+      badges: [{ badgeType: "PRE_APPROVED" }, { badgeType: "VERIFIED_FUNDS" }, { badgeType: "VERIFIED_IDENTITY" }],
+      buyerType: "Cash",
+    }]);
+    mocks.demoAuditRows.mockResolvedValue([{ targetId: previewProfileRow.id }]);
+
+    const { items: [preview] } = await searchDemandPreviews(filters());
+
+    expect(preview.badges[0]).toBe("Demo buyer");
+  });
+
+  it("skips the demo lookup when no previews match", async () => {
+    mocks.queryIds.mockResolvedValue(idPage([]));
+    await expect(searchDemandPreviews(filters())).resolves.toEqual({ hasMore: false, items: [], nextCursor: null });
+    expect(mocks.demoAuditRows).not.toHaveBeenCalled();
   });
 });
 
