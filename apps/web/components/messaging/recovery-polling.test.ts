@@ -73,6 +73,23 @@ describe("messaging recovery polling", () => {
     expect(refresh).toHaveBeenCalledTimes(2);
   });
 
+  it("backs a failing 15-second sidecar off to a minute and resumes its cadence after recovery", async () => {
+    const refresh = vi.fn(async () => false);
+    const poll = createRecoveryPolling({ canRefresh: () => true, intervalMs: () => 15_000, refresh });
+    await vi.advanceTimersByTimeAsync(15_000 + 30_000 + 60_000);
+    expect(refresh).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(59_999);
+    expect(refresh).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(refresh).toHaveBeenCalledTimes(4);
+    refresh.mockResolvedValue(true);
+    poll.recover();
+    expect(refresh).toHaveBeenCalledTimes(5);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(refresh).toHaveBeenCalledTimes(6);
+    poll.dispose();
+  });
+
   it("jitters each interval to spread simultaneous clients", async () => {
     vi.mocked(Math.random).mockReturnValue(0.5);
     const refresh = vi.fn(async () => true);

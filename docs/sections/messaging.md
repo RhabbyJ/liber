@@ -105,7 +105,11 @@ module that owns its data, not back in the facade.
   60 seconds. Requests never overlap and pause while hidden/offline. LOI polling
   runs separately every 30–36 seconds and on conversation lifecycle changes.
   Inbox polling also refreshes its canonical
-  first page so ordering and unread counts do not remain stale.
+  first page so ordering and unread counts do not remain stale. The inbox also
+  pauses while its list is not rendered (the sidebar beside an open thread on
+  phones) and refreshes as soon as it reappears. The tour sidecar polls every
+  15–18 seconds through the same poller, with failure backoff to 60 seconds and
+  no requests while hidden or offline.
 - `anon`, `authenticated`, and `service_role` have no raw table privileges on
   conversations, participants, messages, blocks, or reports. All browser reads
   and writes use authenticated Liber server paths.
