@@ -248,6 +248,27 @@ summary:focus-visible,
   box-shadow: var(--focus-ring);
 }
 
+/* Forced colors (Windows High Contrast) remove box-shadow, and with it every focus ring in
+   this file, so draw the indicator as a system-colored outline there. Controls whose own
+   input is hidden show it on the visible box. */
+@media (forced-colors: active) {
+  :focus-visible,
+  .role-choice-option:has(input:focus-visible),
+  .property-type-choice:has(input:focus-visible),
+  .invite-property-choice:has(input:focus-visible),
+  .check-row input:focus-visible + .check-box,
+  .checkbox-container input:focus-visible ~ .checkmark {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+
+  .nav-link:focus-visible,
+  .notification-row:focus-visible,
+  a.map-card:focus-visible {
+    outline-offset: -2px !important;
+  }
+}
+
 @media (hover: hover) and (pointer: fine) {
   a:hover {
     color: var(--sage-deep);
@@ -6364,11 +6385,8 @@ body:has(.search-page) .site-footer:not(.compact) {
 .filter-sheet-scrim {
   animation: fade-in var(--dur-slow) var(--ease-out);
   background: rgba(0, 0, 0, 0.5);
-  border: 0;
   inset: 0;
-  padding: 0;
   position: absolute;
-  width: 100%;
 }
 
 .filter-sheet-panel {
@@ -6394,11 +6412,18 @@ body:has(.search-page) .site-footer:not(.compact) {
   padding: 4px 16px 4px 4px;
 }
 
-.filter-sheet-head strong {
+.filter-sheet-title {
+  color: var(--ink-strong);
   font-size: 16px;
   font-weight: 700;
   line-height: 24px;
+  margin: 0;
   text-align: center;
+}
+
+/* Focus lands on the title when the sheet opens; the dialog itself is the visible cue. */
+.filter-sheet-title:focus {
+  box-shadow: none;
 }
 
 .filter-sheet-body {

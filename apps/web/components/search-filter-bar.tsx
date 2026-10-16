@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useId, useRef, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { propertyTypeOptions } from "../lib/property-types";
 import { FilterPopover } from "./filter-popover";
 import { Icon } from "./icon";
+import { keepTabInside } from "./modal-focus";
 import { demandSearchPath } from "../lib/demand-search-href";
 
 export type SellerSearchFilters = {
@@ -60,23 +61,56 @@ export function SearchFilterBar({
   const [draft, setDraft] = useState(filters);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const sheetPanelRef = useRef<HTMLDivElement>(null);
+  const sheetTitleRef = useRef<HTMLHeadingElement>(null);
+  const sheetTriggerRef = useRef<HTMLButtonElement>(null);
+  const sheetTitleId = useId();
   const filterKey = JSON.stringify(filters);
 
   useEffect(() => {
     setDraft(JSON.parse(filterKey) as SellerSearchFilters);
   }, [filterKey]);
 
+  function openSheet() {
+    setDraft(filters);
+    setIsSheetOpen(true);
+  }
+
+  // Escape, the close button, and the scrim all leave the applied filters as they were.
+  function closeSheet() {
+    setDraft(filters);
+    setIsSheetOpen(false);
+  }
+
+  const handleSheetKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeSheet();
+    } else if (event.key === "Tab" && sheetPanelRef.current) {
+      keepTabInside(sheetPanelRef.current, event);
+    }
+  });
+
+  // A modal sheet: the page behind it is inert, focus starts on its title, Tab wraps
+  // inside it, and closing it returns focus to the Filters button.
   useEffect(() => {
     if (!isSheetOpen) return;
+    const sheet = sheetRef.current;
+    const trigger = sheetTriggerRef.current;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsSheetOpen(false);
-    };
-    document.addEventListener("keydown", closeOnEscape);
+    const background = Array.from(document.body.children)
+      .filter((element) => element !== sheet && !element.hasAttribute("inert"));
+    background.forEach((element) => element.setAttribute("inert", ""));
+    sheetTitleRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => handleSheetKeyDown(event);
+    document.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("keydown", onKeyDown);
+      background.forEach((element) => element.removeAttribute("inert"));
+      trigger?.focus({ preventScroll: true });
     };
   }, [isSheetOpen]);
 
@@ -101,10 +135,6 @@ export function SearchFilterBar({
     apply(draft);
     close?.();
     setIsSheetOpen(false);
-  }
-
-  function discard() {
-    setDraft(filters);
   }
 
   const appliedCount = countApplied(filters);
@@ -163,7 +193,8 @@ export function SearchFilterBar({
         aria-expanded={isSheetOpen}
         aria-haspopup="dialog"
         className={`filter-button filter-sheet-trigger${appliedCount ? " applied" : ""}`}
-        onClick={() => setIsSheetOpen(true)}
+        onClick={openSheet}
+        ref={sheetTriggerRef}
         type="button"
       >
         <Icon name="sliders" size={18} />
@@ -173,14 +204,15 @@ export function SearchFilterBar({
 
       {/* Portaled so the full-screen sheet escapes the toolbar's stacking context. */}
       {isSheetOpen ? createPortal(
-        <div className="filter-sheet" role="presentation">
-          <button aria-label="Close filters" className="filter-sheet-scrim" onClick={() => { discard(); setIsSheetOpen(false); }} type="button" />
-          <div aria-label="All filters" aria-modal="true" className="filter-sheet-panel" role="dialog">
+        <div className="filter-sheet" ref={sheetRef}>
+          {/* Pointer-only dismissal; keyboard and screen-reader users have Escape and the close button. */}
+          <div aria-hidden="true" className="filter-sheet-scrim" onClick={closeSheet} />
+          <div aria-labelledby={sheetTitleId} aria-modal="true" className="filter-sheet-panel" ref={sheetPanelRef} role="dialog">
             <header className="filter-sheet-head">
-              <button aria-label="Close filters" className="icon-button" onClick={() => { discard(); setIsSheetOpen(false); }} type="button">
+              <button aria-label="Close filters" className="icon-button" onClick={closeSheet} type="button">
                 <Icon name="close" size={20} />
               </button>
-              <strong>Filters</strong>
+              <h2 className="filter-sheet-title" id={sheetTitleId} ref={sheetTitleRef} tabIndex={-1}>Filters</h2>
               <button className="filter-reset-link" onClick={() => setDraft(emptyFilters)} type="button">Reset</button>
             </header>
             <div className="filter-sheet-body">

@@ -133,7 +133,8 @@ Liber's own features and palette. Keep new surfaces inside this system:
   at 16/24 on `#2a2a33`, secondary text `#54545a`/`#596b82`, `#d1d1d5`
   hairlines, `#f6f6fa` inputs, a 4px control radius (8px for large cards and
   sheets), and three 30%-black elevations (`--shadow-card`, `--shadow-popover`,
-  `--shadow-modal`). Focus is the two-ring `--focus-ring` box-shadow. Motion
+  `--shadow-modal`). Focus is the two-ring `--focus-ring` box-shadow; forced-colors
+  mode (Windows High Contrast drops box-shadow) draws a 2px `Highlight` outline instead. Motion
   stays between 0.1s and 0.3s with `ease`.
 - Hover styling lives inside `@media (hover: hover) and (pointer: fine)`.
   Buttons keep a 44px touch target through `.button::after` whatever their
@@ -148,7 +149,12 @@ Liber's own features and palette. Keep new surfaces inside this system:
   slider over Min / Max boxes; home type is a single-select radio list; trust
   badges are a 24px checkbox list.
   Below 1100px the popovers collapse into one Filters sheet, portaled to
-  `document.body` so it covers the header. The map and results list sit side by
+  `document.body` so it covers the header. The sheet is a modal dialog named by
+  its title: the page behind it is inert, focus starts on the title, Tab wraps
+  inside it, and Escape, the close button, and the scrim all discard unapplied
+  edits and return focus to the Filters button; only Show matching buyers
+  applies them. The result count is a `role="status"` region, so screen readers
+  hear the new count after each change. The map and results list sit side by
   side (list 750px, 390px below 1280px). Below 1007px the map stays sticky, the
   results slide over it as a sheet, and a floating List/Map pill jumps between
   them. Search pages use the compact footer; other pages use the full footer.

@@ -126,8 +126,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   return (
     <div className="search-page home-search-page">
       <SearchFilterBar
-        // Remount when the applied URL filters change so cleared or back-navigated filters reset the drafts.
-        key={demandSearchHref({ ...params, market: market.slug }, ["cursor", "view"])}
+        // Remount only when the location changes: the area search reads its text once. Filter drafts
+        // follow the URL inside the bar, so applying filters keeps keyboard focus on the control used.
+        key={`${market.slug}:${selectedServiceArea?.slug ?? ""}`}
         actions={toolbarAction({ canSearch, isBuyer, isSeller, signedIn: Boolean(user), signupSellerHref })}
         filters={{
           amenities,
@@ -179,7 +180,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <header className="search-results-head">
             <div>
               <h1 id="demand-results-title">{selectedAreaLabel || market.label} buyer demand</h1>
-              <p>
+              {/* Announced after every filter, sort, or area change. */}
+              <p role="status">
                 <strong>{resultCount}{hasMore && user ? "+" : ""} {resultCount === 1 ? "buyer" : "buyers"}</strong>
                 {hasFilters ? <span> matched to your filters</span> : null}
                 {hasDemoPreviews && resultCount > 0 ? <span> · Includes clearly labeled demo profiles</span> : null}
