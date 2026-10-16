@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
@@ -6,6 +7,8 @@ import { listPendingDocuments } from "../../../server/contracts";
 import { submitDocumentReview } from "../../../server/form-actions";
 import { AdminSyntheticPropertyReview } from "../../../components/admin-synthetic-property-review";
 import { listSyntheticPropertyReviewCandidates } from "../../../server/synthetic-property-review";
+
+export const metadata: Metadata = { title: "Documents · Admin" };
 
 type ReviewedParams = { cursor?: string; reviewed?: string; subject?: string };
 

@@ -1,19 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { EmptyState } from "../../../components/empty-state";
 import { GeneratedAvatar } from "../../../components/generated-avatar";
 import { Icon } from "../../../components/icon";
+import { SellerInviteWithdrawForm } from "../../../components/seller-invite-withdraw-form";
+import { inviteStatusTone, isOpenInvite } from "../../../lib/invite-status";
 import { relativeDay } from "../../../lib/notification-format";
 import { PageTitle } from "../../../components/page-title";
 import { WorkspaceTabs } from "../../../components/workspace-tabs";
 import { listNotifications, listSellerInvites } from "../../../server/contracts";
+import { submitInviteWithdrawal } from "../../../server/form-actions";
 
-const statusTone: Record<string, "active" | "pending" | "declined" | "closed"> = {
-  Accepted: "active",
-  Declined: "declined",
-  Expired: "closed",
-  Sent: "pending",
-  Viewed: "pending",
-};
+export const metadata: Metadata = { title: "Sent invites" };
 
 export default async function SellerInvitesPage() {
   const [{ data: invites }, { data: notifications }] = await Promise.all([listSellerInvites(), listNotifications()]);
@@ -60,7 +58,7 @@ export default async function SellerInvitesPage() {
                 <div className="activity-row-main">
                   <p className="activity-row-title">
                     <Link href={`/buyers/${invite.buyerProfileId}`}>{invite.buyer}</Link>
-                    <span className={`status-tag ${statusTone[invite.status] ?? "pending"}`}>{invite.status}</span>
+                    <span className={`status-tag ${inviteStatusTone(invite.status)}`}>{invite.status}</span>
                   </p>
                   <p className="activity-row-meta">
                     <Icon name="home" size={14} />
@@ -74,7 +72,7 @@ export default async function SellerInvitesPage() {
                 <p className="activity-row-date">
                   Sent <time dateTime={invite.sentAtDate}>{invite.sentAtDate ? relativeDay(invite.sentAtDate, today) : invite.sentAt}</time>
                 </p>
-                <div className="activity-row-action">
+                <div className="activity-row-action stack tight">
                   {canOpen ? (
                     <Link className="button secondary sm" href={`/messages/${invite.conversationId}`}>
                       <Icon name="message" size={16} />
@@ -83,6 +81,9 @@ export default async function SellerInvitesPage() {
                   ) : (
                     <span className="activity-row-muted">Conversation unavailable</span>
                   )}
+                  {isOpenInvite(invite.status) ? (
+                    <SellerInviteWithdrawForm action={submitInviteWithdrawal} buyer={invite.buyer} inviteId={invite.id} />
+                  ) : null}
                 </div>
               </li>
             );

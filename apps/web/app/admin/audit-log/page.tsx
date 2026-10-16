@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
+import { AdminPagination } from "../../../components/admin-pagination";
 import { PageTitle } from "../../../components/page-title";
 import { listAuditLog } from "../../../server/contracts";
+import { readAdminPage, type AdminPageSearchParams } from "../page-cursor";
 
-export default async function AdminAuditLogPage() {
-  const { data: auditLogs } = await listAuditLog();
+export const metadata: Metadata = { title: "Audit log · Admin" };
+
+export default async function AdminAuditLogPage({ searchParams }: { searchParams: AdminPageSearchParams }) {
+  const { cursor, page: { data: auditLogs, nextCursor } } = await readAdminPage(searchParams, listAuditLog);
 
   return (
     <div className="page stack">
@@ -32,6 +37,7 @@ export default async function AdminAuditLogPage() {
           </tbody>
         </table>
       </section>
+      <AdminPagination basePath="/admin/audit-log" cursor={cursor} label="Audit log" nextCursor={nextCursor} />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import type { BuyerInviteResponseState } from "../lib/buyer-invite-response";
-import type { InviteDTO } from "../lib/marketplace-dtos";
+import type { InviteView } from "../lib/invite-status";
 import { formatMoney } from "../lib/format";
 import { relativeTime } from "../lib/notification-format";
 import { Icon } from "./icon";
@@ -11,7 +11,7 @@ import { PrivatePropertyImages } from "./private-property-images";
 import { PropertyTypeArtwork } from "./property-type-artwork";
 
 export function BuyerInviteCard({ invite, actionId, action }: {
-  invite: InviteDTO;
+  invite: InviteView;
   actionId: string;
   action: (state: BuyerInviteResponseState, formData: FormData) => Promise<BuyerInviteResponseState>;
 }) {

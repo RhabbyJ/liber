@@ -9,17 +9,20 @@ import {
   createSellerProperty,
   grantBadge,
   hideBuyerProfile,
-  regenerateBuyerAlias,
+  reinstateUser,
   reviewDocument,
   reviewSellerAccess,
   revokeBadge,
   sendInvite,
   setBuyerAvatarVariant,
-  shuffleBuyerAvatarVariant,
   suspendUser,
+  unhideBuyerProfile,
   updateSellerProperty,
+  withdrawInviteAsAdmin,
+  withdrawSellerInvite,
 } from "./contracts";
-import { saveBuyerProfile } from "./buyer/commands";
+import type { ActionFeedbackState } from "../lib/action-feedback";
+import { BUYER_PROFILE_REQUIRED, saveBuyerProfile, setBuyerProfileVisibility } from "./buyer/commands";
 import type { BuyerInviteResponseState } from "../lib/buyer-invite-response";
 import type { SellerAccessReviewFormState } from "../lib/seller-access-review-form";
 import type { BadgeReviewFormState } from "../lib/badge-review-form";
@@ -34,6 +37,12 @@ import { sellerPropertyFormFeedback } from "./seller-property-form-errors";
 function safeSellerNext(formData: FormData) {
   const next = formData.get("next");
   return typeof next === "string" && next.startsWith("/seller/") ? next : null;
+}
+
+function revalidateInviteViews() {
+  for (const path of ["/seller/invites", "/seller/notifications", "/buyer/invites", "/buyer/notifications", "/admin/invites", "/messages"]) {
+    revalidatePath(path);
+  }
 }
 
 export async function submitBuyerProfile(
@@ -65,20 +74,6 @@ export async function setBuyerAvatar(formData: FormData) {
   redirect("/buyer/profile");
 }
 
-export async function shuffleBuyerAvatar() {
-  const { data } = await shuffleBuyerAvatarVariant();
-  revalidatePath("/buyer/profile");
-  if (data.buyerProfileId) revalidatePath(`/buyers/${data.buyerProfileId}`);
-  redirect("/buyer/profile");
-}
-
-export async function regenerateBuyerPublicAlias() {
-  const { data } = await regenerateBuyerAlias();
-  revalidatePath("/buyer/profile");
-  revalidatePath(`/buyers/${data.buyerProfileId}`);
-  redirect("/buyer/profile");
-}
-
 export async function respondToBuyerInvite(
   _state: BuyerInviteResponseState,
   formData: FormData,
@@ -100,16 +95,6 @@ export async function blockBuyerProfile(formData: FormData) {
   await blockUserByBuyerProfile({ buyerProfileId });
   revalidatePath("/");
   redirect("/");
-}
-
-export async function blockInviteConversation(formData: FormData) {
-  const conversationId = formData.get("conversationId");
-  if (typeof conversationId !== "string") throw new Error("This conversation is unavailable.");
-  const { blockConversationUser } = await import("./messaging/service");
-  await blockConversationUser({ conversationId, reason: "Invite block" });
-  revalidatePath("/buyer/invites");
-  revalidatePath("/messages");
-  redirect("/buyer/invites?status=blocked");
 }
 
 export async function submitSellerProperty(
@@ -187,6 +172,24 @@ export async function submitInvite(
   redirect("/seller/invites");
 }
 
+export async function submitInviteWithdrawal(
+  _state: ActionFeedbackState,
+  formData: FormData,
+): Promise<ActionFeedbackState> {
+  const result = await withdrawSellerInvite(formData);
+  if (result.ok) revalidateInviteViews();
+  return result;
+}
+
+export async function submitAdminInviteWithdrawal(
+  _state: ActionFeedbackState,
+  formData: FormData,
+): Promise<ActionFeedbackState> {
+  const result = await withdrawInviteAsAdmin(formData);
+  if (result.ok) revalidateInviteViews();
+  return result;
+}
+
 export async function submitDocumentReview(formData: FormData) {
   const { data } = await reviewDocument(formData);
   revalidatePath("/admin/documents");
@@ -233,9 +236,26 @@ export async function submitBadgeRevoke(
   return { ok: true, message: "Badge revoked. It no longer counts as active verification." };
 }
 
-export async function submitUserSuspension(formData: FormData) {
-  await suspendUser(formData);
-  revalidatePath("/admin/users");
+function revalidateAccountViews() {
+  for (const path of ["/admin/users", "/admin/buyer-profiles", "/admin/badges", "/admin/invites", "/"]) revalidatePath(path);
+}
+
+export async function submitUserSuspension(
+  _state: ActionFeedbackState,
+  formData: FormData,
+): Promise<ActionFeedbackState> {
+  const result = await suspendUser(formData);
+  if (result.ok) revalidateAccountViews();
+  return result;
+}
+
+export async function submitUserReinstatement(
+  _state: ActionFeedbackState,
+  formData: FormData,
+): Promise<ActionFeedbackState> {
+  const result = await reinstateUser(formData);
+  if (result.ok) revalidateAccountViews();
+  return result;
 }
 
 export async function submitSellerAccessReview(
@@ -255,7 +275,44 @@ export async function submitSellerAccessReview(
   };
 }
 
-export async function submitProfileHide(formData: FormData) {
-  await hideBuyerProfile(formData);
-  revalidatePath("/admin/buyer-profiles");
+function revalidateBuyerProfileViews() {
+  for (const path of ["/admin/buyer-profiles", "/admin/badges", "/buyer/profile", "/buyer/invites", "/"]) revalidatePath(path);
+}
+
+export async function submitProfileHide(
+  _state: ActionFeedbackState,
+  formData: FormData,
+): Promise<ActionFeedbackState> {
+  const result = await hideBuyerProfile(formData);
+  if (result.ok) revalidateBuyerProfileViews();
+  return result;
+}
+
+export async function submitProfileUnhide(
+  _state: ActionFeedbackState,
+  formData: FormData,
+): Promise<ActionFeedbackState> {
+  const result = await unhideBuyerProfile(formData);
+  if (result.ok) revalidateBuyerProfileViews();
+  return result;
+}
+
+export async function submitBuyerProfileVisibility(
+  _state: ActionFeedbackState,
+  formData: FormData,
+): Promise<ActionFeedbackState> {
+  let result: Awaited<ReturnType<typeof setBuyerProfileVisibility>>;
+  try {
+    result = await setBuyerProfileVisibility(formData);
+  } catch (error) {
+    const message = buyerProfileFormMessage(error)
+      ?? (error instanceof Error && error.message === BUYER_PROFILE_REQUIRED ? error.message : null);
+    if (message) return { ok: false, message };
+    throw error;
+  }
+  revalidatePath("/buyer/profile");
+  revalidatePath(`/buyers/${result.buyerProfileId}`);
+  revalidatePath("/buyer/invites");
+  revalidatePath("/");
+  redirect(`/buyer/profile?status=${result.visibilityStatus === "ACTIVE" ? "republished" : "paused"}`);
 }

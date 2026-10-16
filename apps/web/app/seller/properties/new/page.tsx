@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "../../../../components/icon";
 import { PropertyAddressLookup } from "../../../../components/property-address-lookup";
@@ -14,6 +15,8 @@ import {
 import { DEFAULT_MARKET_SLUG } from "../../../../lib/service-areas";
 import { submitSellerProperty } from "../../../../server/form-actions";
 import { getActiveMarketBySlug } from "../../../../server/service-areas";
+
+export const metadata: Metadata = { title: "Add property" };
 
 export default async function NewSellerPropertyPage({
   searchParams,

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { BadgePill } from "../../../../components/badge-pill";
 import { EmptyState } from "../../../../components/empty-state";
@@ -18,6 +19,8 @@ import { getBuyerProfileForSeller, listSellerProperties } from "../../../../serv
 import { submitInvite } from "../../../../server/form-actions";
 import { sellerOpeningTemplates } from "../../../../server/messaging/templates";
 import { getSessionUser } from "../../../../server/session";
+
+export const metadata: Metadata = { title: "Invite buyer" };
 
 const sellerOpeningTemplateVersion = sellerOpeningTemplates[0]?.version;
 if (

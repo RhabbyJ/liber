@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { EmptyState } from "../../../components/empty-state";
 import { Icon } from "../../../components/icon";
@@ -7,6 +8,8 @@ import { PropertyFeatureSummary } from "../../../components/property-details-fie
 import { formatMoney } from "../../../lib/format";
 import { propertySubtypeLabel } from "../../../lib/property-types";
 import { listSellerProperties } from "../../../server/contracts";
+
+export const metadata: Metadata = { title: "Your properties" };
 
 export default async function SellerPropertiesPage() {
   const { data: properties } = await listSellerProperties();

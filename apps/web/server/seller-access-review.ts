@@ -1,21 +1,26 @@
 import { prisma } from "@liber/db";
 import { sellerAccessReviewSchema, type SellerAccessReviewInput } from "@liber/validators";
-import { redirect } from "next/navigation";
 import { z } from "zod";
-import { defaultPathForSessionUser } from "./auth-intent";
-import { hasRole } from "./authz";
 import { normalizeInput } from "./normalize-input";
 import { checkRateLimit } from "./rate-limit";
-import { getSessionUser } from "./session";
+import { requireSessionRole } from "./session";
 
 type SellerAccessReviewResult =
   | { ok: true; changed: boolean; data: SellerAccessReviewInput }
   | { ok: false; message: string };
 
+function reviewNotification(status: SellerAccessReviewInput["status"], reason?: string) {
+  if (status === "REJECTED") {
+    return {
+      body: `Liber didn’t approve your seller directory access. Reason: ${reason}`,
+      title: "Seller access not approved",
+    };
+  }
+  return { body: `Your seller directory access is ${status.toLowerCase()}.`, title: "Seller access reviewed" };
+}
+
 export async function reviewSellerAccessCommand(input: unknown): Promise<SellerAccessReviewResult> {
-  const admin = await getSessionUser();
-  if (!admin) redirect("/login");
-  if (!hasRole(admin, "ADMIN")) redirect(defaultPathForSessionUser(admin));
+  const admin = await requireSessionRole("ADMIN");
 
   const limit = await checkRateLimit(`admin-review:${admin.id}`, 120, 60 * 60_000);
   if (!limit.allowed) {
@@ -28,9 +33,15 @@ export async function reviewSellerAccessCommand(input: unknown): Promise<SellerA
     return { ok: false, message: "Choose a seller and a valid access status, then try again." };
   }
   const data = parsed.data;
+  // A rejection reason is shown to the seller, so it is required.
+  if (data.status === "REJECTED" && !data.notes) {
+    return { ok: false, message: "Add a reason for the seller before rejecting their access." };
+  }
   return prisma.$transaction(async (tx) => {
     // Serialize reviews with other account/preview updates before checking current access.
-    await tx.$queryRaw`SELECT id FROM public."User" WHERE id = ${data.userId}::uuid FOR UPDATE`;
+    // NO KEY UPDATE leaves inserts referencing this user (e.g. a buyer's invite response
+    // notifying the seller) free to take their key-share lock, so they cannot deadlock.
+    await tx.$queryRaw`SELECT id FROM public."User" WHERE id = ${data.userId}::uuid FOR NO KEY UPDATE`;
     const user = await tx.user.findUnique({
       where: { id: data.userId },
       select: { roles: true, status: true, sellerAccess: { select: { status: true } } },
@@ -43,6 +54,9 @@ export async function reviewSellerAccessCommand(input: unknown): Promise<SellerA
     }
     // Repeated approvals preserve the original reviewer and do not duplicate audit/notifications.
     if (user.sellerAccess?.status === data.status) return { ok: true, changed: false, data };
+    if (data.status === "REJECTED" && user.sellerAccess?.status === "APPROVED") {
+      return { ok: false, message: "Approved access can’t be rejected. Suspend the seller’s access instead." };
+    }
 
     await tx.sellerAccess.upsert({
       where: { userId: data.userId },
@@ -51,9 +65,8 @@ export async function reviewSellerAccessCommand(input: unknown): Promise<SellerA
     });
     await tx.notification.create({
       data: {
-        body: `Your seller directory access is ${data.status.toLowerCase()}.`,
+        ...reviewNotification(data.status, data.notes),
         metadata: { sellerAccessStatus: data.status },
-        title: "Seller access reviewed",
         type: "seller_access_reviewed",
         userId: data.userId,
       },
@@ -62,7 +75,7 @@ export async function reviewSellerAccessCommand(input: unknown): Promise<SellerA
       data: {
         action: "seller_access_review",
         actorUserId: admin.id,
-        metadata: { notes: data.notes, status: data.status },
+        metadata: { notes: data.notes, previousStatus: user.sellerAccess?.status ?? null, status: data.status },
         targetId: data.userId,
         targetType: "user",
       },

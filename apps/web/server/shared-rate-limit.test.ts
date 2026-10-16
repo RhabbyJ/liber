@@ -91,7 +91,9 @@ describe("shared limiter call sites", () => {
   const source = (relativePath: string) => readFileSync(path.join(repositoryRoot, relativePath), "utf8");
 
   it("covers every LA launch abuse boundary and leaves no production local limiter call", () => {
-    const contracts = source("apps/web/server/contracts.ts");
+    const contracts = ["seller-directory.ts", "invite-send.ts"]
+      .map((file) => source(`apps/web/server/domain/${file}`))
+      .join("\n");
     const geocode = source("apps/web/app/api/geo/geocode/route.ts");
     const enrichment = source("apps/web/app/api/property/enrich/route.ts");
     const combined = `${contracts}\n${geocode}\n${enrichment}`;

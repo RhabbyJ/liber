@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { DirectUploadField } from "../../../components/direct-upload-field";
 import { BuyerVerificationDocuments } from "../../../components/buyer-verification-documents";
@@ -7,6 +8,8 @@ import { getCurrentBuyerProfile } from "../../../server/contracts";
 import { confidentialDocumentAccessEnabled } from "../../../server/verification/document-access";
 import { listCurrentBuyerVerificationDocuments } from "../../../server/verification/buyer-documents";
 import { VerificationStatusList } from "./verification-status-list";
+
+export const metadata: Metadata = { title: "Get verified" };
 
 export default async function BuyerBadgesPage() {
   const [{ data: buyer }, documents] = await Promise.all([getCurrentBuyerProfile(), listCurrentBuyerVerificationDocuments()]);

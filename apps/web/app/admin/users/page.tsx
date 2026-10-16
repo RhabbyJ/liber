@@ -1,11 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminPagination } from "../../../components/admin-pagination";
+import { AdminReasonAction } from "../../../components/admin-reason-action";
 import { PageTitle } from "../../../components/page-title";
 import { SellerAccessReviewForm } from "../../../components/seller-access-review-form";
 import { listUsers } from "../../../server/contracts";
-import { submitSellerAccessReview, submitUserSuspension } from "../../../server/form-actions";
+import { submitSellerAccessReview, submitUserReinstatement, submitUserSuspension } from "../../../server/form-actions";
+import { readAdminPage, type AdminPageSearchParams } from "../page-cursor";
 
-export default async function AdminUsersPage() {
-  const { data: users } = await listUsers();
+export const metadata: Metadata = { title: "Users · Admin" };
+
+export default async function AdminUsersPage({ searchParams }: { searchParams: AdminPageSearchParams }) {
+  const { cursor, page: { data: users, nextCursor } } = await readAdminPage(searchParams, listUsers);
 
   return (
     <div className="page stack">
@@ -35,7 +41,7 @@ export default async function AdminUsersPage() {
                 <td><span className={`status-tag ${(user.status || "ACTIVE") === "ACTIVE" ? "active" : "declined"}`}>{statusLabel(user.status || "ACTIVE")}</span></td>
                 <td>
                   {user.roles.includes("SELLER") ? (
-                    <span className={`status-tag ${user.sellerAccessStatus === "APPROVED" ? "active" : user.sellerAccessStatus === "SUSPENDED" ? "declined" : "pending"}`}>
+                    <span className={`status-tag ${user.sellerAccessStatus === "APPROVED" ? "active" : user.sellerAccessStatus === "SUSPENDED" || user.sellerAccessStatus === "REJECTED" ? "declined" : "pending"}`}>
                       {statusLabel(user.sellerAccessStatus ?? "PENDING")}
                     </span>
                   ) : <span className="muted">Not seller</span>}
@@ -51,11 +57,29 @@ export default async function AdminUsersPage() {
                       />
                     ) : null}
                     {user.status !== "SUSPENDED" ? (
-                      <form action={submitUserSuspension}>
-                        <input name="userId" type="hidden" value={user.id} />
-                        <button className="button secondary sm" type="submit">{user.isCurrentUser ? "Suspend your account" : "Suspend user"}</button>
-                      </form>
-                    ) : null}
+                      <AdminReasonAction
+                        action={submitUserSuspension}
+                        confirmLabel={user.isCurrentUser ? "Suspend your account" : "Suspend user"}
+                        fields={{ userId: user.id }}
+                        label={user.isCurrentUser ? "Suspend your account" : "Suspend user"}
+                        pendingLabel="Suspending…"
+                        prompt="Blocks sign-in, hides the buyer profile, suspends seller access, archives properties, and withdraws open invites."
+                        reasonLabel="Reason (optional, audit log only)"
+                        reasonRequired={false}
+                        tone="warning"
+                      />
+                    ) : (
+                      <AdminReasonAction
+                        action={submitUserReinstatement}
+                        confirmLabel="Reinstate user"
+                        fields={{ userId: user.id }}
+                        label="Reinstate"
+                        pendingLabel="Reinstating…"
+                        prompt="Restores sign-in. The buyer profile returns as a draft to republish, seller access returns to review, and withdrawn invites stay closed."
+                        reasonLabel="Reason (optional, audit log only)"
+                        reasonRequired={false}
+                      />
+                    )}
                   </div>
                 </td>
               </tr>
@@ -63,6 +87,7 @@ export default async function AdminUsersPage() {
           </tbody>
         </table>
       </section>
+      <AdminPagination basePath="/admin/users" cursor={cursor} label="Users" nextCursor={nextCursor} />
     </div>
   );
 }

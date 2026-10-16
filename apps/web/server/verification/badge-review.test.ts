@@ -8,7 +8,7 @@ vi.mock("@liber/db", async () => ({
   Prisma: (await import("../../../../packages/db/src/generated/client")).Prisma,
   prisma: { $transaction: mocks.transaction },
 }));
-vi.mock("../session", () => ({ getSessionUser: mocks.getSessionUser }));
+vi.mock("../session", async () => (await import("../session-mock.test-helper")).sessionModuleMock(mocks.getSessionUser));
 vi.mock("../rate-limit", () => ({ assertRateLimit: mocks.assertRateLimit }));
 vi.mock("next/navigation", () => ({ redirect: (path: string) => { throw new Error(`redirect:${path}`); } }));
 

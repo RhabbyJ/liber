@@ -115,10 +115,9 @@ function validChecklist(value: Prisma.JsonValue | null, kind: "GOVERNMENT_ID" | 
 }
 
 async function genuineEvidenceState(tx: Prisma.TransactionClient, property: Candidate) {
-  const [documents, decision] = await Promise.all([
-    tx.verificationDocument.findMany({ where: { propertyId: property.id, propertyIdentityVersion: property.identityVersion, userId: property.ownerUserId, documentType: "OWNERSHIP" }, select: { id: true, reviewStatus: true, ownershipEvidenceKind: true, reviewChecklist: true } }),
-    tx.propertyVerificationDecision.findUnique({ where: { propertyId_propertyIdentityVersion: { propertyId: property.id, propertyIdentityVersion: property.identityVersion } } }),
-  ]);
+  // Sequential: concurrent queries on one interactive-transaction connection are deprecated in pg.
+  const documents = await tx.verificationDocument.findMany({ where: { propertyId: property.id, propertyIdentityVersion: property.identityVersion, userId: property.ownerUserId, documentType: "OWNERSHIP" }, select: { id: true, reviewStatus: true, ownershipEvidenceKind: true, reviewChecklist: true } });
+  const decision = await tx.propertyVerificationDecision.findUnique({ where: { propertyId_propertyIdentityVersion: { propertyId: property.id, propertyIdentityVersion: property.identityVersion } } });
   const governmentId = documents.find((document) => document.id === decision?.governmentIdDocumentId && document.ownershipEvidenceKind === "GOVERNMENT_ID" && document.reviewStatus === "APPROVED" && validChecklist(document.reviewChecklist, "GOVERNMENT_ID"));
   const address = documents.find((document) => document.id === decision?.addressEvidenceDocumentId && document.ownershipEvidenceKind === "PROPERTY_ADDRESS_PROOF" && document.reviewStatus === "APPROVED" && validChecklist(document.reviewChecklist, "PROPERTY_ADDRESS_PROOF"));
   if (decision?.decision === "APPROVED" && governmentId && address && !approvalUnavailableReason(property)) return { ownershipVerificationStatus: "APPROVED", status: "READY_FOR_INVITES" } as const;

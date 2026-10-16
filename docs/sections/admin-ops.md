@@ -7,7 +7,14 @@ Owns internal admin review and moderation tools: users, seller access, buyer pro
 ## Main files
 
 - `apps/web/app/admin/**`
-- `apps/web/server/contracts.ts`
+- `apps/web/server/contracts.ts` — `server-only` re-export barrel (deliberately not a `"use server"` module); the logic lives in `apps/web/server/domain/**`, and `apps/web/server/form-actions.ts` is the Server Action boundary
+- `apps/web/server/domain/admin-users.ts` — users list, seller-access review, suspension, reinstatement
+- `apps/web/server/auth-operations.ts` — queued Supabase Auth ban/unban worker
+- `apps/web/server/domain/admin-moderation.ts` — buyer-profile and invite moderation
+- `apps/web/server/domain/audit-log.ts`
+- `apps/web/server/domain/document-review.ts` and `badges.ts`
+- `apps/web/server/seller-access-review.ts`
+- `apps/web/components/admin-reason-action.tsx`, `admin-pagination.tsx`, and `seller-access-review-form.tsx`; `apps/web/app/admin/page-cursor.ts`
 - `apps/web/server/authz.ts`
 - `apps/web/server/messaging/service.ts`
 
@@ -19,9 +26,16 @@ Owns internal admin review and moderation tools: users, seller access, buyer pro
 - Sensitive admin actions should write audit logs.
 - Authenticated admins may review their own seller access, evidence, and badges and may moderate their own account. Self-review uses the same server authorization, evidence rules, rate limits, and audit trail as reviewing another account; it never grants the admin role.
 - Seller-directory review returns expected validation and rate-limit failures inline. Reviews lock the target user and recheck the current access before writing. Repeating the current status is a no-op that preserves the original review and creates no extra audit or notification. The users page disables redundant approval and approval of suspended accounts.
+- Suspension and reinstatement are confirm-first controls on `/admin/users` with an optional audit-only reason and the 30/hour `admin-moderation` budget. Both lock the user row first with `FOR NO KEY UPDATE` (then buyer profile, seller access, properties, the same order as invite creation) and are no-ops when the account is already in the target state. `FOR NO KEY UPDATE` still serializes account changes but lets inserts that reference the user (notifications, audit rows) take their key-share lock, so a concurrent invite response or document review cannot deadlock against them; seller-access review and buyer saves lock the user row the same way.
+  - Suspension leaves an admin-`HIDDEN` buyer profile hidden and `REJECTED` or already-`SUSPENDED` directory access untouched, suspends only `APPROVED`/`PENDING` access, audits the prior access status (`previousSellerAccessStatus`), and queues a `BAN_USER` Auth operation with a per-change idempotency key (`ban-user:<user>:<operation>`), so suspending again after a reinstatement bans again.
+  - Reinstatement (`reinstate_user`) sets the user `ACTIVE`, returns a `SUSPENDED` buyer profile as a `DRAFT` to republish (or `HIDDEN` when the last hide/unhide decision was a hide), moves directory access the suspension took to `PENDING` for a new review (access already suspended before the account suspension stays `SUSPENDED`; older suspensions without the audit field reopen review), clears the suspension's property flags and restores archived properties to their evidence state (`READY_FOR_INVITES` only with current approval and attestation), keeps withdrawn invites and read-only conversations closed, notifies the user (`account_reinstated`), and queues an `UNBAN_USER` Auth operation.
+  - `queueAuthOperation` settles unclaimed operations of the opposite type as superseded. The worker claims one account's operations in creation order, rechecks the account status before each Supabase call (`ban_duration` `876000h` to ban, `none` to unban), and completes a stale operation without calling Supabase.
+- Admins can reject a seller-directory request (pending, missing, or suspended access) with a required reason of up to 500 characters. The seller's `seller_access_reviewed` notice shows the reason, and the audit row keeps it with the previous and new status. Approved access is withdrawn by suspending it, not by rejection. Repeating a rejection is a no-op.
 - Seller-directory approval and property ownership approval are separate gates. The users page links to document review and explains that each property needs current approved ownership evidence before invites can be sent.
 - `/admin/documents` has separate synthetic journey controls only while the existing CEO preview flags are enabled and the server session is an admin. The closed cohort is `liber-demo-seller-20260925-journey@example.com` and `liber-demo-buyer-20260925-journey@example.com`; there is no general verification bypass. Approval requires active approved seller access, an unflagged/unarchived property, and the seller's current normal authority attestation. It writes `property_synthetic_test_approval`, never a fabricated verification document or `PropertyVerificationDecision`. Revoke writes `property_synthetic_test_revocation` and restores the real current evidence state. Repeated decisions are harmless. These controls return validation and save failures inline.
 - True-production readiness blocks any approved property whose current identity's latest test-review audit is an approval. Revoked markers and obsolete property versions do not count as active overrides.
+- `/admin/buyer-profiles` hides and unhides profiles under the owner's account lock (`FOR SHARE`) and then the profile row lock, with an optional audit-only reason and the 30/hour `admin-moderation` budget. Hide withdraws the profile's open invites (their conversations close read-only) and records the replaced visibility and withdrawn count (`hide_buyer_profile` metadata `previousVisibility`, `withdrawnInvites`); repeating it is a no-op. Unhide (`unhide_buyer_profile`) restores `ACTIVE` only when the latest hide recorded `ACTIVE` and the stored profile still passes `publicationGap`; otherwise it returns the profile to the buyer as a `DRAFT` they can republish. It refuses suspended accounts (reinstate first) and notifies the buyer (`buyer_profile_unhidden`).
+- `/admin/invites` withdraws an open invite through the same locked transition as a seller withdrawal. It requires a reason that stays in the `admin_withdraw_invite` audit row (with the previous status and both parties), notifies the buyer and the seller (`invite_withdrawn`), and shares the 30/hour `admin-moderation` budget. Closed invites have no control.
 - Conversation content access is report-driven. Report reads, status changes,
   resolution, and redaction are audited; admins do not receive a general inbox
   or unrestricted conversation browser.
@@ -32,6 +46,7 @@ Owns internal admin review and moderation tools: users, seller access, buyer pro
   and seller search stay reachable during demos. `/preview-tools` remains a
   status/fallback page for those same current-user-only elevations. It must not
   reimplement admin review queues or act on other users.
+- Admin users, buyer profiles (and the badges page built on them), and invites are cursor-paginated at 50 rows; the audit log at 100. Each list orders by its sort column plus `id` and passes `?cursor=<last row id>`; a malformed or repeated cursor renders the 404 page. Buyer approved-evidence reads are scoped to the page's profiles. Buyer profiles sort by `updatedAt`, so a profile edited mid-browse can move between pages.
 
 ## Agent notes
 

@@ -1,8 +1,16 @@
-import { prisma } from "@liber/db";
+import { prisma, type Prisma } from "@liber/db";
 import { createSupabaseAdminClient } from "./supabase";
 
 const MAX_ATTEMPTS = 8;
 const LEASE_MS = 2 * 60_000;
+
+export type AuthOperationType = "BAN_USER" | "UNBAN_USER";
+
+// Each operation sets the Supabase Auth ban to match one application account status.
+const AUTH_OPERATIONS = new Map<string, { accountStatus: "ACTIVE" | "SUSPENDED"; banDuration: string }>([
+  ["BAN_USER", { accountStatus: "SUSPENDED", banDuration: "876000h" }],
+  ["UNBAN_USER", { accountStatus: "ACTIVE", banDuration: "none" }],
+]);
 
 type ClaimedAuthOperation = {
   id: string;
@@ -23,13 +31,30 @@ export async function processAuthOperations(limit = 10, workerId = `auth_${crypt
     processed += 1;
     try {
       if (!supabase) throw new Error("Supabase Auth admin client is not configured.");
-      if (operation.type !== "BAN_USER") throw new Error(`Unsupported Auth operation: ${operation.type}`);
+      const effect = AUTH_OPERATIONS.get(operation.type);
+      if (!effect) throw new Error(`Unsupported Auth operation: ${operation.type}`);
       const lease = await prisma.authOperation.updateMany({
         where: activeAuthClaim(operation, workerId),
         data: { leaseUntil: new Date(Date.now() + LEASE_MS) },
       });
       if (lease.count !== 1) continue;
-      const { error } = await supabase.auth.admin.updateUserById(operation.userId, { ban_duration: "876000h" });
+      // A later suspension or reinstatement owns the account's Auth state now.
+      if (await accountStatus(operation.userId) !== effect.accountStatus) {
+        const result = await prisma.authOperation.updateMany({
+          where: activeAuthClaim(operation, workerId),
+          data: {
+            completedAt: new Date(),
+            lastError: "Superseded by a later account status change; Auth was not called.",
+            leaseUntil: null,
+            lockedAt: null,
+            status: "COMPLETED",
+            workerId: null,
+          },
+        });
+        completed += result.count;
+        continue;
+      }
+      const { error } = await supabase.auth.admin.updateUserById(operation.userId, { ban_duration: effect.banDuration });
       if (error) throw new Error(error.message);
       const result = await prisma.authOperation.updateMany({
         where: activeAuthClaim(operation, workerId),
@@ -70,6 +95,13 @@ export async function processAuthOperations(limit = 10, workerId = `auth_${crypt
   return { completed, failed, processed };
 }
 
+async function accountStatus(userId: string) {
+  const [account] = await prisma.$queryRaw<Array<{ status: string }>>`
+    SELECT status::text AS status FROM public."User" WHERE id = ${userId}::uuid
+  `;
+  return account?.status ?? null;
+}
+
 function activeAuthClaim(operation: ClaimedAuthOperation, workerId: string) {
   return {
     id: operation.id,
@@ -78,6 +110,40 @@ function activeAuthClaim(operation: ClaimedAuthOperation, workerId: string) {
     status: "PROCESSING" as const,
     workerId,
   };
+}
+
+/**
+ * Queues the Auth ban or unban for an account status change made in `tx`. Unclaimed
+ * operations of the opposite type are settled first: the newest status wins, and a
+ * claimed one finishes before this operation becomes claimable.
+ */
+export async function queueAuthOperation(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  type: AuthOperationType,
+  reason: string,
+) {
+  const superseded: AuthOperationType = type === "BAN_USER" ? "UNBAN_USER" : "BAN_USER";
+  await tx.authOperation.updateMany({
+    where: {
+      userId,
+      type: superseded,
+      OR: [{ status: "PENDING" }, { status: "FAILED", attempts: { lt: MAX_ATTEMPTS } }],
+    },
+    data: { completedAt: new Date(), lastError: reason, nextAttemptAt: null, status: "COMPLETED" },
+  });
+  const id = `authop_${crypto.randomUUID()}`;
+  await tx.authOperation.create({
+    data: {
+      id,
+      // One row per status change: suspend, reinstate, then suspend again each need an Auth call.
+      idempotencyKey: `${type === "BAN_USER" ? "ban-user" : "unban-user"}:${userId}:${id}`,
+      status: "PENDING",
+      type,
+      userId,
+    },
+  });
+  return id;
 }
 
 export async function claimAuthOperations(limit: number, workerId: string): Promise<ClaimedAuthOperation[]> {
@@ -100,14 +166,26 @@ export async function claimAuthOperations(limit: number, workerId: string): Prom
       WHERE operation.id = exhausted_candidates.id
       RETURNING operation.id
     ), candidates AS (
-      SELECT id
-      FROM public."AuthOperation"
-      WHERE attempts < ${MAX_ATTEMPTS}
+      SELECT candidate.id
+      FROM public."AuthOperation" candidate
+      WHERE candidate.attempts < ${MAX_ATTEMPTS}
         AND (
-          (status IN ('PENDING', 'FAILED') AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= now()))
-          OR (status = 'PROCESSING' AND ("leaseUntil" IS NULL OR "leaseUntil" <= now()))
+          (candidate.status IN ('PENDING', 'FAILED') AND (candidate."nextAttemptAt" IS NULL OR candidate."nextAttemptAt" <= now()))
+          OR (candidate.status = 'PROCESSING' AND (candidate."leaseUntil" IS NULL OR candidate."leaseUntil" <= now()))
         )
-      ORDER BY "createdAt" ASC
+        -- One account's operations run in creation order, so a ban and a later unban
+        -- can never reach Supabase out of order.
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public."AuthOperation" earlier
+          WHERE earlier."userId" = candidate."userId"
+            AND (earlier."createdAt", earlier.id) < (candidate."createdAt", candidate.id)
+            AND (
+              earlier.status IN ('PENDING', 'PROCESSING')
+              OR (earlier.status = 'FAILED' AND earlier.attempts < ${MAX_ATTEMPTS})
+            )
+        )
+      ORDER BY candidate."createdAt" ASC
       FOR UPDATE SKIP LOCKED
       LIMIT ${limit}
     )

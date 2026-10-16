@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { InviteDTO } from "../../../lib/marketplace-dtos";
+import type { InviteStatusLabel, InviteView } from "../../../lib/invite-status";
 import { groupBuyerInvites } from "./invite-groups";
 
-const invite = (id: string, status: InviteDTO["status"]): InviteDTO => ({
+const invite = (id: string, status: InviteStatusLabel): InviteView => ({
   buyer: "Synthetic A. #00000000F1A7",
   buyerProfileId: "synthetic-profile",
   id,
@@ -23,10 +23,11 @@ describe("buyer invite groups", () => {
       invite("sent", "Sent"),
       invite("declined", "Declined"),
       invite("viewed", "Viewed"),
+      invite("withdrawn", "Withdrawn"),
     ]);
     expect(groups.map((group) => group.key)).toEqual(["awaiting", "accepted", "closed"]);
     expect(groups[0].invites.map((item) => item.id)).toEqual(["sent", "viewed"]);
-    expect(groups[2].invites.map((item) => item.id)).toEqual(["closed-new", "declined"]);
+    expect(groups[2].invites.map((item) => item.id)).toEqual(["closed-new", "declined", "withdrawn"]);
   });
 
   it("omits empty groups and keeps every invite", () => {

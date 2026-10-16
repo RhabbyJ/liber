@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { marketSlugSchema } from "@liber/validators";
 import { BuyerProfileWizard } from "../../../components/buyer-profile-wizard";
+import { BuyerProfileVisibilityForm } from "../../../components/buyer-profile-visibility-form";
 import { BadgePill } from "../../../components/badge-pill";
 import { GeneratedAvatar } from "../../../components/generated-avatar";
 import { Icon } from "../../../components/icon";
@@ -14,7 +16,10 @@ import { avatarColorIndex, avatarColorNames, avatarColorOptions } from "../../..
 import {
   setBuyerAvatar,
   submitBuyerProfile,
+  submitBuyerProfileVisibility,
 } from "../../../server/form-actions";
+
+export const metadata: Metadata = { title: "Buyer profile" };
 
 export default async function BuyerProfileBuilderPage({
   searchParams,
@@ -59,8 +64,10 @@ export default async function BuyerProfileBuilderPage({
   const hasPreApproval = Boolean(activePreApproval);
   const hasPendingPreApproval = Boolean(pendingPreApproval);
   const isAdminControlled = buyer.visibility === "hidden";
+  // A paused profile is a saved draft that still meets every publication rule.
+  const isPaused = buyer.visibility === "draft" && buyer.canRepublish;
   const showProfileWizard = !isAdminControlled && (
-    !isActive || edit === "profile" || buyer.primaryServiceArea?.active === false
+    (!isActive && !isPaused) || edit === "profile" || buyer.primaryServiceArea?.active === false
   );
   const canSubmitVerification = buyer.id !== "new-profile" && buyer.visibility !== "draft";
   const accountName = buyer.accountName || "buyer";
@@ -70,7 +77,9 @@ export default async function BuyerProfileBuilderPage({
     ? "Live to sellers"
     : buyer.visibility === "hidden"
       ? "Hidden"
-      : "Draft - not yet visible";
+      : isPaused
+        ? "Paused - hidden from sellers"
+        : "Draft - not yet visible";
   const verifiedInformation = [
     { label: "Identity", verified: activeBadges.some((badge) => badge.type === "VERIFIED_IDENTITY") },
     { label: "Pre-approval", verified: hasPreApproval },
@@ -153,7 +162,7 @@ export default async function BuyerProfileBuilderPage({
   );
 
   if (showProfileWizard) {
-    const isFirstSetup = buyer.visibility === "draft";
+    const isFirstSetup = buyer.visibility === "draft" && !isPaused;
 
     return (
       <div className="page buyer-profile-page buyer-profile-setup">
@@ -197,10 +206,22 @@ export default async function BuyerProfileBuilderPage({
           <p><strong>Editing unavailable.</strong> This profile is {buyer.visibility}. Contact an admin to continue.</p>
         </div>
       ) : null}
-      {status === "published" || status === "saved" ? (
+      {(status === "published" || status === "saved" || status === "republished") && isActive ? (
         <div className="inline-alert success" role="status">
           <Icon name="check" size={20} />
-          <p><strong>{status === "published" ? "Profile published." : "Changes saved."}</strong> Live to approved sellers.</p>
+          <p>
+            <strong>{status === "published" ? "Profile published." : status === "republished" ? "Profile republished." : "Changes saved."}</strong>
+            {" "}Live to approved sellers.
+          </p>
+        </div>
+      ) : null}
+      {isPaused ? (
+        <div className="inline-alert" role="status">
+          <Icon name="info" size={20} />
+          <p>
+            <strong>{status === "paused" ? "Profile paused." : "Your profile is paused."}</strong>
+            {" "}Sellers can’t find or invite you until you republish it.
+          </p>
         </div>
       ) : null}
 
@@ -221,6 +242,7 @@ export default async function BuyerProfileBuilderPage({
         </div>
         {isAdminControlled ? null : (
           <div className="profile-header-actions">
+            {isPaused ? <BuyerProfileVisibilityForm action={submitBuyerProfileVisibility} target="ACTIVE" /> : null}
             <Link className="button secondary" href="/buyer/profile?edit=profile">
               <Icon name="pencil" size={16} />
               Edit profile
@@ -231,6 +253,7 @@ export default async function BuyerProfileBuilderPage({
                 Preview
               </Link>
             ) : null}
+            {isActive ? <BuyerProfileVisibilityForm action={submitBuyerProfileVisibility} target="DRAFT" /> : null}
           </div>
         )}
       </header>

@@ -64,14 +64,15 @@ describe("messaging API security contracts", () => {
   });
 
   it("does not serialize seller Auth UUIDs in marketplace DTOs", async () => {
-    const [contracts, dto] = await Promise.all([
-      readFile(path.resolve("server/contracts.ts"), "utf8"),
+    const [inviteProjection, sellerProperties, dto] = await Promise.all([
+      readFile(path.resolve("server/domain/invite-projection.ts"), "utf8"),
+      readFile(path.resolve("server/domain/seller-properties.ts"), "utf8"),
       readFile(path.resolve("lib/marketplace-dtos.ts"), "utf8"),
     ]);
-    expect(contracts).not.toContain("sellerId: invite.sellerId");
+    expect(inviteProjection).not.toContain("sellerId: invite.sellerId");
     expect(dto).not.toMatch(/export type InviteDTO[\s\S]*?sellerId:/);
     expect(dto).not.toMatch(/export type SellerPropertyDTO[\s\S]*?ownerUserId:/);
-    expect(between(contracts, "function propertyFromDb", "async function searchDbBuyerProfiles"))
+    expect(between(sellerProperties, "function propertyFromDb", "export async function createSellerProperty"))
       .not.toContain("ownerUserId");
   });
 
@@ -88,23 +89,23 @@ describe("messaging API security contracts", () => {
   });
 
   it("relies on the atomic invite trigger and fails closed on a non-canonical result", async () => {
-    const [service, contracts] = await Promise.all([
+    const [service, inviteSend] = await Promise.all([
       messagingServiceSources(),
-      readFile(path.resolve("server/contracts.ts"), "utf8"),
+      readFile(path.resolve("server/domain/invite-send.ts"), "utf8"),
     ]);
     expect(service).not.toContain("ensureConversationForInvite");
-    expect(contracts).toContain("Invite conversation trigger did not create a conversation.");
-    expect(contracts).toContain("SELECT count(*)");
-    expect(contracts).toContain("participant.role = 'SELLER'");
-    expect(contracts).toContain("participant.role = 'BUYER'");
-    expect(contracts).toContain("message.kind = 'INVITE'");
+    expect(inviteSend).toContain("Invite conversation trigger did not create a conversation.");
+    expect(inviteSend).toContain("SELECT count(*)");
+    expect(inviteSend).toContain("participant.role = 'SELLER'");
+    expect(inviteSend).toContain("participant.role = 'BUYER'");
+    expect(inviteSend).toContain("message.kind = 'INVITE'");
   });
 
   it("uses the canonical pair, invite, conversation lock order", async () => {
-    const [send, blocks, contracts] = await Promise.all([
+    const [send, blocks, invites] = await Promise.all([
       readFile(path.resolve("server/messaging/send.ts"), "utf8"),
       readFile(path.resolve("server/messaging/blocks-and-mutes.ts"), "utf8"),
-      readFile(path.resolve("server/contracts.ts"), "utf8"),
+      readFile(path.resolve("server/domain/invites.ts"), "utf8"),
     ]);
     expect(send.indexOf("lockPair(")).toBeLessThan(send.indexOf("lockInvite("));
     expect(send.indexOf("lockInvite(")).toBeLessThan(send.indexOf("lockConversation("));
@@ -113,7 +114,7 @@ describe("messaging API security contracts", () => {
     expect(block).toContain("lockPair(");
     expect(block).not.toContain("lockConversation(");
 
-    const respond = between(contracts, "export async function respondToInvite", "export async function searchBuyers");
+    const respond = between(invites, "export async function respondToInvite", "export async function listSellerInvites");
     expect(respond.indexOf("lockAndAssertInvitePairAvailable(")).toBeLessThan(respond.indexOf("FOR UPDATE"));
   });
 
@@ -124,11 +125,10 @@ describe("messaging API security contracts", () => {
   });
 
   it("projects advisory-lock void results to a driver-supported scalar", async () => {
-    const [service, contracts] = await Promise.all([
+    const [service, inviteSend] = await Promise.all([
       readFile(path.resolve("server/messaging/locks.ts"), "utf8"),
-      readFile(path.resolve("server/contracts.ts"), "utf8"),
+      readFile(path.resolve("server/domain/invite-send.ts"), "utf8"),
     ]);
-    const inviteSend = between(contracts, "export async function sendInvite", "export async function listSellerInvites");
     const pairLock = between(service, "async function lockPair", "async function lockConversation");
     const senderLock = between(service, "async function lockMessageSender", "async function messageMarker");
 
@@ -150,9 +150,9 @@ describe("messaging API security contracts", () => {
   });
 
   it("does not disclose a buyer's block through profile error shape", async () => {
-    const contracts = await readFile(path.resolve("server/contracts.ts"), "utf8");
+    const sellerDirectory = await readFile(path.resolve("server/domain/seller-directory.ts"), "utf8");
     const profileRead = between(
-      contracts,
+      sellerDirectory,
       "export async function getAuthorizedBuyerProfile",
       "async function isControlledDemoBuyerProfile",
     );

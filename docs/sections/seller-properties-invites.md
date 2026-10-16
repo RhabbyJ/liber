@@ -16,7 +16,10 @@ Owns private seller property records, property images, ownership evidence upload
 - `apps/web/components/seller-property-form.tsx`
 - `apps/web/lib/seller-property-form.ts`
 - `apps/web/server/seller-property-form-errors.ts`
-- `apps/web/server/contracts.ts`
+- `apps/web/server/domain/seller-properties.ts` — owner property commands and reads
+- `apps/web/server/domain/invite-send.ts`, `invites.ts`, and `invite-projection.ts` — invite send, buyer response, lists, and DTO projection
+- `apps/web/server/contracts.ts` — `server-only` re-export barrel for the domain modules
+- `apps/web/components/seller-invite-withdraw-form.tsx` and `apps/web/lib/invite-status.ts`
 - `apps/web/server/form-actions.ts`
 - `apps/web/components/seller-invite-form.tsx`
 - `apps/web/server/invite-send-errors.ts`
@@ -50,6 +53,7 @@ Owns private seller property records, property images, ownership evidence upload
 - The HTML invite form's guided-template version is normalized from FormData text to an integer before strict validation; JSON messaging contracts remain numeric-only.
 - Expected invite-send failures stay on the form with plain-language recovery guidance and preserved property/terms selections. Duplicates link to the existing seller-scoped conversation only after account, pair, ownership, and current-property checks and the messaging feature gate; otherwise they link to Sent invites. Unavailable buyers/blocks share generic copy. Unknown failures and framework redirects are rethrown, with the global error page displaying only the Next support digest, never internal error messages.
 - Invite response does not create an offer, escrow, or transaction.
+- A buyer's Accept (Start LOI) or Decline notifies the seller in the same transaction as the status change (`invite_accepted` / `invite_declined`, metadata `buyerProfileId`, `inviteId`, `propertyId`). Repeated or refused responses notify nobody. A question or tour reply accepts the invite through the messaging trigger and is announced by the message itself, not this notice. `lib/notification-links.ts` does not map these types yet, so they link to the map until it routes them to `/seller/invites`.
 - Invite creation binds its queued email to the new invite row. The outbox must
   use the canonical invite reference and worker lease; retired generic
   recipient/UUID-lease artifacts are not part of this flow.
@@ -57,9 +61,12 @@ Owns private seller property records, property images, ownership evidence upload
   two authoritative participants, and the immutable rendered opening message.
 - Accepted invites remain messageable; decline, effective expiry, withdrawal,
   property identity invalidation, and participant blocking disable sends.
+- Sellers can withdraw their own open invite (Sent or Viewed before the deadline, or Accepted) from Sent invites after a confirm step. `withdrawInviteInTransaction` takes the pair lock, then the invite row, and moves only an open invite to `WITHDRAWN`; the invite status triggers close the conversation read-only (`INVITE_WITHDRAWN`) and cancel queued invite email. The buyer gets an `invite_withdrawn` notice and the audit log records `withdraw_invite` with the previous status. Repeating it is a no-op; closed invites report that they can no longer be withdrawn. A block already withdrew the pair's open invites, so a blocked pair's invite gets exactly the answer it would without the block, and the response never discloses it. Limit: 60 withdrawals per seller per hour.
+- A buyer pause, an admin hide, or an account suspension also withdraws the buyer's open invites, so Sent invites can show **Withdrawn** for invites the seller did not withdraw.
 - A block in either direction prevents a new invite and returns a generic
   unavailable result rather than disclosing the block.
 - Expired invites are rejected whenever they are read or used, even if the maintenance job has not updated their stored status yet.
+- Invite lists label each terminal status as itself: `WITHDRAWN` (seller or admin withdrawal, a block, a suspension, or a property identity change) reads **Withdrawn**, never Expired. Only a persisted `EXPIRED` or an unanswered invite past its deadline reads **Expired**. `InviteView` in `lib/invite-status.ts` carries the Withdrawn label until `InviteDTO` includes it.
 - Only current `READY_FOR_INVITES` properties can send invites. Invite quota means the preceding rolling 24 hours, not a calendar day.
 - The invite page distinguishes no property from an existing property that is not invite-ready. Existing blocked properties show their ownership state and link back to the property record; the server-side invite gate remains unchanged.
 - Property images are private. The owner/admin may view them; invited buyers may view them only while invite status is `SENT`, `VIEWED`, or `ACCEPTED`.

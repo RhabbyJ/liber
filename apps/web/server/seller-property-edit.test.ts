@@ -27,7 +27,7 @@ vi.mock("@liber/db", async () => ({
     invite: { findMany: mocks.invites },
   },
 }));
-vi.mock("./session", () => ({ getSessionUser: mocks.getSessionUser }));
+vi.mock("./session", async () => (await import("./session-mock.test-helper")).sessionModuleMock(mocks.getSessionUser));
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => { throw new Error(`redirect:${path}`); },
 }));

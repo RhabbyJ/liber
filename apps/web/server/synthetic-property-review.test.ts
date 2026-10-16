@@ -131,6 +131,24 @@ describe("closed synthetic property test approval", () => {
     expect(mocks.update).toHaveBeenLastCalledWith({ where: { id: property.id }, data: { status: "READY_FOR_REVIEW", ownershipVerificationStatus: "PENDING" } });
   });
 
+  it("reads revocation evidence one query at a time on the transaction connection", async () => {
+    mocks.audits.mockResolvedValue([marker()]);
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const serial = <T,>(value: T) => async () => {
+      maxInFlight = Math.max(maxInFlight, ++inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      inFlight -= 1;
+      return value;
+    };
+    mocks.documents.mockImplementation(serial([]));
+    mocks.decision.mockImplementation(serial(null));
+    expect(await reviewSyntheticProperty(revoke)).toMatchObject({ ok: true });
+    expect(mocks.documents).toHaveBeenCalledTimes(1);
+    expect(mocks.decision).toHaveBeenCalledTimes(1);
+    expect(maxInFlight).toBe(1);
+  });
+
   it("treats latest revocation and changed property versions as inactive", async () => {
     mocks.audits.mockResolvedValue([marker(TEST_PROPERTY_REVOCATION), marker(), marker(TEST_PROPERTY_APPROVAL, 1)]);
     expect(await activeSyntheticPropertyApprovals(tx, [property])).toEqual(new Set());

@@ -5,6 +5,7 @@ const db = vi.hoisted(() => ({
   criteriaUpsert: vi.fn(),
   findProfile: vi.fn(),
   findArea: vi.fn(),
+  inviteUpdate: vi.fn(),
   profileUpdate: vi.fn(),
   profileUpsert: vi.fn(),
   queryRaw: vi.fn(),
@@ -19,7 +20,7 @@ vi.mock("@liber/db", async () => {
   const { Prisma } = await import("../../../../packages/db/src/generated/client");
   return { Prisma, prisma: { $transaction: db.transaction } };
 });
-vi.mock("../session", () => ({ getSessionUser: db.session }));
+vi.mock("../session", async () => (await import("../session-mock.test-helper")).sessionModuleMock(db.session));
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => { throw new Error(`redirect:${path}`); },
 }));
@@ -81,6 +82,7 @@ beforeEach(() => {
     buyerCriteria: { upsert: db.criteriaUpsert },
     buyerDesiredServiceArea: { create: db.selectionCreate, deleteMany: db.selectionDelete },
     buyerProfile: { findUnique: db.findProfile, update: db.profileUpdate, upsert: db.profileUpsert },
+    invite: { updateMany: db.inviteUpdate },
     serviceArea: { findFirst: db.findArea },
     serviceAreaMigrationQuarantine: { updateMany: db.quarantineUpdate },
   }));
@@ -126,6 +128,10 @@ describe("buyer profile aggregate save", () => {
   });
 
   it("clears omitted draft budgets together with the corresponding criteria prices", async () => {
+    db.queryRaw.mockImplementation(async (parts: TemplateStringsArray) => (
+      parts.join("").includes('FROM public."Invite"') ? [{ id: "invite-1" }] : [owner]
+    ));
+    db.inviteUpdate.mockResolvedValue({ count: 1 });
     const form = new FormData();
     await saveBuyerProfile(form, "DRAFT");
 
@@ -135,6 +141,26 @@ describe("buyer profile aggregate save", () => {
     });
     expect(db.criteriaUpsert.mock.calls[0][0].update).toMatchObject({ priceMin: null, priceMax: null });
     expect(db.profileUpdate).not.toHaveBeenCalled();
+    // Taking a live profile to draft withdraws its open invites before visibility changes.
+    expect(db.inviteUpdate).toHaveBeenCalledWith({
+      where: { id: { in: ["invite-1"] }, status: { in: ["SENT", "VIEWED", "ACCEPTED"] } },
+      data: { status: "WITHDRAWN" },
+    });
+    expect(db.inviteUpdate.mock.invocationCallOrder[0]).toBeLessThan(db.profileUpsert.mock.invocationCallOrder[0]);
+  });
+
+  it("keeps a live profile ACTIVE while saving edits so its conversations stay open", async () => {
+    await saveBuyerProfile(profileForm());
+    expect(db.profileUpsert.mock.calls[0][0].update.visibilityStatus).toBe("ACTIVE");
+    expect(db.inviteUpdate).not.toHaveBeenCalled();
+  });
+
+  it("publishes a draft profile only after criteria and location are written", async () => {
+    db.findProfile.mockResolvedValue({ ...existing, visibilityStatus: "DRAFT" });
+    await saveBuyerProfile(profileForm());
+    expect(db.profileUpsert.mock.calls[0][0].update.visibilityStatus).toBe("DRAFT");
+    expect(db.profileUpdate).toHaveBeenCalledWith({ where: { id: profileId }, data: { visibilityStatus: "ACTIVE" } });
+    expect(db.inviteUpdate).not.toHaveBeenCalled();
   });
 
   it.each([existing, null])("locks the owning account before looking up an existing or first profile: %o", async (profile) => {
@@ -143,7 +169,7 @@ describe("buyer profile aggregate save", () => {
 
     const [parts, lockedUserId] = db.queryRaw.mock.calls[0];
     expect(parts.join("")).toContain('FROM public."User"');
-    expect(parts.join("")).toContain("FOR UPDATE");
+    expect(parts.join("")).toContain("FOR NO KEY UPDATE");
     expect(lockedUserId).toBe(userId);
     expect(db.queryRaw.mock.invocationCallOrder[0]).toBeLessThan(db.findProfile.mock.invocationCallOrder[0]);
   });
