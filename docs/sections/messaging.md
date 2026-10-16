@@ -136,6 +136,12 @@ load-more explanation when older pages exist. Scoped presentation lives in
 moderation invalidation, and history pagination. Thread regions use explicit grid
 rows so a hidden alert region never moves the composer into the stretch row.
 
+The composer textarea is disabled while a free-text send is in flight, which
+drops its focus. When that send succeeds or fails, `restoreComposerFocus`
+returns focus to the textarea unless the user focused another enabled control
+meanwhile; quick-reply sends leave focus alone. Browsers such as iOS Safari may
+still need a tap to reopen the on-screen keyboard after programmatic focus.
+
 The eligible Start LOI / Open LOI action is always visible as a slim strip pinned
 under the listing bar, outside collapsed Details.
 Its dedicated presentation lives in `components/messaging/chat-loi-action.*`.

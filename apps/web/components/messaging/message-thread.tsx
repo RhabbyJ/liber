@@ -18,6 +18,7 @@ import { GeneratedAvatar } from "../generated-avatar";
 import { Icon } from "../icon";
 import { PropertyCoverPhoto } from "../property-cover-photo";
 import { ChatLoiAction } from "./chat-loi-action";
+import { restoreComposerFocus } from "./composer-focus";
 import { TourScheduler } from "./tour-scheduler";
 import { PrivatePropertyImages } from "../private-property-images";
 import {
@@ -75,6 +76,7 @@ export function MessageThread({
   const [contextOpen, setContextOpen] = useState(false);
   const [trayOpen, setTrayOpen] = useState(false);
   const draftRef = useRef<HTMLTextAreaElement | null>(null);
+  const restoreDraftFocusRef = useRef(false);
   const [timeZone, setTimeZone] = useState("UTC");
   const dateFormatters = useMemo(() => ({
     day: new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone }),
@@ -130,6 +132,14 @@ export function MessageThread({
     input.style.height = "auto";
     input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
   }, [draft]);
+
+  // Sending disables the composer, which drops focus; give it back once the
+  // send settles, whether it succeeded or failed.
+  useEffect(() => {
+    if (sending || !restoreDraftFocusRef.current) return;
+    restoreDraftFocusRef.current = false;
+    restoreComposerFocus(draftRef.current, document);
+  }, [sending]);
 
   const executeRefresh = useCallback(async (announceFailure = false) => {
     if (!refreshEnabledRef.current) return;
@@ -438,6 +448,8 @@ export function MessageThread({
     const clientMessageId = existing?.signature === signature ? existing.id : createClientMessageId();
     pendingMessageRef.current = { id: clientMessageId, signature };
     sendInFlightRef.current = true;
+    // Free text is only sent from the composer form; quick replies leave focus alone.
+    restoreDraftFocusRef.current = input.kind === "FREE_TEXT";
     setSending(true);
     setError("");
     setComposerError("");
