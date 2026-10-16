@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { AdminReasonAction } from "../../../components/admin-reason-action";
 import { PageTitle } from "../../../components/page-title";
 import { SellerAccessReviewForm } from "../../../components/seller-access-review-form";
 import { listUsers } from "../../../server/contracts";
-import { submitSellerAccessReview, submitUserSuspension } from "../../../server/form-actions";
+import { submitSellerAccessReview, submitUserReinstatement, submitUserSuspension } from "../../../server/form-actions";
 
 export default async function AdminUsersPage() {
   const { data: users } = await listUsers();
@@ -51,11 +52,29 @@ export default async function AdminUsersPage() {
                       />
                     ) : null}
                     {user.status !== "SUSPENDED" ? (
-                      <form action={submitUserSuspension}>
-                        <input name="userId" type="hidden" value={user.id} />
-                        <button className="button secondary sm" type="submit">{user.isCurrentUser ? "Suspend your account" : "Suspend user"}</button>
-                      </form>
-                    ) : null}
+                      <AdminReasonAction
+                        action={submitUserSuspension}
+                        confirmLabel={user.isCurrentUser ? "Suspend your account" : "Suspend user"}
+                        fields={{ userId: user.id }}
+                        label={user.isCurrentUser ? "Suspend your account" : "Suspend user"}
+                        pendingLabel="Suspending…"
+                        prompt="Blocks sign-in, hides the buyer profile, suspends seller access, archives properties, and withdraws open invites."
+                        reasonLabel="Reason (optional, audit log only)"
+                        reasonRequired={false}
+                        tone="warning"
+                      />
+                    ) : (
+                      <AdminReasonAction
+                        action={submitUserReinstatement}
+                        confirmLabel="Reinstate user"
+                        fields={{ userId: user.id }}
+                        label="Reinstate"
+                        pendingLabel="Reinstating…"
+                        prompt="Restores sign-in. The buyer profile returns as a draft to republish, seller access returns to review, and withdrawn invites stay closed."
+                        reasonLabel="Reason (optional, audit log only)"
+                        reasonRequired={false}
+                      />
+                    )}
                   </div>
                 </td>
               </tr>

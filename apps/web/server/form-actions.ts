@@ -9,6 +9,7 @@ import {
   createSellerProperty,
   grantBadge,
   hideBuyerProfile,
+  reinstateUser,
   reviewDocument,
   reviewSellerAccess,
   revokeBadge,
@@ -235,9 +236,26 @@ export async function submitBadgeRevoke(
   return { ok: true, message: "Badge revoked. It no longer counts as active verification." };
 }
 
-export async function submitUserSuspension(formData: FormData) {
-  await suspendUser(formData);
-  revalidatePath("/admin/users");
+function revalidateAccountViews() {
+  for (const path of ["/admin/users", "/admin/buyer-profiles", "/admin/badges", "/admin/invites", "/"]) revalidatePath(path);
+}
+
+export async function submitUserSuspension(
+  _state: ActionFeedbackState,
+  formData: FormData,
+): Promise<ActionFeedbackState> {
+  const result = await suspendUser(formData);
+  if (result.ok) revalidateAccountViews();
+  return result;
+}
+
+export async function submitUserReinstatement(
+  _state: ActionFeedbackState,
+  formData: FormData,
+): Promise<ActionFeedbackState> {
+  const result = await reinstateUser(formData);
+  if (result.ok) revalidateAccountViews();
+  return result;
 }
 
 export async function submitSellerAccessReview(

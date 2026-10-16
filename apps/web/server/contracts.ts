@@ -21,7 +21,7 @@ export {
 } from "./domain/seller-properties";
 export { sendInvite } from "./domain/invite-send";
 export { listBuyerInvites, listSellerInvites, respondToInvite, withdrawSellerInvite } from "./domain/invites";
-export { listUsers, reviewSellerAccess, suspendUser } from "./domain/admin-users";
+export { listUsers, reinstateUser, reviewSellerAccess, suspendUser } from "./domain/admin-users";
 export {
   hideBuyerProfile,
   listAdminBuyerProfiles,

@@ -18,6 +18,8 @@ vi.mock("./supabase", () => ({
 import { claimAuthOperations, processAuthOperations } from "./auth-operations";
 
 const userId = "019f62c5-1c07-4a62-9f9a-8302778aa012";
+// Independent accounts, so per-account ordering never couples unrelated operations.
+const accountIds = [userId, ...Array.from({ length: 4 }, (_, index) => `019f62c5-1c07-4a62-9f9a-8302778aa0${20 + index}`)];
 let database: PGlite;
 
 describe("Auth operation leases in isolated PostgreSQL", () => {
@@ -25,6 +27,7 @@ describe("Auth operation leases in isolated PostgreSQL", () => {
     database = new PGlite();
     await database.exec(`
       CREATE TYPE "AuthOperationStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED');
+      CREATE TABLE "User" (id uuid PRIMARY KEY, status text NOT NULL);
       CREATE TABLE "AuthOperation" (
         id text PRIMARY KEY, "userId" uuid NOT NULL, type text NOT NULL,
         status "AuthOperationStatus" NOT NULL DEFAULT 'PENDING', attempts integer NOT NULL DEFAULT 0,
@@ -42,6 +45,7 @@ describe("Auth operation leases in isolated PostgreSQL", () => {
     mocks.prisma.workerHeartbeat.upsert.mockResolvedValue({});
     mocks.updateUserById.mockResolvedValue({ error: null });
     await database.exec("BEGIN");
+    for (const id of accountIds) await database.query('INSERT INTO "User" (id, status) VALUES ($1, \'SUSPENDED\')', [id]);
   });
 
   afterEach(async () => database.exec("ROLLBACK"));
@@ -60,6 +64,72 @@ describe("Auth operation leases in isolated PostgreSQL", () => {
     expect(mocks.prisma.workerHeartbeat.upsert).toHaveBeenCalledWith(expect.objectContaining({
       update: { lastRunAt: expect.any(Date), metadata: { completed: 1, failed: 0, processed: 1 } },
     }));
+  });
+
+  it("lifts the Auth ban for a reinstated account", async () => {
+    await setAccountStatus(userId, "ACTIVE");
+    await seedOperation("unban-user", { type: "UNBAN_USER" });
+
+    await expect(processAuthOperations(1, "worker")).resolves.toEqual({ completed: 1, failed: 0, processed: 1 });
+    expect(mocks.updateUserById).toHaveBeenCalledWith(userId, { ban_duration: "none" });
+    const { rows } = await database.query('SELECT status, "lastError" FROM "AuthOperation"');
+    expect(rows).toEqual([{ status: "COMPLETED", lastError: null }]);
+  });
+
+  it.each([
+    ["BAN_USER", "ACTIVE"],
+    ["UNBAN_USER", "SUSPENDED"],
+  ])("settles a stale %s without calling Auth once the account is %s", async (type, status) => {
+    await setAccountStatus(userId, status);
+    await seedOperation("stale-operation", { type });
+
+    await expect(processAuthOperations(1, "worker")).resolves.toEqual({ completed: 1, failed: 0, processed: 1 });
+    expect(mocks.updateUserById).not.toHaveBeenCalled();
+    const { rows } = await database.query('SELECT status, "lastError", "workerId", "leaseUntil" FROM "AuthOperation"');
+    expect(rows).toEqual([{
+      status: "COMPLETED", lastError: "Superseded by a later account status change; Auth was not called.", workerId: null, leaseUntil: null,
+    }]);
+  });
+
+  it("rejects an unknown operation type as a retryable failure", async () => {
+    await seedOperation("unknown-operation", { type: "DELETE_USER" });
+    await expect(processAuthOperations(1, "worker")).resolves.toEqual({ completed: 0, failed: 1, processed: 1 });
+    expect(mocks.updateUserById).not.toHaveBeenCalled();
+    const { rows } = await database.query('SELECT status, "lastError" FROM "AuthOperation"');
+    expect(rows).toEqual([{ status: "FAILED", lastError: "Unsupported Auth operation: DELETE_USER" }]);
+  });
+
+  it("runs one account's operations in creation order", async () => {
+    await seedOperation("older-ban", { ageSeconds: 60 });
+    await seedOperation("newer-unban", { type: "UNBAN_USER" });
+    await seedOperation("other-account-ban", { user: accountIds[1], ageSeconds: 30 });
+    await database.exec(`
+      UPDATE "AuthOperation" SET status = 'PROCESSING', attempts = 1,
+        "workerId" = 'slow-worker', "lockedAt" = now(), "leaseUntil" = now() + interval '1 minute'
+      WHERE id = 'older-ban';
+    `);
+
+    // The newer unban waits behind the in-flight ban; another account's work does not.
+    await expect(claimAuthOperations(2, "next-worker")).resolves.toEqual([
+      expect.objectContaining({ id: "other-account-ban" }),
+    ]);
+    await database.exec(`UPDATE "AuthOperation" SET status = 'COMPLETED', "leaseUntil" = NULL, "workerId" = NULL WHERE id = 'older-ban'`);
+    await expect(claimAuthOperations(1, "next-worker")).resolves.toEqual([
+      expect.objectContaining({ id: "newer-unban", type: "UNBAN_USER", userId }),
+    ]);
+  });
+
+  it("waits behind an older retryable failure but not behind a terminal one", async () => {
+    await seedOperation("older-ban", { ageSeconds: 60 });
+    await seedOperation("newer-unban", { type: "UNBAN_USER" });
+    await database.exec(`
+      UPDATE "AuthOperation" SET status = 'FAILED', attempts = 3, "nextAttemptAt" = now() + interval '10 minutes'
+      WHERE id = 'older-ban';
+    `);
+    await expect(claimAuthOperations(1, "worker")).resolves.toEqual([]);
+
+    await database.exec(`UPDATE "AuthOperation" SET attempts = 8, "nextAttemptAt" = NULL WHERE id = 'older-ban'`);
+    await expect(claimAuthOperations(1, "worker")).resolves.toEqual([expect.objectContaining({ id: "newer-unban" })]);
   });
 
   it("leaves waiting operations available while another worker's Auth request is slow", async () => {
@@ -193,10 +263,20 @@ async function updateOperations({ where, data }: {
   return { count: result.rows.length };
 }
 
+/** Seeds one BAN_USER operation per id, each for a different suspended account. */
 async function seedOperations(...ids: string[]) {
-  for (const id of ids) {
-    await database.query('INSERT INTO "AuthOperation" (id, "userId", type) VALUES ($1, $2, \'BAN_USER\')', [id, userId]);
-  }
+  for (const [index, id] of ids.entries()) await seedOperation(id, { user: accountIds[index] });
+}
+
+async function seedOperation(id: string, { user = userId, type = "BAN_USER", ageSeconds = 0 } = {}) {
+  await database.query(
+    'INSERT INTO "AuthOperation" (id, "userId", type, "createdAt") VALUES ($1, $2, $3, now() - make_interval(secs => $4))',
+    [id, user, type, ageSeconds],
+  );
+}
+
+async function setAccountStatus(id: string, status: string) {
+  await database.query('UPDATE "User" SET status = $2 WHERE id = $1', [id, status]);
 }
 
 async function expireLease() {
