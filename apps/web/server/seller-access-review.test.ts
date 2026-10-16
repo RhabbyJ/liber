@@ -18,7 +18,7 @@ vi.mock("@liber/db", () => ({ prisma: {
   adminAuditLog: { create: mocks.audit },
   $transaction: mocks.transaction,
 } }));
-vi.mock("./session", () => ({ getSessionUser: mocks.getSessionUser }));
+vi.mock("./session", async () => (await import("./session-mock.test-helper")).sessionModuleMock(mocks.getSessionUser));
 vi.mock("./rate-limit", () => ({ checkRateLimit: mocks.checkRateLimit }));
 vi.mock("next/navigation", () => ({ redirect: (path: string) => { throw new Error(`redirect:${path}`); } }));
 
@@ -135,6 +135,74 @@ describe("seller access review", () => {
       return [{ id: sellerId }];
     });
     await expect(reviewSellerAccessCommand(approval)).resolves.toMatchObject({ ok: true, changed: false });
+    expectNoWrites();
+  });
+});
+
+describe("seller access rejection", () => {
+  const rejection = { userId: sellerId, status: "REJECTED", notes: "Brokerage license could not be confirmed." };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mocks.getSessionUser.mockResolvedValue({ id: adminId, roles: ["ADMIN"] });
+    mocks.checkRateLimit.mockResolvedValue({ allowed: true, retryAfterSeconds: 0 });
+    mocks.findUnique.mockResolvedValue({ roles: ["SELLER"], status: "ACTIVE", sellerAccess: { status: "PENDING" } });
+    mocks.lock.mockResolvedValue([{ id: sellerId }]);
+    mocks.transaction.mockImplementation(async (callback) => callback(tx));
+  });
+
+  it("rejects a pending request, tells the seller why, and audits the reason", async () => {
+    const form = new FormData();
+    Object.entries(rejection).forEach(([key, value]) => form.set(key, value));
+    await expect(reviewSellerAccessCommand(form)).resolves.toEqual({ ok: true, changed: true, data: rejection });
+    expect(mocks.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: sellerId },
+      update: expect.objectContaining({ status: "REJECTED", reviewedByUserId: adminId }),
+    }));
+    expect(mocks.notification).toHaveBeenCalledWith({
+      data: {
+        body: "Liber didn’t approve your seller directory access. Reason: Brokerage license could not be confirmed.",
+        metadata: { sellerAccessStatus: "REJECTED" },
+        title: "Seller access not approved",
+        type: "seller_access_reviewed",
+        userId: sellerId,
+      },
+    });
+    expect(mocks.audit).toHaveBeenCalledWith({
+      data: {
+        action: "seller_access_review",
+        actorUserId: adminId,
+        metadata: { notes: rejection.notes, previousStatus: "PENDING", status: "REJECTED" },
+        targetId: sellerId,
+        targetType: "user",
+      },
+    });
+  });
+
+  it.each([undefined, "   "])("requires a reason before rejecting (%j)", async (notes) => {
+    await expect(reviewSellerAccessCommand({ ...rejection, notes })).resolves.toEqual({
+      ok: false, message: "Add a reason for the seller before rejecting their access.",
+    });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("refuses a reason over 500 characters", async () => {
+    await expect(reviewSellerAccessCommand({ ...rejection, notes: "x".repeat(501) })).resolves.toMatchObject({ ok: false });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("does not reject access that is already approved", async () => {
+    mocks.findUnique.mockResolvedValue({ roles: ["SELLER"], status: "ACTIVE", sellerAccess: { status: "APPROVED" } });
+    await expect(reviewSellerAccessCommand(rejection)).resolves.toMatchObject({ ok: false, message: expect.stringContaining("Suspend") });
+    expectNoWrites();
+  });
+
+  it("can reject a suspended account's pending request and treats a repeat rejection as a no-op", async () => {
+    mocks.findUnique.mockResolvedValue({ roles: ["SELLER"], status: "SUSPENDED", sellerAccess: { status: "SUSPENDED" } });
+    await expect(reviewSellerAccessCommand(rejection)).resolves.toMatchObject({ ok: true, changed: true });
+    vi.clearAllMocks();
+    mocks.findUnique.mockResolvedValue({ roles: ["SELLER"], status: "ACTIVE", sellerAccess: { status: "REJECTED" } });
+    await expect(reviewSellerAccessCommand(rejection)).resolves.toMatchObject({ ok: true, changed: false });
     expectNoWrites();
   });
 });

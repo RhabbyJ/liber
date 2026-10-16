@@ -35,7 +35,7 @@ export default async function AdminUsersPage() {
                 <td><span className={`status-tag ${(user.status || "ACTIVE") === "ACTIVE" ? "active" : "declined"}`}>{statusLabel(user.status || "ACTIVE")}</span></td>
                 <td>
                   {user.roles.includes("SELLER") ? (
-                    <span className={`status-tag ${user.sellerAccessStatus === "APPROVED" ? "active" : user.sellerAccessStatus === "SUSPENDED" ? "declined" : "pending"}`}>
+                    <span className={`status-tag ${user.sellerAccessStatus === "APPROVED" ? "active" : user.sellerAccessStatus === "SUSPENDED" || user.sellerAccessStatus === "REJECTED" ? "declined" : "pending"}`}>
                       {statusLabel(user.sellerAccessStatus ?? "PENDING")}
                     </span>
                   ) : <span className="muted">Not seller</span>}
