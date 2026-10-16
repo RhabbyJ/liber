@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { EmptyState } from "../../../components/empty-state";
 import { GeneratedAvatar } from "../../../components/generated-avatar";
@@ -9,6 +10,8 @@ import { PageTitle } from "../../../components/page-title";
 import { WorkspaceTabs } from "../../../components/workspace-tabs";
 import { listNotifications, listSellerInvites } from "../../../server/contracts";
 import { submitInviteWithdrawal } from "../../../server/form-actions";
+
+export const metadata: Metadata = { title: "Sent invites" };
 
 export default async function SellerInvitesPage() {
   const [{ data: invites }, { data: notifications }] = await Promise.all([listSellerInvites(), listNotifications()]);

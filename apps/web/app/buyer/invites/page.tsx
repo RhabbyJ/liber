@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { BuyerInviteCard } from "../../../components/buyer-invite-card";
@@ -10,6 +11,8 @@ import { listBuyerInvites, listNotifications } from "../../../server/contracts";
 import { respondToBuyerInvite } from "../../../server/form-actions";
 import { groupBuyerInvites } from "./invite-groups";
 import "./invites.css";
+
+export const metadata: Metadata = { title: "Received invites" };
 
 export default async function BuyerInvitesPage({ searchParams }: {
   searchParams?: Promise<{ error?: string; status?: string }>;

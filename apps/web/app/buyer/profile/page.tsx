@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { marketSlugSchema } from "@liber/validators";
 import { BuyerProfileWizard } from "../../../components/buyer-profile-wizard";
@@ -17,6 +18,8 @@ import {
   submitBuyerProfile,
   submitBuyerProfileVisibility,
 } from "../../../server/form-actions";
+
+export const metadata: Metadata = { title: "Buyer profile" };
 
 export default async function BuyerProfileBuilderPage({
   searchParams,

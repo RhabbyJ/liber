@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { NotificationList } from "../../../components/notification-list";
 import { PageTitle } from "../../../components/page-title";
 import { WorkspaceTabs } from "../../../components/workspace-tabs";
 import { listNotifications } from "../../../server/contracts";
+
+export const metadata: Metadata = { title: "Notifications" };
 
 export default async function SellerNotificationsPage() {
   const { data: notifications } = await listNotifications();

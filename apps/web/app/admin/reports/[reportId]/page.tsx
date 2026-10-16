@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Icon } from "../../../../components/icon";
@@ -7,6 +8,8 @@ import { adminReportStatusTone, formatMessagingDateTime } from "../../../../comp
 import { PageTitle } from "../../../../components/page-title";
 import { MessagingError } from "../../../../server/messaging/errors";
 import { getAdminMessageReport } from "../../../../server/messaging/service";
+
+export const metadata: Metadata = { title: "Message report · Admin" };
 
 export default async function AdminMessageReportPage({
   params,

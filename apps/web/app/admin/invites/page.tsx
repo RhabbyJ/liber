@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { AdminPagination } from "../../../components/admin-pagination";
 import { AdminReasonAction } from "../../../components/admin-reason-action";
 import { PageTitle } from "../../../components/page-title";
@@ -5,6 +6,8 @@ import { isOpenInvite } from "../../../lib/invite-status";
 import { listAdminInvites } from "../../../server/contracts";
 import { submitAdminInviteWithdrawal } from "../../../server/form-actions";
 import { readAdminPage, type AdminPageSearchParams } from "../page-cursor";
+
+export const metadata: Metadata = { title: "Invites · Admin" };
 
 export default async function AdminInvitesPage({ searchParams }: { searchParams: AdminPageSearchParams }) {
   const { cursor, page: { data: invites, nextCursor } } = await readAdminPage(searchParams, listAdminInvites);

@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "../../components/icon";
 import { PageTitle } from "../../components/page-title";
+
+export const metadata: Metadata = { title: "Admin" };
 
 type Section = {
   description: string;

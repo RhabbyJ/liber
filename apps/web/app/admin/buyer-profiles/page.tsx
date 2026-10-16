@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { AdminPagination } from "../../../components/admin-pagination";
 import { AdminReasonAction } from "../../../components/admin-reason-action";
@@ -5,6 +6,8 @@ import { PageTitle } from "../../../components/page-title";
 import { listAdminBuyerProfiles } from "../../../server/contracts";
 import { submitProfileHide, submitProfileUnhide } from "../../../server/form-actions";
 import { readAdminPage, type AdminPageSearchParams } from "../page-cursor";
+
+export const metadata: Metadata = { title: "Buyer profiles · Admin" };
 
 const moderationLabels: Record<string, string> = {
   ACTIVE: "Live",

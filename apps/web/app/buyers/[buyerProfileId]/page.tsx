@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GeneratedAvatar } from "../../../components/generated-avatar";
@@ -11,8 +12,9 @@ import { getAuthorizedBuyerProfile } from "../../../server/contracts";
 import { getSessionUser } from "../../../server/session";
 import { blockBuyerProfile } from "../../../server/form-actions";
 
-export const metadata = {
+export const metadata: Metadata = {
   robots: "noindex, noarchive",
+  title: "Buyer profile",
 };
 
 const inviteDisclaimer = "This is a manual invite only. It is not an offer, escrow instruction, funds custody, or automated transaction.";

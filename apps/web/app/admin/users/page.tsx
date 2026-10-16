@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { AdminPagination } from "../../../components/admin-pagination";
 import { AdminReasonAction } from "../../../components/admin-reason-action";
@@ -6,6 +7,8 @@ import { SellerAccessReviewForm } from "../../../components/seller-access-review
 import { listUsers } from "../../../server/contracts";
 import { submitSellerAccessReview, submitUserReinstatement, submitUserSuspension } from "../../../server/form-actions";
 import { readAdminPage, type AdminPageSearchParams } from "../page-cursor";
+
+export const metadata: Metadata = { title: "Users · Admin" };
 
 export default async function AdminUsersPage({ searchParams }: { searchParams: AdminPageSearchParams }) {
   const { cursor, page: { data: users, nextCursor } } = await readAdminPage(searchParams, listUsers);

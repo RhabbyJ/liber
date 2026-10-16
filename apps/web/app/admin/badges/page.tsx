@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { BadgePill } from "../../../components/badge-pill";
 import Link from "next/link";
 import { AdminBadgeGrantForm, AdminBadgeRevokeForm } from "../../../components/admin-badge-review-form";
@@ -8,6 +9,8 @@ import { getSelfTestPreapprovalState } from "../../../server/test-preapproval";
 import { listAdminBuyerProfiles } from "../../../server/contracts";
 import { submitBadgeGrant, submitBadgeRevoke } from "../../../server/form-actions";
 import { readAdminPage, type AdminPageSearchParams } from "../page-cursor";
+
+export const metadata: Metadata = { title: "Badges · Admin" };
 
 export default async function AdminBadgesPage({ searchParams }: { searchParams: AdminPageSearchParams }) {
   const { cursor, page: { data: buyers, nextCursor } } = await readAdminPage(searchParams, listAdminBuyerProfiles);

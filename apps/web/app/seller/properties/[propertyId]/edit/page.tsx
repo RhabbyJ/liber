@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DirectUploadField } from "../../../../../components/direct-upload-field";
@@ -20,6 +21,8 @@ import { getSellerProperty, type OwnershipEvidenceStatus } from "../../../../../
 import { submitSellerPropertyUpdate } from "../../../../../server/form-actions";
 import { getActiveMarketBySlug } from "../../../../../server/service-areas";
 import { confidentialDocumentAccessEnabled } from "../../../../../server/verification/document-access";
+
+export const metadata: Metadata = { title: "Edit property" };
 
 export default async function EditSellerPropertyPage({
   params,
