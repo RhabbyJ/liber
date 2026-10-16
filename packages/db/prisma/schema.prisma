@@ -1031,6 +1031,7 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, readAt])
+  @@index([userId, createdAt(sort: Desc), id(sort: Desc)])
 }
 
 model AdminAuditLog {
@@ -1110,6 +1111,8 @@ model EmailOutbox {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Worker claims also use the SQL-only partial index
+  // "EmailOutbox_claimable_createdAt_idx" (migration 20261016050000).
   @@index([status, nextAttemptAt])
   @@index([status, leaseUntil])
   @@index([createdAt])

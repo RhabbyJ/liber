@@ -1,11 +1,31 @@
 import { prisma } from "@liber/db";
 import { sendInviteEmail, sendLoiUpdateEmail, sendUnreadMessageEmail, type EmailResult } from "./email";
+import { redactErrorMessage } from "./error-summary";
 import { prepareTourEmail, sendCurrentTourEmail } from "./messaging/tours";
 import { loiV1EnabledForPair } from "./loi/feature";
 import { messagingV1EnabledForPair } from "./messaging/feature";
 
 const MAX_ATTEMPTS = 5;
 const LEASE_MS = 2 * 60_000;
+// One scheduled run keeps claiming while time remains so a backlog (for example
+// tour reminders that expire within the hour) drains within minutes. The job cap
+// bounds pathological runs; the budget leaves room for an in-flight send inside
+// the route's maxDuration.
+const DEFAULT_MAX_JOBS_PER_RUN = 200;
+export const EMAIL_WORKER_TIME_BUDGET_MS = 20_000;
+// Resend's default limit is two requests per second per team.
+const PROVIDER_SEND_INTERVAL_MS = 600;
+// Stop early on a provider or database outage instead of spending every job's attempts.
+const MAX_CONSECUTIVE_FAILURES = 3;
+
+type EmailWorkerOptions = {
+  now?: () => number;
+  sendIntervalMs?: number;
+  sleep?: (milliseconds: number) => Promise<void>;
+  timeBudgetMs?: number;
+};
+
+type EmailWorkerStop = "drained" | "job-limit" | "time-budget" | "consecutive-failures";
 const LOI_OUTBOX_KEY_PATTERN = /^loi-update:([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}):([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
 
 type ClaimedEmailJob = {
@@ -25,15 +45,38 @@ type ClaimedEmailJob = {
   tourEvent?: string | null;
 };
 
-export async function processEmailOutbox(limit = 10, workerId = `email_${crypto.randomUUID()}`) {
+export async function processEmailOutbox(
+  limit = DEFAULT_MAX_JOBS_PER_RUN,
+  workerId = `email_${crypto.randomUUID()}`,
+  options: EmailWorkerOptions = {},
+) {
+  const now = options.now ?? Date.now;
+  const sleep = options.sleep ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+  const sendIntervalMs = options.sendIntervalMs ?? PROVIDER_SEND_INTERVAL_MS;
+  const startedAt = now();
+  const deadline = startedAt + (options.timeBudgetMs ?? EMAIL_WORKER_TIME_BUDGET_MS);
   let sent = 0;
   let failed = 0;
   let cancelled = 0;
   let processed = 0;
+  let consecutiveFailures = 0;
+  let lastSendStartedAt = Number.NEGATIVE_INFINITY;
+  let stoppedBy: EmailWorkerStop = "job-limit";
 
   while (processed < limit) {
+    if (now() >= deadline) {
+      stoppedBy = "time-budget";
+      break;
+    }
+    if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+      stoppedBy = "consecutive-failures";
+      break;
+    }
     const [job] = await claimEmailJobs(1, workerId);
-    if (!job) break;
+    if (!job) {
+      stoppedBy = "drained";
+      break;
+    }
     processed += 1;
     try {
       const delivery = await prepareEmailDelivery(job, workerId);
@@ -50,13 +93,17 @@ export async function processEmailOutbox(limit = 10, workerId = `email_${crypto.
           },
         });
         cancelled += result.count;
+        consecutiveFailures = 0;
         continue;
       }
+      const paceMs = lastSendStartedAt + sendIntervalMs - now();
+      if (paceMs > 0) await sleep(paceMs);
       const lease = await prisma.emailOutbox.updateMany({
         where: activeEmailClaim(job, workerId),
         data: { leaseUntil: new Date(Date.now() + LEASE_MS) },
       });
       if (lease.count !== 1) continue;
+      lastSendStartedAt = now();
       const result = await delivery.send();
       if (!result) {
         const cancelledClaim = await prisma.emailOutbox.updateMany({
@@ -64,6 +111,7 @@ export async function processEmailOutbox(limit = 10, workerId = `email_${crypto.
           data: { status: "CANCELLED", lastError: "Notification became ineligible before dispatch.", leaseUntil: null, lockedAt: null, nextAttemptAt: null, workerId: null },
         });
         cancelled += cancelledClaim.count;
+        consecutiveFailures = 0;
         continue;
       }
       if (result.provider === "mock" && process.env.NODE_ENV !== "development" && process.env.NODE_ENV !== "test") {
@@ -83,8 +131,11 @@ export async function processEmailOutbox(limit = 10, workerId = `email_${crypto.
         },
       });
       sent += completed.count;
+      consecutiveFailures = 0;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Email job failed.";
+      consecutiveFailures += 1;
+      // Provider errors can quote the recipient address; keep it out of the row.
+      const message = error instanceof Error ? redactErrorMessage(error.message) : "Email job failed.";
       const retryDelayMs = Math.min(60, 2 ** job.attempts) * 60_000;
       const completed = await prisma.emailOutbox.updateMany({
         where: activeEmailClaim(job, workerId),
@@ -101,10 +152,11 @@ export async function processEmailOutbox(limit = 10, workerId = `email_${crypto.
     }
   }
 
+  const metadata = { cancelled, durationMs: now() - startedAt, failed, processed, sent, stoppedBy };
   await prisma.workerHeartbeat.upsert({
     where: { worker: "email-outbox" },
-    update: { lastRunAt: new Date(), metadata: { cancelled, failed, processed, sent } },
-    create: { worker: "email-outbox", lastRunAt: new Date(), metadata: { cancelled, failed, processed, sent } },
+    update: { lastRunAt: new Date(), metadata },
+    create: { worker: "email-outbox", lastRunAt: new Date(), metadata },
   });
   return { cancelled, failed, processed, sent };
 }
@@ -139,9 +191,12 @@ export async function claimEmailJobs(limit: number, workerId: string): Promise<C
       WHERE job.id = exhausted_candidates.id
       RETURNING job.id
     ), candidates AS (
+      -- The redundant status list lets the planner prove the predicate of
+      -- "EmailOutbox_claimable_createdAt_idx" and read it in "createdAt" order.
       SELECT id
       FROM public."EmailOutbox"
       WHERE attempts < ${MAX_ATTEMPTS}
+        AND status IN ('PENDING', 'FAILED', 'SENDING')
         AND (
           (status IN ('PENDING', 'FAILED') AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= now()))
           OR (status = 'SENDING' AND ("leaseUntil" IS NULL OR "leaseUntil" <= now()))

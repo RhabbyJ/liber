@@ -148,6 +148,28 @@ describe("bounded expiry in isolated PostgreSQL", () => {
       .toEqual([{ updatedAt: null }]);
   });
 
+  it("minimizes cancelled and failed email 30 days after their last transition", async () => {
+    await database.exec(`
+      INSERT INTO "EmailOutbox" (id, status, "sentAt", "updatedAt", payload, subject, "to") VALUES
+        ('cancelled-old', 'CANCELLED', NULL, '2026-08-01', '{"private":"fixture"}', 'Private subject', 'fixture@example.test'),
+        ('failed-old', 'FAILED', NULL, '2026-08-01', '{}', 'Private subject', 'fixture@example.test'),
+        ('cancelled-recent', 'CANCELLED', NULL, '2026-09-20', '{}', 'Recent', 'fixture@example.test'),
+        ('failed-recent', 'FAILED', NULL, '2026-09-20', '{}', 'Recent', 'fixture@example.test'),
+        ('sending-old', 'SENDING', NULL, '2026-08-01', '{}', 'In flight', 'fixture@example.test');
+    `);
+
+    expect(await expireMarketplaceState(now)).toMatchObject({ outboxPayloadsMinimized: 2, hasMore: false });
+    expect(await expireMarketplaceState(now)).toMatchObject({ outboxPayloadsMinimized: 0 });
+    const { rows } = await database.query('SELECT id, payload, subject, "to" FROM "EmailOutbox" ORDER BY id');
+    expect(rows).toEqual([
+      { id: "cancelled-old", payload: {}, subject: null, to: "redacted" },
+      { id: "cancelled-recent", payload: {}, subject: "Recent", to: "fixture@example.test" },
+      { id: "failed-old", payload: {}, subject: null, to: "redacted" },
+      { id: "failed-recent", payload: {}, subject: "Recent", to: "fixture@example.test" },
+      { id: "sending-old", payload: {}, subject: "In flight", to: "fixture@example.test" },
+    ]);
+  });
+
   it.each([true, false])("bounds LOI transitions and never emits duplicate events (expired: %s)", async (expired) => {
     await database.exec(`
       INSERT INTO "User" VALUES ('buyer-user', 'ACTIVE', ARRAY['BUYER']), ('seller-user', 'ACTIVE', ARRAY['SELLER']);

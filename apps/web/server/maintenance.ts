@@ -1,5 +1,9 @@
 export const INVITE_RESPONSE_WINDOW_MS = 48 * 60 * 60 * 1000;
 export const MAINTENANCE_BATCH_SIZE = 25;
+export const OUTBOX_PII_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+export const RATE_LIMIT_PRUNE_BATCH_SIZE = 1_000;
+// Matches app_private.expire_operational_rows(): legacy buckets stay a day past expiry.
+const LEGACY_RATE_LIMIT_RETENTION_MS = 24 * 60 * 60 * 1000;
 type LoiFreezeReason = "INVITE_NO_LONGER_ELIGIBLE" | "PARTICIPANT_INACTIVE" | "PARTICIPANTS_BLOCKED" | "PROPERTY_IDENTITY_CHANGED" | "PROPERTY_NO_LONGER_ELIGIBLE" | "SELLER_ACCESS_LOST";
 
 export function inviteExpiresAt(from = new Date()) {
@@ -186,13 +190,16 @@ export async function expireMarketplaceState(now = new Date()) {
       });
     }
 
+    // Finished jobs keep recipient address, subject, and payload for 30 days after
+    // delivery (SENT) or their last transition (CANCELLED, FAILED). Delivery
+    // re-derives recipients from relational IDs, so a late retry still works.
     const minimizedOutbox = await tx.$queryRaw<Array<{ id: string }>>`
       WITH candidates AS (
         SELECT job.id FROM public."EmailOutbox" job
-        WHERE job.status = 'SENT'
-          AND job."sentAt" < ${new Date(now.getTime() - 30 * 86_400_000)}
+        WHERE job.status IN ('SENT', 'CANCELLED', 'FAILED')
+          AND coalesce(job."sentAt", job."updatedAt") < ${new Date(now.getTime() - OUTBOX_PII_RETENTION_MS)}
           AND (job.payload <> '{}'::jsonb OR job.subject IS NOT NULL OR job."to" <> 'redacted')
-        ORDER BY job."sentAt", job.id
+        ORDER BY coalesce(job."sentAt", job."updatedAt"), job.id
         LIMIT ${MAINTENANCE_BATCH_SIZE}
         FOR UPDATE OF job SKIP LOCKED
       )
@@ -212,4 +219,39 @@ export async function expireMarketplaceState(now = new Date()) {
         .some((rows) => rows.length === MAINTENANCE_BATCH_SIZE),
     };
   }, { maxWait: 5_000, timeout: 15_000 });
+}
+
+// Deletes only expired rate-limit buckets, never business rows. This does not
+// call app_private.expire_operational_rows(), which also rewrites upload
+// session state that the upload cleanup worker owns.
+export async function pruneExpiredRateLimitBuckets(now = new Date()) {
+  const { prisma } = await import("@liber/db");
+  // Prisma sends Dates as UTC wall-clock text; anchor it to UTC for timestamptz.
+  const [shared] = await prisma.$queryRaw<Array<{ deleted: number }>>`
+    SELECT app_private.prune_rate_limit_buckets(
+      ${now}::timestamp AT TIME ZONE 'UTC',
+      ${RATE_LIMIT_PRUNE_BATCH_SIZE}::integer
+    ) AS deleted
+  `;
+  const [legacy] = await prisma.$queryRaw<Array<{ deleted: number }>>`
+    WITH expired AS (
+      SELECT bucket.key FROM public."RateLimitBucket" bucket
+      WHERE bucket."expiresAt" < ${new Date(now.getTime() - LEGACY_RATE_LIMIT_RETENTION_MS)}
+      ORDER BY bucket."expiresAt"
+      LIMIT ${RATE_LIMIT_PRUNE_BATCH_SIZE}
+      FOR UPDATE SKIP LOCKED
+    ), deleted AS (
+      DELETE FROM public."RateLimitBucket" bucket
+      USING expired WHERE bucket.key = expired.key
+      RETURNING 1
+    )
+    SELECT count(*)::integer AS deleted FROM deleted
+  `;
+  const sharedBucketsPruned = Number(shared?.deleted ?? 0);
+  const legacyBucketsPruned = Number(legacy?.deleted ?? 0);
+  return {
+    hasMore: sharedBucketsPruned === RATE_LIMIT_PRUNE_BATCH_SIZE || legacyBucketsPruned === RATE_LIMIT_PRUNE_BATCH_SIZE,
+    legacyBucketsPruned,
+    sharedBucketsPruned,
+  };
 }

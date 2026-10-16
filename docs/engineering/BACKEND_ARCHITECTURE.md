@@ -182,8 +182,12 @@ Key concepts:
 - Auth POST routes preserve the incoming request host/protocol for same-origin checks and redirects so local `127.0.0.1` and `localhost` sessions do not cross origins under the CSP `form-action` rule. State-changing HTTP routes require an exact matching `Origin`; when a browser omits `Origin`, only `Sec-Fetch-Site: same-origin` is accepted. Requests missing both signals fail closed.
 - Login and signed-in auth entry points resolve `next` through a role-aware intent helper. Stale auth-flow destinations and destinations requiring a role the account does not have fall back to the user's existing default workspace instead of entering another role picker or auth loop.
 - The Auth insert trigger creates a new application User only for the same Auth
-  UUID and always starts with empty roles. It never resolves an email conflict
-  by changing a User ID.
+  UUID and always starts with empty roles and an empty name. It never resolves
+  an email conflict by changing a User ID.
+- The Auth update trigger fires only when `auth.users.email` actually changes
+  and syncs only the email. `User.name` is application-owned and is never
+  copied from user-editable Auth metadata (migration
+  `20261016040000_codify_auth_user_sync_triggers`).
 - The signup action persists the allowlisted buyer/seller/both form choice after
   the Auth UUID exists and before redirecting to email verification. It does
   not read Auth metadata as role authority, and the user cannot obtain a
@@ -662,19 +666,21 @@ Abuse-prone actions should be rate-limited:
 
 Important actions should write `AdminAuditLog` or equivalent operational events where supported.
 
-Abuse controls use atomic Postgres-backed fixed-window limiters shared by serverless instances. Auth, LOI, and public-geography limits call the four-argument `app_private.consume_rate_limit(namespace, key_hash, limit, window_seconds)` over `app_private.rate_limit_buckets` with HMAC-peppered identifiers, created by migration `20261016033000_codify_shared_rate_limiter`. `assertRateLimit` callers use the three-argument overload over `public."RateLimitBucket"`. Invite quota remains a separate rolling-24-hour business invariant serialized in the invite transaction. Audit rows are not quota counters.
+Abuse controls use atomic Postgres-backed fixed-window limiters shared by serverless instances. Auth, LOI, and public-geography limits call the four-argument `app_private.consume_rate_limit(namespace, key_hash, limit, window_seconds)` over `app_private.rate_limit_buckets` with HMAC-peppered identifiers, created by migration `20261016033000_codify_shared_rate_limiter`. `assertRateLimit` callers use the three-argument overload over `public."RateLimitBucket"`. Expiry maintenance prunes expired buckets from both tables in bounded batches. Invite quota remains a separate rolling-24-hour business invariant serialized in the invite transaction. Audit rows are not quota counters.
 
 The retained three-argument limiter overload uses an explicitly named timestamp variable (`v_now`); do not use `current_time` as a PL/pgSQL variable because PostgreSQL can resolve it as the built-in `time with time zone` expression inside SQL statements.
 
 ## Maintenance
 
-`GET`/`POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET` and expires stale invites/badges. `GET /api/maintenance/outbox` uses the same bearer secret for leased email delivery, Auth bans, and abandoned-upload cleanup. The September 27 release configuration restores the outbox schedule to every minute (`* * * * *`) and bounded expiry to every minute (`* * * * *`). The existing Vercel account was verified as Pro, which supports this schedule. Production deployment and fresh worker heartbeats are still required before claiming live delivery readiness.
+`GET`/`POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET`, expires stale invites/badges/LOIs, minimizes finished outbox rows after 30 days, and prunes expired rate-limit buckets. `GET /api/maintenance/outbox` uses the same bearer secret for leased email delivery, Auth bans, and abandoned-upload cleanup. Both routes isolate their workers: a failing worker is logged with its class, Prisma code, SQLSTATE, and a redacted message, the others still run, and the route returns 500 so Vercel marks the cron run failed. Successful runs record `email-outbox`, `auth-operations`, `upload-cleanup`, and `marketplace-expiry` heartbeats; production readiness requires each to be under five minutes old. The September 27 release configuration restores the outbox schedule to every minute (`* * * * *`) and bounded expiry to every minute (`* * * * *`). The existing Vercel account was verified as Pro, which supports this schedule. Production deployment and fresh worker heartbeats are still required before claiming live delivery readiness.
 
 Email and Auth jobs use atomic `FOR UPDATE SKIP LOCKED` claims, expiring leases, worker IDs, bounded retry, idempotency keys, provider message IDs, and worker heartbeats. Missing Resend configuration outside development/test is a job failure and a production-readiness failure. Production readiness also requires server-only `SITE_URL` to be a canonical HTTPS origin so every authenticated email link has a validated base.
 
 Email and Auth processing claim one job at a time, renew the owned unexpired lease before
 provider submission, and fence state changes by worker ID, attempt number, and
-lease expiry. Expired final-attempt claims become terminal FAILED jobs (five
+lease expiry. An email run keeps claiming for up to 20 seconds (200 jobs at
+most), spaces provider submissions at least 600 ms apart, and stops after three
+consecutive failures. Expired final-attempt claims become terminal FAILED jobs (five
 attempts for email, eight for Auth bans), and completion/failure counters include
 only committed transitions. Provider idempotency and repeatable Auth bans handle
 uncertain in-flight outcomes. Isolated PostgreSQL regressions exercise both
@@ -696,6 +702,31 @@ Do not create unauthenticated maintenance endpoints.
 - ATTOM/property enrichment must require auth and rate limits.
 - Resend transactional email is used only when configured.
 - Missing external keys should not break local development.
+
+## Error logging and reporting
+
+Server and Edge request errors go to Sentry through `apps/web/instrumentation.ts`
+(`register` plus `onRequestError`, `@sentry/nextjs` 10.76.2) only when the
+server-only `SENTRY_DSN` is set; otherwise the SDK is never loaded. Reporting is
+errors only: no tracing sample rate, transactions, session replay, breadcrumbs,
+browser SDK, `withSentryConfig`, or source-map upload. `server/error-reporting.ts`
+sets `sendDefaultPii: false`, turns every `dataCollection` category off (in this
+SDK version it supersedes `sendDefaultPii`), and its `beforeSend` removes request
+headers, cookies, query strings, bodies, user email/IP, breadcrumbs, extra data,
+and stack-frame variables, and redacts exception messages. Reports are sent from
+the server, so the Content-Security-Policy needs no Sentry origin. Root-layout
+failures render the branded, self-contained `app/global-error.tsx`.
+
+Server logs never carry request bodies, cookies, headers, recipient
+addresses, or message and LOI content. `server/error-summary.ts` reduces an
+unknown error to its class, Prisma code, PostgreSQL SQLSTATE, and a redacted,
+truncated message: URLs, tokens, addresses, private paths, file names, quoted
+input values, and long numbers are removed, and Prisma validation messages are
+replaced entirely because they echo query arguments. LOI, private-file, and
+maintenance failures log that summary with a route label whose identifier
+segments are replaced (`loiErrorResponse(error, request)` and
+`uploadErrorResponse(error, request)` accept the route template or the
+incoming request).
 
 ## Security invariants
 

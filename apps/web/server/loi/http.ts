@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError, type ZodType } from "zod";
+import { routeLabel, summarizeError } from "../error-summary";
 import { LoiError } from "./errors";
 
 const MAX_BYTES = 48 * 1024;
@@ -53,9 +54,13 @@ export async function parseLoiJson<T>(request: Request, schema: ZodType<T>) {
   }
 }
 
-export function loiErrorResponse(error: unknown) {
+/**
+ * Maps an LOI route failure to a private response. Pass the route template or
+ * the incoming Request so logs name the route; identifiers are not logged.
+ */
+export function loiErrorResponse(error: unknown, route?: string | Request) {
   if (error instanceof LoiError) {
-    console.warn("LOI request rejected.", { code: error.code, status: error.status });
+    console.warn("LOI request rejected.", { code: error.code, route: routeLabel(route), status: error.status });
     const message = error.code === "AUTHENTICATION_REQUIRED" ? "Authentication required."
       : error.code === "FINANCING_EVIDENCE_REQUIRED" ? "A current pre-approval badge or uploaded pre-approval letter is required."
       : error.code === "INVALID_INPUT" ? "Invalid LOI request."
@@ -72,7 +77,8 @@ export function loiErrorResponse(error: unknown) {
       ...(Object.keys(fieldErrors).length ? { fieldErrors } : {}),
     }, 400);
   }
-  console.error("LOI request failed.", { name: error instanceof Error ? error.name : "UnknownError" });
+  // Class, Prisma/PostgreSQL codes, and a redacted message; never terms or identities.
+  console.error("LOI request failed.", { route: routeLabel(route), ...summarizeError(error) });
   return privateLoiJson({ error: "LOI request failed." }, 500);
 }
 
