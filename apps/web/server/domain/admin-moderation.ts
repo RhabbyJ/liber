@@ -131,15 +131,20 @@ export async function unhideBuyerProfile(input: unknown): Promise<ActionFeedback
   if (!authorized.allowed) return authorized.feedback;
   const { admin, data } = authorized;
   return prisma.$transaction(async (tx) => {
-    const [profile] = await tx.$queryRaw<Array<{ user_id: string; visibility: string }>>`
-      SELECT "userId" AS user_id, "visibilityStatus"::text AS visibility
+    const target = await tx.buyerProfile.findUnique({ where: { id: data.buyerProfileId }, select: { userId: true } });
+    if (!target) return profileUnavailable;
+    // Account before profile, like suspension, so a concurrent suspension cannot be undone.
+    const [owner] = await tx.$queryRaw<Array<{ status: string }>>`
+      SELECT status::text AS status FROM public."User" WHERE id = ${target.userId}::uuid FOR SHARE
+    `;
+    const [profile] = await tx.$queryRaw<Array<{ visibility: string }>>`
+      SELECT "visibilityStatus"::text AS visibility
       FROM public."BuyerProfile"
       WHERE id = ${data.buyerProfileId}
       FOR UPDATE
     `;
     if (!profile) return profileUnavailable;
     if (profile.visibility !== "HIDDEN") return { ok: true, message: "This profile isn’t hidden. No changes were needed." };
-    const owner = await tx.user.findUnique({ where: { id: profile.user_id }, select: { status: true } });
     if (owner?.status !== "ACTIVE") {
       return { ok: false, message: "This account is suspended. Reinstate the user before unhiding the profile." };
     }
@@ -161,7 +166,7 @@ export async function unhideBuyerProfile(input: unknown): Promise<ActionFeedback
         metadata: { buyerProfileId: data.buyerProfileId, visibility: restored },
         title: "Buyer profile restored",
         type: "buyer_profile_unhidden",
-        userId: profile.user_id,
+        userId: target.userId,
       },
     });
     await tx.adminAuditLog.create({

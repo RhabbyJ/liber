@@ -163,6 +163,16 @@ describe("user reinstatement", () => {
     await expect(reinstateUser(form)).resolves.toMatchObject({ ok: true, message: expect.stringContaining("reinstated") });
 
     expect(mocks.userUpdate).toHaveBeenCalledWith({ where: { id: userId }, data: { status: "ACTIVE", suspendedAt: null } });
+    // Lock order: account, buyer profile, seller access, then properties.
+    const [accountLock, profileLock, propertyLock] = mocks.lock.mock.calls.map((call) => (call[0] as TemplateStringsArray).join("?"));
+    expect(accountLock).toContain('FROM public."User"');
+    expect(profileLock).toContain('FROM public."BuyerProfile"');
+    expect(profileLock).toContain("FOR UPDATE");
+    expect(propertyLock).toContain('FROM public."SellerProperty"');
+    expect(propertyLock).toContain("FOR UPDATE");
+    expect(mocks.lock.mock.invocationCallOrder[1]).toBeLessThan(mocks.profileFind.mock.invocationCallOrder[0]);
+    expect(mocks.accessUpdateMany.mock.invocationCallOrder[0]).toBeLessThan(mocks.lock.mock.invocationCallOrder[2]);
+    expect(mocks.lock.mock.invocationCallOrder[2]).toBeLessThan(mocks.propertyFindMany.mock.invocationCallOrder[0]);
     expect(mocks.profileUpdate).toHaveBeenCalledWith({ where: { id: "buyer-profile-1" }, data: { visibilityStatus: "DRAFT" } });
     expect(mocks.accessUpdateMany).toHaveBeenCalledWith({ where: { userId, status: "SUSPENDED" }, data: { status: "PENDING" } });
     expect(mocks.propertyFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { ownerUserId: userId, flaggedForReviewAt: { not: null } } }));

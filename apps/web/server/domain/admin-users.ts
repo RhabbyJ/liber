@@ -141,6 +141,7 @@ export async function reinstateUser(input: unknown): Promise<ActionFeedbackState
     if (status !== "SUSPENDED") return { ok: true, message: "This account is already active. No changes were needed." };
     await tx.user.update({ where: { id: userId }, data: { status: "ACTIVE", suspendedAt: null } });
 
+    await tx.$queryRaw`SELECT id FROM public."BuyerProfile" WHERE "userId" = ${userId}::uuid FOR UPDATE`;
     const profile = await tx.buyerProfile.findUnique({ where: { userId }, select: { id: true, visibilityStatus: true } });
     let buyerProfileVisibility: "DRAFT" | "HIDDEN" | null = null;
     if (profile?.visibilityStatus === "SUSPENDED") {
@@ -159,7 +160,14 @@ export async function reinstateUser(input: unknown): Promise<ActionFeedbackState
       data: { status: "PENDING" },
     });
 
-    // Suspension is the only path that flags properties for review.
+    // Suspension is the only path that flags properties for review. Lock them so a
+    // concurrent document review cannot change the evidence state read below.
+    await tx.$queryRaw`
+      SELECT id FROM public."SellerProperty"
+      WHERE "ownerUserId" = ${userId}::uuid AND "flaggedForReviewAt" IS NOT NULL
+      ORDER BY id
+      FOR UPDATE
+    `;
     const properties = await tx.sellerProperty.findMany({
       where: { ownerUserId: userId, flaggedForReviewAt: { not: null } },
       select: {

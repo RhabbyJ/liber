@@ -196,9 +196,21 @@ describe("admin buyer profile hide and unhide", () => {
     expect(mocks.audit).not.toHaveBeenCalled();
   });
 
+  function stageUnhide({ ownerStatus = "ACTIVE", visibility = "HIDDEN", fields = publishable as object } = {}) {
+    mocks.profileFields.mockImplementation(async ({ select }: { select: Record<string, unknown> }) => (select.userId ? { userId: buyerId } : fields));
+    mocks.lockRow.mockImplementation(async (strings: TemplateStringsArray) => (
+      strings.join("?").includes('FROM public."User"') ? [{ status: ownerStatus }] : [{ visibility }]
+    ));
+  }
+
   it("restores a profile that was live when hidden and still meets the publication rules", async () => {
-    mocks.lockRow.mockResolvedValue([{ user_id: buyerId, visibility: "HIDDEN" }]);
+    stageUnhide();
     await expect(unhideBuyerProfile({ buyerProfileId, reason: "Cleared" })).resolves.toMatchObject({ ok: true, message: expect.stringContaining("live") });
+    const [ownerLock, profileLock] = mocks.lockRow.mock.calls.map((call) => sql(call));
+    expect(ownerLock).toContain('FROM public."User"');
+    expect(ownerLock).toContain("FOR SHARE");
+    expect(profileLock).toContain('FROM public."BuyerProfile"');
+    expect(profileLock).toContain("FOR UPDATE");
     expect(mocks.lastAudit).toHaveBeenCalledWith(expect.objectContaining({
       where: { action: "hide_buyer_profile", targetId: buyerProfileId, targetType: "buyer_profile" },
     }));
@@ -214,19 +226,19 @@ describe("admin buyer profile hide and unhide", () => {
     ["predates visibility auditing", { metadata: { reason: "Old hide" } }, publishable],
     ["no longer meets the publication rules", { metadata: { previousVisibility: "ACTIVE" } }, { ...publishable, criteria: [] }],
   ])("returns a profile that %s to the buyer as a draft", async (_case, lastHide, fields) => {
-    mocks.lockRow.mockResolvedValue([{ user_id: buyerId, visibility: "HIDDEN" }]);
+    stageUnhide({ fields });
     mocks.lastAudit.mockResolvedValue(lastHide);
-    mocks.profileFields.mockResolvedValue(fields);
     await expect(unhideBuyerProfile({ buyerProfileId })).resolves.toMatchObject({ ok: true, message: expect.stringContaining("draft") });
     expect(mocks.profileUpdate).toHaveBeenCalledWith({ where: { id: buyerProfileId }, data: { visibilityStatus: "DRAFT" } });
   });
 
   it("refuses to unhide a suspended account's profile and ignores profiles that are not hidden", async () => {
-    mocks.lockRow.mockResolvedValue([{ user_id: buyerId, visibility: "HIDDEN" }]);
-    mocks.owner.mockResolvedValue({ status: "SUSPENDED" });
+    stageUnhide({ ownerStatus: "SUSPENDED" });
     await expect(unhideBuyerProfile({ buyerProfileId })).resolves.toMatchObject({ ok: false, message: expect.stringContaining("Reinstate") });
-    mocks.lockRow.mockResolvedValue([{ user_id: buyerId, visibility: "ACTIVE" }]);
+    stageUnhide({ visibility: "ACTIVE" });
     await expect(unhideBuyerProfile({ buyerProfileId })).resolves.toMatchObject({ ok: true, message: expect.stringContaining("isn’t hidden") });
+    mocks.profileFields.mockResolvedValue(null);
+    await expect(unhideBuyerProfile({ buyerProfileId })).resolves.toMatchObject({ ok: false, message: expect.stringContaining("no longer available") });
     expect(mocks.profileUpdate).not.toHaveBeenCalled();
     expect(mocks.notification).not.toHaveBeenCalled();
     expect(mocks.audit).not.toHaveBeenCalled();
