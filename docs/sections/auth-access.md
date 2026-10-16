@@ -14,6 +14,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - `apps/web/server/ceo-preview.ts`
 - `apps/web/server/auth-identity.ts`
 - `apps/web/server/auth-rate-limit.ts`
+- `apps/web/server/password-recovery.ts`
 - `apps/web/server/shared-rate-limit.ts`
 - `apps/web/lib/auth-identity.ts`
 - `apps/web/server/request-origin.ts`
@@ -25,7 +26,10 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - `apps/web/app/login/login-view.tsx`
 - `apps/web/components/auth-shell.tsx`
 - `apps/web/components/login-form.tsx`
+- `apps/web/components/password-forms.tsx`
 - `apps/web/components/signup-form.tsx`
+- `apps/web/app/forgot-password/page.tsx`
+- `apps/web/app/reset-password/page.tsx`
 - `apps/web/app/profile/page.tsx`
 - `apps/web/app/preview-tools/**`
 - `apps/web/app/signup/page.tsx`
@@ -74,7 +78,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
   steps post the same native form, and an email-only post (no JavaScript)
   returns with the password step open.
 - Signed-in users should continue only when they already have the role needed for the requested path; a role mismatch returns them to their existing default workspace.
-- Auth routes must not use `/login`, `/signup`, `/signup/*`, `/auth/callback`, or the removed legacy `/onboarding/role` path as post-login destinations; resolve stale auth-flow `next` values to the user's role-aware default.
+- Auth routes must not use `/login`, `/signup`, `/signup/*`, `/auth/callback`, `/forgot-password`, `/reset-password`, or the removed legacy `/onboarding/role` path as post-login destinations; resolve stale auth-flow `next` values to the user's role-aware default.
 - Every `next` value passes through `safeInternalPath`. It rejects ASCII control
   characters (URL parsing deletes tab/LF/CR, so `/\t/evil.example` would become
   `//evil.example`), backslashes, `//`, `..` segments, and values that turn
@@ -84,7 +88,7 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
 - Password login has one write path: `POST /api/auth/login`. Do not reintroduce a duplicate login server action with separate identity checks. The log-in form is a native POST to that route; it never calls Supabase from the browser.
 - Server-side signup errors return to the signup form with the role and email restored instead of restarting the user. Do not put the private signup account name in URLs; same-browser draft recovery is acceptable for error recovery.
 - Logout is a POST-only auth action. Desktop and mobile logout controls must submit successfully under the CSP `form-action` policy, clear Supabase cookies, and land on `/login?status=signed-out`.
-- The owner-only `/profile` page is available to every active authenticated role and shows only that session user's private account identity plus workspace links. The header avatar menu links there and keeps logout POST-only.
+- The owner-only `/profile` page is available to every active authenticated role and shows only that session user's private account identity, workspace links, and the password-change form. The header avatar menu links there and keeps logout POST-only.
 - Buyer-only users opening seller routes such as `/seller/search` or `/seller/properties` return to their buyer workspace; they must never reach seller access gating or approved seller search without a persisted SELLER role.
 - `/buyers/:buyerProfileId` is an authenticated cross-role profile route. Route entry may allow buyers, sellers, or admins, but final profile visibility must stay server-side in `getAuthorizedBuyerProfile`.
 - Duplicate-email signup attempts must send the user to login, not back into the password wizard loop.
@@ -104,8 +108,9 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
   `resolveAuthIdentity` and never initializes roles.
 - `User.name` is authoritative private account data. Auth updates synchronize
   email only; later `user_metadata.name` edits never overwrite it.
-- Login, signup, confirmation resend, and collision-recovery signals consume
-  shared database-backed IP and normalized-email budgets. Every deployed Vercel
+- Login (including the profile current-password check), signup, confirmation
+  resend, password-reset email, and collision-recovery signals consume shared
+  database-backed IP and normalized-email budgets. Every deployed Vercel
   runtime, including Preview, must provide its own 32+ character
   `AUTH_RATE_LIMIT_PEPPER`; production-mode runtimes fail closed when it is
   unavailable.
@@ -129,6 +134,41 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
   synchronization still exists only in the unnumbered Auth/security SQL
   reserved for `00017`; a database built from migrations alone keeps the older
   all-column `on_auth_user_updated` trigger that copies `user_metadata.name`.
+
+## Password recovery and change
+
+- Log in's password step links "Forgot password?" to `/forgot-password`, an
+  email-only form posting the `requestPasswordReset` server action. It checks
+  the address shape, spends the shared `reset` budget (5 per IP and 3 per
+  normalized address per hour; every submitted address counts), then always
+  shows the same "Check your email" page whatever Supabase answers (sent,
+  unknown address, or its own throttle), so the response never reveals which
+  addresses have accounts. Failures are logged by status/code only.
+- The email link returns to `SITE_URL` + `/auth/callback?next=/reset-password`.
+  A session counts as a recovery only when Supabase says so: `verifyOtp` with
+  `type=recovery` (token-hash link) or `exchangeCodeForSession` reporting
+  `redirectType: "recovery"` (the PKCE verifier `resetPasswordForEmail` stored
+  in this browser). `next` alone never opens the reset page. After the usual
+  identity checks the callback sets `liber-password-recovery`: httpOnly,
+  `Path=/reset-password`, 30 minutes, `expiresAt.HMAC-SHA256(user id, expiry)`
+  keyed by the server-only `AUTH_RATE_LIMIT_PEPPER` (domain-separated, as the
+  messaging cursors do). Expired or failed reset links land on
+  `/forgot-password?status=link-expired`.
+- `/reset-password` shows the form only to an active session user with a valid
+  marker; everyone else sees an expired-link page. New passwords follow the
+  signup rule (12–1024 characters after trimming, as signup and login trim).
+  Success clears the marker, ends the account's other sessions
+  (`signOut({ scope: "others" })`), and opens the role-default workspace.
+- `/profile` → Password changes a signed-in password: the current password is
+  a sign-in attempt, so it spends the `login` budget and is verified with
+  `signInWithPassword` for the session email (an Auth identity mismatch signs
+  out locally). Success ends other sessions.
+- Supabase prerequisites: production needs a working custom SMTP sender (the
+  built-in sender is for testing and heavily rate limited), the Auth redirect
+  allowlist must accept `SITE_URL/auth/callback?next=/reset-password`, and the
+  default `{{ .ConfirmationURL }}` reset email works only in the browser that
+  requested it (PKCE). For any-device links, point the Reset Password template
+  at `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password`.
 
 ## Agent notes
 

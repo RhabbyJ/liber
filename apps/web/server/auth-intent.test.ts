@@ -21,6 +21,13 @@ describe("pathForSignedInAuthIntent", () => {
     expect(pathForSignedInAuthIntent({ id: "roleless", roles: [] }, { next: "/buyer/profile" })).toBe("/");
   });
 
+  it.each(["/reset-password", "/reset-password?status=too-short", "/forgot-password"])(
+    "never continues to the password-reset flow page %s; only a verified recovery link opens it",
+    (next) => {
+      expect(pathForSignedInAuthIntent({ id: "seller", roles: ["SELLER"] }, { next })).toBe("/seller/properties");
+    },
+  );
+
   it("treats the removed role page as a stale auth-flow destination", () => {
     expect(pathForSignedInAuthIntent({ id: "buyer", roles: ["BUYER"] }, { next: "/onboarding/role" })).toBe(
       "/buyer/profile",

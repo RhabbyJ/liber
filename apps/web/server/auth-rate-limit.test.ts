@@ -52,11 +52,22 @@ describe("shared auth rate limiting", () => {
     expect(queryRaw).toHaveBeenCalledTimes(1);
   });
 
-  it("defines independent login, signup, resend, and recovery budgets", () => {
+  it("defines independent login, signup, resend, recovery, and password-reset budgets", () => {
     expect(authRateLimitConfig("login").ip.windowSeconds).toBe(60);
     expect(authRateLimitConfig("signup").ip.limit).toBe(5);
     expect(authRateLimitConfig("resend").email.limit).toBe(3);
     expect(authRateLimitConfig("recovery").email.windowSeconds).toBe(3600);
+    expect(authRateLimitConfig("reset")).toEqual({
+      email: { limit: 3, windowSeconds: 3600 },
+      ip: { limit: 5, windowSeconds: 3600 },
+    });
+  });
+
+  it("keeps password-reset buckets separate from other Auth actions", async () => {
+    await enforceSharedAuthRateLimit({ action: "reset", email: "buyer@example.test", ip: "203.0.113.8" });
+
+    const namespaces = queryRaw.mock.calls.map((call) => call[1]);
+    expect(namespaces).toEqual(["auth:reset:ip", "auth:reset:email"]);
   });
 
   it("fails closed when the shared limiter is unavailable in production", async () => {

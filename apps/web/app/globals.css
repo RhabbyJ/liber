@@ -2681,6 +2681,25 @@ input[type="radio"]:disabled {
   text-underline-offset: 3px;
 }
 
+/* "Forgot password?" under the login password field. */
+.auth-inline-link {
+  color: var(--ink-strong);
+  font-size: 14px;
+  font-weight: 700;
+  justify-self: start;
+  line-height: 20px;
+  padding: 2px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Profile → Password: current and new password fields in one narrow column. */
+.password-change-form {
+  display: grid;
+  gap: 16px;
+  max-width: 400px;
+}
+
 .auth-resend {
   display: grid;
 }
