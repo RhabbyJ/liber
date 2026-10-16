@@ -1,6 +1,6 @@
 # Production Decisions
 
-Last reviewed: 2026-09-22
+Last reviewed: 2026-10-16
 
 This is the living launch-gate matrix for moving Liber from a controlled CEO
 demo/private preview to a public Los Angeles beta. It does not override
@@ -38,9 +38,20 @@ changes are deployed. Provider findings retain the dates of their source audits.
   closes global and `app_private`-scoped non-owner PostgreSQL default function
   `EXECUTE` grants. `PUBLIC`, `anon`, and `service_role` remain closed, and
   `app_private` is not exposed through the Data API.
-- `LIBER_MESSAGING_V1_ENABLED` and `LIBER_LOI_V1_ENABLED` remain disabled by
-  default. No broader production cohort is authorized while the remaining
-  release gates are open.
+- Product-owner decision 2026-10-16: production messaging and LOI are enabled
+  for an explicit cohort of every account that existed that day (29 UUIDs in
+  `LIBER_MESSAGING_V1_COHORT_USER_IDS` and `LIBER_LOI_V1_COHORT_USER_IDS`).
+  The earlier `*` demo values were rejected by production code, which had
+  silently disabled both features since the 2026-10-14 deploy. Later signups
+  join only by explicit review; the remaining release gates below still apply
+  before opening either feature to new signups.
+- 2026-10-16: production runs Next.js 16.4.2 (16.0.0-16.3.7 carried critical
+  advisory GHSA-vcvr-r3jv-pc5j in `next/og`, which Liber does not use). CI now
+  fails on moderate or higher advisories in shipped dependencies and on any
+  critical advisory.
+- 2026-10-16: 21 of 29 production accounts hold ADMIN, almost all from the
+  CEO-preview self-grant (`admin_role_preview_self_grant`). The owner chose to
+  keep them for now; review and remove them before any public launch.
 - The supported fresh-database path is the locked generated Prisma baseline
   through Guided Messaging V1. Existing production retains its immutable
   historical ledger and uses forward migrations only. Promotion still requires
@@ -62,14 +73,16 @@ changes are deployed. Provider findings retain the dates of their source audits.
   the Prisma ledger. Migration `20261016033000_codify_shared_rate_limiter` now
   creates those objects, so a database rebuilt from the repository (staging,
   disaster recovery, a new project) can serve login and the other shared
-  limits instead of returning 503. It is committed to the repository only, not
-  applied to any database. Before deploying it to production, run the read-only
-  `../engineering/SHARED_RATE_LIMITER_DRIFT_CHECK.sql` and require every row to
-  match. `readiness:production` now fails when the four-argument signature is
-  missing.
-- The deployed `vercel.json` has no crons, so `EmailOutbox` is not drained
-  (8 pending invite/LOI emails with zero attempts on 2026-10-13). Deploying the
-  per-minute crons is required before relying on email delivery.
+  limits instead of returning 503. It was applied to production on 2026-10-16
+  after the read-only `../engineering/SHARED_RATE_LIMITER_DRIFT_CHECK.sql`
+  matched on every row, so it changed nothing except recording the migration.
+  `readiness:production` now fails when the four-argument signature is missing.
+- Per-minute outbox and expiry crons have been deployed since 2026-10-14; worker
+  heartbeats were current on 2026-10-16. The 2026-10-13 backlog was cancelled by
+  delivery-time eligibility checks rather than sent, and no email has ever been
+  delivered: production has `RESEND_API_KEY` but no `RESEND_FROM_EMAIL`, so the
+  next deliverable email will fail after its retries until a verified sender is
+  configured.
 - The guarded v2 stage and activation completed in production on 2026-07-12;
   the release and 2026-07-13 security hardening migrations are applied with zero
   unresolved Prisma rows and zero invalid active buyers.
@@ -235,9 +248,9 @@ the existing invite quota.
   September 22 browser pass covered public/navigation flows, not that full journey.
 - Staff the report queue and audit report-content reads, status changes, and
   redactions. There is no unrestricted admin inbox.
-- Keep `LIBER_MESSAGING_V1_ENABLED` disabled by default in production and use
-  `LIBER_MESSAGING_V1_COHORT_USER_IDS` for the reviewed cohort. Both
-  participants must be eligible before interactive messaging is exposed.
+- Production uses the explicit reviewed cohort set on 2026-10-16 in
+  `LIBER_MESSAGING_V1_COHORT_USER_IDS`; never `*`. Both participants must be
+  eligible before interactive messaging is exposed.
 
 ### LOI controlled-cohort release
 
@@ -254,9 +267,12 @@ the existing invite quota.
   not authorize a production cohort.
 - September 21 scoped HTTP proof completed LOI draft/submission/counter/alignment
   and retries, with browser verification of aligned terms and revision display.
-  Keep broader LOI rollout disabled pending protected exact-SHA fresh/upgrade
-  jobs, two-connection race proof, final-release authenticated journey reruns,
-  scheduled worker/provider proof, and required product/counsel approvals.
+  On 2026-10-16 the product owner extended the production LOI cohort from one
+  pair to every existing account; a negotiation is available only when both
+  participants are listed. Opening LOI to new signups still requires protected
+  exact-SHA fresh/upgrade jobs, two-connection race proof, final-release
+  authenticated journey reruns, scheduled worker/provider proof, and
+  counsel approvals.
 
 ### Release infrastructure
 
@@ -277,15 +293,17 @@ the existing invite quota.
 
 ## Environment and advisor decisions
 
-- Vercel cron schedules remain disabled in the repository for the controlled
-  preview. Configure per-minute outbox/Auth work and bounded expiry invocations
-  before relying on automated email, Auth bans, invite expiry or upload cleanup.
+- `vercel.json` schedules `/api/maintenance/outbox` and `/api/maintenance/expire`
+  every minute (requires Vercel Pro; a plan downgrade would fail every deploy).
   Drain `expiration.hasMore` through subsequent invocations; a daily single
   expiry call is insufficient for the current bounded batches.
 - Keep a unique `AUTH_RATE_LIMIT_PEPPER` of at least 32 characters in each deployed environment. Production and the `codex/ui-refresh` branch preview are configured separately; any additional preview branch must receive its own value before Auth can be exercised there.
 - Configure `CRON_SECRET` before scheduled maintenance is enabled.
 - Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` before relying on invite
-  email delivery.
+  email delivery. As of 2026-10-16 production lacks `RESEND_FROM_EMAIL`; the
+  owner will add an address on a domain verified in Resend. Supabase Auth's own
+  emails (signup confirmation, password reset) need a custom SMTP server, because
+  Supabase's built-in sender only mails project team members.
 - Unread-message email is also outbox-backed and content-free. Do not enable it
   until the per-minute worker schedule and cancel-on-read/block revalidation
   are proven.
@@ -311,16 +329,17 @@ the existing invite quota.
   service areas, and all 269 County statistical communities (activated
   2026-10-13).
 
-### Public-launch blocker: restore scheduled maintenance
+### Public-launch blocker: prove scheduled maintenance
 
-Before any public launch:
+The per-minute outbox and expiry schedules and `CRON_SECRET` are live (heartbeats
+verified 2026-10-16). Before any public launch:
 
-- Restore `/api/maintenance/outbox` on `* * * * *` (every minute).
-- Schedule `/api/maintenance/expire` every minute, with subsequent bounded
-  invocations when `expiration.hasMore` is true and alerts on persistent backlog.
-  Do not run an unbounded draining loop inside one HTTP request.
-- Use Vercel Pro or an external scheduler that supports the required frequency; do not reduce the outbox worker to a daily schedule.
-- Confirm `CRON_SECRET` is configured, deploy, and verify successful worker heartbeats plus email, Auth-ban, invite-expiry, and upload-cleanup processing.
+- Configure a verified email sender and prove real delivery for invite, LOI,
+  unread-message and tour emails.
+- Keep bounded expiry invocations, with alerts on persistent backlog. Do not run
+  an unbounded draining loop inside one HTTP request.
+- Verify heartbeats and processing for every worker (email, Auth bans, invite
+  expiry, upload cleanup), with alerting when any goes stale.
 
 Low-traffic unused-index findings are not sufficient reason to drop ownership,
 search, or foreign-key indexes. Decide indexes from final query plans and
