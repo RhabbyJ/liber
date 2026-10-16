@@ -8,6 +8,6 @@ export async function GET(request: NextRequest) {
     const query = conversationListQuerySchema.parse(Object.fromEntries(request.nextUrl.searchParams));
     return privateMessagingJson(await listConversations(query));
   } catch (error) {
-    return messagingErrorResponse(error);
+    return messagingErrorResponse(error, { route: "GET /api/conversations" });
   }
 }

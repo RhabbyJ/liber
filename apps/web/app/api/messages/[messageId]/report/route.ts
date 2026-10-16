@@ -14,6 +14,6 @@ export async function POST(
     const body = await parseMessagingJson(request, reportMessageSchema);
     return privateMessagingJson(await reportMessage({ messageId, ...body }), 201);
   } catch (error) {
-    return messagingErrorResponse(error);
+    return messagingErrorResponse(error, { route: "POST /api/messages/[messageId]/report" });
   }
 }

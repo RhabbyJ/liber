@@ -12,7 +12,7 @@ export async function GET(_request: NextRequest, { params }: Context) {
   try {
     const { conversationId } = conversationRouteParamsSchema.parse(await params);
     return privateMessagingJson(await getConversationTour(conversationId));
-  } catch (error) { return messagingErrorResponse(error); }
+  } catch (error) { return messagingErrorResponse(error, { route: "GET /api/conversations/[conversationId]/tour" }); }
 }
 
 export async function POST(request: NextRequest, { params }: Context) {
@@ -25,6 +25,6 @@ export async function POST(request: NextRequest, { params }: Context) {
     if (error instanceof MessagingError && ["CONFLICT", "INVALID_INPUT"].includes(error.code)) {
       return privateMessagingJson({ error: error.message }, error.status);
     }
-    return messagingErrorResponse(error);
+    return messagingErrorResponse(error, { route: "POST /api/conversations/[conversationId]/tour" });
   }
 }

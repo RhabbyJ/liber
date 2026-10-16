@@ -11,6 +11,6 @@ export async function GET(
     const thread = await getConversationThread(conversationId);
     return privateMessagingJson(thread);
   } catch (error) {
-    return messagingErrorResponse(error);
+    return messagingErrorResponse(error, { route: "GET /api/conversations/[conversationId]" });
   }
 }

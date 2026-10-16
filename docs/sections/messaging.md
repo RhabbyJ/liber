@@ -63,6 +63,11 @@ module that owns its data, not back in the facade.
 - Guided copy is selected from the server's versioned catalog. Free text is
   normalized plain text with a 2,000-character maximum. Do not render HTML,
   Markdown, clickable links, or message bodies in logs/analytics/email.
+- Unexpected messaging route failures log only the fixed route pattern (for
+  example `POST /api/conversations/[conversationId]/read`), the error class, the
+  Prisma code, the PostgreSQL SQLSTATE and the first message line with quoted
+  values, emails, UUIDs and long numbers redacted. Expected rejections log code,
+  status and route. Never log request bodies, message text or user identifiers.
 - Messaging mutations accept JSON media types only and stream at most 16 KiB
   before schema validation. Inbox and admin-report lists use bounded keyset
   pages of at most 50 rows. Their server-signed cursors are tamper-evident;

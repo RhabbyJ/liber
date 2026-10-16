@@ -19,6 +19,21 @@ describe("messaging API security contracts", () => {
     expect(source).not.toContain("console.log");
   });
 
+  it.each([
+    ...mutationRoutes,
+    "app/api/conversations/route.ts",
+    "app/api/conversations/[conversationId]/route.ts",
+    "app/api/conversations/[conversationId]/loi/route.ts",
+  ])("labels every unexpected failure in %s with its fixed route pattern", async (route) => {
+    const source = await readFile(path.resolve(route), "utf8");
+    const calls = source.match(/messagingErrorResponse\([^)]*\)/g) ?? [];
+    expect(calls.length).toBeGreaterThan(0);
+    const pattern = `/${route.replace(/^app\//, "").replace(/\/route\.ts$/, "")}`;
+    for (const call of calls) {
+      expect(call).toMatch(new RegExp(`\\{ route: "(GET|POST) ${pattern.replace(/[[\]]/g, "\\$&")}" \\}`));
+    }
+  });
+
   it("keeps the shared error mapper generic and private", async () => {
     const source = await readFile(path.resolve("server/messaging/http.ts"), "utf8");
     expect(source).toContain('"Cache-Control": "private, no-store"');

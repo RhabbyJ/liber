@@ -14,6 +14,6 @@ export async function POST(
     const body = await parseMessagingJson(request, markConversationReadSchema);
     return privateMessagingJson(await markConversationRead({ conversationId, ...body }));
   } catch (error) {
-    return messagingErrorResponse(error);
+    return messagingErrorResponse(error, { route: "POST /api/conversations/[conversationId]/read" });
   }
 }
