@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { NotificationList } from "../../components/notification-list";
 import { PageTitle } from "../../components/page-title";
 import { listNotifications } from "../../server/contracts";
 import { getSessionUser } from "../../server/session";
+
+export const metadata: Metadata = { title: "Notifications" };
 
 /** Notifications for accounts without a buyer or seller workspace (for example admin-only). */
 export default async function NotificationsPage() {

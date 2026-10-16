@@ -14,7 +14,7 @@ const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@liber/db", "@liber/validators"],
   outputFileTracingIncludes: {
-    "/api/loi/negotiations/*/pdf": ["./public/fonts/DejaVuSans.ttf"],
+    "/api/loi/negotiations/*/pdf": ["./server/loi/fonts/DejaVuSans.ttf"],
   },
   async headers() {
     const securityHeaders = [

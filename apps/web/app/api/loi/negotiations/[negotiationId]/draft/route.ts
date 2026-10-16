@@ -12,7 +12,7 @@ export async function PUT(request: NextRequest, { params }: Context) {
     const { negotiationId } = loiRouteParamsSchema.parse(await params);
     return privateLoiJson(await saveLoiDraft({ ...(await parseLoiJson(request, saveLoiDraftEnvelopeSchema)), negotiationId }));
   } catch (error) {
-    return loiErrorResponse(error);
+    return loiErrorResponse(error, "/api/loi/negotiations/[negotiationId]/draft");
   }
 }
 
@@ -22,6 +22,6 @@ export async function DELETE(request: NextRequest, { params }: Context) {
     const { negotiationId } = loiRouteParamsSchema.parse(await params);
     return privateLoiJson(await discardLoiDraft({ ...(await parseLoiJson(request, discardLoiDraftSchema)), negotiationId }));
   } catch (error) {
-    return loiErrorResponse(error);
+    return loiErrorResponse(error, "/api/loi/negotiations/[negotiationId]/draft");
   }
 }

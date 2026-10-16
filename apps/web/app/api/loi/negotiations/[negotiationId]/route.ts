@@ -10,7 +10,7 @@ export async function GET(_request: NextRequest, { params }: Context) {
     const { negotiationId } = loiRouteParamsSchema.parse(await params);
     return privateLoiJson(await getLoiNegotiation(negotiationId));
   } catch (error) {
-    return loiErrorResponse(error);
+    return loiErrorResponse(error, "/api/loi/negotiations/[negotiationId]");
   }
 }
 

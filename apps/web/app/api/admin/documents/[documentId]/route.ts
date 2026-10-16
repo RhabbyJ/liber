@@ -63,6 +63,6 @@ export async function GET(
       },
     });
   } catch (error) {
-    return uploadErrorResponse(error);
+    return uploadErrorResponse(error, "/api/admin/documents/[documentId]");
   }
 }

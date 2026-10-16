@@ -461,7 +461,7 @@ invite-time property snapshot. Existing access is anchored to those immutable
 participant IDs, so a later buyer-profile reassignment cannot inherit terms.
 Every mutation rechecks active participants, approved seller access, the
 accepted invite, active conversation, property approval/current identity
-version, blocks, and the explicit two-user LOI cohort. Starter-only buyer name
+version, blocks, and the explicit reviewed LOI cohort (both participants listed). Starter-only buyer name
 and price checks are separate from ongoing eligibility; starter price comes
 from the immutable snapshot.
 
@@ -519,8 +519,9 @@ immediately before delivery. This event binding prevents a claimed stale
 submission/counter job from becoming deliverable after a terminal action on the
 same revision. Runtime access requires
 `LIBER_LOI_V1_ENABLED=true` and an explicit
-`LIBER_LOI_V1_COHORT_USER_IDS` containing exactly two unique UUIDs; empty,
-malformed, partial, duplicate, wildcard, or larger cohorts fail closed. Apply
+`LIBER_LOI_V1_COHORT_USER_IDS` listing at least two unique participant UUIDs;
+a negotiation needs both participants listed. Empty, malformed, partial,
+duplicate, or production wildcard cohorts fail closed. Apply
 all four authoritative migrations in the LOI/release chain before deploying app
 code because messaging block and maintenance paths reference the tables even
 while the feature is disabled. The two private-ACL migrations are cross-cutting

@@ -16,6 +16,6 @@ export async function POST(
     const data = await finalizeUploadSession({ sessionId }, user);
     return privateUploadJson(data);
   } catch (error) {
-    return uploadErrorResponse(error);
+    return uploadErrorResponse(error, "/api/uploads/sessions/[sessionId]/finalize");
   }
 }

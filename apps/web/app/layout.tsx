@@ -11,7 +11,7 @@ import { SiteFooter } from "../components/site-footer";
 import { messagingV1NavigationEnabledForUser } from "../server/messaging/feature";
 import { ceoPreviewToolsEnabled } from "../server/ceo-preview";
 import { getSessionUser } from "../server/session";
-import { readNotificationActivity } from "../server/notifications";
+import { readNotificationActivity, withUnreadConversationCount } from "../server/notifications";
 import "./globals.css";
 import "../components/notification-bell.css";
 
@@ -44,7 +44,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const roles = user?.roles ?? [];
   const messagingEnabled = user ? messagingV1NavigationEnabledForUser(user.id) : false;
   const previewToolsEnabled = ceoPreviewToolsEnabled();
-  const notificationActivity = user ? await readNotificationActivity(user).catch(() => null) : null;
+  const notificationActivity = user
+    ? await readNotificationActivity(user).then((activity) => withUnreadConversationCount(user, activity)).catch(() => null)
+    : null;
 
   return (
     <html className={openSans.variable} lang="en">

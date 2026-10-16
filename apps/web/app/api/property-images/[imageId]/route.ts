@@ -30,6 +30,6 @@ export async function GET(
     if (error || !data) return privateUploadJson({ error: "Image unavailable." }, 503);
     return privateUploadJson({ signedUrl: data.signedUrl });
   } catch (error) {
-    return uploadErrorResponse(error);
+    return uploadErrorResponse(error, "/api/property-images/[imageId]");
   }
 }

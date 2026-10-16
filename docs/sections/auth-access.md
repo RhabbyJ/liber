@@ -130,10 +130,13 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
   must be proven on the current queued-ban implementation, not inferred from
   the retired `suspend_identity` helper.
 - The shared Auth limiter is codified by forward migration
-  `20261016033000_codify_shared_rate_limiter`. Email-only Auth update
-  synchronization still exists only in the unnumbered Auth/security SQL
-  reserved for `00017`; a database built from migrations alone keeps the older
-  all-column `on_auth_user_updated` trigger that copies `user_metadata.name`.
+  `20261016033000_codify_shared_rate_limiter`. Forward migration
+  `20261016040000_codify_auth_user_sync_triggers` codifies the email-only Auth
+  synchronization production already ran by hand (blank-name
+  `handle_new_user()`, email-only `handle_update_user()` behind an
+  `AFTER UPDATE OF email` trigger), so no database copies `user_metadata.name`.
+  `../engineering/AUTH_USER_SYNC_DRIFT_CHECK.sql` matched production on
+  2026-10-16.
 
 ## Password recovery and change
 

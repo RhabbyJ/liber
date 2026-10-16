@@ -25,6 +25,6 @@ export async function GET(_request: NextRequest, { params }: Context) {
       "X-Robots-Tag": "noindex, noarchive",
     } });
   } catch (error) {
-    return loiErrorResponse(error);
+    return loiErrorResponse(error, "/api/loi/negotiations/[negotiationId]/pdf");
   }
 }

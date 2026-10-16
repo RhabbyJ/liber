@@ -13,6 +13,6 @@ export async function POST(request: NextRequest) {
     const data = await createUploadSession(await readBoundedJson(request, 8 * 1024), user);
     return privateUploadJson(data, 201);
   } catch (error) {
-    return uploadErrorResponse(error);
+    return uploadErrorResponse(error, "/api/uploads/sessions");
   }
 }

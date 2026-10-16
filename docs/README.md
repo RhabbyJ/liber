@@ -36,6 +36,11 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 - `engineering/SHARED_RATE_LIMITER_DRIFT_CHECK.sql` — read-only production
   comparison to run before deploying migration
   `20261016033000_codify_shared_rate_limiter`.
+- `engineering/AUTH_USER_SYNC_DRIFT_CHECK.sql` — read-only production
+  comparison to run before deploying migration
+  `20261016040000_codify_auth_user_sync_triggers` (matched production 2026-10-16).
+- `engineering/BUYER_VERIFICATION_REPAIR_2026-09-29.md` — production buyer
+  verification repair checks.
 - `engineering/AUTH_SECURITY_FOLLOWUP_EVIDENCE_2026-07-09.md` — disposable
   catalog/concurrency/Storage results for the earlier proposal plus the current
   repair addendum and still-open database/staging gates.
@@ -59,6 +64,7 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
 
 ## Section micro-docs
 
+- `sections/README.md` — how the section notes are organized.
 - `sections/auth-access.md`
 - `sections/buyer-profile-criteria.md`
 - `sections/public-preview-privacy.md`
@@ -82,10 +88,6 @@ These are intentionally short. They tell agents what a section is for, where the
 
 These are not source of truth:
 
-- root `Implementation.md`
-- root `backend implementation plan.md`
-- root `sprint1.md`
-- `dobeforelaunch/*`
 - `docs/archive/*`
 - raw CEO transcripts and critique screenshots
 - Figma/reference images

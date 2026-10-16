@@ -13,6 +13,6 @@ export async function GET(request: NextRequest, { params }: Context) {
     });
     return privateLoiJson(await getLoiRevisionPage(negotiationId, beforeSequence));
   } catch (error) {
-    return loiErrorResponse(error);
+    return loiErrorResponse(error, "/api/loi/negotiations/[negotiationId]/revisions");
   }
 }

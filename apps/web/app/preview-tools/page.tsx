@@ -11,7 +11,7 @@ import { enablePreviewAdminAccess, enablePreviewSellerAccess } from "./actions";
 
 export const metadata: Metadata = {
   robots: "noindex, noarchive",
-  title: "Private-preview test controls — Liber",
+  title: "Private-preview test controls",
 };
 
 export default async function PreviewToolsPage() {

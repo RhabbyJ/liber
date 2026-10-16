@@ -236,6 +236,11 @@ rules, and audit trail.
 
 - The private `/profile` page may show the current active session user's own account name, email, generated avatar, and available workspace links. It must not expose those private account fields to other users or use them as seller-facing buyer identity.
 - A Liber account is owned by its immutable Supabase Auth UUID, not by email.
+- A forgotten password is reset through an emailed link (`/forgot-password` then
+  `/reset-password`), and a signed-in user can change their password on
+  `/profile`. Both are rate-limited, never reveal whether an email has an
+  account, and end the account's other sessions. Reset email is sent by
+  Supabase Auth, which needs a custom SMTP sender in production.
 - Signup and email changes must never transfer buyer data, seller approval,
   properties, documents, invites, or ADMIN role between UUIDs.
 - An email tied to another application UUID is an account-recovery case. It

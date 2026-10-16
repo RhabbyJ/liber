@@ -32,7 +32,7 @@ Owns transactional email queueing, invite email delivery, expiry jobs, and maint
   joins the buyer account independently of which participant receives the email.
 - LOI email contains no proposed terms. Delivery revalidates the accepted
   invite, active conversation, current revision, participants, seller access,
-  property identity, block state, exact two-user cohort, and the immutable event
+  property identity, block state, reviewed LOI cohort, and the immutable event
   encoded in the idempotency key. Event type/actor/status/recipient must match,
   so a claimed stale submission job cannot be sent after a terminal action on
   the same revision. Submission and counter notices also require an unexpired

@@ -12,7 +12,7 @@ export async function POST(request: NextRequest, { params }: Context) {
     const { negotiationId } = loiRouteParamsSchema.parse(await params);
     return privateLoiJson(await submitLoiRevision({ ...(await parseLoiJson(request, submitLoiRevisionSchema)), negotiationId }), 201);
   } catch (error) {
-    return loiErrorResponse(error);
+    return loiErrorResponse(error, "/api/loi/negotiations/[negotiationId]/submit");
   }
 }
 

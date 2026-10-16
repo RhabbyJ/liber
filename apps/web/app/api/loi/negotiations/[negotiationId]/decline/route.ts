@@ -12,6 +12,6 @@ export async function POST(request: NextRequest, { params }: Context) {
     const { negotiationId } = loiRouteParamsSchema.parse(await params);
     return privateLoiJson(await decideLoiRevision({ action: "DECLINE", ...(await parseLoiJson(request, decideLoiRevisionSchema)), negotiationId }));
   } catch (error) {
-    return loiErrorResponse(error);
+    return loiErrorResponse(error, "/api/loi/negotiations/[negotiationId]/decline");
   }
 }

@@ -182,13 +182,12 @@ the existing invite quota.
   outsider, expired-invite, accepted-invite, and suspended-user connections.
 - Keep customer hard deletion disabled until retention, Storage, outbox, and
   audited purge behavior is implemented.
-- Open schema drift: the email-only `on_auth_user_updated` trigger, its
-  `handle_update_user()`, and the blank-name `handle_new_user()` exist only in
-  `AUTH_SECURITY_FOLLOWUP_FORWARD.sql`, which production most likely runs
-  (unverified). A database rebuilt from migrations instead gets the all-column
-  trigger that copies `user_metadata.name` into the private `User.name`,
-  contrary to `../sections/auth-access.md`. Codifying the proposal versions
-  needs an approved forward migration and a read-only production comparison.
+- Resolved 2026-10-16: migration `20261016040000_codify_auth_user_sync_triggers`
+  codifies the email-only Auth triggers that production ran by hand. The
+  read-only `../engineering/AUTH_USER_SYNC_DRIFT_CHECK.sql` matched production on
+  every row, so deploying it changes nothing in effect. Production also keeps
+  two unused hand-applied leftovers, `app_private.is_active_user()` and
+  `app_private.owns_property(text)`, which no migration manages.
 - Guided Messaging V1 requires a maintenance/traffic-drain cutover because its
   schema and invite-trigger contract cannot overlap safely with the old app.
   Keep invite writes stopped from the first migration statement until the exact

@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   try {
     return privateLoiJson(await createLoiNegotiation(await parseLoiJson(request, createLoiNegotiationSchema)), 201);
   } catch (error) {
-    return loiErrorResponse(error);
+    return loiErrorResponse(error, "/api/loi/negotiations");
   }
 }
 
