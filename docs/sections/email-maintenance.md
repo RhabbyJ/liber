@@ -15,6 +15,10 @@ Owns transactional email queueing, invite email delivery, expiry jobs, and maint
 
 ## Invariants
 
+- `email.ts` senders perform no authorization, so the module imports
+  `server-only` and must never be a `"use server"` module (every export would
+  become a callable Server Action endpoint) or be imported by client code.
+  Only server workers such as `email-outbox.ts` and tour dispatch call them.
 - Invite creation should not depend on inline email success.
 - Messaging never emails message content. At most one unread-message job is
   queued per unread batch after 10 minutes and is cancelled on read, mute,
