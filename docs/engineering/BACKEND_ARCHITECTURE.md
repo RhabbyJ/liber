@@ -182,8 +182,12 @@ Key concepts:
 - Auth POST routes preserve the incoming request host/protocol for same-origin checks and redirects so local `127.0.0.1` and `localhost` sessions do not cross origins under the CSP `form-action` rule. State-changing HTTP routes require an exact matching `Origin`; when a browser omits `Origin`, only `Sec-Fetch-Site: same-origin` is accepted. Requests missing both signals fail closed.
 - Login and signed-in auth entry points resolve `next` through a role-aware intent helper. Stale auth-flow destinations and destinations requiring a role the account does not have fall back to the user's existing default workspace instead of entering another role picker or auth loop.
 - The Auth insert trigger creates a new application User only for the same Auth
-  UUID and always starts with empty roles. It never resolves an email conflict
-  by changing a User ID.
+  UUID and always starts with empty roles and an empty name. It never resolves
+  an email conflict by changing a User ID.
+- The Auth update trigger fires only when `auth.users.email` actually changes
+  and syncs only the email. `User.name` is application-owned and is never
+  copied from user-editable Auth metadata (migration
+  `20261016040000_codify_auth_user_sync_triggers`).
 - The signup action persists the allowlisted buyer/seller/both form choice after
   the Auth UUID exists and before redirecting to email verification. It does
   not read Auth metadata as role authority, and the user cannot obtain a

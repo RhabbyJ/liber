@@ -15,6 +15,9 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - `packages/db/prisma/migrations/20261016033000_codify_shared_rate_limiter/migration.sql`
 - `packages/db/prisma/current-baseline/migrations/20261016033000_codify_shared_rate_limiter/migration.sql`
 - `docs/engineering/SHARED_RATE_LIMITER_DRIFT_CHECK.sql`
+- `packages/db/prisma/migrations/20261016040000_codify_auth_user_sync_triggers/migration.sql`
+- `packages/db/prisma/current-baseline/migrations/20261016040000_codify_auth_user_sync_triggers/migration.sql`
+- `docs/engineering/AUTH_USER_SYNC_DRIFT_CHECK.sql`
 - `packages/db/src/**`
 - `prisma.config.ts`
 - `apps/web/public/geo/service-areas/**`
@@ -125,6 +128,28 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
   bodies and grants with the reviewed ones. It coexists with the three-argument
   overload. `shared-rate-limit.sql.test.ts` runs it in PGlite and
   `readiness:production` checks the four-argument signature in the catalog.
+- Forward migration `20261016040000_codify_auth_user_sync_triggers` codifies
+  the Auth-to-User sync production received by hand from the same proposal.
+  `app_private.handle_new_user()` inserts an empty-name, empty-role User for
+  the Auth UUID; `on_auth_user_updated` fires only `AFTER UPDATE OF email`
+  `WHEN (OLD.email IS DISTINCT FROM NEW.email)`, and
+  `app_private.handle_update_user()` syncs only the email. Earlier migrations
+  fired on every Auth update and copied `raw_user_meta_data->>'name'`, so a
+  rebuilt database let users rename themselves through
+  `supabase.auth.updateUser`. `User.name` is application-owned: signup stores
+  the validated form name through `persistUserRolesForAuthIdentity`. Function
+  bodies are verbatim from the proposal; production stores them with CRLF line
+  endings, so the drift check hashes bodies ignoring CR. Both functions are
+  `postgres`-owned with no other `EXECUTE` grant (triggers fire without one).
+  The migration uses `CREATE OR REPLACE TRIGGER`, which needs only the
+  `TRIGGER` privilege on `auth.users`, not ownership.
+  `auth-user-sync.sql.test.ts` proves the old and new behavior in PGlite and
+  that the migration is a no-op in effect on the hand-applied state.
+- Production also carries `app_private.is_active_user()` and
+  `app_private.owns_property(text)`, unused leftovers of the hand-applied
+  proposal. They are known production-only objects that no migration creates
+  or drops; leave them in place unless a reviewed cleanup migration removes
+  them.
 - `npm run demo:buyers -- seed|verify|cleanup` is the only shared CEO-preview buyer-data command. It requires `LIBER_ALLOW_DEMO_SEED=true`, `LIBER_CEO_PREVIEW_TARGET=ceo-preview`, and an absolute `LIBER_CEO_PREVIEW_CREDENTIALS_FILE` path outside the repository; the Supabase API and direct database project refs must match.
 
 ## Agent notes
@@ -158,6 +183,12 @@ that already has the hand-applied limiter, run the read-only
 report `matches = true`; otherwise reconcile the difference before deploying.
 The check pins md5 hashes of both function bodies, so update it with any later
 migration that redefines either function.
+
+Before deploying `20261016040000_codify_auth_user_sync_triggers` to an existing
+database, run the read-only `docs/engineering/AUTH_USER_SYNC_DRIFT_CHECK.sql`
+there the same way; every row must report `matches = true`. It pins both Auth
+sync function bodies, attributes, owner, grants, and both `auth.users` trigger
+definitions, and flags any other `auth.users` trigger that calls `app_private`.
 
 Production migration readiness compares the complete checked-in migration directory set with successful, non-rolled-back `_prisma_migrations` rows. A hardcoded latest migration name is not a valid readiness check; database-only migration names are reported separately.
 
