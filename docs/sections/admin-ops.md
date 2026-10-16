@@ -7,12 +7,14 @@ Owns internal admin review and moderation tools: users, seller access, buyer pro
 ## Main files
 
 - `apps/web/app/admin/**`
-- `apps/web/server/contracts.ts` — `"use server"` re-export barrel; the logic lives in `apps/web/server/domain/**`
-- `apps/web/server/domain/admin-users.ts` — users list, seller-access review, suspension
+- `apps/web/server/contracts.ts` — `server-only` re-export barrel (deliberately not a `"use server"` module); the logic lives in `apps/web/server/domain/**`, and `apps/web/server/form-actions.ts` is the Server Action boundary
+- `apps/web/server/domain/admin-users.ts` — users list, seller-access review, suspension, reinstatement
+- `apps/web/server/auth-operations.ts` — queued Supabase Auth ban/unban worker
 - `apps/web/server/domain/admin-moderation.ts` — buyer-profile and invite moderation
 - `apps/web/server/domain/audit-log.ts`
 - `apps/web/server/domain/document-review.ts` and `badges.ts`
 - `apps/web/server/seller-access-review.ts`
+- `apps/web/components/admin-reason-action.tsx`, `admin-pagination.tsx`, and `seller-access-review-form.tsx`; `apps/web/app/admin/page-cursor.ts`
 - `apps/web/server/authz.ts`
 - `apps/web/server/messaging/service.ts`
 
@@ -44,7 +46,6 @@ Owns internal admin review and moderation tools: users, seller access, buyer pro
   and seller search stay reachable during demos. `/preview-tools` remains a
   status/fallback page for those same current-user-only elevations. It must not
   reimplement admin review queues or act on other users.
-
 - Admin users, buyer profiles (and the badges page built on them), and invites are cursor-paginated at 50 rows; the audit log at 100. Each list orders by its sort column plus `id` and passes `?cursor=<last row id>`; a malformed or repeated cursor renders the 404 page. Buyer approved-evidence reads are scoped to the page's profiles. Buyer profiles sort by `updatedAt`, so a profile edited mid-browse can move between pages.
 
 ## Agent notes
