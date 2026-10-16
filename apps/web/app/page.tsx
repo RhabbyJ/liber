@@ -1,6 +1,7 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import type { ReactNode } from "react";
+import { cache, type ReactNode } from "react";
 import { searchBuyersSchema, type SearchBuyersInput } from "@liber/validators";
 import { BuyerCard } from "../components/buyer-card";
 import { BuyerMap } from "../components/buyer-map";
@@ -24,6 +25,24 @@ import { SellerSearchCursorError } from "../server/seller-search-query";
 import { getActiveMarketBySlug, getActiveServiceAreaBySlug, resolveActiveServiceArea } from "../server/service-areas";
 import { getSessionUser } from "../server/session";
 
+// Shared by generateMetadata and the page within one request.
+const activeMarket = cache((slug: string) => getActiveMarketBySlug(slug));
+const activeServiceArea = cache((slug: string, marketSlug: string) => getActiveServiceAreaBySlug(slug, marketSlug));
+
+/** The root page shares the layout's segment, so its title is absolute rather than templated. */
+export async function generateMetadata({ searchParams }: { searchParams: Promise<DemandSearchParams> }): Promise<Metadata> {
+  const params = await searchParams;
+  try {
+    const market = await activeMarket(slugParam(params.market) ?? DEFAULT_MARKET_SLUG);
+    const serviceAreaSlug = slugParam(params.serviceArea);
+    const area = serviceAreaSlug ? await activeServiceArea(serviceAreaSlug, market.slug) : null;
+    return { title: { absolute: `${area ? serviceAreaDisplayLabel(area) : market.label} buyer demand · Liber` } };
+  } catch {
+    // The page renders its own error state; the title stays generic.
+    return { title: { absolute: "Buyer demand map · Liber" } };
+  }
+}
+
 /**
  * The one buyer-demand map. Everyone gets the same map, filters, sort and list:
  * approved sellers (and admins) see full buyer cards that open profiles and invites;
@@ -36,7 +55,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const isSeller = roles.includes("SELLER");
   const isBuyer = roles.includes("BUYER");
   const canSearch = user ? await canViewBuyerDirectory(user) : false;
-  const market = await getActiveMarketBySlug(slugParam(params.market) ?? DEFAULT_MARKET_SLUG);
+  const market = await activeMarket(slugParam(params.market) ?? DEFAULT_MARKET_SLUG);
 
   // Older homepage links carried a free-text ?area=; settle them on one canonical serviceArea slug.
   if (params.area && !params.serviceArea) {
@@ -45,7 +64,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   }
 
   const requestedServiceArea = slugParam(params.serviceArea);
-  const selectedServiceArea = requestedServiceArea ? await getActiveServiceAreaBySlug(requestedServiceArea, market.slug) : null;
+  const selectedServiceArea = requestedServiceArea ? await activeServiceArea(requestedServiceArea, market.slug) : null;
   const selectedArea = selectedMapArea(selectedServiceArea);
   const selectedAreaLabel = selectedServiceArea ? serviceAreaDisplayLabel(selectedServiceArea) : "";
   const amenities = listParam(params.amenities);

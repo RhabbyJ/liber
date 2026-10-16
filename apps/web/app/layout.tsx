@@ -28,7 +28,11 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Liber — A buyer-first real estate marketplace",
+  // Child pages set their own title ("Log in" → "Log in · Liber"); the default covers pages without one.
+  title: {
+    default: "Liber — A buyer-first real estate marketplace",
+    template: "%s · Liber",
+  },
   description:
     "Buyers create verified demand profiles. Sellers search for serious buyers and send manual invites for their private properties.",
 };
