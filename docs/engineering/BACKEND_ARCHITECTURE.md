@@ -703,7 +703,19 @@ Do not create unauthenticated maintenance endpoints.
 - Resend transactional email is used only when configured.
 - Missing external keys should not break local development.
 
-## Error logging
+## Error logging and reporting
+
+Server and Edge request errors go to Sentry through `apps/web/instrumentation.ts`
+(`register` plus `onRequestError`, `@sentry/nextjs` 10.76.2) only when the
+server-only `SENTRY_DSN` is set; otherwise the SDK is never loaded. Reporting is
+errors only: no tracing sample rate, transactions, session replay, breadcrumbs,
+browser SDK, `withSentryConfig`, or source-map upload. `server/error-reporting.ts`
+sets `sendDefaultPii: false`, turns every `dataCollection` category off (in this
+SDK version it supersedes `sendDefaultPii`), and its `beforeSend` removes request
+headers, cookies, query strings, bodies, user email/IP, breadcrumbs, extra data,
+and stack-frame variables, and redacts exception messages. Reports are sent from
+the server, so the Content-Security-Policy needs no Sentry origin. Root-layout
+failures render the branded, self-contained `app/global-error.tsx`.
 
 Server logs never carry request bodies, cookies, headers, recipient
 addresses, or message and LOI content. `server/error-summary.ts` reduces an

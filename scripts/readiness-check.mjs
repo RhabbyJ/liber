@@ -38,6 +38,7 @@ const productionChecks = [
 
 const optional = [
   ["NODE_EXTRA_CA_CERTS", "Local Node CA trust override for Supabase TLS issues"],
+  ["SENTRY_DSN", "Server and Edge error reporting (errors only, scrubbed)"],
 ];
 
 const failures = [];
