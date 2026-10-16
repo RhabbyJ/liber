@@ -117,7 +117,8 @@ describe("password recovery callback", () => {
 
   it("does not open the reset page for a suspended identity", async () => {
     const { AuthIdentityLinkError } = await import("../../../server/auth-identity");
-    const inactive = Object.assign(new AuthIdentityLinkError(), { code: "inactive" });
+    // The mocked class ignores its argument; the route reads `code`.
+    const inactive = Object.assign(new AuthIdentityLinkError("inactive"), { code: "inactive" });
     mocks.establishSession.mockRejectedValue(inactive);
     mocks.exchangeCode.mockResolvedValue({ data: { redirectType: "recovery", session: {}, user: authUser }, error: null });
 
