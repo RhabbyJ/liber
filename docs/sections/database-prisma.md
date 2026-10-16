@@ -12,6 +12,9 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - `packages/db/prisma/current-baseline/migrations/20260717023000_grant_authenticated_app_private_usage/migration.sql`
 - `packages/db/prisma/migrations/20260717033000_harden_app_private_function_defaults/migration.sql`
 - `packages/db/prisma/current-baseline/migrations/20260717033000_harden_app_private_function_defaults/migration.sql`
+- `packages/db/prisma/migrations/20261016033000_codify_shared_rate_limiter/migration.sql`
+- `packages/db/prisma/current-baseline/migrations/20261016033000_codify_shared_rate_limiter/migration.sql`
+- `docs/engineering/SHARED_RATE_LIMITER_DRIFT_CHECK.sql`
 - `packages/db/src/**`
 - `prisma.config.ts`
 - `apps/web/public/geo/service-areas/**`
@@ -108,6 +111,20 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 - Demo seed data is allowed only for local development and CEO demo / private preview environments, never true public production.
 - Demo seed scripts must be explicit, guarded by an opt-in env flag, deterministic enough to clean up, and use obvious non-real users/data.
 - PL/pgSQL timestamp variables must not use SQL special-value names such as `current_time`; the three-argument rate-limiter overload uses `v_now` so writes remain compatible with Prisma `timestamp(3)` columns.
+- Forward migration `20261016033000_codify_shared_rate_limiter` creates the
+  shared limiter the runtime calls for Auth, LOI, and public-geography limits:
+  `app_private.rate_limit_buckets`, its expiry index,
+  `app_private.prune_rate_limit_buckets(timestamptz, integer)`, and the
+  four-argument `app_private.consume_rate_limit(text, text, integer, integer)`.
+  Production received these objects by hand from
+  `docs/engineering/AUTH_SECURITY_FOLLOWUP_FORWARD.sql` outside the ledger, so a
+  database rebuilt from migrations returned 503 on login. Definitions are
+  verbatim from that proposal, owner-only, with no RLS (`app_private` is not
+  exposed). The migration aborts without changes if an existing bucket table's
+  columns, constraints, or indexes differ, and it replaces existing function
+  bodies and grants with the reviewed ones. It coexists with the three-argument
+  overload. `shared-rate-limit.sql.test.ts` runs it in PGlite and
+  `readiness:production` checks the four-argument signature in the catalog.
 - `npm run demo:buyers -- seed|verify|cleanup` is the only shared CEO-preview buyer-data command. It requires `LIBER_ALLOW_DEMO_SEED=true`, `LIBER_CEO_PREVIEW_TARGET=ceo-preview`, and an absolute `LIBER_CEO_PREVIEW_CREDENTIALS_FILE` path outside the repository; the Supabase API and direct database project refs must match.
 
 ## Agent notes
@@ -134,6 +151,13 @@ seeds representative valid LOI history, applies all three forward migrations
 through the normal migration root, and proves data survival, repaired semantics,
 the exact authenticated-only `app_private` ACL contract, and closed global and
 schema-specific default function privileges.
+
+Before deploying `20261016033000_codify_shared_rate_limiter` to a database
+that already has the hand-applied limiter, run the read-only
+`docs/engineering/SHARED_RATE_LIMITER_DRIFT_CHECK.sql` there. Every row must
+report `matches = true`; otherwise reconcile the difference before deploying.
+The check pins md5 hashes of both function bodies, so update it with any later
+migration that redefines either function.
 
 Production migration readiness compares the complete checked-in migration directory set with successful, non-rolled-back `_prisma_migrations` rows. A hardcoded latest migration name is not a valid readiness check; database-only migration names are reported separately.
 

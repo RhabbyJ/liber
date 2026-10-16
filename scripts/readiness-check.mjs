@@ -3,9 +3,11 @@ import pg from "pg";
 
 import {
   assessMigrationReadiness,
+  assessSharedRateLimiter,
   readLocalMigrations,
   readReviewedRetainedMigrationChecksums,
   reviewedRetainedProjectRef,
+  sharedRateLimiterCatalogQuery,
 } from "./migration-readiness.mjs";
 
 const envFile = await loadEnvFile(".env");
@@ -439,6 +441,8 @@ async function checkProductionDependencies(collection) {
     if (Number(geography.rows[0]?.markets ?? 0) < 1 || Number(geography.rows[0]?.areas ?? 0) < 1) {
       collection.push("At least one active market and active canonical service area are required.");
     }
+    const sharedRateLimiter = await client.query(sharedRateLimiterCatalogQuery);
+    collection.push(...assessSharedRateLimiter(sharedRateLimiter.rows[0]));
     const buckets = await client.query(`
       SELECT id, public FROM storage.buckets
       WHERE id IN ('property-images', 'verification-documents')

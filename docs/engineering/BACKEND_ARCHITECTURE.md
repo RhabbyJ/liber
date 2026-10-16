@@ -662,7 +662,7 @@ Abuse-prone actions should be rate-limited:
 
 Important actions should write `AdminAuditLog` or equivalent operational events where supported.
 
-Abuse controls use `app_private.consume_rate_limit` and `RateLimitBucket`, an atomic Postgres-backed fixed-window limiter shared by serverless instances. Invite quota remains a separate rolling-24-hour business invariant serialized in the invite transaction. Audit rows are not quota counters.
+Abuse controls use atomic Postgres-backed fixed-window limiters shared by serverless instances. Auth, LOI, and public-geography limits call the four-argument `app_private.consume_rate_limit(namespace, key_hash, limit, window_seconds)` over `app_private.rate_limit_buckets` with HMAC-peppered identifiers, created by migration `20261016033000_codify_shared_rate_limiter`. `assertRateLimit` callers use the three-argument overload over `public."RateLimitBucket"`. Invite quota remains a separate rolling-24-hour business invariant serialized in the invite transaction. Audit rows are not quota counters.
 
 The retained three-argument limiter overload uses an explicitly named timestamp variable (`v_now`); do not use `current_time` as a PL/pgSQL variable because PostgreSQL can resolve it as the built-in `time with time zone` expression inside SQL statements.
 

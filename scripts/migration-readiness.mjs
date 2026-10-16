@@ -118,6 +118,34 @@ export function assessMigrationReadiness(localMigrationNames, databaseMigrations
   return result;
 }
 
+// Auth, LOI, and public-geography limits call this overload. Production once
+// carried it outside the ledger, so check the catalog, not only migration names.
+export const sharedRateLimiterCatalogQuery = `
+  SELECT
+    pg_get_function_result(
+      to_regprocedure('app_private.consume_rate_limit(text,text,integer,integer)')
+    ) AS consume_result,
+    to_regprocedure('app_private.prune_rate_limit_buckets(timestamp with time zone,integer)') IS NOT NULL
+      AS has_prune,
+    to_regclass('app_private.rate_limit_buckets') IS NOT NULL AS has_buckets
+`;
+
+export function assessSharedRateLimiter(row) {
+  const failures = [];
+  if (row?.consume_result == null) {
+    failures.push("Shared rate limiter app_private.consume_rate_limit(text, text, integer, integer) is missing.");
+  } else if (row.consume_result !== "TABLE(allowed boolean, limit_value integer, retry_after_seconds integer)") {
+    failures.push(`Shared rate limiter app_private.consume_rate_limit(text, text, integer, integer) returns ${row.consume_result}.`);
+  }
+  if (!row?.has_prune) {
+    failures.push("Shared rate limiter dependency app_private.prune_rate_limit_buckets(timestamptz, integer) is missing.");
+  }
+  if (!row?.has_buckets) {
+    failures.push("Shared rate limiter table app_private.rate_limit_buckets is missing.");
+  }
+  return failures;
+}
+
 function checksumMatches(expected, actual) {
   if (expected instanceof Set) return expected.has(actual);
   if (Array.isArray(expected)) return expected.includes(actual);

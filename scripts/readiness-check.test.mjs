@@ -12,13 +12,16 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { PGlite } from "@electric-sql/pglite";
 
 import {
   assessMigrationReadiness,
+  assessSharedRateLimiter,
   readLocalMigrations,
   readLocalMigrationNames,
   readReviewedRetainedMigrationChecksums,
   reviewedRetainedProjectRef,
+  sharedRateLimiterCatalogQuery,
   supabaseProjectRefFromUrl,
 } from "./migration-readiness.mjs";
 
@@ -359,6 +362,49 @@ test("production readiness rejects current test approvals without counting revok
   assert.match(query, /latest_test_review\.action = 'property_synthetic_test_approval'/);
   assert.match(query, /ownershipVerificationStatus" = 'APPROVED'/);
   assert.match(query, /collection\.push\([\s\S]*still rely on synthetic test approval/);
+});
+
+test("production readiness requires the four-argument shared rate limiter in the catalog", async () => {
+  const readinessSource = readFileSync(readinessScript, "utf8");
+  assert.match(readinessSource, /collection\.push\(\.\.\.assessSharedRateLimiter\(sharedRateLimiter\.rows\[0\]\)\)/);
+
+  const database = new PGlite();
+  const assess = async () => assessSharedRateLimiter(
+    (await database.query(sharedRateLimiterCatalogQuery)).rows[0],
+  );
+  try {
+    // A database rebuilt from migrations before the limiter was codified has only the legacy overload.
+    await database.exec(`
+      CREATE ROLE anon NOLOGIN;
+      CREATE ROLE authenticated NOLOGIN;
+      CREATE ROLE service_role NOLOGIN;
+      CREATE SCHEMA app_private;
+      CREATE FUNCTION app_private.consume_rate_limit(p_key text, p_limit integer, p_window_ms integer)
+      RETURNS TABLE(allowed boolean, limit_value integer, retry_after_seconds integer)
+      LANGUAGE sql AS $$ SELECT true, p_limit, 0 $$;
+    `);
+    assert.deepEqual(await assess(), [
+      "Shared rate limiter app_private.consume_rate_limit(text, text, integer, integer) is missing.",
+      "Shared rate limiter dependency app_private.prune_rate_limit_buckets(timestamptz, integer) is missing.",
+      "Shared rate limiter table app_private.rate_limit_buckets is missing.",
+    ]);
+
+    await database.exec(`
+      CREATE FUNCTION app_private.consume_rate_limit(p_namespace text, p_key_hash text, p_limit integer, p_window_seconds integer)
+      RETURNS boolean
+      LANGUAGE sql AS $$ SELECT true $$;
+    `);
+    assert.match((await assess())[0], /returns boolean\.$/);
+
+    await database.exec("DROP FUNCTION app_private.consume_rate_limit(text, text, integer, integer)");
+    await database.exec(readFileSync(
+      path.join(migrationsDirectory, "20261016033000_codify_shared_rate_limiter", "migration.sql"),
+      "utf8",
+    ));
+    assert.deepEqual(await assess(), []);
+  } finally {
+    await database.close();
+  }
 });
 
 test("production readiness requires a sufficiently strong maintenance secret", () => {

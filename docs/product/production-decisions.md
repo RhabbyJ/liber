@@ -55,6 +55,18 @@ changes are deployed. Provider findings retain the dates of their source audits.
   and `--activate-communities`. It completed in production on 2026-10-13 with
   661 active areas and zero invalid active buyers; see
   `GEOGRAPHY_LA_COMMUNITIES_RELEASE_EVIDENCE_2026-10-13.md`.
+- 2026-10-16 audit: production runs the generic shared rate limiter (the
+  four-argument `app_private.consume_rate_limit`,
+  `app_private.prune_rate_limit_buckets`, and `app_private.rate_limit_buckets`)
+  that was applied by hand from `AUTH_SECURITY_FOLLOWUP_FORWARD.sql` outside
+  the Prisma ledger. Migration `20261016033000_codify_shared_rate_limiter` now
+  creates those objects, so a database rebuilt from the repository (staging,
+  disaster recovery, a new project) can serve login and the other shared
+  limits instead of returning 503. It is committed to the repository only, not
+  applied to any database. Before deploying it to production, run the read-only
+  `../engineering/SHARED_RATE_LIMITER_DRIFT_CHECK.sql` and require every row to
+  match. `readiness:production` now fails when the four-argument signature is
+  missing.
 - The deployed `vercel.json` has no crons, so `EmailOutbox` is not drained
   (8 pending invite/LOI emails with zero attempts on 2026-10-13). Deploying the
   per-minute crons is required before relying on email delivery.
@@ -157,6 +169,13 @@ the existing invite quota.
   outsider, expired-invite, accepted-invite, and suspended-user connections.
 - Keep customer hard deletion disabled until retention, Storage, outbox, and
   audited purge behavior is implemented.
+- Open schema drift: the email-only `on_auth_user_updated` trigger, its
+  `handle_update_user()`, and the blank-name `handle_new_user()` exist only in
+  `AUTH_SECURITY_FOLLOWUP_FORWARD.sql`, which production most likely runs
+  (unverified). A database rebuilt from migrations instead gets the all-column
+  trigger that copies `user_metadata.name` into the private `User.name`,
+  contrary to `../sections/auth-access.md`. Codifying the proposal versions
+  needs an approved forward migration and a read-only production comparison.
 - Guided Messaging V1 requires a maintenance/traffic-drain cutover because its
   schema and invite-trigger contract cannot overlap safely with the old app.
   Keep invite writes stopped from the first migration statement until the exact

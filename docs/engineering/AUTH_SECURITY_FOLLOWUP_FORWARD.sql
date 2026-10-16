@@ -359,6 +359,8 @@ $$;
 REVOKE ALL ON FUNCTION app_private.claim_email_outbox(integer, uuid, integer, integer)
   FROM PUBLIC, anon, authenticated, service_role;
 
+-- This limiter section is codified verbatim by migration
+-- 20261016033000_codify_shared_rate_limiter; never apply it by hand again.
 CREATE TABLE app_private.rate_limit_buckets (
   namespace text NOT NULL,
   key_hash text NOT NULL,
