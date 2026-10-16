@@ -57,7 +57,10 @@ backoff, and focus/connectivity recovery. Polls and acknowledgement requests
 are serialized and abort on unmount. A missing server seed establishes a
 baseline from the first successful read without replaying old invitations.
 
-The bell stays visible on phones and lights for unread activity. Only a newly
+The bell stays visible on phones and lights for unread activity. Below 600px the
+dropdown is pinned to the viewport under the sticky header with 16px side
+margins, because the bell sits too far in from the right edge for a
+bell-anchored 380px panel to fit. Only a newly
 received unread buyer invitation triggers a dismissible popup. The popup does
 not move focus on arrival; its View invites link and Dismiss control do not
 acknowledge notices. Mark all read in the bell popover explicitly acknowledges
