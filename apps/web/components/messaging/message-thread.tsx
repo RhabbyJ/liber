@@ -33,6 +33,7 @@ import {
 import { getMessagingBrowserClient, logMessagingRealtimeJoinStatus } from "./realtime";
 import { createRefreshCoordinator } from "./refresh-coordinator";
 import { createRecoveryPolling, MESSAGING_CONNECTED_POLL_MS, MESSAGING_FALLBACK_POLL_MS } from "./recovery-polling";
+import { announceConversationRead } from "./unread-conversations";
 import {
   normalizeMessagingLoiSummary,
   type MessagingLoiSummary,
@@ -405,7 +406,7 @@ export function MessageThread({
       body: JSON.stringify({ lastReadMessageId: newestMessage.id }),
       headers: { "Content-Type": "application/json" },
       method: "POST",
-    }).catch(() => {
+    }).then(() => announceConversationRead(conversationId), () => {
       if (readMessageIdRef.current === newestMessage.id) readMessageIdRef.current = null;
       if (readRetryTimerRef.current !== null) window.clearTimeout(readRetryTimerRef.current);
       readRetryTimerRef.current = window.setTimeout(() => {
@@ -413,7 +414,7 @@ export function MessageThread({
         setReadRetry((value) => value + 1);
       }, 5_000);
     });
-  }, [conversationPath, isOnline, newestMessage, readRetry]);
+  }, [conversationId, conversationPath, isOnline, newestMessage, readRetry]);
 
   const canSend = thread.canSend && (thread.status === "ACTIVE" || thread.status === "AWAITING_BUYER");
   const canSendFreeText = canSend && (thread.status === "ACTIVE" || thread.viewerRole === "BUYER");

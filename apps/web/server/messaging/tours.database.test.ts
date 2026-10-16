@@ -112,6 +112,27 @@ suite("tour scheduling real PostgreSQL proof", () => {
     expect(mocks.send).not.toHaveBeenCalled();
     expect((await prisma.emailOutbox.findUniqueOrThrow({ where: { id: job.id } })).status).toBe("CANCELLED");
   }, 30_000);
+
+  it("calls the provider only after the delivery decision commits and releases the pair lock", async () => {
+    const fixture = await seedFixture(); enablePair(fixture); mocks.userId = fixture.sellerId;
+    await tours.mutateConversationTour(fixture.conversationId, proposal());
+    const schedule = await prisma.tourSchedule.findUniqueOrThrow({ where: { conversationId: fixture.conversationId } });
+    const pending = await prisma.emailOutbox.findFirstOrThrow({ where: { tourScheduleId: schedule.id } });
+    const job = await prisma.emailOutbox.update({ where: { id: pending.id }, data: { status: "SENDING", lockedAt: new Date(), leaseUntil: new Date(Date.now() + 120_000), workerId: "tour-proof" } });
+    let pairLockHeldDuringSend: boolean | null = null;
+    mocks.send.mockImplementationOnce(async () => {
+      // A bigint advisory key appears in pg_locks as classid (high half) and objid (low half).
+      const held = await pool!.query(`SELECT EXISTS (
+          SELECT 1 FROM pg_locks
+          WHERE locktype = 'advisory' AND objsubid = 1 AND granted
+            AND ((classid::bigint << 32) | objid::bigint) = hashtextextended($1, 0)
+        ) AS held`, [fixture.pairKey]);
+      pairLockHeldDuringSend = held.rows[0].held;
+      return { provider: "mock", queued: false };
+    });
+    await expect(tours.sendCurrentTourEmail(job, "tour-proof")).resolves.toMatchObject({ provider: "mock" });
+    expect(pairLockHeldDuringSend).toBe(false);
+  }, 30_000);
 });
 
 function proposal() { return { action: "PROPOSE", clientActionId: randomUUID(), expectedRevision: 0, startsAt: new Date(Date.now() + 86_400_000).toISOString(), timeZone: "America/Los_Angeles", durationMinutes: 60 }; }

@@ -12,6 +12,6 @@ export async function GET(
     await authorizeConversationAccess(conversationId);
     return privateMessagingJson(await getMessagingLoiSummary(conversationId));
   } catch (error) {
-    return messagingErrorResponse(error);
+    return messagingErrorResponse(error, { route: "GET /api/conversations/[conversationId]/loi" });
   }
 }

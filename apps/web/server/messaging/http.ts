@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { ZodError, type ZodType } from "zod";
 import { MessagingError } from "./errors";
+import { describeMessagingFailure } from "./failure-details";
+
+export { describeMessagingFailure, sanitizeErrorMessage } from "./failure-details";
 
 const PRIVATE_HEADERS = { "Cache-Control": "private, no-store" } as const;
 const MAX_MESSAGING_JSON_BYTES = 16 * 1024;
@@ -45,17 +48,22 @@ export async function parseMessagingJson<T>(request: Request, schema: ZodType<T>
   }
 }
 
-export function messagingErrorResponse(error: unknown) {
+/** `route` is a fixed label such as "POST /api/conversations/[conversationId]/read", never a URL. */
+export type MessagingRouteContext = { route?: string };
+
+export function messagingErrorResponse(error: unknown, context: MessagingRouteContext = {}) {
+  const route = context.route ? { route: context.route } : {};
   if (error instanceof MessagingError) {
-    console.warn("Messaging request rejected.", { code: error.code, status: error.status });
+    console.warn("Messaging request rejected.", { code: error.code, status: error.status, ...route });
     return privateMessagingJson({ error: publicErrorMessage(error), code: error.code }, error.status);
   }
   if (error instanceof ZodError) {
-    console.warn("Messaging request rejected.", { code: "INVALID_INPUT", status: 400 });
+    console.warn("Messaging request rejected.", { code: "INVALID_INPUT", status: 400, ...route });
     return privateMessagingJson({ error: "Invalid messaging request." }, 400);
   }
   console.error("Messaging request failed.", {
-    name: error instanceof Error ? error.name : "UnknownError",
+    route: context.route ?? "unknown",
+    ...describeMessagingFailure(error),
   });
   return privateMessagingJson({ error: "Messaging request failed." }, 500);
 }

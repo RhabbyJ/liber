@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -19,6 +19,21 @@ describe("messaging API security contracts", () => {
     expect(source).not.toContain("console.log");
   });
 
+  it.each([
+    ...mutationRoutes,
+    "app/api/conversations/route.ts",
+    "app/api/conversations/[conversationId]/route.ts",
+    "app/api/conversations/[conversationId]/loi/route.ts",
+  ])("labels every unexpected failure in %s with its fixed route pattern", async (route) => {
+    const source = await readFile(path.resolve(route), "utf8");
+    const calls = source.match(/messagingErrorResponse\([^)]*\)/g) ?? [];
+    expect(calls.length).toBeGreaterThan(0);
+    const pattern = `/${route.replace(/^app\//, "").replace(/\/route\.ts$/, "")}`;
+    for (const call of calls) {
+      expect(call).toMatch(new RegExp(`\\{ route: "(GET|POST) ${pattern.replace(/[[\]]/g, "\\$&")}" \\}`));
+    }
+  });
+
   it("keeps the shared error mapper generic and private", async () => {
     const source = await readFile(path.resolve("server/messaging/http.ts"), "utf8");
     expect(source).toContain('"Cache-Control": "private, no-store"');
@@ -28,7 +43,7 @@ describe("messaging API security contracts", () => {
 
   it("uses the current DB-backed session and rechecks participant eligibility", async () => {
     const [source, session] = await Promise.all([
-      readFile(path.resolve("server/messaging/service.ts"), "utf8"),
+      readFile(path.resolve("server/messaging/access.ts"), "utf8"),
       readFile(path.resolve("server/session.ts"), "utf8"),
     ]);
     const sessionGuard = between(source, "async function requireMessagingUser", "async function requireAdminUser");
@@ -61,12 +76,12 @@ describe("messaging API security contracts", () => {
   });
 
   it("lets a new unread batch queue after a prior notification was cancelled", async () => {
-    const source = await readFile(path.resolve("server/messaging/service.ts"), "utf8");
+    const source = await readFile(path.resolve("server/messaging/unread-email.ts"), "utf8");
     expect(source).toContain("AND status IN ('PENDING', 'SENDING', 'SENT', 'FAILED')");
   });
 
   it("does not cancel a newer unread batch when an older read marker arrives", async () => {
-    const source = await readFile(path.resolve("server/messaging/service.ts"), "utf8");
+    const source = await readFile(path.resolve("server/messaging/read-state.ts"), "utf8");
     expect(source).toContain("hasUnreadNotifiableMessage");
     expect(source).toContain("if (!await hasUnreadNotifiableMessage");
     expect(source).toContain("return { data: { lastReadMessageId: effectiveReadMarker.id } }");
@@ -74,7 +89,7 @@ describe("messaging API security contracts", () => {
 
   it("relies on the atomic invite trigger and fails closed on a non-canonical result", async () => {
     const [service, contracts] = await Promise.all([
-      readFile(path.resolve("server/messaging/service.ts"), "utf8"),
+      messagingServiceSources(),
       readFile(path.resolve("server/contracts.ts"), "utf8"),
     ]);
     expect(service).not.toContain("ensureConversationForInvite");
@@ -86,15 +101,15 @@ describe("messaging API security contracts", () => {
   });
 
   it("uses the canonical pair, invite, conversation lock order", async () => {
-    const [service, contracts] = await Promise.all([
-      readFile(path.resolve("server/messaging/service.ts"), "utf8"),
+    const [send, blocks, contracts] = await Promise.all([
+      readFile(path.resolve("server/messaging/send.ts"), "utf8"),
+      readFile(path.resolve("server/messaging/blocks-and-mutes.ts"), "utf8"),
       readFile(path.resolve("server/contracts.ts"), "utf8"),
     ]);
-    const send = between(service, "export async function sendConversationMessage", "export async function markConversationRead");
     expect(send.indexOf("lockPair(")).toBeLessThan(send.indexOf("lockInvite("));
     expect(send.indexOf("lockInvite(")).toBeLessThan(send.indexOf("lockConversation("));
 
-    const block = between(service, "export async function blockConversationUser", "export async function reportMessage");
+    const block = between(blocks, "export async function blockConversationUser", "export async function blockUserByBuyerProfile");
     expect(block).toContain("lockPair(");
     expect(block).not.toContain("lockConversation(");
 
@@ -102,9 +117,15 @@ describe("messaging API security contracts", () => {
     expect(respond.indexOf("lockAndAssertInvitePairAvailable(")).toBeLessThan(respond.indexOf("FOR UPDATE"));
   });
 
+  it("never fans out concurrent queries on an interactive transaction client", async () => {
+    // node-postgres serializes them on one connection today and rejects them in pg@9.
+    const source = await messagingServiceSources();
+    expect(source).not.toMatch(/Promise\.all(Settled)?\(\[\s*tx\./);
+  });
+
   it("projects advisory-lock void results to a driver-supported scalar", async () => {
     const [service, contracts] = await Promise.all([
-      readFile(path.resolve("server/messaging/service.ts"), "utf8"),
+      readFile(path.resolve("server/messaging/locks.ts"), "utf8"),
       readFile(path.resolve("server/contracts.ts"), "utf8"),
     ]);
     const inviteSend = between(contracts, "export async function sendInvite", "export async function listSellerInvites");
@@ -119,7 +140,7 @@ describe("messaging API security contracts", () => {
 
   it("checks the DB-backed session's active admin role before exposing report evidence", async () => {
     const [source, session] = await Promise.all([
-      readFile(path.resolve("server/messaging/service.ts"), "utf8"),
+      messagingServiceSources(),
       readFile(path.resolve("server/session.ts"), "utf8"),
     ]);
     expect(session).toContain("select: { avatarVariant: true, email: true, name: true, roles: true, status: true }");
@@ -140,6 +161,13 @@ describe("messaging API security contracts", () => {
     );
   });
 });
+
+// The service is split into cohesive modules; read them all for whole-service assertions.
+async function messagingServiceSources() {
+  const directory = path.resolve("server/messaging");
+  const files = (await readdir(directory)).filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts")).sort();
+  return (await Promise.all(files.map((file) => readFile(path.join(directory, file), "utf8")))).join("\n");
+}
 
 function between(source: string, start: string, end: string) {
   return source.slice(source.indexOf(start), source.indexOf(end));

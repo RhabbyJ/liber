@@ -31,7 +31,7 @@
   top: 1px;
 }
 
-/* Dropdown: the account menu's surface, 320px wide. */
+/* Dropdown: the account menu's surface, up to 380px wide beside the bell. */
 .notification-popover {
   animation: popover-in var(--dur) var(--ease-out);
   background: var(--surface);
@@ -340,6 +340,23 @@
   .invite-arrival-toast {
     right: 16px;
     top: 72px;
+  }
+}
+
+/* Phones: the bell sits about 100px in from the right edge (account menu and
+   drawer toggle follow it), so a 380px panel anchored to the bell would run off
+   the left edge. Pin it to the viewport just below the sticky header instead. */
+@media (max-width: 599px) {
+  .notification-popover {
+    left: 16px;
+    position: fixed;
+    right: 16px;
+    top: calc(var(--header-h) + 1px + 8px);
+    width: auto;
+  }
+
+  .notification-popover-list {
+    max-height: min(520px, calc(100dvh - 220px));
   }
 }
 

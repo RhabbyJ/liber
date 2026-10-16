@@ -9,6 +9,7 @@ import { relativeTime } from "../lib/notification-format";
 import { notificationIcon } from "../lib/notification-links";
 import { Icon } from "./icon";
 import { createRecoveryPolling, MESSAGING_FALLBACK_POLL_MS } from "./messaging/recovery-polling";
+import { publishUnreadConversationCount, unreadConversationCountFrom } from "./messaging/unread-conversations";
 import { advanceInviteActivity, inviteActivityBaseline, isNotificationActivity } from "./notification-bell-state";
 
 export function NotificationBell({ initialActivity, href, isBuyer }: {
@@ -32,11 +33,20 @@ export function NotificationBell({ initialActivity, href, isBuyer }: {
   const markReadButtonRef = useRef<HTMLButtonElement>(null);
   const markAllRef = useRef<(() => Promise<boolean>) | null>(null);
 
+  // The same poll carries the Messages nav item's unread-conversation count.
+  useEffect(() => {
+    const seeded = unreadConversationCountFrom(initialActivity);
+    if (seeded !== undefined) publishUnreadConversationCount(seeded);
+  }, [initialActivity]);
+
   useEffect(() => {
     let disposed = false;
     let stopped = false;
     let controller: AbortController | null = null;
     let inFlight: Promise<boolean> | null = null;
+    // A read acknowledged while a poll is in flight may not be in that response.
+    let refreshQueued = false;
+    let queuedRefresh: ReturnType<typeof setTimeout> | undefined;
 
     async function request(markAll = false): Promise<boolean> {
       if (markAll && inFlight) await inFlight;
@@ -63,11 +73,14 @@ export function NotificationBell({ initialActivity, href, isBuyer }: {
             setToastId(null);
             setIsOpen(false);
             setSessionEnded(true);
+            publishUnreadConversationCount(null);
             return false;
           }
           if (!response.ok) return false;
           const next: unknown = await response.json();
           if (disposed || signal.aborted || !isNotificationActivity(next)) return false;
+          const conversations = unreadConversationCountFrom(next);
+          if (conversations !== undefined) publishUnreadConversationCount(conversations);
           const transition = advanceInviteActivity(baselineRef.current, next);
           baselineRef.current = transition.baseline;
           setActivity(next);
@@ -85,6 +98,11 @@ export function NotificationBell({ initialActivity, href, isBuyer }: {
       } finally {
         clearTimeout(timeout);
         if (inFlight === pending) inFlight = null;
+        if (refreshQueued && !disposed && !stopped) {
+          refreshQueued = false;
+          // Start after the poll that owns this request has settled.
+          queuedRefresh = setTimeout(() => polling.recover(), 0);
+        }
       }
     }
 
@@ -95,19 +113,25 @@ export function NotificationBell({ initialActivity, href, isBuyer }: {
     });
     markAllRef.current = () => request(true);
     const recover = () => polling.recover();
+    const refreshChanged = () => {
+      if (inFlight) refreshQueued = true;
+      else polling.recover();
+    };
     window.addEventListener("focus", recover);
     window.addEventListener("online", recover);
-    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, recover);
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refreshChanged);
     document.addEventListener("visibilitychange", recover);
     polling.recover();
     return () => {
       disposed = true;
       polling.dispose();
+      clearTimeout(queuedRefresh);
       controller?.abort();
       markAllRef.current = null;
+      publishUnreadConversationCount(null);
       window.removeEventListener("focus", recover);
       window.removeEventListener("online", recover);
-      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, recover);
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refreshChanged);
       document.removeEventListener("visibilitychange", recover);
     };
   }, [isBuyer]);

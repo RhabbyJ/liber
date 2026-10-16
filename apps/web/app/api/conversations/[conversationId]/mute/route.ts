@@ -14,6 +14,6 @@ export async function POST(
     const body = await parseMessagingJson(request, muteConversationSchema);
     return privateMessagingJson(await setConversationMuted({ conversationId, ...body }));
   } catch (error) {
-    return messagingErrorResponse(error);
+    return messagingErrorResponse(error, { route: "POST /api/conversations/[conversationId]/mute" });
   }
 }

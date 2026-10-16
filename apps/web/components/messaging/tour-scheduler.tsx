@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { TourMutation, TourView } from "../../lib/tour-scheduling";
 import { Icon } from "../icon";
+import { createRecoveryPolling } from "./recovery-polling";
 
 type View = TourView & { emailRemindersAvailable?: boolean };
+
+const TOUR_POLL_MS = 15_000;
 
 export function TourScheduler({ conversationId, muted }: { conversationId: string; muted: boolean }) {
   const [view, setView] = useState<View | null>(null);
@@ -24,8 +27,11 @@ export function TourScheduler({ conversationId, muted }: { conversationId: strin
   const loadRef = useRef<AbortController | null>(null);
   const path = `/api/conversations/${encodeURIComponent(conversationId)}/tour`;
 
+  const pollRef = useRef<ReturnType<typeof createRecoveryPolling> | null>(null);
+
+  /** Resolves false only when a load failed or timed out, which backs the poll off. */
   const refresh = useCallback(async () => {
-    if (loadRef.current || mutationRef.current) return;
+    if (loadRef.current || mutationRef.current) return true;
     const controller = new AbortController();
     loadRef.current = controller;
     let timedOut = false;
@@ -33,20 +39,40 @@ export function TourScheduler({ conversationId, muted }: { conversationId: strin
     try {
       const next = await requestTour(path, { signal: controller.signal, cache: "no-store" });
       if (!controller.signal.aborted && !mutationRef.current) { setView(next); setLoadError(false); }
-    } catch { if (timedOut || !controller.signal.aborted) setLoadError(true); }
+      return true;
+    } catch {
+      const failed = timedOut || !controller.signal.aborted;
+      if (failed) setLoadError(true);
+      return !failed;
+    }
     finally { window.clearTimeout(timer); if (loadRef.current === controller) loadRef.current = null; }
   }, [path]);
 
   useEffect(() => {
     setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
     setClock(Date.now());
-    void refresh();
-    const tick = () => { setClock(Date.now()); if (document.visibilityState === "visible") void refresh(); };
-    const timer = window.setInterval(tick, 15_000);
-    window.addEventListener("focus", tick);
+    // A sidecar: poll only while the page is visible and online, never overlap
+    // requests, and back off to a minute while the endpoint keeps failing.
+    const poll = createRecoveryPolling({
+      canRefresh: () => document.visibilityState === "visible" && navigator.onLine,
+      intervalMs: () => TOUR_POLL_MS,
+      refresh: () => {
+        setClock(Date.now());
+        return refresh();
+      },
+    });
+    pollRef.current = poll;
+    const recover = () => poll.recover();
+    poll.recover();
+    window.addEventListener("focus", recover);
+    window.addEventListener("online", recover);
+    document.addEventListener("visibilitychange", recover);
     return () => {
-      window.clearInterval(timer);
-      window.removeEventListener("focus", tick);
+      poll.dispose();
+      if (pollRef.current === poll) pollRef.current = null;
+      window.removeEventListener("focus", recover);
+      window.removeEventListener("online", recover);
+      document.removeEventListener("visibilitychange", recover);
       // Clear the in-flight marker too, so a remount (Strict Mode, fast refresh) loads immediately.
       loadRef.current?.abort();
       loadRef.current = null;
@@ -93,7 +119,7 @@ export function TourScheduler({ conversationId, muted }: { conversationId: strin
     void mutate({ action: "PROPOSE", expectedRevision: schedule?.revision ?? 0, startsAt: date.toISOString(), timeZone, durationMinutes: duration as 30 | 60 | 90 | 120 });
   }
 
-  if (!view) return loadError ? <div className="tour-scheduler tour-load-error"><Icon name="calendar" size={18} /><span>Tour scheduling could not load.</span><button className="button secondary sm" onClick={() => void refresh()} type="button">Retry tour scheduling</button></div> : null;
+  if (!view) return loadError ? <div className="tour-scheduler tour-load-error"><Icon name="calendar" size={18} /><span>Tour scheduling could not load.</span><button className="button secondary sm" onClick={() => { if (pollRef.current) pollRef.current.recover(); else void refresh(); }} type="button">Retry tour scheduling</button></div> : null;
   if (!view.canSchedule && !schedule) return null;
   return (
     <section aria-label="Property tour" className="tour-scheduler">

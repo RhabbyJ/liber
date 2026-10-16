@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ConversationInbox } from "../../components/messaging/conversation-inbox";
 import {
@@ -7,6 +8,9 @@ import {
 import { Icon } from "../../components/icon";
 import { MessagingError } from "../../server/messaging/errors";
 import { listConversations } from "../../server/messaging/service";
+
+// The root layout's title template appends the site name.
+export const metadata: Metadata = { title: "Messages" };
 
 export default async function MessagesPage() {
   let result: Awaited<ReturnType<typeof listConversations>>;

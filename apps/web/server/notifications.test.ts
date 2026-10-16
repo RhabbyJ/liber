@@ -2,8 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ count: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), transaction: vi.fn() }));
 vi.mock("@liber/db", () => ({ prisma: { notification: mocks, $transaction: mocks.transaction } }));
+const messaging = vi.hoisted(() => ({ countUnread: vi.fn() }));
+vi.mock("./messaging/unread", () => ({ countUnreadConversations: messaging.countUnread }));
 
-import { listNotificationItems, markNotificationsRead, readNotificationActivity, RECENT_NOTIFICATION_LIMIT } from "./notifications";
+import {
+  listNotificationItems,
+  markNotificationsRead,
+  readNotificationActivity,
+  RECENT_NOTIFICATION_LIMIT,
+  withUnreadConversationCount,
+} from "./notifications";
 import type { SessionUser } from "./authz";
 
 const buyer: SessionUser = { id: "buyer-owner", roles: ["BUYER"] };
@@ -124,5 +132,47 @@ describe("notification activity ownership", () => {
     mocks.updateMany.mockResolvedValue({ count: 0 });
     expect(await markNotificationsRead(buyer, { notificationId: "unknown" })).toEqual(await readNotificationActivity(buyer));
     expect(mocks.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: buyer.id, type: "invite_received" } }));
+  });
+});
+
+describe("header unread-conversation count", () => {
+  const activity = { unreadCount: 1, latestInvite: null, recent: [] };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    messaging.countUnread.mockResolvedValue(3);
+  });
+
+  it.each([["BUYER"], ["SELLER"], ["SELLER", "ADMIN"]] as SessionUser["roles"][])(
+    "adds the session owner's count for a %s session",
+    async (...roles) => {
+      const user = { id: "session-owner", roles };
+      expect(await withUnreadConversationCount(user, activity)).toEqual({ ...activity, unreadConversationCount: 3 });
+      expect(messaging.countUnread).toHaveBeenCalledWith("session-owner");
+    },
+  );
+
+  it("skips accounts without a Messages nav item and passes through a disabled-messaging null", async () => {
+    expect(await withUnreadConversationCount({ id: "admin", roles: ["ADMIN"] }, activity))
+      .toEqual({ ...activity, unreadConversationCount: null });
+    expect(messaging.countUnread).not.toHaveBeenCalled();
+    messaging.countUnread.mockResolvedValue(null);
+    expect(await withUnreadConversationCount(buyer, activity)).toEqual({ ...activity, unreadConversationCount: null });
+  });
+
+  it("never fails the notification read and logs only sanitized failure details", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    messaging.countUnread.mockRejectedValue(Object.assign(
+      new Error('invalid input syntax for type uuid: "buyer@example.test"'),
+      { name: "error", code: "22P02" },
+    ));
+    expect(await withUnreadConversationCount(buyer, activity)).toEqual({ ...activity, unreadConversationCount: null });
+    expect(warning).toHaveBeenCalledWith("Unread conversation count unavailable.", {
+      errorClass: "error",
+      message: 'invalid input syntax for type uuid: "[redacted]"',
+      sqlState: "22P02",
+    });
+    expect(JSON.stringify(warning.mock.calls)).not.toContain("buyer@example.test");
+    warning.mockRestore();
   });
 });

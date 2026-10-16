@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { markNotificationsRead, readNotificationActivity } from "../../../server/notifications";
+import { markNotificationsRead, readNotificationActivity, withUnreadConversationCount } from "../../../server/notifications";
 import { readBoundedJson, RequestBodyError } from "../../../server/request-body";
 import { isRequestSameOrigin } from "../../../server/request-origin";
 import { getSessionUser } from "../../../server/session";
@@ -18,7 +18,7 @@ export async function GET() {
   try {
     const user = await getSessionUser();
     if (!user) return privateJson({ error: "Sign in to view notifications." }, 401);
-    return privateJson(await readNotificationActivity(user));
+    return privateJson(await withUnreadConversationCount(user, await readNotificationActivity(user)));
   } catch {
     return privateJson({ error: "Notifications are temporarily unavailable." }, 503);
   }
@@ -34,7 +34,7 @@ export async function PATCH(request: NextRequest) {
     if (!user) return privateJson({ error: "Sign in to update notifications." }, 401);
     const parsed = readInput.safeParse(await readBoundedJson(request, 1024));
     if (!parsed.success) return privateJson({ error: "Invalid notification update." }, 400);
-    return privateJson(await markNotificationsRead(user, parsed.data));
+    return privateJson(await withUnreadConversationCount(user, await markNotificationsRead(user, parsed.data)));
   } catch (error) {
     if (error instanceof RequestBodyError) return privateJson({ error: error.message }, error.status);
     return privateJson({ error: "Notifications are temporarily unavailable." }, 503);

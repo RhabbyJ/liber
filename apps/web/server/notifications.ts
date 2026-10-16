@@ -2,8 +2,16 @@ import { prisma } from "@liber/db";
 import type { NotificationActivity, NotificationItem } from "../lib/notification-activity";
 import { notificationTarget } from "../lib/notification-links";
 import { hasRole, type SessionUser } from "./authz";
+import { describeMessagingFailure } from "./messaging/failure-details";
+import { countUnreadConversations } from "./messaging/unread";
 
 export type NotificationReadInput = { notificationId: string } | { all: true };
+
+/** The header poll: notification activity plus the Messages nav item's count. */
+export type HeaderActivity = NotificationActivity & {
+  /** Inbox conversations with unread messages; null when messaging is off for the viewer or unavailable. */
+  unreadConversationCount: number | null;
+};
 
 export const RECENT_NOTIFICATION_LIMIT = 5;
 export const NOTIFICATION_FEED_LIMIT = 200;
@@ -88,6 +96,26 @@ export async function listNotificationItems(user: SessionUser): Promise<Notifica
     select: notificationSelect,
   });
   return rows.map(toNotificationItem);
+}
+
+/**
+ * Adds the Messages nav unread-conversation count for the same trusted session.
+ * Only buyers and sellers get the Messages item; a messaging failure is logged
+ * and reported as null so it never fails the notification read.
+ */
+export async function withUnreadConversationCount(
+  user: SessionUser,
+  activity: NotificationActivity,
+): Promise<HeaderActivity> {
+  let unreadConversationCount: number | null = null;
+  if (hasRole(user, "BUYER") || hasRole(user, "SELLER")) {
+    try {
+      unreadConversationCount = await countUnreadConversations(user.id);
+    } catch (error) {
+      console.warn("Unread conversation count unavailable.", describeMessagingFailure(error));
+    }
+  }
+  return { ...activity, unreadConversationCount };
 }
 
 export async function markNotificationsRead(user: SessionUser, input: NotificationReadInput) {

@@ -13,6 +13,8 @@ import {
 } from "./normalize";
 import type { ConversationSummary, MessagingListPageInfo } from "./types";
 import { createRecoveryPolling, MESSAGING_FALLBACK_POLL_MS } from "./recovery-polling";
+import { CONVERSATION_READ_EVENT, type ConversationReadDetail } from "./unread-conversations";
+import { isElementRendered } from "../element-visibility";
 
 const conversationDateFormatter = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
 const conversationMonthDayFormatter = new Intl.DateTimeFormat("en", { day: "numeric", month: "short" });
@@ -39,6 +41,8 @@ export function ConversationInbox({
   const firstPageSignatureRef = useRef(conversationPageSignature(initialConversations, initialPageInfo));
   const requestInFlightRef = useRef<"load" | "refresh" | null>(null);
   const requestAbortRef = useRef<AbortController | null>(null);
+  // Both render branches return the same root <section>, so this node is stable.
+  const rootRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => () => {
     requestAbortRef.current?.abort();
@@ -78,8 +82,11 @@ export function ConversationInbox({
   }, []);
 
   useEffect(() => {
+    // Phones hide this sidebar beside an open thread (display: none below 900px);
+    // a hidden list makes no requests and catches up as soon as it shows again.
+    const isShown = () => isElementRendered(rootRef.current);
     const poll = createRecoveryPolling({
-      canRefresh: () => document.visibilityState === "visible" && navigator.onLine,
+      canRefresh: () => document.visibilityState === "visible" && navigator.onLine && isShown(),
       intervalMs: () => MESSAGING_FALLBACK_POLL_MS,
       refresh: refreshFirstPage,
     });
@@ -88,13 +95,35 @@ export function ConversationInbox({
     window.addEventListener("focus", recover);
     window.addEventListener("online", recover);
     document.addEventListener("visibilitychange", recover);
+    let shown = isShown();
+    const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
+      const nowShown = isShown();
+      if (nowShown && !shown) recover();
+      shown = nowShown;
+    });
+    if (rootRef.current) resize?.observe(rootRef.current);
     return () => {
       poll.dispose();
+      resize?.disconnect();
       window.removeEventListener("focus", recover);
       window.removeEventListener("online", recover);
       document.removeEventListener("visibilitychange", recover);
     };
   }, [refreshFirstPage]);
+
+  // The open thread just advanced its read marker; clear that row now and let
+  // the next canonical refresh confirm it.
+  useEffect(() => {
+    function clearReadConversation(event: Event) {
+      const conversationId = (event as CustomEvent<ConversationReadDetail>).detail?.conversationId;
+      if (!conversationId) return;
+      setConversations((current) => current.some((item) => item.id === conversationId && item.unreadCount > 0)
+        ? current.map((item) => item.id === conversationId ? { ...item, unreadCount: 0 } : item)
+        : current);
+    }
+    window.addEventListener(CONVERSATION_READ_EVENT, clearReadConversation);
+    return () => window.removeEventListener(CONVERSATION_READ_EVENT, clearReadConversation);
+  }, []);
 
   async function loadMore() {
     if (!pageInfo.nextCursor || requestInFlightRef.current) return;
@@ -138,7 +167,7 @@ export function ConversationInbox({
 
   if (conversations.length === 0) {
     return (
-      <section aria-label="Conversations" className="messenger-inbox empty">
+      <section aria-label="Conversations" className="messenger-inbox empty" ref={rootRef}>
         <EmptyState
           description="A conversation appears here after a valid property invite is sent to you or by you."
           icon="mail"
@@ -158,7 +187,7 @@ export function ConversationInbox({
   const unreadConversations = conversations.filter((conversation) => conversation.unreadCount > 0).length;
 
   return (
-    <section aria-label="Conversations" className="messenger-inbox">
+    <section aria-label="Conversations" className="messenger-inbox" ref={rootRef}>
       <div className="messenger-inbox-tools">
         <label className="messenger-search">
           <Icon aria-hidden="true" name="search" size={20} />

@@ -9,7 +9,7 @@ import {
   getConversationScheduleContext, getConversationScheduleDeliveryContext,
   withConversationScheduleMutation,
   withConversationScheduleDelivery,
-} from "./service";
+} from "./tour-gate";
 
 type Tour = NonNullable<Awaited<ReturnType<typeof prisma.tourSchedule.findUnique>>>;
 
@@ -152,22 +152,27 @@ export async function prepareTourEmail(job: TourEmailJob) {
 export async function sendCurrentTourEmail(job: TourEmailJob & { id: string; attempts: number }, workerId: string) {
   const prepared = await prepareTourEmail(job);
   if (!prepared || !job.tourRecipientUserId) return null;
+  let dispatch: { conversationId: string; to: string; event: TourEvent } | null;
   try {
-    return await withConversationScheduleDelivery(prepared.conversationId, job.tourRecipientUserId, async (tx, recipient) => {
-      // Hold the same locks as reschedule/cancel/block through provider dispatch.
-      // Provider idempotency protects retry if delivery succeeds but this transaction fails.
-      const [schedule, lease] = await Promise.all([
-        tx.tourSchedule.findUnique({ where: { id: job.tourScheduleId! } }),
-        tx.emailOutbox.findFirst({ where: { id: job.id, attempts: job.attempts, status: "SENDING", workerId, leaseUntil: { gt: new Date() } }, select: { id: true } }),
-      ]);
+    // Decide under the same locks as reschedule/cancel/block, then commit before
+    // calling the provider so no row/advisory lock or pooled connection is held
+    // across HTTP. The committed decision is the linearization point: a change
+    // that commits first is seen here and suppresses the send; one that commits
+    // later cannot recall it (it previously waited out the in-transaction call).
+    // The stable idempotency key lets the provider drop a retried duplicate.
+    dispatch = await withConversationScheduleDelivery(prepared.conversationId, job.tourRecipientUserId, async (tx, recipient) => {
+      // One interactive transaction is one connection: run its queries sequentially.
+      const schedule = await tx.tourSchedule.findUnique({ where: { id: job.tourScheduleId! } });
+      const lease = await tx.emailOutbox.findFirst({ where: { id: job.id, attempts: job.attempts, status: "SENDING", workerId, leaseUntil: { gt: new Date() } }, select: { id: true } });
       if (!lease || !schedule || !tourEventIsCurrent({
         event: job.tourEvent!, revision: job.tourRevision!, currentRevision: schedule.revision,
         status: schedule.status, startsAt: schedule.startsAt, durationMinutes: schedule.durationMinutes, now: new Date(),
       })) return null;
-      return sendTourEmail({ ...prepared, to: recipient.email }, job.idempotencyKey);
+      return { ...prepared, to: recipient.email };
     });
   } catch (error) {
     if (error instanceof MessagingError) return null;
     throw error;
   }
+  return dispatch ? sendTourEmail(dispatch, job.idempotencyKey) : null;
 }

@@ -24,7 +24,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       pageSize: query.pageSize,
     }));
   } catch (error) {
-    return messagingErrorResponse(error);
+    return messagingErrorResponse(error, { route: "GET /api/conversations/[conversationId]/messages" });
   }
 }
 
@@ -35,6 +35,6 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     const body = await parseMessagingJson(request, sendConversationMessageSchema);
     return privateMessagingJson(await sendConversationMessage({ ...body, conversationId }), 201);
   } catch (error) {
-    return messagingErrorResponse(error);
+    return messagingErrorResponse(error, { route: "POST /api/conversations/[conversationId]/messages" });
   }
 }

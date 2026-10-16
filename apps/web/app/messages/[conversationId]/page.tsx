@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ConversationInbox } from "../../../components/messaging/conversation-inbox";
 import { MessageThread } from "../../../components/messaging/message-thread";
@@ -10,6 +11,10 @@ import { messagingTemplateLabel } from "../../../components/messaging/types";
 import { MessagingError } from "../../../server/messaging/errors";
 import { getConversationThread, listConversations } from "../../../server/messaging/service";
 import { buyerQuickReplyTemplates, sellerFollowUpTemplates } from "../../../server/messaging/templates";
+
+// Fixed on purpose: counterparty labels and property addresses stay out of tab
+// titles and browser history. The root layout's title template appends the site name.
+export const metadata: Metadata = { title: "Conversation" };
 
 export default async function ConversationPage({
   params,

@@ -1,14 +1,19 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ getSessionUser: vi.fn(), activity: vi.fn(), mark: vi.fn() }));
+const mocks = vi.hoisted(() => ({ getSessionUser: vi.fn(), activity: vi.fn(), mark: vi.fn(), withMessages: vi.fn() }));
 vi.mock("../../../server/session", () => ({ getSessionUser: mocks.getSessionUser }));
-vi.mock("../../../server/notifications", () => ({ readNotificationActivity: mocks.activity, markNotificationsRead: mocks.mark }));
+vi.mock("../../../server/notifications", () => ({
+  readNotificationActivity: mocks.activity,
+  markNotificationsRead: mocks.mark,
+  withUnreadConversationCount: mocks.withMessages,
+}));
 
 import { GET, PATCH } from "./route";
 
 const user = { id: "trusted-session-owner", roles: ["BUYER"] };
 const activity = { unreadCount: 1, latestInvite: { id: "cminvite", createdAt: "2026-10-06T12:00:00Z", read: false }, recent: [] };
+const headerActivity = { ...activity, unreadConversationCount: 2 };
 function request(body: unknown = { all: true }, headers: Record<string, string> = {}) {
   return new NextRequest("https://liber.example/api/notifications", {
     method: "PATCH", headers: { host: "liber.example", origin: "https://liber.example", "content-type": "application/json", ...headers },
@@ -27,6 +32,7 @@ describe("private notification API", () => {
     mocks.getSessionUser.mockResolvedValue(user);
     mocks.activity.mockResolvedValue(activity);
     mocks.mark.mockResolvedValue(activity);
+    mocks.withMessages.mockImplementation(async (_user: unknown, current: typeof activity) => ({ ...current, unreadConversationCount: 2 }));
   });
 
   it("requires authentication for reads and writes without invoking database services", async () => {
@@ -35,16 +41,26 @@ describe("private notification API", () => {
     await expectPrivate(await PATCH(request()), 401);
     expect(mocks.activity).not.toHaveBeenCalled();
     expect(mocks.mark).not.toHaveBeenCalled();
+    expect(mocks.withMessages).not.toHaveBeenCalled();
   });
 
   it("returns a minimal activity DTO for the trusted session and never marks read on GET", async () => {
-    expect(await expectPrivate(await GET(), 200)).toEqual(activity);
+    expect(await expectPrivate(await GET(), 200)).toEqual(headerActivity);
     expect(mocks.activity).toHaveBeenCalledWith(user);
     expect(mocks.mark).not.toHaveBeenCalled();
   });
 
+  it("adds the unread-conversation count for the same trusted session on reads and acknowledgements", async () => {
+    await expectPrivate(await GET(), 200);
+    expect(mocks.withMessages).toHaveBeenCalledWith(user, activity);
+    const acknowledged = { ...activity, unreadCount: 0 };
+    mocks.mark.mockResolvedValue(acknowledged);
+    expect(await expectPrivate(await PATCH(request({ all: true })), 200)).toEqual({ ...acknowledged, unreadConversationCount: 2 });
+    expect(mocks.withMessages).toHaveBeenLastCalledWith(user, acknowledged);
+  });
+
   it("accepts a cuid notification ID, trims it, and passes only the trusted owner", async () => {
-    expect(await expectPrivate(await PATCH(request({ notificationId: " cminvite " })), 200)).toEqual(activity);
+    expect(await expectPrivate(await PATCH(request({ notificationId: " cminvite " })), 200)).toEqual(headerActivity);
     expect(mocks.mark).toHaveBeenCalledWith(user, { notificationId: "cminvite" });
   });
 

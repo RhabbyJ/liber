@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 vi.mock("@liber/db", () => ({ prisma: mocks.prisma }));
-vi.mock("./service", () => ({ getConversationScheduleContext: mocks.context, withConversationScheduleMutation: mocks.mutation, getConversationScheduleDeliveryContext: mocks.delivery, withConversationScheduleDelivery: mocks.lockedDelivery }));
+vi.mock("./tour-gate", () => ({ getConversationScheduleContext: mocks.context, withConversationScheduleMutation: mocks.mutation, getConversationScheduleDeliveryContext: mocks.delivery, withConversationScheduleDelivery: mocks.lockedDelivery }));
 vi.mock("../email", () => ({ sendTourEmail: mocks.send }));
 import { getConversationTour, mutateConversationTour, prepareTourEmail, sendCurrentTourEmail, tourOutboxKey } from "./tours";
 import { MessagingError } from "./errors";
@@ -103,6 +103,62 @@ describe("tour lifecycle", () => {
     expect(mocks.send).toHaveBeenCalledTimes(1);
     mocks.delivery.mockRejectedValue(new MessagingError("NOT_FOUND", "Unavailable", 404));
     await expect(prepareTourEmail(job)).resolves.toBeNull();
+  });
+
+  it("reads the schedule and lease one at a time on the locked delivery connection", async () => {
+    await mutateConversationTour(conversationId, proposal);
+    const job = { id: "outbox-job", attempts: 1, tourScheduleId: id, tourRevision: 1, tourRecipientUserId: buyer, tourEvent: "PROPOSED", idempotencyKey: tourOutboxKey(id, 1, "PROPOSED", buyer) };
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const tracked = <T,>(read: () => Promise<T>) => async () => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      // Timers are faked here; microtask turns are enough to expose a fan-out.
+      for (let turn = 0; turn < 3; turn += 1) await Promise.resolve();
+      inFlight -= 1;
+      return read();
+    };
+    mocks.lockedDelivery.mockImplementation(async (_conversation, _recipient, operation) => {
+      const findSchedule = tracked(async () => current);
+      const findLease = tracked(async () => ({ id: "outbox-job" }));
+      return operation({
+        ...mocks.prisma,
+        tourSchedule: { ...mocks.prisma.tourSchedule, findUnique: vi.fn(findSchedule) },
+        emailOutbox: { ...mocks.prisma.emailOutbox, findFirst: vi.fn(findLease) },
+      }, { email: "current-recipient@example.test" });
+    });
+    await expect(sendCurrentTourEmail(job, "worker")).resolves.toMatchObject({ provider: "resend" });
+    expect(maxInFlight).toBe(1);
+  });
+
+  it("calls the provider only after the locked eligibility decision has committed", async () => {
+    await mutateConversationTour(conversationId, proposal);
+    const job = { id: "outbox-job", attempts: 1, tourScheduleId: id, tourRevision: 1, tourRecipientUserId: buyer, tourEvent: "PROPOSED", idempotencyKey: tourOutboxKey(id, 1, "PROPOSED", buyer) };
+    let transactionOpen = false;
+    mocks.lockedDelivery.mockImplementation(async (_conversation, _recipient, operation) => {
+      transactionOpen = true;
+      try {
+        return await operation(mocks.prisma, { email: "current-recipient@example.test" });
+      } finally {
+        transactionOpen = false;
+      }
+    });
+    mocks.send.mockImplementation(async () => {
+      expect(transactionOpen).toBe(false);
+      return { provider: "resend", queued: true };
+    });
+    await expect(sendCurrentTourEmail(job, "worker")).resolves.toMatchObject({ provider: "resend" });
+    expect(mocks.send).toHaveBeenCalledOnce();
+    expect(mocks.send).toHaveBeenCalledWith({ conversationId, to: "current-recipient@example.test", event: "PROPOSED" }, job.idempotencyKey);
+  });
+
+  it("surfaces a provider failure after commit so the outbox retries with the same key", async () => {
+    await mutateConversationTour(conversationId, proposal);
+    const job = { id: "outbox-job", attempts: 1, tourScheduleId: id, tourRevision: 1, tourRecipientUserId: buyer, tourEvent: "PROPOSED", idempotencyKey: tourOutboxKey(id, 1, "PROPOSED", buyer) };
+    mocks.send.mockRejectedValueOnce(new Error("Provider unavailable."));
+    await expect(sendCurrentTourEmail(job, "worker")).rejects.toThrow("Provider unavailable.");
+    await expect(sendCurrentTourEmail(job, "worker")).resolves.toMatchObject({ provider: "resend" });
+    expect(mocks.send.mock.calls.map(([, key]) => key)).toEqual([job.idempotencyKey, job.idempotencyKey]);
   });
 
   it("cancels a notification when rescheduling wins the lock before dispatch", async () => {

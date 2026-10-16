@@ -22,6 +22,21 @@ and report-driven admin moderation.
 - `packages/db/prisma/current-baseline/migrations/20260717033000_harden_app_private_function_defaults/migration.sql`
 - `scripts/realtime-branch-proof-subscriber.mjs`
 
+`server/messaging/service.ts` is the public API that routes, pages and other
+server modules import; it re-exports cohesive modules. `access.ts` holds the
+session guards and the eligibility SQL every operation rechecks; `locks.ts` the
+pair -> `Invite` -> `Conversation` -> sender lock helpers; `message-rows.ts` the
+qualified Message projection; `conversation-reads.ts` inbox, thread and history
+reads; `send.ts` sends and quotas; `read-state.ts` read markers;
+`blocks-and-mutes.ts` mutes, permanent blocks and invite pair checks;
+`reports.ts` reports and the admin queue; `tour-gate.ts` tour eligibility;
+`unread-email.ts` the content-free unread outbox jobs; `unread.ts` the Messages
+badge count; and `failure-details.ts` log-safe failure descriptions. New SQL
+belongs in the module that owns its data, not back in the facade.
+`eligibility.sql.test.ts` runs the real service SQL against an in-process
+PostgreSQL (PGlite) with a minimal schema; extend that schema when a query
+starts touching new tables or columns.
+
 ## Invariants
 
 - One valid invite creates exactly one conversation, one seller participant,
@@ -52,6 +67,11 @@ and report-driven admin moderation.
 - Guided copy is selected from the server's versioned catalog. Free text is
   normalized plain text with a 2,000-character maximum. Do not render HTML,
   Markdown, clickable links, or message bodies in logs/analytics/email.
+- Unexpected messaging route failures log only the fixed route pattern (for
+  example `POST /api/conversations/[conversationId]/read`), the error class, the
+  Prisma code, the PostgreSQL SQLSTATE and the first message line with quoted
+  values, emails, UUIDs and long numbers redacted. Expected rejections log code,
+  status and route. Never log request bodies, message text or user identifiers.
 - Messaging mutations accept JSON media types only and stream at most 16 KiB
   before schema validation. Inbox and admin-report lists use bounded keyset
   pages of at most 50 rows. Their server-signed cursors are tamper-evident;
@@ -89,7 +109,11 @@ and report-driven admin moderation.
   60 seconds. Requests never overlap and pause while hidden/offline. LOI polling
   runs separately every 30–36 seconds and on conversation lifecycle changes.
   Inbox polling also refreshes its canonical
-  first page so ordering and unread counts do not remain stale.
+  first page so ordering and unread counts do not remain stale. The inbox also
+  pauses while its list is not rendered (the sidebar beside an open thread on
+  phones) and refreshes as soon as it reappears. The tour sidecar polls every
+  15–18 seconds through the same poller, with failure backoff to 60 seconds and
+  no requests while hidden or offline.
 - `anon`, `authenticated`, and `service_role` have no raw table privileges on
   conversations, participants, messages, blocks, or reports. All browser reads
   and writes use authenticated Liber server paths.
@@ -123,6 +147,13 @@ and report-driven admin moderation.
 - Presentation (October 14, 2026 messenger redesign): `/messages` and `/messages/[id]` share a desktop-messenger shell (`app/messages/chat.css`). The inbox list stays on the left (380px, 320px below 1100px) beside either a placeholder or the open thread; phones show one pane at a time with a back chevron. The thread page also loads the first inbox page (failure leaves an empty sidebar, never a broken thread) and passes the authorized inbox avatar variant to the header. The thread has an avatar header, a pinned listing bar (cover photo, title, location) with the LOI strip and tour bar under it, grouped bubbles (incoming white, outgoing soft green with ink text, tail on the last bubble of a five-minute group, time inside the bubble), the invite as a shared-listing card, centered system lines, and a pill composer whose `+` opens the quick-reply tray (shown inline when quick replies are the only way to reply). Details is a right drawer (a third column at 1280px and up). The site footer is hidden on all messages pages. Data loading, polling, Realtime and actions are unchanged.
 
 ## Agent notes
+
+The Messages nav item shows an unread-conversation badge for buyers and sellers
+in the enabled cohort. `server/messaging/unread.ts` counts it with the inbox's
+membership, cohort and unread rules (capped at 100, shown as 99+), and it rides
+on the existing `GET /api/notifications` poll (see `notifications.md`); there is
+no messaging-specific badge request. An acknowledged read in the thread clears
+the inbox row and makes the bell re-poll immediately.
 
 The responsive messenger uses day separators (Today, Yesterday, then "Mon, Oct 13")
 and grouped incoming/outgoing bubbles. The
@@ -191,7 +222,13 @@ identity changes, and the exact enabled cohort. Read-only conversations retain
 authorized tour history and cannot schedule or receive reminders.
 
 `server/messaging/tours.ts` owns the lifecycle, content-free outbox jobs and
-audits. `components/messaging/tour-scheduler.tsx` is an independent chat sidecar;
+audits. Dispatch rechecks eligibility, the schedule revision and the worker's
+outbox lease in a short transaction under the pair -> invite -> conversation
+locks, commits, and only then calls the provider with the job's idempotency
+key, so no lock or pooled connection is held across HTTP. A reschedule, cancel
+or block that commits before that decision suppresses the email; one that
+commits after it cannot recall it. Provider failures leave the job to the
+outbox retry with the same key. `components/messaging/tour-scheduler.tsx` is an independent chat sidecar;
 its request timeout or failure cannot prevent ordinary chat. System messages
 record proposals, confirmation and cancellation, so the inbox also shows tour
 updates when email is unavailable. The UI shows a follow-up prompt after the
