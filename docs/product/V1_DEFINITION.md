@@ -520,8 +520,11 @@ The LOI workspace is an explicitly approved V2 offer-preparation initiative and
 does not change the core V1 marketplace boundary. It may run only behind
 `LIBER_LOI_V1_ENABLED` and an explicit cohort. In CEO demo / private preview and
 local development the cohort may be `*`, which means any eligible accepted-invite
-participant pair can open the workspace. True production readiness still requires
-exactly two unique reviewed UUIDs. It is a
+participant pair can open the workspace. Production requires an explicit reviewed
+list of unique participant UUIDs; a negotiation is available only when both of its
+participants are listed. On 2026-10-16 the product owner set the production
+messaging and LOI cohorts to every account that existed that day; later signups
+are added only by explicit review. It is a
 non-binding, invite-linked term-alignment workspace for contract preparation,
 not an offer-execution, signature, escrow, payment, or funds-custody product.
 

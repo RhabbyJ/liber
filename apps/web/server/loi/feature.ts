@@ -12,7 +12,9 @@ function cohort() {
     return isControlledPreviewEnvironment() ? new Set(["*"]) : null;
   }
   const users = new Set(values);
-  if (values.length !== 2 || users.size !== 2 || values.some((value) => !value || !UUID.test(value))) {
+  // A reviewed member list: every entry is a distinct UUID, and a negotiation is
+  // available only when both of its participants are listed.
+  if (values.length < 2 || users.size !== values.length || values.some((value) => !UUID.test(value))) {
     return null;
   }
   return users;

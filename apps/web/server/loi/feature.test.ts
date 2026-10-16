@@ -69,9 +69,22 @@ describe("LOI cohort", () => {
     expect(loiV1EnabledForPair(buyer, seller)).toBe(false);
   });
 
-  it("rejects a multi-pilot member set instead of authorizing cross-pairs", () => {
+  it("authorizes any pair whose participants are both on a reviewed member list", () => {
+    const third = "33333333-3333-4333-8333-333333333333";
     vi.stubEnv("LIBER_LOI_V1_ENABLED", "true");
-    vi.stubEnv("LIBER_LOI_V1_COHORT_USER_IDS", `${buyer},${seller},33333333-3333-4333-8333-333333333333,44444444-4444-4444-8444-444444444444`);
-    expect(loiV1EnabledForPair(buyer, seller)).toBe(false);
+    vi.stubEnv("LIBER_LOI_V1_COHORT_USER_IDS", `${buyer},${seller},${third}`);
+    expect(loiV1Configured()).toBe(true);
+    expect(loiV1EnabledForPair(buyer, seller)).toBe(true);
+    expect(loiV1EnabledForPair(third, seller)).toBe(true);
+    expect(loiV1EnabledForPair(buyer, "44444444-4444-4444-8444-444444444444")).toBe(false);
+  });
+
+  it("fails closed when a longer member list repeats or mangles an entry", () => {
+    vi.stubEnv("LIBER_LOI_V1_ENABLED", "true");
+    for (const values of [`${buyer},${seller},${buyer}`, `${buyer},${seller},bad`, `${buyer},${seller},`]) {
+      vi.stubEnv("LIBER_LOI_V1_COHORT_USER_IDS", values);
+      expect(loiV1Configured()).toBe(false);
+      expect(loiV1EnabledForPair(buyer, seller)).toBe(false);
+    }
   });
 });

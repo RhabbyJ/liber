@@ -146,10 +146,11 @@ V2 may support offer-preparation coordination, but not automated acceptance or m
 The first controlled V2 initiative is now the cohort-gated LOI workspace. It
 uses owner-private drafts and immutable alternating revisions linked to one
 accepted invite. Its terminal success label is "Terms aligned for contract
-preparation," not accepted, executed, or signed. Expansion beyond an internal
-two-user cohort requires counsel-approved labels, disclaimer, supported fields,
-retention, and support-access policy plus database, concurrency, Realtime,
-responsive, and accessibility evidence.
+preparation," not accepted, executed, or signed. On 2026-10-16 the product owner
+extended the production cohort from one pair to every account existing that day.
+Opening it to new signups still requires counsel-approved labels, disclaimer,
+supported fields, retention, and support-access policy plus database,
+concurrency, Realtime, responsive, and accessibility evidence.
 
 ## V3 roadmap: regulated workflows only through a legal path
 
