@@ -739,13 +739,15 @@ main {
    Buttons
    ========================================================================== */
 
+/* Green buttons carry near-black text: 6:1 on #5fbe43 and 4.6:1 on the #47a62f
+   hover/pressed fill (white text measured 2.4:1). */
 .button,
 .button-link {
   align-items: center;
   background: var(--sage-strong);
   border: 1px solid var(--sage-strong);
   border-radius: var(--r-xs);
-  color: #fff;
+  color: var(--ink-strong);
   cursor: pointer;
   display: inline-flex;
   font-family: var(--font-sans);
@@ -779,7 +781,7 @@ main {
 .button:active {
   background: var(--sage-deep);
   border-color: var(--sage-deep);
-  color: #fff;
+  color: var(--ink-strong);
 }
 
 .button:focus-visible {
@@ -789,7 +791,7 @@ main {
 .button.primary {
   background: var(--sage-strong);
   border-color: var(--sage-strong);
-  color: #fff;
+  color: var(--ink-strong);
 }
 
 .button.secondary {
@@ -827,7 +829,7 @@ main {
   .button.primary:hover {
     background: var(--sage-deep);
     border-color: var(--sage-deep);
-    color: #fff;
+    color: var(--ink-strong);
   }
 
   .button.secondary:hover {
@@ -845,6 +847,7 @@ main {
   .button.warning:hover {
     background: #8f1b13;
     border-color: #8f1b13;
+    color: #fff;
   }
 }
 
@@ -870,6 +873,15 @@ main {
   cursor: default;
   opacity: 0.4;
   pointer-events: none;
+}
+
+/* Disabled green buttons stay pale but legible: #54545a on the #bceaad tint is 5.5:1,
+   where fading the whole button left its text near 1.7:1. */
+.button:not(.secondary):not(.ghost):not(.warning):is(:disabled, [disabled], [aria-disabled="true"]) {
+  background: var(--sage-line);
+  border-color: var(--sage-line);
+  color: var(--ink-soft);
+  opacity: 1;
 }
 
 .link-button {
@@ -4522,7 +4534,7 @@ input[type="radio"]:disabled {
   background: var(--sage-strong);
   border: 1px solid var(--sage-strong);
   border-radius: var(--r-sm);
-  color: #fff;
+  color: var(--ink-strong);
   cursor: pointer;
   font-size: 14px;
   font-weight: 750;
@@ -4547,8 +4559,10 @@ input[type="radio"]:disabled {
 }
 
 .property-intake-lookup-button:disabled {
+  background: var(--sage-line);
+  border-color: var(--sage-line);
+  color: var(--ink-soft);
   cursor: wait;
-  opacity: 0.72;
 }
 
 .property-lookup-status {
@@ -7171,7 +7185,7 @@ body:has(.search-page) .site-footer:not(.compact) {
 .pagination-button.primary {
   background: var(--sage-strong);
   border-color: var(--sage-strong);
-  color: #fff;
+  color: var(--ink-strong);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -7184,7 +7198,7 @@ body:has(.search-page) .site-footer:not(.compact) {
   .pagination-button.primary:hover {
     background: var(--sage-deep);
     border-color: var(--sage-deep);
-    color: #fff;
+    color: var(--ink-strong);
   }
 }
 
@@ -7666,7 +7680,7 @@ a.map-card:focus-visible {
 .map-card-cta {
   background: var(--sage-strong);
   border-radius: var(--r-xs);
-  color: #fff;
+  color: var(--ink-strong);
   font-size: 12px;
   font-weight: 700;
   line-height: 16px;
@@ -7675,7 +7689,7 @@ a.map-card:focus-visible {
 
 .map-card-cta:hover {
   background: var(--sage-deep);
-  color: #fff;
+  color: var(--ink-strong);
 }
 
 .map-card-link {
@@ -9328,7 +9342,7 @@ a.map-card:focus-visible {
   background: var(--sage-deep);
   border: 0;
   border-radius: var(--r-sm);
-  color: #fff;
+  color: var(--ink-strong);
   cursor: pointer;
   font-size: 13px;
   font-weight: 800;
