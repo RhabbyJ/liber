@@ -1,26 +1,21 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { processAuthOperations } from "../../../../server/auth-operations";
 import { processEmailOutbox } from "../../../../server/email-outbox";
+import { maintenanceRequestAuthorized, runMaintenanceWorkers } from "../../../../server/maintenance-runner";
 import { cleanupAbandonedUploads } from "../../../../server/uploads/service";
 
+// The email worker claims for up to 20 seconds and may finish one in-flight
+// send (up to 30 seconds for a tour notice) after that.
+export const maxDuration = 60;
+
 export async function GET(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const authorization = request.headers.get("authorization");
-  if (!secret || !authorizationMatches(authorization, secret)) {
+  if (!maintenanceRequestAuthorized(request.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const [authOperations, emailOutbox, uploads] = await Promise.all([
-    processAuthOperations(),
-    processEmailOutbox(),
-    cleanupAbandonedUploads(),
+  const { body, status } = await runMaintenanceWorkers("/api/maintenance/outbox", [
+    { name: "authOperations", run: () => processAuthOperations() },
+    { name: "emailOutbox", run: () => processEmailOutbox() },
+    { name: "uploads", heartbeat: "upload-cleanup", run: () => cleanupAbandonedUploads() },
   ]);
-  return NextResponse.json({ authOperations, emailOutbox, uploads });
-}
-
-function authorizationMatches(authorization: string | null, secret: string) {
-  if (!authorization) return false;
-  const provided = createHash("sha256").update(authorization).digest();
-  const expected = createHash("sha256").update(`Bearer ${secret}`).digest();
-  return timingSafeEqual(provided, expected);
+  return NextResponse.json(body, { status });
 }

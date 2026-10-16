@@ -17,12 +17,15 @@ import { PGlite } from "@electric-sql/pglite";
 import {
   assessMigrationReadiness,
   assessSharedRateLimiter,
+  assessWorkerHeartbeats,
+  maintenanceWorkerHeartbeats,
   readLocalMigrations,
   readLocalMigrationNames,
   readReviewedRetainedMigrationChecksums,
   reviewedRetainedProjectRef,
   sharedRateLimiterCatalogQuery,
   supabaseProjectRefFromUrl,
+  workerHeartbeatQuery,
 } from "./migration-readiness.mjs";
 
 const readinessScript = path.resolve("scripts/readiness-check.mjs");
@@ -402,6 +405,51 @@ test("production readiness requires the four-argument shared rate limiter in the
       "utf8",
     ));
     assert.deepEqual(await assess(), []);
+  } finally {
+    await database.close();
+  }
+});
+
+test("production readiness requires a fresh heartbeat from every maintenance worker", async () => {
+  const readinessSource = readFileSync(readinessScript, "utf8");
+  assert.match(readinessSource, /collection\.push\(\.\.\.assessWorkerHeartbeats\(heartbeats\.rows\)\)/);
+  assert.deepEqual(
+    maintenanceWorkerHeartbeats.map(([worker]) => worker),
+    ["email-outbox", "auth-operations", "upload-cleanup", "marketplace-expiry"],
+  );
+
+  const database = new PGlite();
+  try {
+    // Prisma writes UTC wall-clock values; the session zone must not change the age.
+    await database.exec(`
+      SET TIME ZONE 'America/Los_Angeles';
+      CREATE TABLE public."WorkerHeartbeat" (
+        worker text PRIMARY KEY,
+        "lastRunAt" timestamp(3) NOT NULL,
+        metadata jsonb,
+        "updatedAt" timestamp(3) NOT NULL
+      );
+      INSERT INTO public."WorkerHeartbeat" (worker, "lastRunAt", "updatedAt")
+      SELECT worker, (now() AT TIME ZONE 'UTC') - age, now() AT TIME ZONE 'UTC'
+      FROM (VALUES
+        ('email-outbox', interval '30 seconds'),
+        ('auth-operations', interval '4 minutes'),
+        ('upload-cleanup', interval '6 minutes'),
+        ('retired-worker', interval '1 second')
+      ) AS heartbeat(worker, age);
+    `);
+    const { rows } = await database.query(workerHeartbeatQuery, [
+      maintenanceWorkerHeartbeats.map(([worker]) => worker),
+    ]);
+
+    assert.deepEqual(assessWorkerHeartbeats(rows), [
+      "Abandoned upload cleanup worker heartbeat (upload-cleanup) must be less than five minutes old.",
+      "Marketplace expiry worker heartbeat (marketplace-expiry) is missing.",
+    ]);
+    assert.equal(
+      assessWorkerHeartbeats(rows.filter((row) => row.worker !== "email-outbox"))[0],
+      "Email outbox worker heartbeat (email-outbox) is missing.",
+    );
   } finally {
     await database.close();
   }

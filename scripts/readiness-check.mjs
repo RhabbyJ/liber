@@ -4,10 +4,13 @@ import pg from "pg";
 import {
   assessMigrationReadiness,
   assessSharedRateLimiter,
+  assessWorkerHeartbeats,
+  maintenanceWorkerHeartbeats,
   readLocalMigrations,
   readReviewedRetainedMigrationChecksums,
   reviewedRetainedProjectRef,
   sharedRateLimiterCatalogQuery,
+  workerHeartbeatQuery,
 } from "./migration-readiness.mjs";
 
 const envFile = await loadEnvFile(".env");
@@ -477,13 +480,10 @@ async function checkProductionDependencies(collection) {
     })) {
       collection.push("Critical Storage upload policy is missing or has an unexpected definition.");
     }
-    const heartbeat = await client.query(`
-      SELECT "lastRunAt" FROM public."WorkerHeartbeat" WHERE worker = 'email-outbox'
-    `);
-    const lastRunAt = heartbeat.rows[0]?.lastRunAt ? new Date(heartbeat.rows[0].lastRunAt).getTime() : 0;
-    if (!lastRunAt || Date.now() - lastRunAt > 5 * 60_000) {
-      collection.push("Email outbox worker heartbeat must be less than five minutes old.");
-    }
+    const heartbeats = await client.query(workerHeartbeatQuery, [
+      maintenanceWorkerHeartbeats.map(([worker]) => worker),
+    ]);
+    collection.push(...assessWorkerHeartbeats(heartbeats.rows));
   } catch (error) {
     collection.push(`Production dependency check failed: ${error instanceof Error ? error.message : "unknown database error"}.`);
   } finally {

@@ -146,6 +146,39 @@ export function assessSharedRateLimiter(row) {
   return failures;
 }
 
+// Every scheduled maintenance worker records a heartbeat after a successful run;
+// a stale or missing row means its cron is not running or keeps failing.
+export const maintenanceWorkerHeartbeats = [
+  ["email-outbox", "Email outbox"],
+  ["auth-operations", "Auth operations"],
+  ["upload-cleanup", "Abandoned upload cleanup"],
+  ["marketplace-expiry", "Marketplace expiry"],
+];
+export const workerHeartbeatMaxAgeSeconds = 5 * 60;
+
+// Prisma stores "lastRunAt" as UTC wall-clock time without a zone. Computing the
+// age in SQL avoids node-postgres reading it in the checking machine's zone.
+export const workerHeartbeatQuery = `
+  SELECT worker,
+    extract(epoch FROM ((now() AT TIME ZONE 'UTC') - "lastRunAt"))::double precision AS age_seconds
+  FROM public."WorkerHeartbeat"
+  WHERE worker = ANY($1::text[])
+`;
+
+export function assessWorkerHeartbeats(rows) {
+  const ageByWorker = new Map(rows.map((row) => [row.worker, Number(row.age_seconds)]));
+  const failures = [];
+  for (const [worker, label] of maintenanceWorkerHeartbeats) {
+    const ageSeconds = ageByWorker.get(worker);
+    if (ageSeconds === undefined || !Number.isFinite(ageSeconds)) {
+      failures.push(`${label} worker heartbeat (${worker}) is missing.`);
+    } else if (ageSeconds > workerHeartbeatMaxAgeSeconds) {
+      failures.push(`${label} worker heartbeat (${worker}) must be less than five minutes old.`);
+    }
+  }
+  return failures;
+}
+
 function checksumMatches(expected, actual) {
   if (expected instanceof Set) return expected.has(actual);
   if (Array.isArray(expected)) return expected.includes(actual);

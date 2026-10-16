@@ -666,19 +666,21 @@ Abuse-prone actions should be rate-limited:
 
 Important actions should write `AdminAuditLog` or equivalent operational events where supported.
 
-Abuse controls use atomic Postgres-backed fixed-window limiters shared by serverless instances. Auth, LOI, and public-geography limits call the four-argument `app_private.consume_rate_limit(namespace, key_hash, limit, window_seconds)` over `app_private.rate_limit_buckets` with HMAC-peppered identifiers, created by migration `20261016033000_codify_shared_rate_limiter`. `assertRateLimit` callers use the three-argument overload over `public."RateLimitBucket"`. Invite quota remains a separate rolling-24-hour business invariant serialized in the invite transaction. Audit rows are not quota counters.
+Abuse controls use atomic Postgres-backed fixed-window limiters shared by serverless instances. Auth, LOI, and public-geography limits call the four-argument `app_private.consume_rate_limit(namespace, key_hash, limit, window_seconds)` over `app_private.rate_limit_buckets` with HMAC-peppered identifiers, created by migration `20261016033000_codify_shared_rate_limiter`. `assertRateLimit` callers use the three-argument overload over `public."RateLimitBucket"`. Expiry maintenance prunes expired buckets from both tables in bounded batches. Invite quota remains a separate rolling-24-hour business invariant serialized in the invite transaction. Audit rows are not quota counters.
 
 The retained three-argument limiter overload uses an explicitly named timestamp variable (`v_now`); do not use `current_time` as a PL/pgSQL variable because PostgreSQL can resolve it as the built-in `time with time zone` expression inside SQL statements.
 
 ## Maintenance
 
-`GET`/`POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET` and expires stale invites/badges. `GET /api/maintenance/outbox` uses the same bearer secret for leased email delivery, Auth bans, and abandoned-upload cleanup. The September 27 release configuration restores the outbox schedule to every minute (`* * * * *`) and bounded expiry to every minute (`* * * * *`). The existing Vercel account was verified as Pro, which supports this schedule. Production deployment and fresh worker heartbeats are still required before claiming live delivery readiness.
+`GET`/`POST /api/maintenance/expire` requires `Authorization: Bearer $CRON_SECRET`, expires stale invites/badges/LOIs, minimizes finished outbox rows after 30 days, and prunes expired rate-limit buckets. `GET /api/maintenance/outbox` uses the same bearer secret for leased email delivery, Auth bans, and abandoned-upload cleanup. Both routes isolate their workers: a failing worker is logged with its class, Prisma code, SQLSTATE, and a redacted message, the others still run, and the route returns 500 so Vercel marks the cron run failed. Successful runs record `email-outbox`, `auth-operations`, `upload-cleanup`, and `marketplace-expiry` heartbeats; production readiness requires each to be under five minutes old. The September 27 release configuration restores the outbox schedule to every minute (`* * * * *`) and bounded expiry to every minute (`* * * * *`). The existing Vercel account was verified as Pro, which supports this schedule. Production deployment and fresh worker heartbeats are still required before claiming live delivery readiness.
 
 Email and Auth jobs use atomic `FOR UPDATE SKIP LOCKED` claims, expiring leases, worker IDs, bounded retry, idempotency keys, provider message IDs, and worker heartbeats. Missing Resend configuration outside development/test is a job failure and a production-readiness failure. Production readiness also requires server-only `SITE_URL` to be a canonical HTTPS origin so every authenticated email link has a validated base.
 
 Email and Auth processing claim one job at a time, renew the owned unexpired lease before
 provider submission, and fence state changes by worker ID, attempt number, and
-lease expiry. Expired final-attempt claims become terminal FAILED jobs (five
+lease expiry. An email run keeps claiming for up to 20 seconds (200 jobs at
+most), spaces provider submissions at least 600 ms apart, and stops after three
+consecutive failures. Expired final-attempt claims become terminal FAILED jobs (five
 attempts for email, eight for Auth bans), and completion/failure counters include
 only committed transitions. Provider idempotency and repeatable Auth bans handle
 uncertain in-flight outcomes. Isolated PostgreSQL regressions exercise both

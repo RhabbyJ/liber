@@ -10,7 +10,10 @@ Owns transactional email queueing, invite email delivery, expiry jobs, and maint
 - `apps/web/server/email-outbox.ts`
 - `apps/web/server/auth-operations.ts`
 - `apps/web/server/maintenance.ts`
+- `apps/web/server/maintenance-runner.ts`
+- `apps/web/server/error-summary.ts`
 - `apps/web/app/api/maintenance/expire/route.ts`
+- `apps/web/app/api/maintenance/outbox/route.ts`
 - `vercel.json`
 
 ## Invariants
@@ -48,6 +51,29 @@ Owns transactional email queueing, invite email delivery, expiry jobs, and maint
   their leases (five attempts for email, eight for Auth bans). Provider
   idempotency and repeatable Auth bans handle uncertain in-flight outcomes.
 - Maintenance endpoints require `CRON_SECRET` bearer auth.
+- Each maintenance route runs its workers independently through
+  `runMaintenanceWorkers`: one worker's exception never hides the others'
+  results. A failure is logged as `Maintenance worker failed.` with the route,
+  worker name, error class, Prisma code, PostgreSQL SQLSTATE, and a redacted,
+  truncated message (`error-summary.ts`); recipient addresses and email content
+  are never logged. The response then carries `failedWorkers` and status 500 so
+  Vercel records the cron invocation as failed.
+- `/api/maintenance/outbox` runs `authOperations`, `emailOutbox`, and `uploads`
+  (heartbeat `upload-cleanup`); `/api/maintenance/expire` runs `expiration`
+  (heartbeat `marketplace-expiry`) and `rateLimitBuckets`. With the existing
+  `email-outbox` and `auth-operations` heartbeats, `readiness:production`
+  requires all four rows to be less than five minutes old.
+- Rate-limit pruning deletes only expired limiter rows, bounded at 1,000 per
+  table per run: `app_private.prune_rate_limit_buckets(now, 1000)` for the
+  shared limiter and legacy `public."RateLimitBucket"` rows more than a day past
+  expiry. It deliberately does not call `app_private.expire_operational_rows()`,
+  which also rewrites upload-session state owned by upload cleanup.
+- One email worker run keeps claiming one job at a time until the queue drains,
+  20 seconds have passed, 200 jobs were processed, or three jobs in a row failed
+  (a provider or database outage should not spend every job's attempts). Provider
+  submissions are paced at least 600 ms apart to stay under Resend's default two
+  requests per second. The heartbeat records `stoppedBy` and `durationMs`; the
+  route's `maxDuration` is 60 seconds. Stored `lastError` text is redacted.
 - Local development may use mock/non-sending email.
 - When production scheduling is enabled, email and Auth workers run independently every minute, claim with leases/`SKIP LOCKED`, and publish heartbeats used by readiness checks.
 - The September 27 release restores Vercel schedules after verifying the team's active Pro plan. This checkout retains the bounded per-minute expiry contract below; verify fresh worker heartbeats after deployment before relying on automation.
@@ -63,6 +89,11 @@ Owns transactional email queueing, invite email delivery, expiry jobs, and maint
   `messageRecipientUserId`. The retired generic `recipientUserId` and UUID
   lease columns are incompatible and must not be restored.
 - Upload cleanup marks a session `CLEANED` only after Storage deletion succeeds, so completed cleanup is not selected again.
+- Expiry maintenance minimizes finished outbox rows 30 days after delivery
+  (`SENT`, by `sentAt`) or their last transition (`CANCELLED` and `FAILED`, by
+  `updatedAt`): `to` becomes `redacted`, and `subject` and `payload` are
+  cleared, 25 rows per run. Pending, sending, and recent rows keep their data;
+  delivery always re-derives the recipient from relational IDs.
 - Expiry maintenance persists overdue LOIs as `EXPIRED`. Its eligibility sweep
   persists other active ineligible LOIs as `READ_ONLY`, deletes private drafts,
   appends an audit event, and cancels pending LOI email without changing already

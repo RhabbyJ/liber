@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createHash, timingSafeEqual } from "node:crypto";
-import { expireMarketplaceState } from "../../../../server/maintenance";
+import { expireMarketplaceState, pruneExpiredRateLimitBuckets } from "../../../../server/maintenance";
+import { maintenanceRequestAuthorized, runMaintenanceWorkers } from "../../../../server/maintenance-runner";
+
+// Expiry runs in one 15-second transaction; pruning is two bounded deletes.
+export const maxDuration = 30;
 
 export async function GET(request: NextRequest) {
   return runMaintenance(request);
@@ -11,20 +14,12 @@ export async function POST(request: NextRequest) {
 }
 
 async function runMaintenance(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const authorization = request.headers.get("authorization");
-
-  if (!secret || !authorizationMatches(authorization, secret)) {
+  if (!maintenanceRequestAuthorized(request.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const expiration = await expireMarketplaceState();
-  return NextResponse.json({ expiration });
-}
-
-function authorizationMatches(authorization: string | null, secret: string) {
-  if (!authorization) return false;
-  const provided = createHash("sha256").update(authorization).digest();
-  const expected = createHash("sha256").update(`Bearer ${secret}`).digest();
-  return timingSafeEqual(provided, expected);
+  const { body, status } = await runMaintenanceWorkers("/api/maintenance/expire", [
+    { name: "expiration", heartbeat: "marketplace-expiry", run: () => expireMarketplaceState() },
+    { name: "rateLimitBuckets", run: () => pruneExpiredRateLimitBuckets() },
+  ]);
+  return NextResponse.json(body, { status });
 }
