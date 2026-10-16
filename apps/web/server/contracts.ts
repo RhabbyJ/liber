@@ -26,6 +26,7 @@ export {
   hideBuyerProfile,
   listAdminBuyerProfiles,
   listAdminInvites,
+  unhideBuyerProfile,
   withdrawInviteAsAdmin,
 } from "./domain/admin-moderation";
 export { listAuditLog } from "./domain/audit-log";

@@ -10,6 +10,10 @@ const mocks = vi.hoisted(() => ({
   updateMany: vi.fn(),
   notification: vi.fn(),
   audit: vi.fn(),
+  lastAudit: vi.fn(),
+  profileUpdate: vi.fn(),
+  profileFields: vi.fn(),
+  owner: vi.fn(),
 }));
 
 vi.mock("@liber/db", () => ({ prisma: { $transaction: mocks.transaction } }));
@@ -18,7 +22,7 @@ vi.mock("../rate-limit", () => ({ checkRateLimit: mocks.rateLimit }));
 vi.mock("../messaging/service", () => ({ lockAndAssertInvitePairAvailable: mocks.pairLock }));
 vi.mock("next/navigation", () => ({ redirect: (path: string) => { throw new Error(`redirect:${path}`); } }));
 
-import { withdrawInviteAsAdmin } from "./admin-moderation";
+import { hideBuyerProfile, unhideBuyerProfile, withdrawInviteAsAdmin } from "./admin-moderation";
 
 const adminId = "11111111-1111-4111-8111-111111111111";
 const buyerId = "10000000-0000-4000-8000-000000000001";
@@ -26,10 +30,13 @@ const sellerId = "10000000-0000-4000-8000-000000000002";
 const inviteId = "synthetic-invite";
 const tx = {
   $queryRaw: mocks.lockRow,
-  adminAuditLog: { create: mocks.audit },
+  adminAuditLog: { create: mocks.audit, findFirst: mocks.lastAudit },
+  buyerProfile: { findUnique: mocks.profileFields, update: mocks.profileUpdate },
   invite: { findFirst: mocks.findInvite, updateMany: mocks.updateMany },
   notification: { create: mocks.notification },
+  user: { findUnique: mocks.owner },
 };
+const sql = (call: unknown[]) => (call[0] as TemplateStringsArray).join("?");
 
 describe("admin invite withdrawal", () => {
   beforeEach(() => {
@@ -92,5 +99,96 @@ describe("admin invite withdrawal", () => {
     await expect(withdrawInviteAsAdmin({ inviteId, reason: "Spam" })).resolves.toMatchObject({ ok: false });
     expect(mocks.notification).not.toHaveBeenCalled();
     expect(mocks.audit).not.toHaveBeenCalled();
+  });
+});
+
+describe("admin buyer profile hide and unhide", () => {
+  const buyerProfileId = "buyer-profile-1";
+  const publishable = {
+    budgetMax: 900000, budgetMin: 700000, buyerType: "Cash", buyingPurpose: "House", criteria: [{ id: "criteria-1" }],
+    desiredServiceAreas: [{ isPrimary: true, source: "SELECTED", serviceArea: { active: true, market: { active: true } } }],
+  };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mocks.session.mockResolvedValue({ id: adminId, roles: ["ADMIN"] });
+    mocks.rateLimit.mockResolvedValue({ allowed: true, limit: 30, retryAfterSeconds: 0 });
+    mocks.transaction.mockImplementation(async (callback) => callback(tx));
+    mocks.owner.mockResolvedValue({ status: "ACTIVE" });
+    mocks.profileFields.mockResolvedValue(publishable);
+    mocks.lastAudit.mockResolvedValue({ metadata: { previousVisibility: "ACTIVE", reason: "Investigating" } });
+  });
+
+  it("hides a profile under its row lock and audits the visibility it replaced", async () => {
+    mocks.lockRow.mockResolvedValue([{ visibility: "ACTIVE" }]);
+    await expect(hideBuyerProfile({ buyerProfileId, reason: "Investigating" })).resolves.toMatchObject({ ok: true });
+    expect(sql(mocks.lockRow.mock.calls[0])).toContain('FROM public."BuyerProfile"');
+    expect(sql(mocks.lockRow.mock.calls[0])).toContain("FOR UPDATE");
+    expect(mocks.profileUpdate).toHaveBeenCalledWith({ where: { id: buyerProfileId }, data: { visibilityStatus: "HIDDEN" } });
+    expect(mocks.audit).toHaveBeenCalledWith({
+      data: {
+        action: "hide_buyer_profile",
+        actorUserId: adminId,
+        metadata: { previousVisibility: "ACTIVE", reason: "Investigating" },
+        targetId: buyerProfileId,
+        targetType: "buyer_profile",
+      },
+    });
+  });
+
+  it("makes hiding a hidden profile a no-op and reports missing profiles", async () => {
+    mocks.lockRow.mockResolvedValue([{ visibility: "HIDDEN" }]);
+    await expect(hideBuyerProfile({ buyerProfileId })).resolves.toMatchObject({ ok: true, message: expect.stringContaining("already hidden") });
+    mocks.lockRow.mockResolvedValue([]);
+    await expect(hideBuyerProfile({ buyerProfileId })).resolves.toMatchObject({ ok: false });
+    expect(mocks.profileUpdate).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
+  });
+
+  it("restores a profile that was live when hidden and still meets the publication rules", async () => {
+    mocks.lockRow.mockResolvedValue([{ user_id: buyerId, visibility: "HIDDEN" }]);
+    await expect(unhideBuyerProfile({ buyerProfileId, reason: "Cleared" })).resolves.toMatchObject({ ok: true, message: expect.stringContaining("live") });
+    expect(mocks.lastAudit).toHaveBeenCalledWith(expect.objectContaining({
+      where: { action: "hide_buyer_profile", targetId: buyerProfileId, targetType: "buyer_profile" },
+    }));
+    expect(mocks.profileUpdate).toHaveBeenCalledWith({ where: { id: buyerProfileId }, data: { visibilityStatus: "ACTIVE" } });
+    expect(mocks.notification).toHaveBeenCalledWith({ data: expect.objectContaining({ type: "buyer_profile_unhidden", userId: buyerId }) });
+    expect(mocks.audit).toHaveBeenCalledWith({
+      data: expect.objectContaining({ action: "unhide_buyer_profile", metadata: { reason: "Cleared", restoredVisibility: "ACTIVE" } }),
+    });
+  });
+
+  it.each([
+    ["was a draft when hidden", { metadata: { previousVisibility: "DRAFT" } }, publishable],
+    ["predates visibility auditing", { metadata: { reason: "Old hide" } }, publishable],
+    ["no longer meets the publication rules", { metadata: { previousVisibility: "ACTIVE" } }, { ...publishable, criteria: [] }],
+  ])("returns a profile that %s to the buyer as a draft", async (_case, lastHide, fields) => {
+    mocks.lockRow.mockResolvedValue([{ user_id: buyerId, visibility: "HIDDEN" }]);
+    mocks.lastAudit.mockResolvedValue(lastHide);
+    mocks.profileFields.mockResolvedValue(fields);
+    await expect(unhideBuyerProfile({ buyerProfileId })).resolves.toMatchObject({ ok: true, message: expect.stringContaining("draft") });
+    expect(mocks.profileUpdate).toHaveBeenCalledWith({ where: { id: buyerProfileId }, data: { visibilityStatus: "DRAFT" } });
+  });
+
+  it("refuses to unhide a suspended account's profile and ignores profiles that are not hidden", async () => {
+    mocks.lockRow.mockResolvedValue([{ user_id: buyerId, visibility: "HIDDEN" }]);
+    mocks.owner.mockResolvedValue({ status: "SUSPENDED" });
+    await expect(unhideBuyerProfile({ buyerProfileId })).resolves.toMatchObject({ ok: false, message: expect.stringContaining("Reinstate") });
+    mocks.lockRow.mockResolvedValue([{ user_id: buyerId, visibility: "ACTIVE" }]);
+    await expect(unhideBuyerProfile({ buyerProfileId })).resolves.toMatchObject({ ok: true, message: expect.stringContaining("isn’t hidden") });
+    expect(mocks.profileUpdate).not.toHaveBeenCalled();
+    expect(mocks.notification).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
+  });
+
+  it("keeps both controls admin-only and inside the moderation budget", async () => {
+    mocks.session.mockResolvedValue({ id: buyerId, roles: ["BUYER"] });
+    await expect(hideBuyerProfile({ buyerProfileId })).rejects.toThrow("redirect:/buyer/profile");
+    await expect(unhideBuyerProfile({ buyerProfileId })).rejects.toThrow("redirect:/buyer/profile");
+    mocks.session.mockResolvedValue({ id: adminId, roles: ["ADMIN"] });
+    mocks.rateLimit.mockResolvedValue({ allowed: false, limit: 30, retryAfterSeconds: 60 });
+    await expect(hideBuyerProfile({ buyerProfileId })).resolves.toMatchObject({ ok: false });
+    await expect(unhideBuyerProfile({ buyerProfileId })).resolves.toMatchObject({ ok: false });
+    expect(mocks.transaction).not.toHaveBeenCalled();
   });
 });

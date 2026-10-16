@@ -1,12 +1,10 @@
 import { Prisma, prisma } from "@liber/db";
-import { updateBuyerProfileSchema, upsertBuyerCriteriaSchema } from "@liber/validators";
-import { redirect } from "next/navigation";
+import { profileVisibilitySchema, updateBuyerProfileSchema, upsertBuyerCriteriaSchema } from "@liber/validators";
 import { publicNameForDisplay } from "../public-identity";
 import { propertySubtypeFromSeekingPropertyType } from "../../lib/property-types";
-import { defaultPathForSessionUser } from "../auth-intent";
-import { hasRole } from "../authz";
 import { normalizeInput } from "../normalize-input";
-import { getSessionUser } from "../session";
+import { requireSessionRole } from "../session";
+import { publicationFieldsSelect, publicationGap } from "./publication";
 
 type SaveMode = "DRAFT" | "PUBLISH";
 
@@ -26,9 +24,7 @@ const canonicalAreaSelect = {
 type CanonicalArea = Prisma.ServiceAreaGetPayload<{ select: typeof canonicalAreaSelect }>;
 
 export async function saveBuyerProfile(input: unknown, mode: SaveMode = "PUBLISH") {
-  const user = await getSessionUser();
-  if (!user) redirect("/login");
-  if (!hasRole(user, "BUYER")) redirect(defaultPathForSessionUser(user));
+  const user = await requireSessionRole("BUYER");
 
   const normalized = normalizeInput(input) as Record<string, unknown>;
   const profile = updateBuyerProfileSchema.parse(normalized);
@@ -44,13 +40,7 @@ export async function saveBuyerProfile(input: unknown, mode: SaveMode = "PUBLISH
 
   const result = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
     // The owner row also serializes first-profile creation and account suspension.
-    const [owner] = await tx.$queryRaw<Array<{ roles: string[]; status: string }>>`
-      SELECT roles::text[] AS roles, status::text AS status
-      FROM public."User" WHERE id = ${user.id}::uuid FOR UPDATE
-    `;
-    if (!owner || owner.status !== "ACTIVE" || !owner.roles.includes("BUYER")) {
-      throw new Error("Buyer account is no longer active or authorized.");
-    }
+    await lockActiveBuyerOwner(tx, user.id);
     const existing = await tx.buyerProfile.findUnique({
       where: { userId: user.id },
       select: { displayName: true, id: true, visibilityStatus: true },
@@ -148,6 +138,64 @@ export async function saveBuyerProfile(input: unknown, mode: SaveMode = "PUBLISH
   }, { isolationLevel: "Serializable" }));
 
   return { ok: true, data: result };
+}
+
+export const BUYER_PROFILE_REQUIRED = "Save your buyer profile before changing its visibility.";
+
+/**
+ * Buyer-controlled pause (DRAFT) and republish (ACTIVE) of a saved profile, using
+ * the existing visibility states. Republishing re-validates the stored profile;
+ * admin-controlled HIDDEN and SUSPENDED profiles stay unchanged. Pausing makes the
+ * database close the buyer's open invite conversations (read-only), as for any
+ * loss of buyer eligibility.
+ */
+export async function setBuyerProfileVisibility(input: unknown) {
+  const user = await requireSessionRole("BUYER");
+  const { visibilityStatus } = profileVisibilitySchema.parse(normalizeInput(input));
+
+  return withSerializableRetry(() => prisma.$transaction(async (tx) => {
+    await lockActiveBuyerOwner(tx, user.id);
+    const profile = await tx.buyerProfile.findUnique({
+      where: { userId: user.id },
+      select: { id: true, visibilityStatus: true, ...publicationFieldsSelect },
+    });
+    if (!profile) throw new Error(BUYER_PROFILE_REQUIRED);
+    await tx.$queryRaw`SELECT id FROM public."BuyerProfile" WHERE id = ${profile.id} FOR UPDATE`;
+    if (profile.visibilityStatus === "HIDDEN" || profile.visibilityStatus === "SUSPENDED") {
+      throw new Error("This profile is controlled by admin review and cannot be published.");
+    }
+    if (profile.visibilityStatus === visibilityStatus) {
+      return { buyerProfileId: profile.id, changed: false, visibilityStatus };
+    }
+    if (visibilityStatus === "ACTIVE") {
+      const gap = publicationGap(profile);
+      if (gap) throw new Error(gap);
+    }
+
+    await tx.buyerProfile.update({
+      where: { id: profile.id },
+      data: visibilityStatus === "ACTIVE" ? { lastRefreshedAt: new Date(), visibilityStatus } : { visibilityStatus },
+    });
+    await tx.adminAuditLog.create({
+      data: {
+        action: visibilityStatus === "ACTIVE" ? "republish_buyer_profile" : "pause_buyer_profile",
+        actorUserId: user.id,
+        targetId: profile.id,
+        targetType: "buyer_profile",
+      },
+    });
+    return { buyerProfileId: profile.id, changed: true, visibilityStatus };
+  }, { isolationLevel: "Serializable" }));
+}
+
+async function lockActiveBuyerOwner(tx: Prisma.TransactionClient, userId: string) {
+  const [owner] = await tx.$queryRaw<Array<{ roles: string[]; status: string }>>`
+    SELECT roles::text[] AS roles, status::text AS status
+    FROM public."User" WHERE id = ${userId}::uuid FOR UPDATE
+  `;
+  if (!owner || owner.status !== "ACTIVE" || !owner.roles.includes("BUYER")) {
+    throw new Error("Buyer account is no longer active or authorized.");
+  }
 }
 
 async function resolveArea(

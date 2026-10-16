@@ -3,6 +3,7 @@ import "server-only";
 import { prisma } from "@liber/db";
 import { normalizeAvatarVariant } from "../../lib/avatar-variant";
 import { withOwnerTestPreapproval } from "../../lib/test-preapproval";
+import { publicationGap } from "../buyer/publication";
 import { requireSessionRole } from "../session";
 import { activeTestPreapprovalProfileIds } from "../test-preapproval";
 import {
@@ -29,10 +30,14 @@ export async function getCurrentBuyerProfile() {
   const testPreapprovalIds = await activeTestPreapprovalProfileIds(prisma, profile ? [profile.id] : []);
   return {
     ok: true,
-    data: withPrivateAccountName(
-      profile ? withOwnerTestPreapproval(buyerFromDb(profile), testPreapprovalIds) : emptyBuyerForUser(user, account?.avatarVariant),
-      accountName,
-    ),
+    data: {
+      ...withPrivateAccountName(
+        profile ? withOwnerTestPreapproval(buyerFromDb(profile), testPreapprovalIds) : emptyBuyerForUser(user, account?.avatarVariant),
+        accountName,
+      ),
+      // A saved draft that already meets every publication rule is paused, not unfinished.
+      canRepublish: profile?.visibilityStatus === "DRAFT" && publicationGap(profile) === null,
+    },
   };
 }
 

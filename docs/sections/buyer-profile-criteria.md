@@ -25,6 +25,8 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 ## Invariants
 
 - Draft/hidden/suspended profiles must not appear in seller search.
+- Buyers can pause a live profile and republish it later with the existing visibility states only: pause sets `DRAFT`, republish sets `ACTIVE` (`setBuyerProfileVisibility` in `server/buyer/commands.ts`, serialized on the owner row like profile saves). Republish re-validates the stored profile with `publicationGap` (`server/buyer/publication.ts`: purchase/seeking type, both budget bounds, one criteria row, and one active buyer-selected area in an active market). A saved draft that passes those rules shows as **Paused** with a Republish button; anything else reopens the setup form. Admin-controlled `HIDDEN`/`SUSPENDED` profiles cannot be paused or republished. Pause and republish are audited (`pause_buyer_profile`, `republish_buyer_profile`).
+- Pausing is a loss of buyer eligibility, so the `messaging_buyer_visibility_loss` trigger closes the buyer's open invite conversations read-only and they stay read-only after republish; open invites are hidden from the buyer while paused. The pause confirmation says so. Keeping conversations open across a pause would need a schema change.
 - Conversation identity for both parties uses the limited name and stable account code; full account names and contact details never enter messaging DTOs.
 - Buyer invite cards show Decline, a 500-character question, request a tour, and
   Start LOI while status is Sent or Viewed, plus a 48-hour response note.
