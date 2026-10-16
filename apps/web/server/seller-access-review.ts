@@ -39,7 +39,9 @@ export async function reviewSellerAccessCommand(input: unknown): Promise<SellerA
   }
   return prisma.$transaction(async (tx) => {
     // Serialize reviews with other account/preview updates before checking current access.
-    await tx.$queryRaw`SELECT id FROM public."User" WHERE id = ${data.userId}::uuid FOR UPDATE`;
+    // NO KEY UPDATE leaves inserts referencing this user (e.g. a buyer's invite response
+    // notifying the seller) free to take their key-share lock, so they cannot deadlock.
+    await tx.$queryRaw`SELECT id FROM public."User" WHERE id = ${data.userId}::uuid FOR NO KEY UPDATE`;
     const user = await tx.user.findUnique({
       where: { id: data.userId },
       select: { roles: true, status: true, sellerAccess: { select: { status: true } } },

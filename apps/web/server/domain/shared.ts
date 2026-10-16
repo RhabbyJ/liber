@@ -55,6 +55,13 @@ export function cursorPage<T extends { id: string }>(rows: T[], pageSize = ADMIN
   return { items, nextCursor: rows.length > pageSize ? items[items.length - 1].id : null };
 }
 
+/** One field of an audit row's JSON metadata, or undefined when absent or not an object. */
+export function auditMetadataField(metadata: unknown, key: string): unknown {
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata)
+    ? (metadata as Record<string, unknown>)[key]
+    : undefined;
+}
+
 export async function auditSecurityEvent(
   user: SessionUser,
   action: string,

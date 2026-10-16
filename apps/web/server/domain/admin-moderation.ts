@@ -1,10 +1,11 @@
 import "server-only";
 
-import { prisma } from "@liber/db";
+import { prisma, type Prisma } from "@liber/db";
 import { buyerProfileModerationSchema } from "@liber/validators";
 import { z } from "zod";
 import type { ActionFeedbackState } from "../../lib/action-feedback";
 import { withOwnerTestPreapproval } from "../../lib/test-preapproval";
+import { withdrawOpenBuyerInvites } from "../buyer/open-invites";
 import { publicationFieldsSelect, publicationGap } from "../buyer/publication";
 import { normalizeInput } from "../normalize-input";
 import { checkRateLimit } from "../rate-limit";
@@ -18,7 +19,7 @@ import {
   inviteWithdrawnBuyerNotice,
   withdrawInviteInTransaction,
 } from "./invites";
-import { cursorPage, cursorPageArgs } from "./shared";
+import { auditMetadataField, cursorPage, cursorPageArgs } from "./shared";
 
 const adminInviteWithdrawalSchema = inviteIdSchema.extend({ reason: z.string().trim().min(1).max(500) });
 
@@ -87,38 +88,50 @@ async function authorizeProfileModeration(input: unknown): Promise<ProfileModera
   return { allowed: true, admin, data: parsed.data };
 }
 
-/** Hides a profile from sellers and previews; the prior visibility is audited so unhide can restore it. */
+/**
+ * Locks the owning account, then the profile: the order suspension and buyer saves use,
+ * so moderation serializes with them instead of deadlocking.
+ */
+async function lockProfileForModeration(tx: Prisma.TransactionClient, buyerProfileId: string) {
+  const target = await tx.buyerProfile.findUnique({ where: { id: buyerProfileId }, select: { userId: true } });
+  if (!target) return null;
+  const [owner] = await tx.$queryRaw<Array<{ status: string }>>`
+    SELECT status::text AS status FROM public."User" WHERE id = ${target.userId}::uuid FOR SHARE
+  `;
+  const [profile] = await tx.$queryRaw<Array<{ visibility: string }>>`
+    SELECT "visibilityStatus"::text AS visibility
+    FROM public."BuyerProfile"
+    WHERE id = ${buyerProfileId}
+    FOR UPDATE
+  `;
+  return profile ? { ownerStatus: owner?.status ?? null, userId: target.userId, visibility: profile.visibility } : null;
+}
+
+/**
+ * Hides a profile from sellers and previews and withdraws its open invites (their
+ * conversations close read-only). The prior visibility is audited so unhide can restore it.
+ */
 export async function hideBuyerProfile(input: unknown): Promise<ActionFeedbackState> {
   const authorized = await authorizeProfileModeration(input);
   if (!authorized.allowed) return authorized.feedback;
   const { admin, data } = authorized;
   return prisma.$transaction(async (tx) => {
-    const [profile] = await tx.$queryRaw<Array<{ visibility: string }>>`
-      SELECT "visibilityStatus"::text AS visibility
-      FROM public."BuyerProfile"
-      WHERE id = ${data.buyerProfileId}
-      FOR UPDATE
-    `;
+    const profile = await lockProfileForModeration(tx, data.buyerProfileId);
     if (!profile) return profileUnavailable;
     if (profile.visibility === "HIDDEN") return { ok: true, message: "This profile is already hidden. No changes were needed." };
+    const withdrawnInvites = await withdrawOpenBuyerInvites(tx, data.buyerProfileId);
     await tx.buyerProfile.update({ where: { id: data.buyerProfileId }, data: { visibilityStatus: "HIDDEN" } });
     await tx.adminAuditLog.create({
       data: {
         action: "hide_buyer_profile",
         actorUserId: admin.id,
-        metadata: { previousVisibility: profile.visibility, reason: data.reason },
+        metadata: { previousVisibility: profile.visibility, reason: data.reason, withdrawnInvites },
         targetId: data.buyerProfileId,
         targetType: "buyer_profile",
       },
     });
     return { ok: true, message: "Profile hidden from sellers and previews. The buyer can’t edit or republish it until you unhide it." };
   });
-}
-
-function previousVisibility(metadata: unknown) {
-  return metadata && typeof metadata === "object" && !Array.isArray(metadata)
-    ? (metadata as Record<string, unknown>).previousVisibility
-    : undefined;
 }
 
 /**
@@ -131,21 +144,11 @@ export async function unhideBuyerProfile(input: unknown): Promise<ActionFeedback
   if (!authorized.allowed) return authorized.feedback;
   const { admin, data } = authorized;
   return prisma.$transaction(async (tx) => {
-    const target = await tx.buyerProfile.findUnique({ where: { id: data.buyerProfileId }, select: { userId: true } });
-    if (!target) return profileUnavailable;
-    // Account before profile, like suspension, so a concurrent suspension cannot be undone.
-    const [owner] = await tx.$queryRaw<Array<{ status: string }>>`
-      SELECT status::text AS status FROM public."User" WHERE id = ${target.userId}::uuid FOR SHARE
-    `;
-    const [profile] = await tx.$queryRaw<Array<{ visibility: string }>>`
-      SELECT "visibilityStatus"::text AS visibility
-      FROM public."BuyerProfile"
-      WHERE id = ${data.buyerProfileId}
-      FOR UPDATE
-    `;
+    // The account lock also keeps a concurrent suspension from being undone.
+    const profile = await lockProfileForModeration(tx, data.buyerProfileId);
     if (!profile) return profileUnavailable;
     if (profile.visibility !== "HIDDEN") return { ok: true, message: "This profile isn’t hidden. No changes were needed." };
-    if (owner?.status !== "ACTIVE") {
+    if (profile.ownerStatus !== "ACTIVE") {
       return { ok: false, message: "This account is suspended. Reinstate the user before unhiding the profile." };
     }
     const lastHide = await tx.adminAuditLog.findFirst({
@@ -154,7 +157,7 @@ export async function unhideBuyerProfile(input: unknown): Promise<ActionFeedback
       select: { metadata: true },
     });
     const stored = await tx.buyerProfile.findUnique({ where: { id: data.buyerProfileId }, select: publicationFieldsSelect });
-    const restored = previousVisibility(lastHide?.metadata) === "ACTIVE" && stored && publicationGap(stored) === null
+    const restored = auditMetadataField(lastHide?.metadata, "previousVisibility") === "ACTIVE" && stored && publicationGap(stored) === null
       ? "ACTIVE"
       : "DRAFT";
     await tx.buyerProfile.update({ where: { id: data.buyerProfileId }, data: { visibilityStatus: restored } });
@@ -166,7 +169,7 @@ export async function unhideBuyerProfile(input: unknown): Promise<ActionFeedback
         metadata: { buyerProfileId: data.buyerProfileId, visibility: restored },
         title: "Buyer profile restored",
         type: "buyer_profile_unhidden",
-        userId: target.userId,
+        userId: profile.userId,
       },
     });
     await tx.adminAuditLog.create({

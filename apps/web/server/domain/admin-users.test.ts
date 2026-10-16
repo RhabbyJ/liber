@@ -10,7 +10,9 @@ const mocks = vi.hoisted(() => ({
   profileUpdate: vi.fn(),
   profileUpdateMany: vi.fn(),
   lastDecision: vi.fn(),
+  lastSuspension: vi.fn(),
   audit: vi.fn(),
+  accessFind: vi.fn(),
   accessUpdateMany: vi.fn(),
   propertyFindMany: vi.fn(),
   propertyUpdate: vi.fn(),
@@ -33,12 +35,15 @@ const adminId = "11111111-1111-4111-8111-111111111111";
 const userId = "22222222-2222-4222-8222-222222222222";
 const tx = {
   $queryRaw: mocks.lock,
-  adminAuditLog: { create: mocks.audit, findFirst: mocks.lastDecision },
+  adminAuditLog: {
+    create: mocks.audit,
+    findFirst: (args: { where: { action: unknown } }) => (args.where.action === "suspend_user" ? mocks.lastSuspension(args) : mocks.lastDecision(args)),
+  },
   authOperation: { create: mocks.authCreate, updateMany: mocks.authSupersede },
   buyerProfile: { findUnique: mocks.profileFind, update: mocks.profileUpdate, updateMany: mocks.profileUpdateMany },
   invite: { updateMany: mocks.inviteUpdateMany },
   notification: { create: mocks.notification },
-  sellerAccess: { updateMany: mocks.accessUpdateMany },
+  sellerAccess: { findUnique: mocks.accessFind, updateMany: mocks.accessUpdateMany },
   sellerProperty: { findMany: mocks.propertyFindMany, update: mocks.propertyUpdate, updateMany: mocks.propertyUpdateMany },
   user: { update: mocks.userUpdate },
 };
@@ -68,6 +73,8 @@ beforeEach(() => {
   mocks.propertyFindMany.mockResolvedValue([]);
   mocks.profileFind.mockResolvedValue({ id: "buyer-profile-1", visibilityStatus: "SUSPENDED" });
   mocks.lastDecision.mockResolvedValue(null);
+  mocks.lastSuspension.mockResolvedValue({ metadata: { previousSellerAccessStatus: "APPROVED" } });
+  mocks.accessFind.mockResolvedValue({ status: "APPROVED" });
 });
 
 describe("admin users list", () => {
@@ -108,11 +115,14 @@ describe("user suspension", () => {
     await expect(suspendUser({ userId, reason: "Fraud report" })).resolves.toMatchObject({ ok: true });
     const lockSql = (mocks.lock.mock.calls[0][0] as TemplateStringsArray).join("?");
     expect(lockSql).toContain('FROM public."User"');
-    expect(lockSql).toContain("FOR UPDATE");
+    expect(lockSql).toContain("FOR NO KEY UPDATE");
     expect(mocks.lock.mock.invocationCallOrder[0]).toBeLessThan(mocks.userUpdate.mock.invocationCallOrder[0]);
     expect(mocks.userUpdate).toHaveBeenCalledWith({ where: { id: userId }, data: { status: "SUSPENDED", suspendedAt: expect.any(Date) } });
     expect(mocks.profileUpdateMany).toHaveBeenCalledWith({
       where: { userId, visibilityStatus: { not: "HIDDEN" } }, data: { visibilityStatus: "SUSPENDED" },
+    });
+    expect(mocks.accessUpdateMany).toHaveBeenCalledWith({
+      where: { userId, status: { in: ["APPROVED", "PENDING"] } }, data: { status: "SUSPENDED" },
     });
     expect(mocks.authSupersede).toHaveBeenCalledWith({
       where: { userId, type: "UNBAN_USER", OR: [{ status: "PENDING" }, { status: "FAILED", attempts: { lt: 8 } }] },
@@ -122,8 +132,19 @@ describe("user suspension", () => {
     expect(ban).toMatchObject({ status: "PENDING", type: "BAN_USER", userId });
     expect(ban.idempotencyKey).toBe(`ban-user:${userId}:${ban.id}`);
     expect(mocks.audit).toHaveBeenCalledWith({
-      data: expect.objectContaining({ action: "suspend_user", metadata: { authOperationId: ban.id, reason: "Fraud report" }, targetId: userId }),
+      data: expect.objectContaining({
+        action: "suspend_user",
+        metadata: { authOperationId: ban.id, previousSellerAccessStatus: "APPROVED", reason: "Fraud report" },
+        targetId: userId,
+      }),
     });
+  });
+
+  it("records rejected directory access and leaves it rejected", async () => {
+    mocks.accessFind.mockResolvedValue({ status: "REJECTED" });
+    await suspendUser({ userId });
+    expect(mocks.accessUpdateMany.mock.calls[0][0].where.status).toEqual({ in: ["APPROVED", "PENDING"] });
+    expect(mocks.audit.mock.calls[0][0].data.metadata).toMatchObject({ previousSellerAccessStatus: "REJECTED" });
   });
 
   it("makes repeating a suspension a no-op instead of a second ban", async () => {
@@ -228,6 +249,27 @@ describe("user reinstatement", () => {
       where: { action: { in: ["hide_buyer_profile", "unhide_buyer_profile"] }, targetId: "buyer-profile-1", targetType: "buyer_profile" },
     }));
     expect(mocks.profileUpdate).toHaveBeenCalledWith({ where: { id: "buyer-profile-1" }, data: { visibilityStatus: "HIDDEN" } });
+  });
+
+  it("keeps directory access an admin had already suspended before the account suspension", async () => {
+    mocks.lastSuspension.mockResolvedValue({ metadata: { previousSellerAccessStatus: "SUSPENDED" } });
+    await reinstateUser({ userId });
+    expect(mocks.lastSuspension).toHaveBeenCalledWith(expect.objectContaining({
+      where: { action: "suspend_user", targetId: userId, targetType: "user" },
+    }));
+    expect(mocks.accessUpdateMany).not.toHaveBeenCalled();
+    expect(mocks.notification.mock.calls[0][0].data.body).not.toContain("Seller directory access");
+  });
+
+  it.each([
+    ["APPROVED", { metadata: { previousSellerAccessStatus: "APPROVED" } }],
+    ["PENDING", { metadata: { previousSellerAccessStatus: "PENDING" } }],
+    ["unrecorded (older suspensions)", { metadata: { reason: "Legacy" } }],
+    ["unrecorded (no suspension audit)", null],
+  ])("returns %s access that the suspension took to review", async (_case, lastSuspension) => {
+    mocks.lastSuspension.mockResolvedValue(lastSuspension);
+    await reinstateUser({ userId });
+    expect(mocks.accessUpdateMany).toHaveBeenCalledWith({ where: { userId, status: "SUSPENDED" }, data: { status: "PENDING" } });
   });
 
   it("leaves a profile that suspension did not touch alone", async () => {

@@ -57,7 +57,7 @@ export default async function AdminBuyerProfilesPage({ searchParams }: { searchP
                   fields={{ buyerProfileId: buyer.id }}
                   label="Hide profile"
                   pendingLabel="Hiding…"
-                  prompt="Sellers and previews stop showing this profile, and its open invite conversations become read-only."
+                  prompt="Sellers and previews stop showing this profile. Its open invites are withdrawn and their conversations become read-only."
                   reasonLabel="Reason (optional, audit log only)"
                   reasonRequired={false}
                   tone="warning"

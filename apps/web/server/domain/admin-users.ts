@@ -9,7 +9,7 @@ import { normalizeInput } from "../normalize-input";
 import { checkRateLimit } from "../rate-limit";
 import { reviewSellerAccessCommand } from "../seller-access-review";
 import { requireSessionRole } from "../session";
-import { cursorPage, cursorPageArgs } from "./shared";
+import { auditMetadataField, cursorPage, cursorPageArgs } from "./shared";
 
 export async function listUsers(cursor?: string) {
   const admin = await requireSessionRole("ADMIN");
@@ -53,10 +53,12 @@ async function authorizeUserModeration(input: unknown): Promise<UserModeration> 
 }
 
 // Suspension, reinstatement, and invite creation lock the user row first, then the
-// buyer profile, seller access, and properties.
+// buyer profile, seller access, and properties. NO KEY UPDATE still serializes them but
+// does not block the key-share locks that inserts referencing the user take, so a
+// concurrent invite response or document review cannot deadlock against it.
 async function lockAccountStatus(tx: Prisma.TransactionClient, userId: string) {
   const [account] = await tx.$queryRaw<Array<{ status: string }>>`
-    SELECT status::text AS status FROM public."User" WHERE id = ${userId}::uuid FOR UPDATE
+    SELECT status::text AS status FROM public."User" WHERE id = ${userId}::uuid FOR NO KEY UPDATE
   `;
   return account?.status ?? null;
 }
@@ -78,8 +80,11 @@ export async function suspendUser(input: unknown): Promise<ActionFeedbackState> 
       where: { userId, visibilityStatus: { not: "HIDDEN" } },
       data: { visibilityStatus: "SUSPENDED" },
     });
+    // Rejected or already-suspended directory access keeps that admin decision; the
+    // prior status is audited so reinstatement restores only what suspension took.
+    const access = await tx.sellerAccess.findUnique({ where: { userId }, select: { status: true } });
     await tx.sellerAccess.updateMany({
-      where: { userId },
+      where: { userId, status: { in: ["APPROVED", "PENDING"] } },
       data: { status: "SUSPENDED" },
     });
     await tx.sellerProperty.updateMany({
@@ -101,7 +106,7 @@ export async function suspendUser(input: unknown): Promise<ActionFeedbackState> 
       data: {
         action: "suspend_user",
         actorUserId: admin.id,
-        metadata: { reason, authOperationId },
+        metadata: { reason, authOperationId, previousSellerAccessStatus: access?.status ?? null },
         targetId: userId,
         targetType: "user",
       },
@@ -155,10 +160,19 @@ export async function reinstateUser(input: unknown): Promise<ActionFeedbackState
       await tx.buyerProfile.update({ where: { id: profile.id }, data: { visibilityStatus: buyerProfileVisibility } });
     }
 
-    const sellerAccess = await tx.sellerAccess.updateMany({
-      where: { userId, status: "SUSPENDED" },
-      data: { status: "PENDING" },
+    // Access the suspension took returns to review. Access an admin had already suspended
+    // stays suspended; suspensions recorded before this audit field cannot tell, so they reopen review.
+    const lastSuspension = await tx.adminAuditLog.findFirst({
+      where: { action: "suspend_user", targetId: userId, targetType: "user" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { metadata: true },
     });
+    const sellerAccess = auditMetadataField(lastSuspension?.metadata, "previousSellerAccessStatus") === "SUSPENDED"
+      ? { count: 0 }
+      : await tx.sellerAccess.updateMany({
+          where: { userId, status: "SUSPENDED" },
+          data: { status: "PENDING" },
+        });
 
     // Suspension is the only path that flags properties for review. Lock them so a
     // concurrent document review cannot change the evidence state read below.

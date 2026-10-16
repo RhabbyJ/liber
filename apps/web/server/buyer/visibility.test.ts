@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const db = vi.hoisted(() => ({
   audit: vi.fn(),
   findProfile: vi.fn(),
+  inviteUpdate: vi.fn(),
   queryRaw: vi.fn(),
   session: vi.fn(),
   transaction: vi.fn(),
@@ -59,12 +60,18 @@ describe("buyer pause and republish", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     db.session.mockResolvedValue({ id: userId, roles: ["BUYER"] });
-    db.queryRaw.mockResolvedValue([owner]);
+    db.queryRaw.mockImplementation(async (parts: TemplateStringsArray) => {
+      const sql = parts.join("");
+      if (sql.includes('FROM public."User"')) return [owner];
+      return sql.includes('FROM public."Invite"') ? [{ id: "invite-2" }, { id: "invite-1" }] : [];
+    });
+    db.inviteUpdate.mockResolvedValue({ count: 2 });
     db.findProfile.mockResolvedValue(profile("ACTIVE"));
     db.transaction.mockImplementation(async (operation) => operation({
       $queryRaw: db.queryRaw,
       adminAuditLog: { create: db.audit },
       buyerProfile: { findUnique: db.findProfile, update: db.update },
+      invite: { updateMany: db.inviteUpdate },
     }));
   });
 
@@ -77,18 +84,30 @@ describe("buyer pause and republish", () => {
     expect(db.transaction).not.toHaveBeenCalled();
   });
 
-  it("pauses a live profile as a buyer-controlled draft under the owner and profile locks", async () => {
+  it("pauses a live profile as a buyer-controlled draft and withdraws its open invites first", async () => {
     const form = new FormData();
     form.set("visibilityStatus", "DRAFT");
     await expect(setBuyerProfileVisibility(form)).resolves.toEqual({ buyerProfileId: "buyer-profile-1", changed: true, visibilityStatus: "DRAFT" });
     const [ownerLock, ownerId] = db.queryRaw.mock.calls[0];
     expect(ownerLock.join("")).toContain('FROM public."User"');
-    expect(ownerLock.join("")).toContain("FOR UPDATE");
+    expect(ownerLock.join("")).toContain("FOR NO KEY UPDATE");
     expect(ownerId).toBe(userId);
     expect(db.findProfile).toHaveBeenCalledWith(expect.objectContaining({ where: { userId } }));
     expect(db.queryRaw.mock.calls[1][0].join("")).toContain('FROM public."BuyerProfile"');
+    const inviteLock = db.queryRaw.mock.calls[2][0].join("");
+    expect(inviteLock).toContain("status IN ('SENT', 'VIEWED', 'ACCEPTED')");
+    expect(inviteLock).toContain("ORDER BY id");
+    expect(inviteLock).toContain("FOR UPDATE");
+    expect(db.queryRaw.mock.calls[2][1]).toBe("buyer-profile-1");
+    expect(db.inviteUpdate).toHaveBeenCalledWith({
+      where: { id: { in: ["invite-2", "invite-1"] }, status: { in: ["SENT", "VIEWED", "ACCEPTED"] } },
+      data: { status: "WITHDRAWN" },
+    });
+    expect(db.inviteUpdate.mock.invocationCallOrder[0]).toBeLessThan(db.update.mock.invocationCallOrder[0]);
     expect(db.update).toHaveBeenCalledWith({ where: { id: "buyer-profile-1" }, data: { visibilityStatus: "DRAFT" } });
-    expect(db.audit).toHaveBeenCalledWith({ data: expect.objectContaining({ action: "pause_buyer_profile", actorUserId: userId, targetId: "buyer-profile-1" }) });
+    expect(db.audit).toHaveBeenCalledWith({
+      data: expect.objectContaining({ action: "pause_buyer_profile", actorUserId: userId, metadata: { withdrawnInvites: 2 }, targetId: "buyer-profile-1" }),
+    });
     expect(db.transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: "Serializable" });
   });
 
@@ -99,6 +118,7 @@ describe("buyer pause and republish", () => {
       where: { id: "buyer-profile-1" }, data: { lastRefreshedAt: expect.any(Date), visibilityStatus: "ACTIVE" },
     });
     expect(db.audit).toHaveBeenCalledWith({ data: expect.objectContaining({ action: "republish_buyer_profile" }) });
+    expect(db.inviteUpdate).not.toHaveBeenCalled();
   });
 
   it("refuses to republish a draft that no longer meets the publication rules", async () => {
@@ -125,6 +145,7 @@ describe("buyer pause and republish", () => {
   it("needs a saved profile and an active buyer account", async () => {
     db.findProfile.mockResolvedValue(null);
     await expect(setBuyerProfileVisibility({ visibilityStatus: "DRAFT" })).rejects.toThrow(BUYER_PROFILE_REQUIRED);
+    db.queryRaw.mockReset();
     db.queryRaw.mockResolvedValue([{ ...owner, status: "SUSPENDED" }]);
     await expect(setBuyerProfileVisibility({ visibilityStatus: "DRAFT" })).rejects.toThrow("Buyer account is no longer active or authorized.");
     expect(db.update).not.toHaveBeenCalled();

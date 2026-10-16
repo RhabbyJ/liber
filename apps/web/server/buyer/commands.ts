@@ -4,6 +4,7 @@ import { publicNameForDisplay } from "../public-identity";
 import { propertySubtypeFromSeekingPropertyType } from "../../lib/property-types";
 import { normalizeInput } from "../normalize-input";
 import { requireSessionRole } from "../session";
+import { withdrawOpenBuyerInvites } from "./open-invites";
 import { publicationFieldsSelect, publicationGap } from "./publication";
 
 type SaveMode = "DRAFT" | "PUBLISH";
@@ -56,6 +57,13 @@ export async function saveBuyerProfile(input: unknown, mode: SaveMode = "PUBLISH
     if (mode === "PUBLISH" && !selectedArea) {
       throw new Error("Choose an active Liber service area before publishing your profile.");
     }
+    // Republishing a live profile keeps it ACTIVE throughout: a transient DRAFT would fire the
+    // visibility-loss trigger and close every open invite conversation. The activation
+    // constraints are deferred, so they still check the final profile at commit.
+    const staysLive = mode === "PUBLISH" && existing?.visibilityStatus === "ACTIVE";
+    if (mode === "DRAFT" && existing?.visibilityStatus === "ACTIVE") {
+      await withdrawOpenBuyerInvites(tx, existing.id);
+    }
     const displayName = publicNameForDisplay(user.name, user.id);
     const saved = await tx.buyerProfile.upsert({
       where: { userId: user.id },
@@ -69,7 +77,7 @@ export async function saveBuyerProfile(input: unknown, mode: SaveMode = "PUBLISH
         downPaymentMax: profile.downPaymentMax ?? null,
         downPaymentMin: profile.downPaymentMin ?? null,
         lastRefreshedAt: new Date(),
-        visibilityStatus: "DRAFT",
+        visibilityStatus: staysLive ? "ACTIVE" : "DRAFT",
         ...locationData(selectedArea),
       },
       create: {
@@ -145,9 +153,8 @@ export const BUYER_PROFILE_REQUIRED = "Save your buyer profile before changing i
 /**
  * Buyer-controlled pause (DRAFT) and republish (ACTIVE) of a saved profile, using
  * the existing visibility states. Republishing re-validates the stored profile;
- * admin-controlled HIDDEN and SUSPENDED profiles stay unchanged. Pausing makes the
- * database close the buyer's open invite conversations (read-only), as for any
- * loss of buyer eligibility.
+ * admin-controlled HIDDEN and SUSPENDED profiles stay unchanged. Pausing withdraws the
+ * buyer's open invites, which closes their conversations read-only.
  */
 export async function setBuyerProfileVisibility(input: unknown) {
   const user = await requireSessionRole("BUYER");
@@ -172,6 +179,7 @@ export async function setBuyerProfileVisibility(input: unknown) {
       if (gap) throw new Error(gap);
     }
 
+    const withdrawnInvites = visibilityStatus === "DRAFT" ? await withdrawOpenBuyerInvites(tx, profile.id) : 0;
     await tx.buyerProfile.update({
       where: { id: profile.id },
       data: visibilityStatus === "ACTIVE" ? { lastRefreshedAt: new Date(), visibilityStatus } : { visibilityStatus },
@@ -180,6 +188,7 @@ export async function setBuyerProfileVisibility(input: unknown) {
       data: {
         action: visibilityStatus === "ACTIVE" ? "republish_buyer_profile" : "pause_buyer_profile",
         actorUserId: user.id,
+        ...(visibilityStatus === "DRAFT" ? { metadata: { withdrawnInvites } } : {}),
         targetId: profile.id,
         targetType: "buyer_profile",
       },
@@ -188,10 +197,12 @@ export async function setBuyerProfileVisibility(input: unknown) {
   }, { isolationLevel: "Serializable" }));
 }
 
+// NO KEY UPDATE serializes saves with each other and with suspension without blocking the
+// key-share locks that inserts referencing this user (notifications, audit rows) need.
 async function lockActiveBuyerOwner(tx: Prisma.TransactionClient, userId: string) {
   const [owner] = await tx.$queryRaw<Array<{ roles: string[]; status: string }>>`
     SELECT roles::text[] AS roles, status::text AS status
-    FROM public."User" WHERE id = ${userId}::uuid FOR UPDATE
+    FROM public."User" WHERE id = ${userId}::uuid FOR NO KEY UPDATE
   `;
   if (!owner || owner.status !== "ACTIVE" || !owner.roles.includes("BUYER")) {
     throw new Error("Buyer account is no longer active or authorized.");

@@ -23,7 +23,8 @@ describe("admin self-moderation", () => {
     mocks.transaction.mockImplementation(async (callback) => callback({
       $queryRaw: mocks.lock,
       user: { update: mocks.user }, buyerProfile: { updateMany: mocks.buyer },
-      sellerAccess: { updateMany: mocks.seller }, sellerProperty: { updateMany: mocks.property },
+      sellerAccess: { findUnique: vi.fn(async () => ({ status: "APPROVED" })), updateMany: mocks.seller },
+      sellerProperty: { updateMany: mocks.property },
       invite: { updateMany: mocks.invite }, authOperation: { updateMany: mocks.supersede, create: mocks.auth },
       adminAuditLog: { create: mocks.audit },
     }));
@@ -32,7 +33,7 @@ describe("admin self-moderation", () => {
   it("allows an admin to suspend their own account through the normal audited lifecycle", async () => {
     await expect(suspendUser({ userId: adminId })).resolves.toMatchObject({ ok: true });
     expect(mocks.user).toHaveBeenCalledWith(expect.objectContaining({ where: { id: adminId }, data: expect.objectContaining({ status: "SUSPENDED" }) }));
-    expect(mocks.seller).toHaveBeenCalledWith({ where: { userId: adminId }, data: { status: "SUSPENDED" } });
+    expect(mocks.seller).toHaveBeenCalledWith({ where: { userId: adminId, status: { in: ["APPROVED", "PENDING"] } }, data: { status: "SUSPENDED" } });
     expect(mocks.property).toHaveBeenCalledWith(expect.objectContaining({ where: { ownerUserId: adminId } }));
     expect(mocks.auth).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ type: "BAN_USER", userId: adminId }) }));
     expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "suspend_user", actorUserId: adminId, targetId: adminId }) }));

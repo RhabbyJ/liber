@@ -19,6 +19,7 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 - `apps/web/server/domain/seller-directory.ts` — approved-seller search and profile reads
 - `apps/web/server/contracts.ts` — `server-only` re-export barrel for the domain modules
 - `apps/web/server/buyer/publication.ts` — stored-profile publication rules for republish and unhide
+- `apps/web/server/buyer/open-invites.ts` — withdraws a profile's open invites when it leaves `ACTIVE`
 - `apps/web/app/messages/**`
 - `apps/web/server/buyer/read-models.ts`
 - `apps/web/lib/buyer-dtos.ts`
@@ -26,8 +27,10 @@ Owns buyer profile setup, searchable buyer demand, buyer criteria, buyer-side in
 ## Invariants
 
 - Draft/hidden/suspended profiles must not appear in seller search.
-- Buyers can pause a live profile and republish it later with the existing visibility states only: pause sets `DRAFT`, republish sets `ACTIVE` (`setBuyerProfileVisibility` in `server/buyer/commands.ts`, serialized on the owner row like profile saves). Republish re-validates the stored profile with `publicationGap` (`server/buyer/publication.ts`: purchase/seeking type, both budget bounds, one criteria row, and one active buyer-selected area in an active market). A saved draft that passes those rules shows as **Paused** with a Republish button; anything else reopens the setup form. Admin-controlled `HIDDEN`/`SUSPENDED` profiles cannot be paused or republished. Pause and republish are audited (`pause_buyer_profile`, `republish_buyer_profile`).
-- Pausing is a loss of buyer eligibility, so the `messaging_buyer_visibility_loss` trigger closes the buyer's open invite conversations read-only and they stay read-only after republish; open invites are hidden from the buyer while paused. The pause confirmation says so. Keeping conversations open across a pause would need a schema change.
+- Buyers can pause a live profile and republish it later with the existing visibility states only: pause sets `DRAFT`, republish sets `ACTIVE` (`setBuyerProfileVisibility` in `server/buyer/commands.ts`, serialized on the owner row like profile saves). Republish re-validates the stored profile with `publicationGap` (`server/buyer/publication.ts`: purchase/seeking type, both budget bounds, one criteria row, and one active buyer-selected area in an active market). A saved draft that passes those rules shows as **Paused** with a Republish button; anything else reopens the setup form. Admin-controlled `HIDDEN`/`SUSPENDED` profiles cannot be paused or republished. Pause and republish are audited (`pause_buyer_profile` with `withdrawnInvites`, `republish_buyer_profile`).
+- Leaving `ACTIVE` is a loss of buyer eligibility: the `messaging_buyer_visibility_loss` trigger closes the buyer's open conversations read-only, and messaging still treats an `ACCEPTED` invite as live. So pause (and admin hide, and a `DRAFT`-mode save of a live profile) first withdraws the profile's open invites (`withdrawOpenBuyerInvites`, rows locked in id order), and republishing starts fresh instead of reviving closed conversations. The pause confirmation says so. Keeping conversations open across a pause would need a schema change.
+- Saving edits to a live profile keeps it `ACTIVE` for the whole transaction (the activation constraints are deferred to commit). A transient `DRAFT` used to fire the visibility-loss trigger and close every open invite conversation on each edit.
+- The owner-row lock is `FOR NO KEY UPDATE`: it serializes saves, pause, and suspension without blocking inserts that reference the user.
 - Conversation identity for both parties uses the limited name and stable account code; full account names and contact details never enter messaging DTOs.
 - Buyer invite cards show Decline, a 500-character question, request a tour, and
   Start LOI while status is Sent or Viewed, plus a 48-hour response note.

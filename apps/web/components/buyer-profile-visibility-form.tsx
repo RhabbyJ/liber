@@ -29,8 +29,8 @@ export function BuyerProfileVisibilityForm({ action, target }: { action: Visibil
       <form action={formAction} aria-busy={pending} className="disclosure-action-panel">
         <input name="visibilityStatus" type="hidden" value="DRAFT" />
         <p>
-          While paused, sellers can’t find or invite you. Conversations from open invites close and stay read-only,
-          even after you republish.
+          While paused, sellers can’t find or invite you. Your open invites are withdrawn and their conversations
+          become read-only; republishing doesn’t reopen them.
         </p>
         <button className="button warning sm" disabled={pending} type="submit">
           {pending ? "Pausing…" : "Pause profile"}
