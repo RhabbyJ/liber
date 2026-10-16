@@ -1,0 +1,23 @@
+/* Messages nav item: unread-conversation count beside the label (bar and drawer). */
+.nav-link-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+/* Same red as the bell's .notification-count so both header counts read as one system. */
+.nav-unread-badge {
+  align-items: center;
+  background: #d81b2c;
+  border-radius: var(--r-pill);
+  box-sizing: border-box;
+  color: #fff;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  height: 18px;
+  justify-content: center;
+  line-height: 18px;
+  min-width: 18px;
+  padding: 0 5px;
+}

@@ -140,6 +140,13 @@ module that owns its data, not back in the facade.
 
 ## Agent notes
 
+The Messages nav item shows an unread-conversation badge for buyers and sellers
+in the enabled cohort. `server/messaging/unread.ts` counts it with the inbox's
+membership, cohort and unread rules (capped at 100, shown as 99+), and it rides
+on the existing `GET /api/notifications` poll (see `notifications.md`); there is
+no messaging-specific badge request. An acknowledged read in the thread clears
+the inbox row and makes the bell re-poll immediately.
+
 The responsive messenger uses day separators (Today, Yesterday, then "Mon, Oct 13")
 and grouped incoming/outgoing bubbles. The
 single check indicates an acknowledged send only, never read/presence. Details

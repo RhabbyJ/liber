@@ -13,6 +13,7 @@ import {
 } from "./normalize";
 import type { ConversationSummary, MessagingListPageInfo } from "./types";
 import { createRecoveryPolling, MESSAGING_FALLBACK_POLL_MS } from "./recovery-polling";
+import { CONVERSATION_READ_EVENT, type ConversationReadDetail } from "./unread-conversations";
 
 const conversationDateFormatter = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
 const conversationMonthDayFormatter = new Intl.DateTimeFormat("en", { day: "numeric", month: "short" });
@@ -95,6 +96,20 @@ export function ConversationInbox({
       document.removeEventListener("visibilitychange", recover);
     };
   }, [refreshFirstPage]);
+
+  // The open thread just advanced its read marker; clear that row now and let
+  // the next canonical refresh confirm it.
+  useEffect(() => {
+    function clearReadConversation(event: Event) {
+      const conversationId = (event as CustomEvent<ConversationReadDetail>).detail?.conversationId;
+      if (!conversationId) return;
+      setConversations((current) => current.some((item) => item.id === conversationId && item.unreadCount > 0)
+        ? current.map((item) => item.id === conversationId ? { ...item, unreadCount: 0 } : item)
+        : current);
+    }
+    window.addEventListener(CONVERSATION_READ_EVENT, clearReadConversation);
+    return () => window.removeEventListener(CONVERSATION_READ_EVENT, clearReadConversation);
+  }, []);
 
   async function loadMore() {
     if (!pageInfo.nextCursor || requestInFlightRef.current) return;

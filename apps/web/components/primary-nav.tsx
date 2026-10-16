@@ -5,7 +5,11 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { AppRole } from "../server/authz";
 import { Icon } from "./icon";
+import { unreadConversationBadgeText, useUnreadConversationCount } from "./messaging/unread-conversations";
 import { primaryNavItems } from "./primary-nav-items";
+import "./primary-nav.css";
+
+const MESSAGES_HREF = "/messages";
 
 const PRIMARY_NAV_FALLBACK = `
 (() => {
@@ -71,6 +75,8 @@ export function PrimaryNav({
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const items = primaryNavItems(isAuthenticated, roles, messagingEnabled, previewToolsEnabled);
+  // Published by the header bell's poll; null whenever messaging is off for this account.
+  const unreadConversations = useUnreadConversationCount() ?? 0;
 
   function close() {
     setIsOpen(false);
@@ -112,6 +118,7 @@ export function PrimaryNav({
             {group.map((item) => {
               const active = item.isActive(pathname);
               const modeClass = item.mode ? ` ${item.mode}` : "";
+              const unread = messagingEnabled && item.href === MESSAGES_HREF ? unreadConversations : 0;
 
               return (
                 <Link
@@ -122,7 +129,15 @@ export function PrimaryNav({
                   key={`${item.href}-${item.label}`}
                   onClick={close}
                 >
-                  {item.label}
+                  {unread > 0 ? (
+                    <span className="nav-link-label">
+                      {item.label}
+                      <span aria-hidden="true" className="nav-unread-badge">{unreadConversationBadgeText(unread)}</span>
+                      <span className="visually-hidden">
+                        , {unread > 99 ? "more than 99" : unread} unread {unread === 1 ? "conversation" : "conversations"}
+                      </span>
+                    </span>
+                  ) : item.label}
                 </Link>
               );
             })}
