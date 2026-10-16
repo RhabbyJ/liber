@@ -1,5 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "./generated/client";
+import { createDatabasePool } from "./pool";
 export { Prisma } from "./generated/client";
 
 const globalForPrisma = globalThis as unknown as {
@@ -10,14 +11,12 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is required.");
 }
 
-const poolMax = Number.parseInt(process.env.DATABASE_POOL_MAX ?? "", 10);
+function createPrismaClient() {
+  const adapter = new PrismaPg(createDatabasePool(), { disposeExternalPool: true });
+  return new PrismaClient({ adapter });
+}
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
-  max: Number.isFinite(poolMax) && poolMax > 0 ? poolMax : 2,
-});
-
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;

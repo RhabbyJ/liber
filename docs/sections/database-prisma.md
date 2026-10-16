@@ -27,6 +27,17 @@ Owns Prisma schema, migrations, generated client, indexes, enums, and database-l
 ## Invariants
 
 - Schema changes require migrations.
+- `packages/db/src/pool.ts` sizes the runtime pool for Vercel functions behind
+  Supabase's transaction pooler: `DATABASE_POOL_MAX` connections (default 2),
+  10-second connect/slot-wait and idle timeouts, and a 15-second client-side
+  statement bound (`query_timeout`). It deliberately sends no
+  `statement_timeout` or `options` startup parameter: Supavisor does not apply
+  them and PgBouncer rejects them. A server-side statement timeout needs a
+  reviewed role-level setting. A timed-out statement keeps running on the
+  server, so `TransactionSafePool` destroys any client released inside an
+  unfinished transaction instead of handing that transaction to the next
+  request. Statements blocked on row locks for more than 15 seconds now fail
+  instead of waiting.
 - Existing databases use `prisma.config.ts` and the immutable historical
   migration root. Brand-new current Supabase databases use
   `prisma.baseline.config.ts` and the locked current-baseline root; pointing the
