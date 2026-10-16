@@ -13,6 +13,7 @@ import {
   messageBodySchema,
   messageReportCategorySchema,
   muteConversationSchema,
+  parseNumberInput,
   reportMessageSchema,
   resolveMessageReportSchema,
   reviewDocumentSchema,
@@ -348,6 +349,67 @@ describe("Liber validators", () => {
     expect(property.price).toBe(925000);
     expect(property.bedrooms).toBe(4);
     expect(property.propertyType).toBe("CONDO");
+  });
+
+  it("accepts the formatted numbers sellers type into text inputs", () => {
+    expect(createSellerPropertySchema.parse({
+      bathrooms: "2",
+      bedrooms: " 4 ",
+      lotSize: "7 200",
+      ownershipConfirmed: true,
+      price: "$925,000",
+      propertyType: "HOME",
+      squareFeet: "2,140",
+    })).toMatchObject({ bathrooms: 2, bedrooms: 4, lotSize: 7200, price: 925000, squareFeet: 2140 });
+    expect(createSellerPropertySchema.parse({ ownershipConfirmed: true, price: "$ 1,250,000.50", propertyType: "HOME" }).price)
+      .toBe(1250000.5);
+  });
+
+  it("reports seller property numbers it cannot store as field messages", () => {
+    const issues = (input: Record<string, string>) => createSellerPropertySchema
+      .safeParse({ ownershipConfirmed: true, propertyType: "HOME", ...input })
+      .error?.issues.map((issue) => [issue.path.join("."), issue.message]);
+
+    // SellerProperty.bathrooms is an integer column.
+    expect(issues({ bathrooms: "2.5" })).toEqual([
+      ["bathrooms", "Enter bathrooms as a whole number, like 2. Half baths can't be saved."],
+    ]);
+    expect(issues({ bedrooms: "three" })).toEqual([["bedrooms", "Enter bedrooms as a whole number, like 3."]]);
+    expect(issues({ price: "925k" })).toEqual([["price", "Enter the asking price in dollars, like 925,000."]]);
+    expect(issues({ price: "-5" })).toEqual([["price", "Enter the asking price in dollars, like 925,000."]]);
+    expect(issues({ price: "10,000,000,000" })).toEqual([["price", "Enter an amount under $10 billion."]]);
+    expect(issues({ squareFeet: "2,147,483,648" })).toEqual([["squareFeet", "Enter a smaller number."]]);
+  });
+
+  it.each([
+    ["$925,000", 925000],
+    ["925,000", 925000],
+    ["925 000", 925000],
+    ["925 000", 925000],
+    [" $ 925,000.00 ", 925000],
+    ["1,000,000", 1000000],
+    ["2,140", 2140],
+    ["2.5", 2.5],
+    ["0", 0],
+  ])("parses the number input %j", (input, expected) => {
+    expect(parseNumberInput(input)).toBe(expected);
+  });
+
+  it.each(["", "   ", "$"])("treats the blank number input %j as omitted", (input) => {
+    expect(parseNumberInput(input)).toBeUndefined();
+  });
+
+  it.each(["2,5", "1,0000", "12,34,567", "1,000 000", "925k", "-5", "1e6", "0x10", "Infinity", "$$5", "5$", ".5"])(
+    "rejects the ambiguous or unsupported number input %j instead of guessing",
+    (input) => {
+      expect(parseNumberInput(input)).toBeNaN();
+    },
+  );
+
+  it("leaves non-text number inputs for the schema to validate", () => {
+    expect(parseNumberInput(925000)).toBe(925000);
+    expect(parseNumberInput(undefined)).toBeUndefined();
+    expect(parseNumberInput(["1", "2"])).toEqual(["1", "2"]);
   });
 
   it("rejects property creation without ownership confirmation", () => {

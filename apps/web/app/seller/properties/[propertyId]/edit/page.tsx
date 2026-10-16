@@ -6,6 +6,13 @@ import { PropertyAddressLookup } from "../../../../../components/property-addres
 import { PropertyDetailsFields } from "../../../../../components/property-details-fields";
 import { PropertyCoverPhoto } from "../../../../../components/property-cover-photo";
 import { PropertyTypePicker } from "../../../../../components/property-type-picker";
+import {
+  PropertyNotesField,
+  PropertyPriceField,
+  SellerPropertyFieldError,
+  SellerPropertyForm,
+  SellerPropertyFormAlert,
+} from "../../../../../components/seller-property-form";
 import { formatMoney } from "../../../../../lib/format";
 import { propertySubtypeLabel } from "../../../../../lib/property-types";
 import { DEFAULT_MARKET_SLUG } from "../../../../../lib/service-areas";
@@ -89,7 +96,7 @@ export default async function EditSellerPropertyPage({
         <div className="listing-editor-main">
           <section aria-labelledby="details-title" className="listing-editor-section" id="details">
             <h2 id="details-title">Home details</h2>
-            <form action={submitSellerPropertyUpdate} className="form-grid listing-editor-form">
+            <SellerPropertyForm action={submitSellerPropertyUpdate} className="form-grid listing-editor-form">
               <input name="propertyId" type="hidden" value={property.id} />
               <PropertyTypePicker
                 defaultValue={property.propertyType}
@@ -97,10 +104,7 @@ export default async function EditSellerPropertyPage({
                 name="propertyType"
                 required
               />
-              <div className="field">
-                <label htmlFor="price">Asking price</label>
-                <input defaultValue={property.price} id="price" inputMode="numeric" name="price" />
-              </div>
+              <PropertyPriceField defaultValue={property.price} />
 
               <PropertyAddressLookup
                 defaults={{
@@ -115,10 +119,7 @@ export default async function EditSellerPropertyPage({
               />
 
               <PropertyDetailsFields condition={property.condition} features={property.features} />
-              <div className="field full">
-                <label htmlFor="description">Notes for invited buyers</label>
-                <textarea defaultValue={property.description} id="description" name="description" />
-              </div>
+              <PropertyNotesField defaultValue={property.description} />
 
               <label className="checkbox-row full">
                 <input name="ownershipConfirmed" required type="checkbox" value="true" />
@@ -127,12 +128,14 @@ export default async function EditSellerPropertyPage({
                   this records a new attestation and prior verification and invites remain invalid.
                 </span>
               </label>
+              <SellerPropertyFieldError field="ownershipConfirmed" />
 
+              <SellerPropertyFormAlert />
               <div className="listing-editor-savebar">
                 <Link className="text-link" href="/seller/properties">Cancel</Link>
                 <button className="button primary" type="submit">Save changes</button>
               </div>
-            </form>
+            </SellerPropertyForm>
           </section>
 
           <section aria-labelledby="photos-title" className="listing-editor-section" id="photos">
