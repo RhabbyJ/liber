@@ -7635,6 +7635,16 @@ a.map-card:focus-visible {
 .map-card-media {
   background: var(--surface-input);
   overflow: hidden;
+  position: relative;
+}
+
+/* The 96px mini-card photo carries a smaller "Sample photo" tag. */
+.map-card-media .sample-photo-tag {
+  bottom: 4px;
+  font-size: 10px;
+  line-height: 14px;
+  padding: 1px 4px;
+  right: 4px;
 }
 
 .map-card-media img {

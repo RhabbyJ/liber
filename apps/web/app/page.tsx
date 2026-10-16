@@ -19,7 +19,7 @@ import { selectedMapArea } from "../lib/map-area";
 import { distinctPropertyPhotos } from "../lib/property-photos";
 import { DEFAULT_MARKET_SLUG, serviceAreaDisplayLabel } from "../lib/service-areas";
 import { canViewBuyerDirectory } from "../server/access";
-import { hasControlledDemoBuyerPreviews, searchDemandPreviews } from "../server/buyer-preview";
+import { DEMO_BUYER_LABEL, searchDemandPreviews } from "../server/buyer-preview";
 import { getCurrentSellerAccess, searchBuyers } from "../server/contracts";
 import { SellerSearchCursorError } from "../server/seller-search-query";
 import { getActiveMarketBySlug, getActiveServiceAreaBySlug, resolveActiveServiceArea } from "../server/service-areas";
@@ -108,9 +108,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     if (params.cursor && error instanceof SellerSearchCursorError) redirect(demandSearchHref(params, ["cursor"]));
     throw error;
   }
-  const hasDemoPreviews = await hasControlledDemoBuyerPreviews();
-
   const resultCount = canSearch ? buyers.length : previews.length;
+  // Mention demo profiles only when a card on this page carries the "Demo buyer" label.
+  const showsDemoProfiles = canSearch
+    ? buyers.some((buyer) => buyer.isDemo)
+    : previews.some((preview) => preview.badges.includes(DEMO_BUYER_LABEL));
   const photos = distinctPropertyPhotos(canSearch
     ? buyers.map((buyer) => ({ seed: buyer.id, value: buyer.purpose }))
     : previews.map((preview) => ({ seed: preview.alias, value: preview.label })));
@@ -184,7 +186,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               <p role="status">
                 <strong>{resultCount}{hasMore && user ? "+" : ""} {resultCount === 1 ? "buyer" : "buyers"}</strong>
                 {hasFilters ? <span> matched to your filters</span> : null}
-                {hasDemoPreviews && resultCount > 0 ? <span> · Includes clearly labeled demo profiles</span> : null}
+                {showsDemoProfiles ? <span> · Includes clearly labeled demo profiles</span> : null}
               </p>
             </div>
             <SortSelect value={input.sort} />

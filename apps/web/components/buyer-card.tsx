@@ -36,6 +36,8 @@ export function BuyerCard({ buyer, photoSrc, priority = false }: { buyer: Seller
           </div>
         ) : null}
         <GeneratedAvatar className="listing-card-avatar" decorative name={buyer.name} seed={buyer.avatarSeed} variant={buyer.avatarVariant} />
+        {/* A representative photo of the home type, never this buyer's or a listed home. */}
+        <span className="sample-photo-tag">Sample photo</span>
       </div>
       <div className="listing-card-body">
         <p className="listing-card-price">{compactBudgetRange(buyer.budgetMin, buyer.budgetMax)}</p>

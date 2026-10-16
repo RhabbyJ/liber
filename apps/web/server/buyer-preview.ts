@@ -18,6 +18,9 @@ const previewBadgeLabels: Record<string, string> = {
 
 export const PUBLIC_PREVIEW_LIMIT = 4;
 
+/** Badge label on previews of controlled demo profiles (seeded demo buyers and the journey fixture). */
+export const DEMO_BUYER_LABEL = "Demo buyer";
+
 const previewAmenities = ["Pool", "Parking", "ADU", "Yard", "Garage"];
 
 // The narrow projection every preview is built from; nothing else leaves the database.
@@ -118,8 +121,11 @@ export async function searchDemandPreviews(input: SearchBuyersInput, viewerUserI
 }
 
 async function toPublicPreviews(profiles: PreviewProfileRow[]): Promise<PublicBuyerPreviewDTO[]> {
-  const syntheticProfiles = await syntheticJourneyBuyerProfileIds(prisma, profiles.map((profile) => profile.id));
-  const testPreapprovalIds = await activeTestPreapprovalProfileIds(prisma, profiles.map((profile) => profile.id));
+  const profileIds = profiles.map((profile) => profile.id);
+  const [demoProfiles, testPreapprovalIds] = await Promise.all([
+    controlledDemoProfileIds(profileIds),
+    activeTestPreapprovalProfileIds(prisma, profileIds),
+  ]);
   return profiles.map((profile) => {
     const criteria = profile.criteria[0];
     const condition = searchBuyersSchema.shape.condition.safeParse(criteria?.condition);
@@ -143,7 +149,7 @@ async function toPublicPreviews(profiles: PreviewProfileRow[]): Promise<PublicBu
       area: areaLabel,
       avatarVariant: resolveAvatarVariant(profile.user.avatarVariant, profile.id).value,
       badges: [
-        ...(syntheticProfiles.has(profile.id) ? ["Demo buyer"] : []),
+        ...(demoProfiles.has(profile.id) ? [DEMO_BUYER_LABEL] : []),
         ...(testPreapprovalIds.has(profile.id) ? [TEST_PREAPPROVAL_LABEL] : []),
         ...profile.badges.map((badge) => previewBadgeLabels[badge.badgeType] ?? "Verified"),
         ...(profile.buyerType === "Cash" && profile.badges.some((badge) => badge.badgeType === "VERIFIED_FUNDS")
@@ -161,15 +167,21 @@ async function toPublicPreviews(profiles: PreviewProfileRow[]): Promise<PublicBu
   });
 }
 
-export async function hasControlledDemoBuyerPreviews() {
-  try {
-    return await prisma.adminAuditLog.count({
-      where: { action: "seed_demo_buyer", targetType: "buyer_profile" },
-    }) > 0 || (await syntheticJourneyBuyerProfileIds(prisma)).size > 0;
-  } catch (error) {
-    console.error("[public-preview] demo marker query failed", error instanceof Error ? error.message : "Unknown error");
-    return false;
-  }
+/**
+ * The same controlled-demo detection as approved seller search: profiles seeded by the demo
+ * tooling (`seed_demo_buyer` audit rows) and the designated journey fixture. Only the label
+ * reaches the preview; the ids stay here.
+ */
+async function controlledDemoProfileIds(profileIds: string[]) {
+  if (profileIds.length === 0) return new Set<string>();
+  const [seeded, journey] = await Promise.all([
+    prisma.adminAuditLog.findMany({
+      where: { action: "seed_demo_buyer", targetId: { in: profileIds }, targetType: "buyer_profile" },
+      select: { targetId: true },
+    }),
+    syntheticJourneyBuyerProfileIds(prisma, profileIds),
+  ]);
+  return new Set([...seeded.map((row) => row.targetId), ...journey]);
 }
 
 function previewPropertyTypeLabel(value?: string | null) {

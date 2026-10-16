@@ -10,6 +10,13 @@ describe("demand map results", () => {
     expect(homepage).toMatch(/<p role="status">\s+<strong>\{resultCount\}/);
   });
 
+  it("mentions demo profiles only when a visible card is labeled Demo buyer", () => {
+    expect(homepage).toMatch(/const showsDemoProfiles = canSearch\s+\? buyers\.some\(\(buyer\) => buyer\.isDemo\)\s+: previews\.some\(\(preview\) => preview\.badges\.includes\(DEMO_BUYER_LABEL\)\);/);
+    expect(homepage).toContain("{showsDemoProfiles ? <span> · Includes clearly labeled demo profiles</span> : null}");
+    // The old check counted demo profiles anywhere in the database, visible or not.
+    expect(homepage).not.toContain("hasControlledDemoBuyerPreviews");
+  });
+
   it("keeps the filter toolbar mounted while filters change so keyboard focus is not dropped", () => {
     expect(homepage).toContain("key={`${market.slug}:${selectedServiceArea?.slug ?? \"\"}`}");
     expect(homepage).not.toContain('key={demandSearchHref({ ...params, market: market.slug }, ["cursor", "view"])}');

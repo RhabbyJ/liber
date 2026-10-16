@@ -336,14 +336,16 @@ function previewPopupHtml(
   photo: string,
 ) {
   const facts = criteriaFacts(preview).map((fact) => `<b>${escapeHtml(fact.value)}</b> ${escapeHtml(fact.label)}`);
+  const isDemo = preview.badges.includes("Demo buyer");
 
   return `
     <div class="map-card preview">
-      <span class="map-card-media"><img alt="" src="${escapeHtml(photo)}" /></span>
+      <span class="map-card-media"><img alt="" src="${escapeHtml(photo)}" /><span class="sample-photo-tag">Sample photo</span></span>
       <span class="map-card-body">
         <strong class="map-card-price">${escapeHtml(preview.budgetLabel)}</strong>
         ${facts.length > 0 ? `<span class="map-card-facts">${facts.join("<i></i>")}</span>` : ""}
         <span class="map-card-address">${escapeHtml(preview.area)}</span>
+        ${isDemo ? `<span class="map-card-meta">Demo buyer</span>` : ""}
         <span class="map-card-actions">
           <a class="map-card-cta" href="${escapeHtml(cta.primaryHref)}">${escapeHtml(cta.primaryLabel)}</a>
           ${cta.secondaryHref && cta.secondaryLabel ? `<a class="map-card-link" href="${escapeHtml(cta.secondaryHref)}">${escapeHtml(cta.secondaryLabel)}</a>` : ""}

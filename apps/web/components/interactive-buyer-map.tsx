@@ -320,7 +320,7 @@ function popupHtml(buyer: SellerBuyerSummaryDTO, photo: string) {
 
   return `
     <a class="map-card" href="/buyers/${encodeURIComponent(buyer.id)}">
-      <span class="map-card-media"><img alt="" src="${escapeHtml(photo)}" /></span>
+      <span class="map-card-media"><img alt="" src="${escapeHtml(photo)}" /><span class="sample-photo-tag">Sample photo</span></span>
       <span class="map-card-body">
         <strong class="map-card-price">${escapeHtml(compactBudgetRange(buyer.budgetMin, buyer.budgetMax))}</strong>
         ${facts.length > 0 ? `<span class="map-card-facts">${facts.join("<i></i>")}</span>` : ""}

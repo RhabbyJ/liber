@@ -159,8 +159,9 @@ Liber's own features and palette. Keep new surfaces inside this system:
   results slide over it as a sheet, and a floating List/Map pill jumps between
   them. Search pages use the compact footer; other pages use the full footer.
 - Listing cards (`.listing-card`): 12px radius, 177px media with at most two
-  trust tags (Zillow's white photo tags with dark bold text) and the generated
-  avatar, a 24/32 budget or price headline, `|`-separated facts ending in the
+  trust tags (Zillow's white photo tags with dark bold text; a Demo buyer or
+  test label always takes a slot first), the generated avatar, a "Sample photo"
+  tag at the bottom right (map mini-cards carry a smaller one), a 24/32 budget or price headline, `|`-separated facts ending in the
   home kind, a grey address line, and uppercase fine print. The whole card
   is one stretched link. `.listing-card.static` (seller properties, invite
   overview) drops the stretched link and adds a bottom actions row.
