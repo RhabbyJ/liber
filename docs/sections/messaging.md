@@ -29,9 +29,13 @@ pair -> `Invite` -> `Conversation` -> sender lock helpers; `message-rows.ts` the
 qualified Message projection; `conversation-reads.ts` inbox, thread and history
 reads; `send.ts` sends and quotas; `read-state.ts` read markers;
 `blocks-and-mutes.ts` mutes, permanent blocks and invite pair checks;
-`reports.ts` reports and the admin queue; `tour-gate.ts` tour eligibility; and
-`unread-email.ts` the content-free unread outbox jobs. New SQL belongs in the
-module that owns its data, not back in the facade.
+`reports.ts` reports and the admin queue; `tour-gate.ts` tour eligibility;
+`unread-email.ts` the content-free unread outbox jobs; `unread.ts` the Messages
+badge count; and `failure-details.ts` log-safe failure descriptions. New SQL
+belongs in the module that owns its data, not back in the facade.
+`eligibility.sql.test.ts` runs the real service SQL against an in-process
+PostgreSQL (PGlite) with a minimal schema; extend that schema when a query
+starts touching new tables or columns.
 
 ## Invariants
 
