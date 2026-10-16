@@ -33,6 +33,9 @@ If docs conflict, use the highest-priority doc above and update the stale lower-
   `engineering/AUTH_SECURITY_FOLLOWUP_ROLLBACK.sql` — unnumbered CTO migration
   proposal for callback/session initialization, suspension, Storage, outbox,
   and generic shared limiting.
+- `engineering/SHARED_RATE_LIMITER_DRIFT_CHECK.sql` — read-only production
+  comparison to run before deploying migration
+  `20261016033000_codify_shared_rate_limiter`.
 - `engineering/AUTH_SECURITY_FOLLOWUP_EVIDENCE_2026-07-09.md` — disposable
   catalog/concurrency/Storage results for the earlier proposal plus the current
   repair addendum and still-open database/staging gates.

@@ -118,8 +118,11 @@ Owns sign-up, login, role selection, session loading, protected-route redirects,
   suspended application identity. Immediate Supabase session/refresh revocation
   must be proven on the current queued-ban implementation, not inferred from
   the retired `suspend_identity` helper.
-- These runtime paths depend on the unnumbered Auth/security SQL reserved for
-  `00017`; they are not deployable to a database that stops at `00016`.
+- The shared Auth limiter is codified by forward migration
+  `20261016033000_codify_shared_rate_limiter`. Email-only Auth update
+  synchronization still exists only in the unnumbered Auth/security SQL
+  reserved for `00017`; a database built from migrations alone keeps the older
+  all-column `on_auth_user_updated` trigger that copies `user_metadata.name`.
 
 ## Agent notes
 
