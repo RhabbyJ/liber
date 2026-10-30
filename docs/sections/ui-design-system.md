@@ -181,9 +181,11 @@ Liber's own features and palette. Keep new surfaces inside this system:
   mini-card popup with the buyer's initials avatar. Public homepage pins stay
   unlabeled dots.
 - `/buyers/[buyerProfileId]` uses a home-details layout: sticky action bar,
-  media collage (property-type artwork, generated avatar, approximate area
-  tile), budget headline with stat dividers, glance tiles, divided sections, a
-  sticky contact rail at 900px and wider, and a sticky bottom CTA below 900px.
+  a demand header built from `sellerCardView` (initials avatar, name, Demo
+  buyer label, budget, seeking type and area, need and want chips, the trust
+  column, and the approximate-area tile), divided sections, a sticky contact
+  rail at 900px and wider, and a sticky bottom CTA below 900px. Buyers are
+  demand, not listings, so the page never shows a property photo.
   The invite disclaimer sits directly under Send invite in the rail.
 - `/login`, `/signup`, `/signup/verify`, `/forgot-password`, and `/reset-password` use the split sign-in page. `/profile` adds a Password settings section (current and new password, Show toggles) below the workspace links.
 - Header notifications are a 40px icon button with a red count badge and a 380px dropdown on the account menu's surface: title row with Mark all read, the five newest notifications as clickable rows (32px type icon, title, two-line body, relative time, unread tint and dot), and "See all notifications". The list scrolls past 520px.
@@ -191,7 +193,7 @@ Liber's own features and palette. Keep new surfaces inside this system:
 - Notification feeds (`NotificationList`) sit under an All/Unread segmented filter with a Mark all as read link. Each row is one link: 40px type icon, title (bold when unread, on a green tint with a dot), body, then relative time ("4m ago", "Yesterday", "Sep 25") · green action label ("Open LOI"); read rows end in a chevron. Sent invites are activity rows: avatar, buyer and status tag, property and ownership line, sent day, one action.
 - `/seller/properties/[propertyId]/edit` is a listing editor: cover thumb, title and status, sticky section tabs (Home details, Photos, Ownership), white section cards, an unverified-ownership alert, and a sticky summary rail; the save bar sticks to the bottom on phones. `/seller/properties/new` opens with a photo banner whose address search overlaps its bottom edge.
 - The invite composer is a white card: property choice cards (cover thumb, title, status, check), a "what the buyer receives" note, the manual-invite confirmation, and a full-width Send invite.
-- The buyer detail media collage uses a listing photo and a real Mapbox street tile centred on the approximate area center (`mapboxAreaImageUrl`), never a drawn map.
+- The buyer detail approximate-area tile is a real Mapbox street tile centred on the approximate area center (`mapboxAreaImageUrl`), never a drawn map or a home photo.
 - Known gap: buttons now carry near-black text, but white still sits on the
   greens for map budget pins (about 3.1:1 on `#47a62f`), count badges, and the
   checked-box tick, below WCAG AA. Changing those needs the same kind of brand

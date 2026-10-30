@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BuyerProfileHeader } from "../../../components/buyer-profile-header";
 import { GeneratedAvatar } from "../../../components/generated-avatar";
 import { Icon, type IconName } from "../../../components/icon";
-import { PropertyTypeArtwork } from "../../../components/property-type-artwork";
 import { approximateBuyerPoint } from "../../../lib/buyer-map-point";
-import { formatRange } from "../../../lib/format";
-import { compactBudgetRange, seekingLabel } from "../../../lib/listing-format";
+import { compactBudgetRange } from "../../../lib/listing-format";
 import { mapboxAreaImageUrl } from "../../../lib/mapbox-static-image";
 import { getAuthorizedBuyerProfile } from "../../../server/contracts";
 import { getSessionUser } from "../../../server/session";
@@ -51,31 +50,6 @@ export default async function PublicBuyerProfilePage({
     ? user ? invitePath : `/login?next=${encodeURIComponent(invitePath)}`
     : null;
   const isOwner = buyer.viewerIsOwner;
-  const criteria = buyer.criteriaDetails[0];
-  const preApproval = activeBadges.find((badge) => badge.type === "PRE_APPROVED");
-  const stats = [
-    criteria?.bedroomsMin ? { label: "beds", value: `${criteria.bedroomsMin}+` } : null,
-    criteria?.bathroomsMin ? { label: "baths", value: `${criteria.bathroomsMin}+` } : null,
-    criteria?.squareFeetMin
-      ? { label: "sqft", value: `${criteria.squareFeetMin.toLocaleString("en-US")}+` }
-      : criteria?.lotSizeMin
-        ? { label: "sqft lot", value: `${criteria.lotSizeMin.toLocaleString("en-US")}+` }
-        : null,
-  ].filter((stat): stat is { label: string; value: string } => stat !== null);
-  const glance: Array<{ icon: IconName; label: string; value: string }> = [
-    { icon: "home", label: "Seeking", value: buyer.purpose || "Not set" },
-    { icon: "money", label: "Purchase type", value: buyer.type || "Not set" },
-    { icon: "key", label: "Down payment", value: formatRange(buyer.downPaymentMin, buyer.downPaymentMax) },
-    { icon: "sparkle", label: "Condition", value: criteria?.condition || "Any condition" },
-    {
-      icon: "check-shield",
-      label: "Pre-approval",
-      value: preApproval
-        ? typeof preApproval.expiresInDays === "number" ? `Active · ${preApproval.expiresInDays}d left` : "Active"
-        : "Not verified",
-    },
-    { icon: "calendar", label: "Profile updated", value: formatUpdated(buyer.refreshedAt) },
-  ];
   const backHref = isOwner ? "/buyer/profile" : "/";
   const areaMapUrl = mapboxAreaImageUrl({
     point: approximateBuyerPoint(buyer),
@@ -106,67 +80,10 @@ export default async function PublicBuyerProfilePage({
         </div>
       ) : null}
 
-      <div className="hdp-media" aria-hidden="true">
-        <div className="hdp-media-main">
-          <PropertyTypeArtwork className="hdp-media-art" priority seed={buyer.id} sizes="(max-width: 899px) 100vw, 66vw" value={buyer.purpose} />
-          <span className="hdp-media-tag">{seekingLabel(buyer.purpose)}</span>
-        </div>
-        <div className="hdp-media-side">
-          <div className="hdp-media-avatar">
-            <GeneratedAvatar decorative name={buyer.name} seed={buyer.avatarSeed} size="xl" variant={buyer.avatarVariant} />
-          </div>
-          <div className={`hdp-media-area${areaMapUrl ? " has-map" : ""}`}>
-            {/* Mapbox renders the streets and the approximate area-center pin in one projection. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {areaMapUrl ? <img alt="" className="hdp-media-map" loading="lazy" src={areaMapUrl} /> : <Icon name="map-pin" size={28} />}
-            <span>{buyer.location || "Liber service area"}</span>
-          </div>
-        </div>
-      </div>
+      <BuyerProfileHeader areaMapUrl={areaMapUrl} buyer={buyer} />
 
       <div className="hdp-layout">
         <article className="hdp-main">
-          <p className="hdp-status">
-            <span className="hdp-status-dot" aria-hidden="true" />
-            Active buyer · {seekingLabel(buyer.purpose)}
-          </p>
-          <div className="hdp-headline">
-            <p className="hdp-price">
-              <span className="visually-hidden">Budget </span>
-              {compactBudgetRange(buyer.budgetMin, buyer.budgetMax)}
-            </p>
-            {stats.length > 0 ? (
-              <dl className="hdp-stats">
-                {stats.map((stat) => (
-                  <div key={stat.label}>
-                    <dt className="visually-hidden">{stat.label}</dt>
-                    <dd><b>{stat.value}</b> {stat.label}</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : null}
-          </div>
-          <h1 className="hdp-title">
-            {buyer.name}
-            <span>{buyer.location || "Liber service area"}</span>
-          </h1>
-          <p className="hdp-budget-chip">
-            <Icon name="money" size={20} />
-            Budget {formatRange(buyer.budgetMin, buyer.budgetMax)}
-          </p>
-
-          <ul className="hdp-glance" aria-label="At a glance">
-            {glance.map((item) => (
-              <li key={item.label}>
-                <Icon name={item.icon} size={22} />
-                <span>
-                  <small>{item.label}</small>
-                  <strong>{item.value}</strong>
-                </span>
-              </li>
-            ))}
-          </ul>
-
           <section className="hdp-section" aria-labelledby="hdp-overview">
             <h2 id="hdp-overview">Overview</h2>
             <p className="hdp-bio">{buyer.bio || "This buyer has not added a bio yet."}</p>
@@ -282,11 +199,4 @@ function badgeHelperText(badge: { type?: string; expiresInDays?: number }) {
     return `Reviewed by Liber · expires in ${badge.expiresInDays} day${badge.expiresInDays === 1 ? "" : "s"}`;
   }
   return "Reviewed by Liber";
-}
-
-function formatUpdated(value?: string) {
-  if (!value) return "Recently";
-  const date = new Date(`${value}T12:00:00Z`);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", timeZone: "UTC", year: "numeric" }).format(date);
 }

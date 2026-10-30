@@ -6864,69 +6864,83 @@ a.map-card:focus-visible {
   line-height: 24px;
 }
 
-/* Media collage: one hero tile plus two stacked tiles, 2px white gutters. */
-.hdp-media {
-  background: var(--surface);
+/* Demand header: who the buyer is and what they want, then trust and the approximate area.
+   Buyers are demand, not listings, so this header never shows a property photo. */
+.hdp-hero {
   display: grid;
-  gap: 2px;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  height: 416px;
+  gap: 24px 36px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
   margin-top: 16px;
-  padding: 0 var(--hdp-pad);
+  padding: 0 var(--hdp-pad) 8px;
 }
 
-.hdp-media-main,
-.hdp-media-avatar,
-.hdp-media-area {
-  overflow: hidden;
-  position: relative;
-}
-
-.hdp-media-main {
-  background: #f9faf5;
-  border-radius: var(--r-md) 0 0 var(--r-md);
-}
-
-.hdp-media-art.property-type-artwork {
-  background: transparent;
-  height: 100%;
-  inset: 0;
-  position: absolute;
-  width: 100%;
-}
-
-.hdp-media-art .property-type-artwork-image {
-  object-fit: cover;
-}
-
-.hdp-media-tag {
-  background: rgba(10, 10, 20, 0.6);
-  border-radius: var(--r-pill);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  left: 16px;
-  line-height: 16px;
-  padding: 4px 10px;
-  position: absolute;
-  top: 16px;
-}
-
-.hdp-media-side {
+.hdp-hero-main {
+  align-content: start;
   display: grid;
-  gap: 2px;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+  padding-top: 8px;
 }
 
-.hdp-media-avatar {
+.hdp-hero-identity {
   align-items: center;
-  background: var(--sage-tint);
-  border-top-right-radius: var(--r-md);
   display: flex;
-  justify-content: center;
+  gap: 16px;
+  min-width: 0;
 }
 
-.hdp-media-area {
+.hdp-hero-avatar.generated-avatar {
+  --generated-avatar-font: 26px;
+  --generated-avatar-size: 72px;
+  flex: none;
+}
+
+.hdp-hero-name {
+  align-items: center;
+  color: var(--ink-strong);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 28px;
+  font-weight: 700;
+  gap: 4px 10px;
+  line-height: 34px;
+  margin: 2px 0 0;
+}
+
+.hdp-hero-code {
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 18px;
+  margin: 2px 0 0;
+}
+
+.hdp-hero .hdp-price {
+  font-size: 36px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 40px;
+  margin: 4px 0 0;
+}
+
+.hdp-hero-side {
+  align-content: start;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.hdp-hero-signals {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 16px;
+}
+
+.hdp-hero-area {
   align-items: center;
   background-color: var(--surface-muted);
   background-image:
@@ -6935,27 +6949,30 @@ a.map-card:focus-visible {
     linear-gradient(32deg, transparent 47%, rgba(188, 234, 173, 0.7) 47%, rgba(188, 234, 173, 0.7) 53%, transparent 53%);
   background-position: 18px 0, 0 22px, 0 0;
   background-size: 96px 100%, 100% 84px, 100% 100%;
-  border-bottom-right-radius: var(--r-md);
+  border-radius: var(--r-md);
   color: var(--ink-strong);
   display: flex;
   flex-direction: column;
   font-size: 14px;
   font-weight: 700;
   gap: 4px;
+  height: 200px;
   justify-content: center;
   line-height: 20px;
+  overflow: hidden;
   padding: 16px;
+  position: relative;
   text-align: center;
 }
 
 /* Real street tile: the approximate area center, never a home address. */
-.hdp-media-area.has-map {
+.hdp-hero-area.has-map {
   background-image: none;
   justify-content: flex-end;
   padding: 12px;
 }
 
-.hdp-media-map {
+.hdp-hero-map {
   height: 100%;
   inset: 0;
   object-fit: cover;
@@ -6963,21 +6980,18 @@ a.map-card:focus-visible {
   width: 100%;
 }
 
-.hdp-media-area span {
-  position: relative;
-}
-
-.hdp-media-area .icon {
+.hdp-hero-area .icon {
   color: var(--sage-deep);
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
 }
 
-.hdp-media-area span {
+.hdp-hero-area span {
   background: rgba(255, 255, 255, 0.92);
   border-radius: var(--r-xs);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
   max-width: 100%;
   padding: 2px 8px;
+  position: relative;
 }
 
 /* Content grid: fluid main column plus a 27% rail (min 230px). */
@@ -7010,129 +7024,11 @@ a.map-card:focus-visible {
   width: 10px;
 }
 
-.hdp-headline {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 24px;
-  justify-content: space-between;
-  margin-top: 8px;
-}
-
 .hdp-price {
   color: var(--ink-strong);
   font-size: 32px;
   font-weight: 700;
   line-height: 32px;
-}
-
-.hdp-stats {
-  display: flex;
-  margin: 0;
-}
-
-.hdp-stats > div {
-  border-left: 1px solid var(--line);
-  padding: 0 8px;
-}
-
-.hdp-stats > div:first-child {
-  border-left: 0;
-  padding-left: 0;
-}
-
-.hdp-stats > div:last-child {
-  padding-right: 0;
-}
-
-.hdp-stats dd {
-  color: var(--ink-strong);
-  font-size: 20px;
-  line-height: 32px;
-  margin: 0;
-  white-space: nowrap;
-}
-
-.hdp-stats b {
-  font-size: 32px;
-  line-height: 32px;
-}
-
-.hdp-title {
-  font-size: 20px;
-  font-weight: 400;
-  line-height: 32px;
-  margin-top: 8px;
-}
-
-.hdp-title span {
-  color: var(--ink-soft);
-  display: block;
-  font-size: 16px;
-  line-height: 24px;
-}
-
-.hdp-budget-chip {
-  align-items: center;
-  background: var(--sage-tint-strong);
-  border-radius: var(--r-md);
-  color: var(--ink-strong);
-  display: flex;
-  gap: 8px;
-  margin: 16px 0 0;
-  padding: 6px 16px;
-  width: fit-content;
-}
-
-.hdp-budget-chip .icon {
-  color: var(--sage-deep);
-}
-
-.hdp-glance {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  list-style: none;
-  margin: 24px 0 32px;
-}
-
-.hdp-glance li {
-  align-items: center;
-  background: var(--surface-input);
-  border-radius: var(--r-xs);
-  display: flex;
-  gap: 8px;
-  min-width: 0;
-  padding: 12px;
-}
-
-.hdp-glance .icon {
-  color: var(--ink-soft);
-}
-
-.hdp-glance li > span {
-  min-width: 0;
-}
-
-.hdp-glance small,
-.hdp-glance strong {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.hdp-glance small {
-  color: var(--ink-meta);
-  font-size: 12px;
-  line-height: 16px;
-}
-
-.hdp-glance strong {
-  color: var(--ink-strong);
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 20px;
 }
 
 .hdp-section {
@@ -7349,12 +7245,6 @@ a.map-card:focus-visible {
   }
 }
 
-@media (max-width: 1247px) {
-  .hdp-glance {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 899px) {
   .hdp {
     --hdp-pad: 24px;
@@ -7372,20 +7262,16 @@ a.map-card:focus-visible {
     height: 56px;
   }
 
-  .hdp-media {
-    height: 300px;
+  .hdp-hero {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .hdp-media-avatar .generated-avatar {
-    --generated-avatar-size: 112px;
+  .hdp-hero-area {
+    height: 180px;
   }
 
   .hdp-layout {
     display: block;
-  }
-
-  .hdp-glance {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .hdp-section,
@@ -7446,23 +7332,14 @@ a.map-card:focus-visible {
 }
 
 @media (max-width: 767px) {
-  .hdp-glance {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .hdp-hero .hdp-price {
+    font-size: 30px;
+    line-height: 36px;
   }
 
-  .hdp-glance li {
-    min-height: 56px;
-    padding: 8px 12px;
-  }
-
-  .hdp-glance strong {
-    white-space: normal;
-  }
-
-  .hdp-stats dd,
-  .hdp-stats b {
-    font-size: 16px;
-    line-height: 24px;
+  .hdp-hero-name {
+    font-size: 24px;
+    line-height: 30px;
   }
 }
 
@@ -7481,24 +7358,18 @@ a.map-card:focus-visible {
     gap: 12px;
   }
 
-  .hdp-media {
-    grid-template-columns: minmax(0, 1fr) 116px;
-    height: 244px;
+  .hdp-hero {
     margin-top: 12px;
   }
 
-  .hdp-media-avatar .generated-avatar {
-    --generated-avatar-size: 84px;
+  .hdp-hero-avatar.generated-avatar {
+    --generated-avatar-font: 22px;
+    --generated-avatar-size: 60px;
   }
 
-  .hdp-media-area {
-    font-size: 12px;
-    line-height: 16px;
-    padding: 8px;
-  }
-
-  .hdp-price {
+  .hdp-hero .hdp-price {
     font-size: 28px;
+    line-height: 34px;
   }
 
   .hdp-facts {
