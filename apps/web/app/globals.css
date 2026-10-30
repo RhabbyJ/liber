@@ -6485,7 +6485,7 @@ body:has(.search-page) .site-footer:not(.compact) {
 .map-card {
   color: var(--ink-strong);
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
+  grid-template-columns: 60px minmax(0, 1fr);
   min-height: 96px;
   width: 300px;
 }
@@ -6499,25 +6499,49 @@ a.map-card:focus-visible {
   box-shadow: inset var(--focus-ring);
 }
 
-.map-card-media {
-  background: var(--surface-input);
+/* Buyers are demand, not listings: an initials avatar instead of a property photo. */
+.map-card-avatar-cell {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 0 0;
+}
+
+.map-card-avatar.generated-avatar {
+  --generated-avatar-font: 16px;
+  --generated-avatar-size: 44px;
+}
+
+.map-card-name {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
   overflow: hidden;
-  position: relative;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* The 96px mini-card photo carries a smaller "Sample photo" tag. */
-.map-card-media .sample-photo-tag {
-  bottom: 4px;
-  font-size: 10px;
-  line-height: 14px;
-  padding: 1px 4px;
-  right: 4px;
+.map-card-demo {
+  background: var(--warning-tint);
+  border-radius: var(--r-pill);
+  color: var(--warning);
+  font-size: 11px;
+  padding: 0 6px;
 }
 
-.map-card-media img {
-  height: 100%;
-  object-fit: cover;
-  width: 100%;
+.map-card-trust {
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  margin-top: 2px;
+}
+
+.map-card-trust.verified {
+  color: #2f7a20;
+}
+
+.map-card-trust.test {
+  color: var(--warning);
 }
 
 .map-card-body {

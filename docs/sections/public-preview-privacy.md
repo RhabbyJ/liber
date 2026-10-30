@@ -60,8 +60,10 @@ seller data.
   the same detection approved seller search uses for `isDemo`. Cards show
   demo and test labels before any trust badge, and the results header says
   "Includes clearly labeled demo profiles" only when a visible card is one.
-- Card and mini-card photos are representative photos of the home type,
-  tagged "Sample photo" so they are never mistaken for a listing.
+- Buyer cards and mini-cards show no property photos, so a buyer can never be
+  mistaken for a listing. Guest cards are built only from the preview DTO
+  (`previewCardView`); financing method and down payment appear only on
+  approved-seller cards, which already receive them.
 - Serialized-response and recursive forbidden-field assertions cover the
   homepage, seller search API, and shared seller read model; preserve them
   when a contract changes. Route test fixtures must use the live response type.

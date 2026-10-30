@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PublicBuyerPreviewDTO } from "../lib/buyer-dtos";
-import { criteriaFacts } from "../lib/listing-format";
+import { buyerPopupAvatarHtml, buyerPopupDetailsHtml } from "../lib/buyer-card-popup";
+import { previewCardView } from "../lib/buyer-card-view";
 import { syncSelectedAreaLayer } from "../lib/map-boundary-layers";
 import { selectedAreaBounds, type MarketMapContext, type SelectedMapArea } from "../lib/map-area";
 import { clusterBounds, clusterMarkerGroups, clusterZoomLimit } from "../lib/map-marker-clusters";
@@ -10,7 +11,6 @@ import { groupMapPoints } from "../lib/map-point-groups";
 import { canHover, escapeHtml, quietBasemap } from "../lib/map-presentation";
 import type { MapboxMarker, MapboxPopup } from "../lib/mapbox-gl-loader";
 import { mapboxStaticImageUrl } from "../lib/mapbox-static-image";
-import { distinctPropertyPhotos } from "../lib/property-photos";
 import { useKeyedGeoJson } from "../lib/use-keyed-geojson";
 import { fitMapTo, fitMapToMarket, useMarketMap } from "../lib/use-market-map";
 
@@ -28,7 +28,6 @@ type Props = {
 
 type PreviewPoint = {
   index: number;
-  photo: string;
   lat: number;
   lng: number;
   preview: PublicBuyerPreviewDTO;
@@ -72,11 +71,9 @@ export function PublicDemandMap({
   const selectedAreaGeojson = useKeyedGeoJson(shouldUseMapbox ? selectedArea?.geojsonPath : undefined);
 
   const points = useMemo<PreviewPoint[]>(() => {
-    const photos = distinctPropertyPhotos(previews.map((preview) => ({ seed: preview.alias, value: preview.label })));
     return previews
       .map((preview, index) => ({
         index,
-        photo: photos[index],
         lat: preview.pin?.latitude ?? NaN,
         lng: preview.pin?.longitude ?? NaN,
         preview,
@@ -146,8 +143,8 @@ export function PublicDemandMap({
       pinnedPopupRef.current = pinned ? group.points[0].index : null;
       popupOwnerRef.current = group.points[0].index;
       const html = group.points.length > 1
-        ? `<div class="buyer-map-popup-group">${group.points.map((item) => previewPopupHtml(item.preview, cta, item.photo)).join("")}</div>`
-        : previewPopupHtml(group.points[0].preview, cta, group.points[0].photo);
+        ? `<div class="buyer-map-popup-group">${group.points.map((item) => previewPopupHtml(item.preview, cta)).join("")}</div>`
+        : previewPopupHtml(group.points[0].preview, cta);
       popupRef.current.setLngLat([group.lng, group.lat]).setHTML(html).addTo(map);
     }
 
@@ -333,19 +330,13 @@ function previewPopupHtml(
     secondaryHref?: string;
     secondaryLabel?: string;
   },
-  photo: string,
 ) {
-  const facts = criteriaFacts(preview).map((fact) => `<b>${escapeHtml(fact.value)}</b> ${escapeHtml(fact.label)}`);
-  const isDemo = preview.badges.includes("Demo buyer");
-
+  const view = previewCardView(preview);
   return `
     <div class="map-card preview">
-      <span class="map-card-media"><img alt="" src="${escapeHtml(photo)}" /><span class="sample-photo-tag">Sample photo</span></span>
+      ${buyerPopupAvatarHtml(view)}
       <span class="map-card-body">
-        <strong class="map-card-price">${escapeHtml(preview.budgetLabel)}</strong>
-        ${facts.length > 0 ? `<span class="map-card-facts">${facts.join("<i></i>")}</span>` : ""}
-        <span class="map-card-address">${escapeHtml(preview.area)}</span>
-        ${isDemo ? `<span class="map-card-meta">Demo buyer</span>` : ""}
+        ${buyerPopupDetailsHtml(view)}
         <span class="map-card-actions">
           <a class="map-card-cta" href="${escapeHtml(cta.primaryHref)}">${escapeHtml(cta.primaryLabel)}</a>
           ${cta.secondaryHref && cta.secondaryLabel ? `<a class="map-card-link" href="${escapeHtml(cta.secondaryHref)}">${escapeHtml(cta.secondaryLabel)}</a>` : ""}

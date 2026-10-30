@@ -26,25 +26,6 @@ export function propertyPhotoSrc(value: unknown, seed = "") {
   return photos[seedIndex(seed, photos.length)];
 }
 
-/**
- * Photos for a page of cards in display order: each card keeps its seeded photo unless an
- * earlier card of the same type already shows it, so a page never repeats a photo while the
- * type still has unused ones. Maps call this with the same list so pins match their cards.
- */
-export function distinctPropertyPhotos(items: ReadonlyArray<{ seed: string; value: unknown }>) {
-  const used = new Map<PropertySubtype, Set<number>>();
-  return items.map(({ seed, value }) => {
-    const subtype = propertySubtypeFromSeekingPropertyType(value);
-    const photos = propertyPhotos[subtype];
-    const taken = used.get(subtype) ?? new Set<number>();
-    let index = seedIndex(seed, photos.length);
-    if (taken.size < photos.length) while (taken.has(index)) index = (index + 1) % photos.length;
-    taken.add(index);
-    used.set(subtype, taken);
-    return photos[index];
-  });
-}
-
 function seedIndex(seed: string, count: number) {
   let hash = 2166136261;
   for (let index = 0; index < seed.length; index += 1) {

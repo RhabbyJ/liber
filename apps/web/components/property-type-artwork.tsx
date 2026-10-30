@@ -24,7 +24,7 @@ export function PropertyTypeArtwork({
   /** Spreads cards of the same type across that type's photos (buyer or property id). */
   seed?: string;
   sizes?: string;
-  /** A photo already assigned for this page (see `distinctPropertyPhotos`). */
+  /** An explicit photo source; otherwise one is chosen from the type and seed. */
   src?: string;
   value?: unknown;
 }) {

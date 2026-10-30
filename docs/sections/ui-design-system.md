@@ -158,17 +158,28 @@ Liber's own features and palette. Keep new surfaces inside this system:
   side (list 750px, 390px below 1280px). Below 1007px the map stays sticky, the
   results slide over it as a sheet, and a floating List/Map pill jumps between
   them. Search pages use the compact footer; other pages use the full footer.
-- Listing cards (`.listing-card`): 12px radius, 177px media with at most two
-  trust tags (Zillow's white photo tags with dark bold text; a Demo buyer or
-  test label always takes a slot first), the generated avatar, a "Sample photo"
-  tag at the bottom right (map mini-cards carry a smaller one), a 24/32 budget or price headline, `|`-separated facts ending in the
-  home kind, a grey address line, and uppercase fine print. The whole card
-  is one stretched link. `.listing-card.static` (seller properties, invite
-  overview) drops the stretched link and adds a bottom actions row.
+- Buyer cards (`BuyerDemandCard`, `components/buyer-card.css`, CEO feedback
+  2026-10-29) show demand, never a property photo: a 56px initials avatar, name
+  with a Demo buyer label, a 26/32 budget headline, and a right-hand trust column
+  (approved sellers also see financing method and down payment) where only
+  evidence-backed badges use the green shield; test pre-approvals keep their full
+  "not verified" label and info icon. Below: what and where (property-type and
+  pin icons), bed/bath/size needs with icons, and grey want chips with feature
+  icons (condition, pool, parking/garage, ADU, yard), then the account code,
+  profile freshness and View profile. Results are one card per row; below 560px
+  the trust column moves under the budget. Hovering the matching map pin tints
+  the card sage. `lib/buyer-card-view.ts` builds the content from each
+  audience's DTO, so guest cards never gain fields. Map mini-cards use the same
+  avatar and summary (`lib/buyer-card-popup.ts`).
+- Listing cards (`.listing-card`) remain for seller-owned properties: 12px
+  radius, 177px media, a 24/32 price headline, `|`-separated facts, a grey
+  address line, and uppercase fine print. `.listing-card.static` (seller
+  properties, invite overview) adds a bottom actions row.
 - Map pins are buyer-budget pills, not property prices. A pin pops when it is
   hovered or focused, or when its card is hovered. Overlapping labels collapse
   to dots instead of clustering. Hovering or clicking a pin opens one shared
-  mini-card popup. Public homepage pins stay unlabeled dots.
+  mini-card popup with the buyer's initials avatar. Public homepage pins stay
+  unlabeled dots.
 - `/buyers/[buyerProfileId]` uses a home-details layout: sticky action bar,
   media collage (property-type artwork, generated avatar, approximate area
   tile), budget headline with stat dividers, glance tiles, divided sections, a

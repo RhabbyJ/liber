@@ -1,6 +1,7 @@
 import type { ReactElement, SVGProps } from "react";
 
 export type IconName =
+  | "adu"
   | "arrow-left"
   | "arrow-right"
   | "bath"
@@ -8,6 +9,7 @@ export type IconName =
   | "bell"
   | "bookmark"
   | "calendar"
+  | "car"
   | "check"
   | "check-shield"
   | "chevron-down"
@@ -39,6 +41,7 @@ export type IconName =
   | "money"
   | "people"
   | "pencil"
+  | "pool"
   | "plus"
   | "ruler"
   | "search"
@@ -49,8 +52,10 @@ export type IconName =
   | "star"
   | "tag"
   | "townhouse"
+  | "tree"
   | "upload"
-  | "user";
+  | "user"
+  | "wrench";
 
 type IconProps = SVGProps<SVGSVGElement> & {
   name: IconName;
@@ -253,6 +258,32 @@ const paths: Record<IconName, ReactElement> = {
       <path d="M4 21c1.2-4.4 4.4-6.5 8-6.5s6.8 2.1 8 6.5" />
     </>
   ),
+  // Feature icons for what buyers want on a home.
+  adu: (
+    <>
+      <path d="M3.5 11.5 9 7l5.5 4.5V19h-11z" />
+      <path d="M7.5 19v-3.5h3V19M18 8v6M15 11h6" />
+    </>
+  ),
+  car: (
+    <>
+      <path d="M4.5 16.5v-4l1.8-4.6A1.5 1.5 0 0 1 7.7 7h8.6a1.5 1.5 0 0 1 1.4.9l1.8 4.6v4z" />
+      <path d="M4.5 12.5h15M7 16.5V19M17 16.5V19M7.5 14.5h1M15.5 14.5h1" />
+    </>
+  ),
+  pool: (
+    <>
+      <path d="M8 14V6a2 2 0 0 1 3.4-1.4M14 14V6a2 2 0 0 1 3.4-1.4M8 8.5h6M8 11.5h6" />
+      <path d="M3 18c1.5 0 1.5-1 3-1s1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1" />
+    </>
+  ),
+  tree: (
+    <>
+      <path d="M12 21v-5M9.5 18.5 12 16l2.5 2.5" />
+      <path d="M12 3a5 5 0 0 0-4.7 6.7A3.8 3.8 0 0 0 8.2 17h7.6a3.8 3.8 0 0 0 .9-7.3A5 5 0 0 0 12 3z" />
+    </>
+  ),
+  wrench: <path d="M14.7 6.3a4 4 0 0 0-5.4 4.9L4 16.5 7.5 20l5.3-5.3a4 4 0 0 0 4.9-5.4l-2.6 2.6-2.4-.5-.5-2.4z" />,
 };
 
 export function Icon({ name, size = 16, ...props }: IconProps) {

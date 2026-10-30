@@ -34,7 +34,7 @@ describe("public buyer preview service-area filters", () => {
     expect(homepage).toContain("const canSearch = user ? await canViewBuyerDirectory(user) : false;");
     expect(homepage).toContain("searchDemandPreviews(input, user?.id)");
     expect(homepage).toMatch(/if \(canSearch\) \{\s+const \{ data \} = await searchBuyers\(input\);/);
-    expect(homepage).toMatch(/canSearch\s+\? buyers\.map\(\(buyer, index\) => <BuyerCard/);
+    expect(homepage).toMatch(/canSearch\s+\? buyers\.map\(\(buyer\) => <BuyerCard/);
     expect(homepage).toContain("{user ? null : <GuestTeaser");
   });
 

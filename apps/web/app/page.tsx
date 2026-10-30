@@ -16,7 +16,6 @@ import { SortSelect } from "../components/sort-select";
 import type { PublicBuyerPreviewDTO, SellerBuyerSummaryDTO } from "../lib/buyer-dtos";
 import { demandSearchHref, type DemandSearchParams } from "../lib/demand-search-href";
 import { selectedMapArea } from "../lib/map-area";
-import { distinctPropertyPhotos } from "../lib/property-photos";
 import { DEFAULT_MARKET_SLUG, serviceAreaDisplayLabel } from "../lib/service-areas";
 import { canViewBuyerDirectory } from "../server/access";
 import { DEMO_BUYER_LABEL, searchDemandPreviews } from "../server/buyer-preview";
@@ -113,9 +112,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const showsDemoProfiles = canSearch
     ? buyers.some((buyer) => buyer.isDemo)
     : previews.some((preview) => preview.badges.includes(DEMO_BUYER_LABEL));
-  const photos = distinctPropertyPhotos(canSearch
-    ? buyers.map((buyer) => ({ seed: buyer.id, value: buyer.purpose }))
-    : previews.map((preview) => ({ seed: preview.alias, value: preview.label })));
   const hasFilters = Boolean(
     params.budgetMin || params.budgetMax || params.bedrooms || params.bathrooms || params.squareFeet
       || params.condition || params.propertySubtype || amenities.length || badges.length,
@@ -202,10 +198,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               ) : null}
             </div>
           ) : (
-            <div className="listing-grid">
+            <div className="listing-grid buyer-list">
               {canSearch
-                ? buyers.map((buyer, index) => <BuyerCard buyer={buyer} key={buyer.id} photoSrc={photos[index]} priority={index < 2} />)
-                : previews.map((preview, index) => <PublicBuyerPreviewCard index={index} key={`${preview.alias}-${index}`} photoSrc={photos[index]} preview={preview} />)}
+                ? buyers.map((buyer) => <BuyerCard buyer={buyer} key={buyer.id} />)
+                : previews.map((preview, index) => <PublicBuyerPreviewCard index={index} key={`${preview.alias}-${index}`} preview={preview} />)}
               {user ? null : <GuestTeaser hasMore={hasMore} loginHref={loginHref} signupSellerHref={signupSellerHref} />}
             </div>
           )}

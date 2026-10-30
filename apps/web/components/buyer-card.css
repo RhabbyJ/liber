@@ -1,0 +1,268 @@
+/* Buyer demand card ------------------------------------------------------ */
+
+/* Body text green with at least 4.5:1 contrast on white and on the sage tint. */
+.buyer-card {
+  --buyer-verified-text: #2f7a20;
+
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  color: var(--ink-strong);
+  display: grid;
+  gap: 12px;
+  isolation: isolate;
+  min-width: 0;
+  outline: none;
+  padding: 18px 20px 14px;
+  position: relative;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.listing-grid.buyer-list {
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.buyer-card.linked {
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .buyer-card:hover {
+    border-color: var(--line-strong);
+    box-shadow: var(--shadow-card-hover);
+  }
+}
+
+.buyer-card:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+/* The matching map pin is hovered or focused. */
+.buyer-card.map-linked {
+  background: var(--sage-tint);
+  border-color: var(--sage-deep);
+  box-shadow: 0 0 0 1px var(--sage-deep);
+}
+
+.buyer-card-top {
+  align-items: start;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.buyer-card-avatar.generated-avatar {
+  --generated-avatar-font: 20px;
+  --generated-avatar-size: 56px;
+}
+
+.buyer-card-who {
+  min-width: 0;
+}
+
+.buyer-card-name {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 18px;
+  font-weight: 700;
+  gap: 4px 8px;
+  line-height: 24px;
+  margin: 2px 0 0;
+}
+
+.buyer-card-demo {
+  background: var(--warning-tint);
+  border-radius: var(--r-pill);
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  padding: 0 8px;
+}
+
+/* Global paragraph color is the softer ink; identity and budget stay full strength. */
+.buyer-card-name,
+.buyer-card-budget {
+  color: var(--ink-strong);
+}
+
+.buyer-card-budget {
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 32px;
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.buyer-card-signals {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  list-style: none;
+  margin: 4px 0 0;
+  max-width: 290px;
+  padding: 0;
+}
+
+.buyer-signal {
+  align-items: flex-start;
+  color: var(--ink-soft);
+  display: flex;
+  font-size: 14px;
+  gap: 8px;
+  line-height: 20px;
+}
+
+.buyer-signal .icon {
+  flex: none;
+  margin-top: 1px;
+}
+
+.buyer-signal.neutral {
+  color: var(--ink-strong);
+  font-weight: 600;
+}
+
+.buyer-signal.verified {
+  color: var(--buyer-verified-text);
+  font-weight: 600;
+}
+
+.buyer-signal.verified .icon {
+  color: var(--sage-deep);
+}
+
+.buyer-signal.test {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.buyer-signal.unverified {
+  color: var(--ink-muted);
+}
+
+.buyer-card-seeking,
+.buyer-card-needs {
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 15px;
+  gap: 4px 18px;
+  line-height: 22px;
+  margin: 0;
+}
+
+.buyer-card-needs {
+  font-weight: 600;
+  list-style: none;
+  padding: 0;
+}
+
+.buyer-card-seeking span,
+.buyer-card-needs li {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.buyer-card-seeking .icon,
+.buyer-card-needs .icon {
+  color: var(--ink-muted);
+  flex: none;
+}
+
+.buyer-card-wants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.buyer-card-wants li {
+  align-items: center;
+  background: var(--surface-muted);
+  border-radius: var(--r-pill);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+  line-height: 18px;
+  padding: 5px 12px 5px 10px;
+}
+
+.buyer-card-foot {
+  align-items: center;
+  border-top: 1px solid var(--line-soft);
+  color: var(--ink-muted);
+  display: flex;
+  font-size: 13px;
+  gap: 12px;
+  justify-content: space-between;
+  line-height: 18px;
+  padding-top: 10px;
+}
+
+.buyer-card-cta {
+  align-items: center;
+  color: var(--buyer-verified-text);
+  display: inline-flex;
+  flex: none;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 2px;
+}
+
+.buyer-card-link {
+  border-radius: inherit;
+  inset: 0;
+  position: absolute;
+  z-index: 1;
+}
+
+.buyer-card-link:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+@media (max-width: 559px) {
+  .buyer-card {
+    padding: 16px 16px 12px;
+  }
+
+  .buyer-card-top {
+    gap: 12px;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .buyer-card-avatar.generated-avatar {
+    --generated-avatar-font: 18px;
+    --generated-avatar-size: 48px;
+  }
+
+  .buyer-card-budget {
+    font-size: 22px;
+    line-height: 28px;
+  }
+
+  /* Trust moves under the name and budget so neither column gets squeezed. */
+  .buyer-card-signals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    grid-column: 1 / -1;
+    margin: 0;
+    max-width: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .buyer-card.map-linked {
+    outline: 2px solid Highlight;
+  }
+}
