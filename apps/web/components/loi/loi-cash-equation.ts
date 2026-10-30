@@ -9,27 +9,48 @@ export type LoiCashEquation = {
   paidAs?: { label: string; cents: number }[];
 };
 
+type CalculatedLoiSummary = Exclude<LoiComputedSummary, { calculationVersion: 1 }>;
+
+// The buyer's cash as they think about it: the deposit, the rest of the down
+// payment, then closing costs less any credits. Parts come from the stored
+// total, so they always add up to it, including for historical versions.
+export function loiBuyerCashParts(terms: LoiTermsV1, summary: CalculatedLoiSummary) {
+  const totalCents = summary.buyerCashDueAtClosingCents + summary.earnestMoneyCents;
+  const downPaymentCents = terms.purchasePriceCents - summary.loanAmountCents;
+  const netClosingCostsCents = totalCents - downPaymentCents;
+  return {
+    cashPurchase: terms.funding.type === "CASH",
+    depositCents: summary.earnestMoneyCents,
+    dueAtClosingCents: summary.buyerCashDueAtClosingCents,
+    netClosingCostsCents,
+    // True when seller credit or rent-back reduces the closing costs shown.
+    netOfCredits: netClosingCostsCents !== summary.buyerClosingCostsCents,
+    remainderCents: downPaymentCents - summary.earnestMoneyCents,
+    totalCents,
+  };
+}
+
 // Use the displayed summary, including immutable historical figures. Never
 // recalculate a submitted revision with a newer calculation version.
 export function loiCashEquations(terms: LoiTermsV1, summary: LoiComputedSummary): LoiCashEquation[] {
   if (summary.calculationVersion === 1) return [];
   const rentBack = loiSummaryFromVersion(summary, 3) ? summary.rentBackAtClosingCents : 0;
+  const buyer = loiBuyerCashParts(terms, summary);
+  const sellerCreditCents = terms.costsAndCredits.sellerCreditCents;
   return [
     {
       label: "Buyer cash calculation",
+      // The deposit is part of the down payment, so it counts toward the total rather than adding to it.
       rows: [
-        { label: "Down payment / cash purchase", operator: "", cents: terms.purchasePriceCents - summary.loanAmountCents },
-        { label: "Buyer closing costs", operator: "+", cents: summary.buyerClosingCostsCents },
-        { label: "Seller credit", operator: "−", cents: terms.costsAndCredits.sellerCreditCents },
+        { label: "Earnest-money deposit (EMD)", operator: "", cents: buyer.depositCents },
+        { label: buyer.cashPurchase ? "Remainder of purchase price" : "Remainder of down payment", operator: buyer.remainderCents < 0 ? "−" : "+", cents: Math.abs(buyer.remainderCents) },
+        { label: "Closing costs", operator: "+", cents: summary.buyerClosingCostsCents },
+        ...(sellerCreditCents ? [{ label: "Seller credit", operator: "−" as const, cents: sellerCreditCents }] : []),
         ...(rentBack ? [{ label: "Rent-back received at closing", operator: "−" as const, cents: rentBack }] : []),
       ],
-      // The deposit is part of the down payment, so it counts toward the total rather than adding to it.
       totalLabel: "Estimated total cash needed",
-      totalCents: summary.buyerCashDueAtClosingCents + summary.earnestMoneyCents,
-      paidAs: [
-        { label: "Earnest-money deposit, paid after acceptance", cents: summary.earnestMoneyCents },
-        { label: "Balance due at closing", cents: summary.buyerCashDueAtClosingCents },
-      ],
+      totalCents: buyer.totalCents,
+      paidAs: [{ label: "Due at closing, after your deposit", cents: buyer.dueAtClosingCents }],
     },
     {
       label: "Seller cash calculation",

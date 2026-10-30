@@ -3,14 +3,16 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createRequire } from "node:module";
 import ts from "typescript";
-import { createElement } from "react";
+import { createElement, useId } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { calculateLoiSummary, loiComputedSummaryV1Schema, loiComputedSummaryV2Schema, loiSideEstimateComplete, loiSummaryFromVersion, type LoiComputedSummary, type LoiTermsV1 } from "@liber/validators";
 import { LOI_CLOSING_COST_EXCLUSIONS } from "./loi-editor-values";
-import { formatLoiMoney } from "./loi-presentation";
-import { loiCashEquations } from "./loi-cash-equation";
+import { formatLoiDateTime, formatLoiMoney, loiSummaryRows, loiTermSections, normalizePropertyIdentity, recalculatedDiffs, semanticTermDiffs } from "./loi-presentation";
+import { loiSellerLedger } from "./loi-seller-ledger";
+import { parseSellerLoanPayoff } from "./loi-seller-proceeds-values";
+import { loiBuyerCashParts, loiCashEquations } from "./loi-cash-equation";
 import { loiFeeBreakdown } from "./loi-fee-breakdown";
-import { cashTerms } from "./loi-test-fixtures.test-helper";
+import { cashTerms, revision } from "./loi-test-fixtures.test-helper";
 
 describe("LOI workspace rendered contract", () => {
   async function renderSummary(summary: LoiComputedSummary, terms: LoiTermsV1, viewerRole: "BUYER" | "SELLER", options: { compact?: boolean; detailsOnly?: boolean } = {}) {
@@ -19,19 +21,58 @@ describe("LOI workspace rendered contract", () => {
     const declaration = parsed.statements.find((statement) => ts.isFunctionDeclaration(statement) && statement.name?.text === "Summary")!;
     const compiled = ts.transpileModule("export " + declaration.getText(parsed), { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
     const exports: { Summary?: (props: { summary: LoiComputedSummary; terms: LoiTermsV1; viewerRole: "BUYER" | "SELLER"; compact?: boolean; detailsOnly?: boolean }) => ReturnType<typeof createElement> } = {};
-    new Function("require", "exports", "formatLoiMoney", "loiCashEquations", "loiFeeBreakdown", "loiSideEstimateComplete", "loiSummaryFromVersion", "LOI_CLOSING_COST_EXCLUSIONS", compiled)(createRequire(import.meta.url), exports, formatLoiMoney, loiCashEquations, loiFeeBreakdown, loiSideEstimateComplete, loiSummaryFromVersion, LOI_CLOSING_COST_EXCLUSIONS);
+    new Function("require", "exports", "formatLoiMoney", "loiCashEquations", "loiFeeBreakdown", "loiSideEstimateComplete", "loiSummaryFromVersion", "LOI_CLOSING_COST_EXCLUSIONS", "loiBuyerCashParts", compiled)(createRequire(import.meta.url), exports, formatLoiMoney, loiCashEquations, loiFeeBreakdown, loiSideEstimateComplete, loiSummaryFromVersion, LOI_CLOSING_COST_EXCLUSIONS, loiBuyerCashParts);
     return renderToStaticMarkup(createElement(exports.Summary!, { summary, terms, viewerRole, ...options }));
   }
+
+  // Renders the real review card with its helpers, so section order and content are checked as shipped.
+  type ReviewProps = { computedSummary: LoiComputedSummary; heading: string; payoff?: string; previousRevision?: ReturnType<typeof revision>; propertySnapshot: unknown; revision?: ReturnType<typeof revision>; role: "BUYER" | "SELLER"; terms: LoiTermsV1 };
+  async function renderReview(props: ReviewProps) {
+    const source = await readFile(path.resolve("components/loi/loi-workspace.tsx"), "utf8");
+    const parsed = ts.createSourceFile("workspace.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const names = ["TermsReview", "Summary", "SellerLedger", "DiffList", "PropertyIdentity"];
+    const code = parsed.statements.filter((statement) => (ts.isFunctionDeclaration(statement) && names.includes(statement.name?.text ?? ""))
+      || (ts.isVariableStatement(statement) && statement.getText(parsed).startsWith("const PLAIN_TOTALS"))).map((statement) => statement.getText(parsed)).join("\n");
+    const compiled = ts.transpileModule(code + "\nexports.TermsReview = TermsReview;", { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+    const injected = { formatLoiDateTime, formatLoiMoney, Icon: () => null, LOI_CLOSING_COST_EXCLUSIONS, loiBuyerCashParts, loiCashEquations, loiFeeBreakdown, loiSellerLedger, loiSideEstimateComplete, loiSummaryFromVersion, loiSummaryRows, loiTermSections, normalizePropertyIdentity, parseSellerLoanPayoff, recalculatedDiffs, semanticTermDiffs, useId };
+    const exports: { TermsReview?: (props: ReviewProps) => ReturnType<typeof createElement> } = {};
+    new Function("require", "exports", ...Object.keys(injected), compiled)(createRequire(import.meta.url), exports, ...Object.values(injected));
+    return renderToStaticMarkup(createElement(exports.TermsReview!, props));
+  }
+
+  it.each(["BUYER", "SELLER"] as const)("leads the %s review with the plain cost breakdown and leaves out calculated-value jargon", async (role) => {
+    const current = revision(1, cashTerms);
+    const html = await renderReview({ computedSummary: current.computedSummary, heading: "Offer", payoff: "250000", propertySnapshot: null, revision: current, role, terms: cashTerms });
+    const costs = html.indexOf(role === "BUYER" ? "Buyer cash calculation" : "Your costs and credits");
+    expect(costs).toBeGreaterThan(-1);
+    expect(costs).toBeLessThan(html.indexOf(">Parties<"));
+    for (const jargon of ["Calculated values", "Loan-to-value", "Estimate assumptions", "Effective price after seller credit"]) expect(html).not.toContain(jargon);
+    if (role === "SELLER") {
+      expect(html).toContain("Your loan payoff (private)");
+      expect(html).toContain("<th scope=\"row\">Net proceeds</th><td class=\"loi-ledger-amount\">" + formatLoiMoney(calculateLoiSummary(cashTerms).sellerCashBeforePayoffsCents - 25_000_000) + "</td>");
+    }
+  });
+
+  it("lists only plain money totals among the counter changes", async () => {
+    const previous = revision(1, cashTerms);
+    const counterTerms: LoiTermsV1 = { ...cashTerms, purchasePriceCents: 110_000_000 };
+    const counter = revision(2, counterTerms);
+    const html = await renderReview({ computedSummary: counter.computedSummary, heading: "Counter", previousRevision: previous, propertySnapshot: null, revision: counter, role: "BUYER", terms: counterTerms });
+    const changes = html.slice(html.indexOf("loi-review-diffs"), html.indexOf("</section>", html.indexOf("loi-review-diffs")));
+    expect(changes).toContain("Updated totals");
+    expect(changes).toContain("Buyer estimated total cash needed, including deposit");
+    for (const jargon of ["Loan-to-value", "Earnest-money percentage", "Effective price after seller credit", "Buyer escrow fees (included in closing costs)"]) expect(changes).not.toContain(jargon);
+  });
 
   it("shows buyer cash/deposit and seller purchase price in their respective compact snapshots", async () => {
     const summary = calculateLoiSummary(cashTerms);
     const buyer = await renderSummary(summary, cashTerms, "BUYER", { compact: true });
-    for (const label of ["Estimated total cash needed", "Balance due at closing", "Loan amount", "Earnest-money deposit"]) expect(buyer).toContain(label);
+    for (const label of ["Estimated total cash needed", "Earnest-money deposit (EMD)", "Remainder of purchase price", "Closing costs", "Loan amount"]) expect(buyer).toContain(label);
     expect(buyer).toContain('class="loi-cash-callout-amount">' + formatLoiMoney(summary.buyerCashDueAtClosingCents + summary.earnestMoneyCents));
     expect(buyer).toContain("Your deposit is part of this total.");
     const seller = await renderSummary(summary, cashTerms, "SELLER", { compact: true });
     expect(seller).toContain("Purchase price");
-    for (const label of ["Buyer cash needed", "Balance due at closing", "Loan amount", "Earnest", "your deposit", "Down payment"]) expect(seller).not.toContain(label);
+    for (const label of ["Buyer cash needed", "Remainder of", "Loan amount", "Earnest", "your deposit", "Down payment"]) expect(seller).not.toContain(label);
     for (const html of [buyer, seller]) expect(html).not.toContain("cash calculation");
   });
 
@@ -41,11 +82,12 @@ describe("LOI workspace rendered contract", () => {
     const stored = JSON.stringify(summary);
     const html = await renderSummary(summary, terms, viewerRole, { detailsOnly: true });
     for (const row of loiFeeBreakdown(terms, summary)) {
-      if (viewerRole === "BUYER" && row.sellerOnly) {
+      const cents = viewerRole === "BUYER" ? row.buyerCents : row.sellerCents;
+      // Seller-only lines and $0 lines do not apply to this viewer and are left out.
+      if ((viewerRole === "BUYER" && row.sellerOnly) || cents === 0) {
         expect(html).not.toContain("<dt>" + row.label + "</dt>");
         continue;
       }
-      const cents = viewerRole === "BUYER" ? row.buyerCents : row.sellerCents;
       expect(html).toContain("<dt>" + row.label + "</dt><dd>" + (cents === null ? "Not estimated" : formatLoiMoney(cents)) + "</dd>");
     }
     expect(html).toContain(viewerRole === "BUYER" ? "Buyer cash calculation" : "Seller cash calculation");
@@ -56,8 +98,9 @@ describe("LOI workspace rendered contract", () => {
       // The deposit is shown as part of the total, never subtracted from it.
       expect(html).not.toContain("− " + formatLoiMoney(summary.earnestMoneyCents));
       expect(html).toContain("<strong>Estimated total cash needed</strong></dt><dd><strong>= " + formatLoiMoney(summary.buyerCashDueAtClosingCents + summary.earnestMoneyCents) + "</strong>");
-      expect(html).toContain("<dt>Earnest-money deposit, paid after acceptance</dt><dd>" + formatLoiMoney(summary.earnestMoneyCents) + "</dd>");
-      expect(html).toContain("<dt>Balance due at closing</dt><dd>" + formatLoiMoney(summary.buyerCashDueAtClosingCents) + "</dd>");
+      expect(html).toContain("<dt>Earnest-money deposit (EMD)</dt><dd> " + formatLoiMoney(summary.earnestMoneyCents) + "</dd>");
+      expect(html).toContain("<dt>Remainder of purchase price</dt><dd>+ " + formatLoiMoney(terms.purchasePriceCents - summary.earnestMoneyCents) + "</dd>");
+      expect(html).toContain("<dt>Due at closing, after your deposit</dt><dd>" + formatLoiMoney(summary.buyerCashDueAtClosingCents) + "</dd>");
     }
     expect(JSON.stringify(summary)).toBe(stored);
   });

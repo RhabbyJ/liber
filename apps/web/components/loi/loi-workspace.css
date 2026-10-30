@@ -900,6 +900,17 @@
   text-align: left;
 }
 
+/* Reviews lead with the plain cost breakdown, ahead of the term-by-term details. */
+.loi-page .loi-review-costs {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+
+.loi-page .loi-review-costs .loi-seller-ledger {
+  border-top: 0;
+  padding-top: 0;
+}
+
 /* Seller costs read like the proceeds breakdown: item, amount, then an optional counter. */
 .loi-page .loi-seller-ledger {
   border-top: 1px solid var(--line);

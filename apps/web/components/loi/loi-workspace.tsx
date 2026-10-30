@@ -6,7 +6,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { Icon } from "../icon";
 import { getMessagingBrowserClient, logMessagingRealtimeJoinStatus } from "../messaging/realtime";
 import { LoiEditor, type LoiTermsUpdater } from "./loi-editor";
-import { loiCashEquations } from "./loi-cash-equation";
+import { loiBuyerCashParts, loiCashEquations } from "./loi-cash-equation";
 import { LoiSellerProceeds, LoiSellerProceedsBreakdown } from "./loi-seller-proceeds";
 import { parseSellerLoanPayoff, sellerNetProceeds } from "./loi-seller-proceeds-values";
 import { LoiCompletedDownload } from "./loi-completed-download";
@@ -627,6 +627,7 @@ export function LoiWorkspace({ initialNegotiation, templateOwnerId }: { initialN
             <TermsReview
               computedSummary={localSummary}
               heading="Review saved private draft"
+              payoff={payoff}
               propertySnapshot={negotiation.propertySnapshot}
               role={negotiation.viewerRole}
               terms={view.terms}
@@ -642,6 +643,7 @@ export function LoiWorkspace({ initialNegotiation, templateOwnerId }: { initialN
               computedSummary={displayedRevision.computedSummary}
               heading={loiRevisionHeading(displayedRevision, negotiation.viewerRole)}
               onCounter={view.mode === "CURRENT" && displayedRevision.id === current?.id && canEdit ? counterTerm : undefined}
+              payoff={payoff}
               previousRevision={previousDisplayedRevision}
               propertySnapshot={negotiation.propertySnapshot}
               revision={displayedRevision}
@@ -674,14 +676,15 @@ export function LoiWorkspace({ initialNegotiation, templateOwnerId }: { initialN
           <section className="card stack tight loi-snapshot">
             <h2 className="loi-snapshot-title">{historical ? `Version ${displayedRevision.sequence} snapshot` : view.mode === "EDITING" || view.mode === "REVIEWING" ? "Draft deal snapshot" : "Current deal snapshot"}</h2>
             <Summary summary={sidebarSummary} terms={sidebarTerms} compact viewerRole={negotiation.viewerRole} issues={sidebarIssues} />
-            {sidebarTerms ? <a className="text-link loi-snapshot-link" href="#loi-financial-details-title">View fees and calculations <Icon name="chevron-down" size={16} /></a> : null}
+            {sidebarTerms && sidebarSummary?.calculationVersion !== 1 ? <a className="text-link loi-snapshot-link" href={view.mode === "EDITING" ? "#loi-financial-details-title" : "#loi-review-costs"}>View fees and calculations <Icon name="chevron-down" size={16} /></a> : null}
             <p className="fine-print">Non-binding term alignment for contract preparation only.</p>
           </section>
           {negotiation.viewerRole === "SELLER" && sidebarTerms ? <LoiSellerProceeds key={negotiation.id} summary={sidebarSummary} terms={sidebarTerms} showDetails={false} payoff={payoff} onPayoffChange={(value) => setSellerPayoff({ negotiationId: negotiation.id, value })} /> : null}
         </aside>
       </div>
 
-      {sidebarTerms ? <section className="loi-financial-details stack" aria-labelledby="loi-financial-details-title">
+      {/* Reviews show this breakdown at the top of the terms; the editor keeps it below the form. */}
+      {sidebarTerms && view.mode === "EDITING" ? <section className="loi-financial-details stack" aria-labelledby="loi-financial-details-title">
         <div className="loi-financial-details-head"><h2 id="loi-financial-details-title">Fees and calculation details</h2><p className="meta-line">Updates with your offer terms.</p></div>
         <div className="loi-financial-details-grid">
           {negotiation.viewerRole === "BUYER" ? <section className="card stack">
@@ -786,10 +789,11 @@ function CompactDiffs({ calculatedDiffs, termDiffs }: { calculatedDiffs: LoiSema
   );
 }
 
-function TermsReview({ computedSummary, heading, onCounter, previousRevision = null, propertySnapshot, responseDeadline, revision, role, terms }: {
+function TermsReview({ computedSummary, heading, onCounter, payoff = "", previousRevision = null, propertySnapshot, responseDeadline, revision, role, terms }: {
   computedSummary: LoiComputedSummary;
   heading: string;
   onCounter?: (inputId: string) => void;
+  payoff?: string;
   previousRevision?: LoiRevision | null;
   propertySnapshot: unknown;
   responseDeadline?: string;
@@ -806,7 +810,8 @@ function TermsReview({ computedSummary, heading, onCounter, previousRevision = n
   const ledger = role === "SELLER" ? loiSellerLedger(terms, computedSummary) : null;
   const sections = loiTermSections(terms, role).filter((section) => !ledger || section.title !== "Closing costs and credits");
   const termDiffs = previousRevision ? semanticTermDiffs(previousRevision.terms, terms, role) : [];
-  const calculatedDiffs = previousRevision ? recalculatedDiffs(previousRevision.computedSummary, computedSummary) : [];
+  const calculatedDiffs = previousRevision ? recalculatedDiffs(previousRevision.computedSummary, computedSummary).filter((diff) => PLAIN_TOTALS[role].includes(diff.fieldId)) : [];
+  const hasCosts = computedSummary.calculationVersion !== 1;
   return (
     <section className="card stack loi-terms-review" aria-labelledby={headingId}>
       <div className="loi-card-head">
@@ -824,12 +829,16 @@ function TermsReview({ computedSummary, heading, onCounter, previousRevision = n
         {(revision?.responseDeadline ?? responseDeadline) ? <div><dt>Exact response deadline</dt><dd><time dateTime={revision?.responseDeadline ?? responseDeadline}>{formatLoiDateTime(revision?.responseDeadline ?? responseDeadline ?? "")}</time></dd></div> : null}
       </dl>
 
+      {hasCosts ? <div className="loi-review-costs stack" id="loi-review-costs">
+        {ledger ? <SellerLedger headingId={recalculatedHeadingId} ledger={ledger} onCounter={onCounter} payoff={payoff} /> : <Summary summary={computedSummary} terms={terms} detailsOnly viewerRole={role} />}
+      </div> : null}
+
       {previousRevision ? (
         <section className="loi-review-diffs stack tight" aria-labelledby={diffHeadingId}>
           <h3 id={diffHeadingId}>Changes from version {previousRevision.sequence}</h3>
           {termDiffs.length ? <DiffList diffs={termDiffs} /> : <p className="muted">No material term changes.</p>}
-          <h4>Recalculated</h4>
-          {calculatedDiffs.length ? <DiffList diffs={calculatedDiffs} recalculated /> : <p className="muted">No calculated values changed.</p>}
+          <h4>Updated totals</h4>
+          {calculatedDiffs.length ? <DiffList diffs={calculatedDiffs} recalculated /> : <p className="muted">No totals changed.</p>}
         </section>
       ) : null}
 
@@ -844,13 +853,12 @@ function TermsReview({ computedSummary, heading, onCounter, previousRevision = n
         ))}
       </div>
 
-      {ledger ? <SellerLedger headingId={recalculatedHeadingId} ledger={ledger} onCounter={onCounter} /> : <section className="loi-recalculated stack tight" aria-labelledby={recalculatedHeadingId}>
-        <div className="loi-recalculated-head"><h3 id={recalculatedHeadingId}>Calculated values</h3><span className="status-tag pending">Recalculated</span></div>
+      {/* Version 1 stored only these basic figures; the PDF keeps every calculated value. */}
+      {hasCosts ? null : <section className="loi-recalculated stack tight" aria-labelledby={recalculatedHeadingId}>
+        <div className="loi-recalculated-head"><h3 id={recalculatedHeadingId}>Calculated values</h3></div>
         <dl className="loi-review-grid">
-          {/* The full assumptions text stays in the PDF; on screen one short line is enough. */}
-          {loiSummaryRows(computedSummary).filter((row) => !row.fieldId.startsWith("closingCostEstimateBasis")).map((row) => <div key={row.fieldId}><dt>{row.label}</dt><dd>{row.formattedValue}</dd></div>)}
+          {loiSummaryRows(computedSummary).map((row) => <div key={row.fieldId}><dt>{row.label}</dt><dd>{row.formattedValue}</dd></div>)}
         </dl>
-        {computedSummary.calculationVersion === 1 ? null : <p className="field-hint">Estimates only; actual charges may differ. {LOI_CLOSING_COST_EXCLUSIONS}</p>}
       </section>}
 
       <div className="inline-alert loi-nonbinding-notice">
@@ -861,7 +869,15 @@ function TermsReview({ computedSummary, heading, onCounter, previousRevision = n
   );
 }
 
-function SellerLedger({ headingId, ledger, onCounter }: { headingId: string; ledger: LoiSellerLedger; onCounter?: (inputId: string) => void }) {
+// Plain money totals worth flagging when a counter changes them; the PDF lists every calculated value.
+const PLAIN_TOTALS: Record<LoiRole, string[]> = {
+  BUYER: ["earnestMoneyCents", "loanAmountCents", "buyerClosingCostsCents", "buyerTotalCashNeededCents", "buyerCashDueAtClosingCents"],
+  SELLER: ["sellerClosingCostsCents", "sellerCashBeforePayoffsCents"],
+};
+
+function SellerLedger({ headingId, ledger, onCounter, payoff = "" }: { headingId: string; ledger: LoiSellerLedger; onCounter?: (inputId: string) => void; payoff?: string }) {
+  // The private payoff never leaves this browser; it only extends the seller's own view.
+  const payoffCents = parseSellerLoanPayoff(payoff).cents;
   return <section className="loi-seller-ledger stack tight" aria-labelledby={headingId}>
     <h3 id={headingId}>Your costs and credits</h3>
     <table className="loi-ledger">
@@ -875,6 +891,10 @@ function SellerLedger({ headingId, ledger, onCounter }: { headingId: string; led
       </tbody>
       <tfoot>
         <tr><th scope="row">{ledger.totalLabel}</th><td className="loi-ledger-amount">{formatLoiMoney(ledger.totalCents)}</td>{onCounter ? <td /> : null}</tr>
+        {payoffCents === null ? null : <>
+          <tr className="loi-ledger-payoff"><th scope="row">Your loan payoff (private)</th><td className="loi-ledger-amount">− {formatLoiMoney(payoffCents)}</td>{onCounter ? <td /> : null}</tr>
+          <tr><th scope="row">Net proceeds</th><td className="loi-ledger-amount">{formatLoiMoney(ledger.totalCents - payoffCents)}</td>{onCounter ? <td /> : null}</tr>
+        </>}
       </tfoot>
     </table>
     <p className="field-hint">{ledger.complete ? "Estimates only; actual charges may differ." : "Costs marked Not estimated are left out of the total."} {LOI_CLOSING_COST_EXCLUSIONS}</p>
@@ -913,20 +933,22 @@ function Summary({ summary, terms, viewerRole = "BUYER", compact = false, detail
   if (!summary || !terms) return <p className="muted">Complete valid draft fields to see your calculated summary.</p>;
   if (detailsOnly && summary.calculationVersion === 1) return <p className="muted">Closing costs were not calculated in this historical version.</p>;
   const isBuyer = viewerRole === "BUYER";
+  const buyerCash = summary.calculationVersion === 1 ? null : loiBuyerCashParts(terms, summary);
   return <div className="stack tight">
     {issues.length ? <div className="loi-calculator-issues" role="status">
       <strong>Figures use the amounts entered</strong>
       {issues.map((issue) => <span key={issue.path}>{issue.message}</span>)}
     </div> : null}
-    {!detailsOnly && isBuyer && summary.calculationVersion !== 1 ? <section className="loi-cash-callout" aria-label="Buyer cash needed">
+    {!detailsOnly && isBuyer && buyerCash ? <section className="loi-cash-callout" aria-label="Buyer cash needed">
       <div aria-live="polite" aria-atomic="true">
         <p className="loi-cash-callout-label">Estimated total cash needed</p>
-        <strong className="loi-cash-callout-amount">{formatLoiMoney(summary.buyerCashDueAtClosingCents + summary.earnestMoneyCents)}</strong>
+        <strong className="loi-cash-callout-amount">{formatLoiMoney(buyerCash.totalCents)}</strong>
         <p className="loi-cash-callout-caption">Down payment and closing costs. Your deposit is part of this total.</p>
       </div>
       <dl className="loi-cash-callout-breakdown">
-        <div><dt>Earnest-money deposit<br /><span className="muted small">Paid after acceptance</span></dt><dd>{formatLoiMoney(summary.earnestMoneyCents)}</dd></div>
-        <div><dt>Balance due at closing</dt><dd>{formatLoiMoney(summary.buyerCashDueAtClosingCents)}</dd></div>
+        <div><dt>Earnest-money deposit (EMD)</dt><dd>{formatLoiMoney(buyerCash.depositCents)}</dd></div>
+        <div><dt>{buyerCash.cashPurchase ? "Remainder of purchase price" : "Remainder of down payment"}</dt><dd>{formatLoiMoney(buyerCash.remainderCents)}</dd></div>
+        <div><dt>{buyerCash.netOfCredits ? "Closing costs, less credits" : "Closing costs"}</dt><dd>{formatLoiMoney(buyerCash.netClosingCostsCents)}</dd></div>
       </dl>
     </section> : null}
     {!detailsOnly ? <dl className="loi-summary-list">
@@ -939,13 +961,14 @@ function Summary({ summary, terms, viewerRole = "BUYER", compact = false, detail
     {!compact && summary.calculationVersion !== 1 ? <section className="stack tight" aria-label={isBuyer ? "Buyer fee estimates" : "Seller fee estimates"}>
       <h3>{isBuyer ? "Your buyer fees" : "Your seller fees"}</h3>
       <dl className="loi-summary-list">
-        {loiFeeBreakdown(terms, summary).filter((row) => !(isBuyer && row.sellerOnly)).map((row) => {
+        {/* Fees the other party pays, or that are $0 in this deal, are left out. */}
+        {loiFeeBreakdown(terms, summary).filter((row) => !(isBuyer && row.sellerOnly) && (isBuyer ? row.buyerCents : row.sellerCents) !== 0).map((row) => {
           const cents = isBuyer ? row.buyerCents : row.sellerCents;
           return <div key={row.label}><dt>{row.label}</dt><dd>{cents === null ? "Not estimated" : formatLoiMoney(cents)}</dd></div>;
         })}
         <div><dt><strong>{isBuyer ? "Buyer closing-cost estimate" : "Seller closing-cost estimate"}</strong></dt><dd><strong>{formatLoiMoney(isBuyer ? summary.buyerClosingCostsCents : summary.sellerClosingCostsCents)}</strong></dd></div>
       </dl>
-      <p className="field-hint">Your share only. Fees paid by the other party show $0.00. {loiSummaryFromVersion(summary, 6) ? isBuyer || loiSummaryFromVersion(summary, 7) ? "Blank escrow, title, and misc. costs use our estimates." : "Blank escrow and title costs use our estimates." : loiSummaryFromVersion(summary, 4) ? "Escrow includes the scheduled fee unless you enter a quote." : "Escrow reflects the quotes stored with this version."}</p>
+      <p className="field-hint">Your share only; fees the other party pays are not listed. {loiSummaryFromVersion(summary, 6) ? isBuyer || loiSummaryFromVersion(summary, 7) ? "Blank escrow, title, and misc. costs use our estimates." : "Blank escrow and title costs use our estimates." : loiSummaryFromVersion(summary, 4) ? "Escrow includes the scheduled fee unless you enter a quote." : "Escrow reflects the quotes stored with this version."}</p>
     </section> : null}
     {!compact ? loiCashEquations(terms, summary).filter((equation) => equation.label === (isBuyer ? "Buyer cash calculation" : "Seller cash calculation")).map((equation) => <section className="stack tight" aria-label={equation.label} key={equation.label}>
       <h3>{equation.label}</h3>
@@ -956,7 +979,7 @@ function Summary({ summary, terms, viewerRole = "BUYER", compact = false, detail
       </dl>
     </section>) : null}
     {!compact && loiSummaryFromVersion(summary, 3) && summary.monthlyRentBackCents ? <p className="small">Monthly rent-back (separate from {isBuyer ? "closing cash" : "proceeds"}): {formatLoiMoney(summary.monthlyRentBackCents)}</p> : null}
-    {compact && summary.calculationVersion !== 1 && !loiSideEstimateComplete(summary, viewerRole) ? <p className="field-hint">Estimate incomplete. Add remaining fees below.</p> : null}
+    {compact && summary.calculationVersion !== 1 && !loiSideEstimateComplete(summary, viewerRole) ? <p className="field-hint">Estimate incomplete; some fees are not estimated yet.</p> : null}
     {!compact && summary.calculationVersion !== 1 ? <p className="small">{loiSideEstimateComplete(summary, viewerRole) ? "Estimates only; actual charges may differ." : "Some of your fees are not estimated yet and are left out."} {LOI_CLOSING_COST_EXCLUSIONS} {isBuyer ? "" : "Your proceeds subtract your fees, seller credit, and any seller-financed principal. Existing loan payoffs are separate. "}Prorations are excluded. A negative balance is a modeled credit, subject to lender and escrow approval.</p> : null}
   </div>;
 }
