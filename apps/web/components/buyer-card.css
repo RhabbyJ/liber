@@ -18,7 +18,9 @@
   transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
+/* Cards adapt to the results pane, which is 750px, 390px, or full width depending on the screen. */
 .listing-grid.buyer-list {
+  container: buyer-list / inline-size;
   gap: 12px;
   grid-template-columns: minmax(0, 1fr);
 }
@@ -95,7 +97,6 @@
   letter-spacing: -0.01em;
   line-height: 32px;
   margin: 2px 0 0;
-  overflow-wrap: anywhere;
 }
 
 .buyer-card-signals {
@@ -230,7 +231,7 @@
   outline: none;
 }
 
-@media (max-width: 559px) {
+@container buyer-list (max-width: 560px) {
   .buyer-card {
     padding: 16px 16px 12px;
   }

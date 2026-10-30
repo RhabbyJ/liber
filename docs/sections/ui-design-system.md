@@ -166,8 +166,8 @@ Liber's own features and palette. Keep new surfaces inside this system:
   "not verified" label and info icon. Below: what and where (property-type and
   pin icons), bed/bath/size needs with icons, and grey want chips with feature
   icons (condition, pool, parking/garage, ADU, yard), then the account code,
-  profile freshness and View profile. Results are one card per row; below 560px
-  the trust column moves under the budget. Hovering the matching map pin tints
+  profile freshness and View profile. Results are one card per row; in a list narrower than 560px
+  the trust column moves under the budget (a container query on the results list, since the pane is 750px, 390px or full width). Hovering the matching map pin tints
   the card sage. `lib/buyer-card-view.ts` builds the content from each
   audience's DTO, so guest cards never gain fields. Map mini-cards use the same
   avatar and summary (`lib/buyer-card-popup.ts`).
