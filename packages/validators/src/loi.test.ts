@@ -14,7 +14,9 @@ import {
   loiTermsV1Schema,
   loiComputedSummaryV1Schema,
   loiComputedSummaryV2Schema,
-  loiComputedSummaryV5Schema,
+  loiComputedSummaryV6Schema,
+  calculateLoiScheduledClosingCosts,
+  loiSideEstimateComplete,
   submitLoiRevisionSchema,
   type LoiTermsV1,
 } from "./loi";
@@ -67,7 +69,7 @@ describe("LOI itemized cash calculations", () => {
     const proposed: LoiTermsV1 = { ...completeCostTerms, costsAndCredits: { ...completeCostTerms.costsAndCredits, homeWarranty: { company: "Warranty Co", included: true, maximumCents: 85_000, payer, payerNote: "", specialInclusions: "" } } };
     const summary = calculateLoiSummary(proposed);
     expect(summary).toMatchObject({
-      calculationVersion: 5,
+      calculationVersion: 6,
       buyerHomeWarrantyCents: payer === "BUYER" ? 85_000 : 0,
       sellerHomeWarrantyCents: payer === "SELLER" ? 85_000 : 0,
       buyerCashDueAtClosingCents: 21_500_000 + (payer === "BUYER" ? 85_000 : 0),
@@ -180,12 +182,12 @@ describe("LOI itemized cash calculations", () => {
     expect(calculateLoiPreview(proposed)).toBeNull();
   });
 
-  it("retains strict historical V1/V2 summary decoders while emitting V5", () => {
+  it("retains strict historical V1/V2 summary decoders while emitting V6", () => {
     const v1 = { calculationVersion: 1, earnestMoneyBps: 300, earnestMoneyCents: 3_000_000, effectivePriceAfterSellerCreditCents: 99_500_000, loanAmountCents: 75_000_000, loanToValueBps: 7_500, remainingDownPaymentAfterDepositCents: 22_000_000 };
     const v2 = { ...v1, calculationVersion: 2, buyerAgentCommissionCents: 0, sellerAgentCommissionCents: null, buyerClosingCostsCents: 0, sellerClosingCostsCents: 0, buyerCashDueAtClosingCents: 21_500_000, sellerCashBeforePayoffsCents: 99_500_000, closingCostEstimateComplete: false };
     expect(loiComputedSummaryV1Schema.parse(v1)).toEqual(v1);
     expect(loiComputedSummaryV2Schema.parse(v2)).toEqual(v2);
-    expect(loiComputedSummaryV5Schema.parse(calculateLoiSummary(completeCostTerms)).calculationVersion).toBe(5);
+    expect(loiComputedSummaryV6Schema.parse(calculateLoiSummary(completeCostTerms)).calculationVersion).toBe(6);
     expect(loiComputedSummaryV2Schema.safeParse({ ...v2, buyerClosingCostsCents: 80_000_000_001 }).success).toBe(false);
   });
 
@@ -201,8 +203,38 @@ describe("LOI itemized cash calculations", () => {
     };
     const summary = calculateLoiSummary(proposed);
     expect(summary.buyerClosingCostsCents).toBe(maximum * 11);
-    expect(loiComputedSummaryV5Schema.safeParse(summary).success).toBe(true);
+    expect(loiComputedSummaryV6Schema.safeParse(summary).success).toBe(true);
     expect(summary.closingCostEstimateComplete).toBe(true);
+  });
+});
+
+describe("LOI v6 scheduled title and misc estimates", () => {
+  it("prices one title policy at 0.25% for its payer, splitting each-own with the odd cent on the buyer", () => {
+    expect(calculateLoiScheduledClosingCosts(100_000_000, "SELLER")).toEqual({ titlePolicyCents: 250_000, miscCents: 200_000, buyerTitleCents: 0, sellerTitleCents: 250_000, buyerOtherCents: 200_000 });
+    expect(calculateLoiScheduledClosingCosts(100_000_000, "BUYER")).toMatchObject({ buyerTitleCents: 250_000, sellerTitleCents: 0 });
+    expect(calculateLoiScheduledClosingCosts(100_000_200, "EACH_OWN")).toMatchObject({ titlePolicyCents: 250_001, buyerTitleCents: 125_001, sellerTitleCents: 125_000 });
+    expect(calculateLoiScheduledClosingCosts(0, "SELLER")).toBeNull();
+  });
+
+  it("lets entered quotes and explicit zero replace the schedule, and never defaults seller misc costs", () => {
+    const quoted = { buyerTitleInsuranceCents: 0, sellerTitleInsuranceCents: 90_000, buyerOtherClosingCostsCents: 0 };
+    expect(calculateLoiScheduledClosingCosts(100_000_000, "EACH_OWN", quoted)).toMatchObject({ buyerTitleCents: 0, sellerTitleCents: 90_000, buyerOtherCents: 0 });
+    const summary = calculateLoiSummary(terms);
+    expect(summary).toMatchObject({ buyerOtherClosingCostsCents: 200_000, sellerOtherClosingCostsCents: null });
+    expect(summary.buyerClosingCostsCents).toBe(200_000);
+  });
+
+  it("reports completeness per side so a blank seller estimate never marks the buyer incomplete", () => {
+    const summary = calculateLoiSummary(terms);
+    expect([loiSideEstimateComplete(summary, "BUYER"), loiSideEstimateComplete(summary, "SELLER"), summary.closingCostEstimateComplete]).toEqual([true, false, false]);
+    const buyerOwesCommission: LoiTermsV1 = { ...terms, representation: { agent: { company: "", email: "agent@example.test", license: "", name: "Agent", phone: "" }, buyerRepresented: true, commissionAmount: "", commissionPayer: "BUYER" } };
+    expect(loiSideEstimateComplete(calculateLoiPreview(buyerOwesCommission)!, "BUYER")).toBe(false);
+  });
+
+  it("counts the deposit toward the total cash needed instead of adding it on top", () => {
+    const summary = calculateLoiSummary(terms);
+    const downPaymentCents = terms.purchasePriceCents - summary.loanAmountCents;
+    expect(summary.buyerCashDueAtClosingCents + summary.earnestMoneyCents).toBe(downPaymentCents + summary.buyerClosingCostsCents - terms.costsAndCredits.sellerCreditCents);
   });
 });
 
@@ -267,8 +299,12 @@ describe("LOI terms", () => {
   });
 
   it("calculates canonical financed summaries in integer cents and basis points", () => {
+    // Blank title and buyer misc fields use the 0.25% and 0.2% schedules; seller misc stays unknown.
     expect(calculateLoiSummary(terms)).toEqual({
-      calculationVersion: 5,
+      calculationVersion: 6,
+      titlePolicyEstimateCents: 250_000, miscClosingCostEstimateCents: 200_000,
+      buyerTitleInsuranceCents: 0, sellerTitleInsuranceCents: 250_000, buyerOtherClosingCostsCents: 200_000, sellerOtherClosingCostsCents: null,
+      buyerClosingCostEstimateComplete: true, sellerClosingCostEstimateComplete: false,
       escrowFeePerSideCents: 205_000, buyerEscrowCents: 0, sellerEscrowCents: 410_000,
       transferTaxSchedule: "MANUAL", laCountyTransferTaxCents: null, laCityTransferTaxCents: null, measureUlaCents: null, measureUlaRateBps: null, buyerTransferTaxCents: 0, sellerTransferTaxCents: null,
       earnestMoneyBps: 300,
@@ -285,10 +321,10 @@ describe("LOI terms", () => {
       sellerItemizedCostsCents: 0,
       rentBackAtClosingCents: 0,
       monthlyRentBackCents: 0,
-      buyerClosingCostsCents: 0,
-      sellerClosingCostsCents: 410_000,
-      buyerCashDueAtClosingCents: 21_500_000,
-      sellerCashBeforePayoffsCents: 99_090_000,
+      buyerClosingCostsCents: 200_000,
+      sellerClosingCostsCents: 660_000,
+      buyerCashDueAtClosingCents: 21_700_000,
+      sellerCashBeforePayoffsCents: 98_840_000,
       closingCostEstimateComplete: false,
     });
   });
@@ -329,7 +365,7 @@ describe("LOI terms", () => {
 
   it("charges a seller-paid buyer agent commission to the seller and keeps a cash buyer's full price in cash due", () => {
     const cash: LoiTermsV1 = { ...terms, funding: { type: "CASH" }, timing: { ...terms.timing, loanContingencyDays: null }, representation: { agent: { company: "", email: "agent@example.test", license: "", name: "Agent", phone: "" }, buyerRepresented: true, commissionAmount: "$12,345.67", commissionPayer: "SELLER" } };
-    expect(calculateLoiSummary(cash)).toMatchObject({ loanAmountCents: 0, buyerClosingCostsCents: 0, sellerClosingCostsCents: 1_644_567, buyerCashDueAtClosingCents: 96_500_000, sellerCashBeforePayoffsCents: 97_855_433, closingCostEstimateComplete: false });
+    expect(calculateLoiSummary(cash)).toMatchObject({ loanAmountCents: 0, buyerClosingCostsCents: 200_000, sellerClosingCostsCents: 1_894_567, buyerCashDueAtClosingCents: 96_700_000, sellerCashBeforePayoffsCents: 97_605_433, closingCostEstimateComplete: false });
   });
 
   it("distinguishes missing fees from explicit zero and preserves modeled negative cash instead of clamping it", () => {

@@ -5,7 +5,8 @@ import { createRequire } from "node:module";
 import ts from "typescript";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { calculateLoiSummary, loiComputedSummaryV1Schema, loiComputedSummaryV2Schema, type LoiComputedSummary, type LoiTermsV1 } from "@liber/validators";
+import { calculateLoiSummary, loiComputedSummaryV1Schema, loiComputedSummaryV2Schema, loiSideEstimateComplete, loiSummaryFromVersion, type LoiComputedSummary, type LoiTermsV1 } from "@liber/validators";
+import { LOI_CLOSING_COST_EXCLUSIONS } from "./loi-editor-values";
 import { formatLoiMoney } from "./loi-presentation";
 import { loiCashEquations } from "./loi-cash-equation";
 import { loiFeeBreakdown } from "./loi-fee-breakdown";
@@ -18,19 +19,19 @@ describe("LOI workspace rendered contract", () => {
     const declaration = parsed.statements.find((statement) => ts.isFunctionDeclaration(statement) && statement.name?.text === "Summary")!;
     const compiled = ts.transpileModule("export " + declaration.getText(parsed), { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
     const exports: { Summary?: (props: { summary: LoiComputedSummary; terms: LoiTermsV1; viewerRole: "BUYER" | "SELLER"; compact?: boolean; detailsOnly?: boolean }) => ReturnType<typeof createElement> } = {};
-    new Function("require", "exports", "formatLoiMoney", "loiCashEquations", "loiFeeBreakdown", compiled)(createRequire(import.meta.url), exports, formatLoiMoney, loiCashEquations, loiFeeBreakdown);
+    new Function("require", "exports", "formatLoiMoney", "loiCashEquations", "loiFeeBreakdown", "loiSideEstimateComplete", "loiSummaryFromVersion", "LOI_CLOSING_COST_EXCLUSIONS", compiled)(createRequire(import.meta.url), exports, formatLoiMoney, loiCashEquations, loiFeeBreakdown, loiSideEstimateComplete, loiSummaryFromVersion, LOI_CLOSING_COST_EXCLUSIONS);
     return renderToStaticMarkup(createElement(exports.Summary!, { summary, terms, viewerRole, ...options }));
   }
 
   it("shows buyer cash/deposit and seller purchase price in their respective compact snapshots", async () => {
     const summary = calculateLoiSummary(cashTerms);
     const buyer = await renderSummary(summary, cashTerms, "BUYER", { compact: true });
-    for (const label of ["Estimated total cash needed", "Expected cash to close", "Loan amount", "Earnest-money deposit"]) expect(buyer).toContain(label);
+    for (const label of ["Estimated total cash needed", "Balance due at closing", "Loan amount", "Earnest-money deposit"]) expect(buyer).toContain(label);
     expect(buyer).toContain('class="loi-cash-callout-amount">' + formatLoiMoney(summary.buyerCashDueAtClosingCents + summary.earnestMoneyCents));
-    expect(buyer).toContain("If your deposit is already paid, use the remaining balance.");
+    expect(buyer).toContain("Your deposit is part of this total.");
     const seller = await renderSummary(summary, cashTerms, "SELLER", { compact: true });
     expect(seller).toContain("Purchase price");
-    for (const label of ["Buyer cash needed", "Expected cash to close", "Loan amount", "Earnest", "your deposit", "Down payment"]) expect(seller).not.toContain(label);
+    for (const label of ["Buyer cash needed", "Balance due at closing", "Loan amount", "Earnest", "your deposit", "Down payment"]) expect(seller).not.toContain(label);
     for (const html of [buyer, seller]) expect(html).not.toContain("cash calculation");
   });
 
@@ -40,6 +41,10 @@ describe("LOI workspace rendered contract", () => {
     const stored = JSON.stringify(summary);
     const html = await renderSummary(summary, terms, viewerRole, { detailsOnly: true });
     for (const row of loiFeeBreakdown(terms, summary)) {
+      if (viewerRole === "BUYER" && row.sellerOnly) {
+        expect(html).not.toContain("<dt>" + row.label + "</dt>");
+        continue;
+      }
       const cents = viewerRole === "BUYER" ? row.buyerCents : row.sellerCents;
       expect(html).toContain("<dt>" + row.label + "</dt><dd>" + (cents === null ? "Not estimated" : formatLoiMoney(cents)) + "</dd>");
     }
@@ -47,6 +52,13 @@ describe("LOI workspace rendered contract", () => {
     expect(html).not.toContain(viewerRole === "BUYER" ? "Seller cash calculation" : "Buyer cash calculation");
     expect(html).not.toContain(viewerRole === "BUYER" ? "Seller closing-cost estimate" : "Buyer closing-cost estimate");
     if (viewerRole === "SELLER") expect(html).not.toContain("Down payment");
+    if (viewerRole === "BUYER") {
+      // The deposit is shown as part of the total, never subtracted from it.
+      expect(html).not.toContain("− " + formatLoiMoney(summary.earnestMoneyCents));
+      expect(html).toContain("<strong>Estimated total cash needed</strong></dt><dd><strong>= " + formatLoiMoney(summary.buyerCashDueAtClosingCents + summary.earnestMoneyCents) + "</strong>");
+      expect(html).toContain("<dt>Earnest-money deposit, paid after acceptance</dt><dd>" + formatLoiMoney(summary.earnestMoneyCents) + "</dd>");
+      expect(html).toContain("<dt>Balance due at closing</dt><dd>" + formatLoiMoney(summary.buyerCashDueAtClosingCents) + "</dd>");
+    }
     expect(JSON.stringify(summary)).toBe(stored);
   });
 

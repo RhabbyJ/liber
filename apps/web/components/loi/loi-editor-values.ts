@@ -117,3 +117,15 @@ export function parseLoiYears(value: string): number | null {
   const months = Math.round(years * 12);
   return months >= 1 && months <= 600 ? months : null;
 }
+
+// Shown wherever buyer or seller closing-cost totals appear.
+export const LOI_CLOSING_COST_EXCLUSIONS = "Closing costs do not include property tax, homeowners insurance, or lender fees.";
+
+// Plain-language transfer-tax line: what the amount is and who pays it.
+export function loiTransferTaxDescription(terms: LoiTermsV1) {
+  const payer = terms.costsAndCredits.customaryClosingCosts ? "SELLER" : terms.costsAndCredits.closingCostPayers?.transferTaxes ?? null;
+  const who = payer === "SELLER" ? "seller pays" : payer === "BUYER" ? "buyer pays" : payer === "SPLIT_EQUALLY" ? "split equally" : payer === "NOT_APPLICABLE" ? "not applicable" : "payer not chosen";
+  return terms.costsAndCredits.transferTaxSchedule === "LA_CITY_2026_2027"
+    ? `County and city tax on the sale price, at City of Los Angeles rates · ${who}`
+    : `County and city tax on the sale price, from an escrow quote · ${who}`;
+}

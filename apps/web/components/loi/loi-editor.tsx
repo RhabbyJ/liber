@@ -1,9 +1,9 @@
 "use client";
 
-import { calculateLoiLaCityTransferTaxes, calculateLoiEscrowFees, LOI_MAX_ESCROW_DAYS, LOI_RESPONSE_WINDOW_HOURS, LOI_STANDARD_DEPOSIT_BPS, type LoiComputedSummary, type LoiLivePreview, type LoiTermsV1 } from "@liber/validators";
+import { calculateLoiLaCityTransferTaxes, calculateLoiEscrowFees, calculateLoiScheduledClosingCosts, loiSummaryFromVersion, LOI_MAX_ESCROW_DAYS, LOI_RESPONSE_WINDOW_HOURS, LOI_STANDARD_DEPOSIT_BPS, type LoiComputedSummary, type LoiLivePreview, type LoiTermsV1 } from "@liber/validators";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { COMMON_LOI_PROPERTY_ITEMS, LOI_ITEMIZED_COST_FIELDS, loiItemizedCostPayer, normalizeLoiItemizedCostPayers, formatLoiYears, parseLoiPropertyItems, parseLoiYears, updateLoiEscrowProvider, updateLoiCustomaryAllocation, loiTitleFeePayer, updateLoiTitleFeePayer } from "./loi-editor-values";
+import { COMMON_LOI_PROPERTY_ITEMS, LOI_ITEMIZED_COST_FIELDS, loiItemizedCostPayer, normalizeLoiItemizedCostPayers, formatLoiYears, parseLoiPropertyItems, parseLoiYears, updateLoiEscrowProvider, updateLoiCustomaryAllocation, loiTitleFeePayer, updateLoiTitleFeePayer, LOI_CLOSING_COST_EXCLUSIONS } from "./loi-editor-values";
 import { CommissionAmountField } from "./commission-amount-field";
 import { formatLoiMoneyInput, parseLoiMoneyInput } from "./loi-money-input";
 
@@ -507,7 +507,7 @@ export function LoiEditor({
         <TextField error={fieldErrors["personalProperty.excludedItems"]} id="loi-excluded-items" label="Excluded personal-property items" maxLength={2000} onChange={(excludedItems) => update("personalProperty.excludedItems", (value) => ({ ...value, personalProperty: { ...value.personalProperty, excludedItems } }))} value={terms.personalProperty.excludedItems} />
       </section>
 
-      <ClosingCostEstimates fields={fieldErrors} summary={summary} terms={terms} update={update} />
+      <ClosingCostEstimates fields={fieldErrors} summary={summary} terms={terms} update={update} viewerRole={viewerRole} />
 
       <section className="card stack" aria-labelledby="loi-section-disclosures">
         <SectionTitle id="loi-section-disclosures" number="9">Disclosures</SectionTitle>
@@ -662,81 +662,69 @@ function emptyClosingEstimates(): ClosingEstimates {
   return { buyerEscrowCents: null, sellerEscrowCents: null, buyerTitleInsuranceCents: null, sellerTitleInsuranceCents: null, buyerOtherClosingCostsCents: null, sellerOtherClosingCostsCents: null, sellerAgentCommissionAmount: "", note: "" };
 }
 
-function ClosingCostEstimates({ fields, summary, terms, update }: { fields: Record<string, string>; summary: LoiComputedSummary | null; terms: LoiTermsV1; update: LoiTermsUpdater }) {
+// One short line per cost, showing only the viewer's side. Blank amounts use the
+// scheduled estimate shown as the placeholder; other blank fees stay unknown.
+function ClosingCostEstimates({ fields, summary, terms, update, viewerRole }: { fields: Record<string, string>; summary: LoiComputedSummary | null; terms: LoiTermsV1; update: LoiTermsUpdater; viewerRole: "BUYER" | "SELLER" }) {
   const estimates = terms.costsAndCredits.closingCostEstimates ?? emptyClosingEstimates();
   const change = <K extends keyof ClosingEstimates>(key: K, next: ClosingEstimates[K]) => update(`costsAndCredits.closingCostEstimates.${key}`, (value) => ({ ...value, costsAndCredits: { ...value.costsAndCredits, closingCostEstimates: { ...(value.costsAndCredits.closingCostEstimates ?? emptyClosingEstimates()), ...(key === "buyerOtherClosingCostsCents" || key === "sellerOtherClosingCostsCents" ? { otherCostsExcludeItemized: false } : {}), [key]: next } } }));
+  const buyer = viewerRole === "BUYER";
+  const escrowPayer = terms.providers.escrow.feePayer;
+  const titlePayer = loiTitleFeePayer(terms);
+  const escrow = calculateLoiEscrowFees(terms.purchasePriceCents, escrowPayer);
+  const scheduled = calculateLoiScheduledClosingCosts(terms.purchasePriceCents, titlePayer);
   const taxPreview = calculateLoiLaCityTransferTaxes(terms.purchasePriceCents);
-  const escrow = calculateLoiEscrowFees(terms.purchasePriceCents, terms.providers.escrow.feePayer, estimates);
-  const confirmOtherCosts = (estimates.buyerOtherClosingCostsCents ?? 0) + (estimates.sellerOtherClosingCostsCents ?? 0) > 0 && (summary?.calculationVersion === 3 || (summary?.calculationVersion === 4 || summary?.calculationVersion === 5))
+  const laCityRates = terms.costsAndCredits.transferTaxSchedule === "LA_CITY_2026_2027";
+  const estimate = (cents: number | null | undefined, rate = "") => cents === null || cents === undefined ? "Not estimated" : `Est. ${usd.format(cents / 100)}${rate}`;
+  const confirmOtherCosts = (estimates.buyerOtherClosingCostsCents ?? 0) + (estimates.sellerOtherClosingCostsCents ?? 0) > 0 && summary !== null && loiSummaryFromVersion(summary, 3)
     && (summary.buyerHomeWarrantyCents ?? 0) + (summary.sellerHomeWarrantyCents ?? 0) + summary.buyerItemizedCostsCents + summary.sellerItemizedCostsCents + summary.rentBackAtClosingCents + summary.monthlyRentBackCents > 0;
+  const showEscrow = escrowPayer === "EACH_OWN" || escrowPayer === viewerRole;
+  const showTitle = titlePayer === "EACH_OWN" || titlePayer === viewerRole;
+  const escrowLabel = escrowPayer === "EACH_OWN" ? "Your escrow fee" : "Escrow fee (both sides)";
+  const titleLabel = titlePayer === "EACH_OWN" ? "Your share of the title policy" : "Title policy";
   return <section className="card stack" aria-labelledby="loi-section-estimates">
     <SectionTitle id="loi-section-estimates" number="$" numberLabel="">Closing-cost estimates</SectionTitle>
-    <p className="small">Every entered fee follows its selected payer: buyer-paid costs increase expected cash to close; seller-paid costs reduce seller proceeds. Add estimates you have received. Blank escrow fields use the scheduled fee below. Title and other unknown fees stay blank; enter 0 only when no charge applies.</p>
-    <details open>
-      <summary>Add or update fee estimates</summary>
-      <p className="small">Buyer or Seller covers both scheduled escrow fees unless a combined fee quote is entered. Each pays their own uses one scheduled fee per side. Title estimates remain separate.</p>
-      <div className="stack">
-        <section className="stack tight" aria-label="Escrow fee estimates">
-          <h3>Escrow fee estimates</h3>
-          <p className="field-hint">Escrow fee: $300 base + $1.75 per $1,000 of offer price for each side. Leave the fee fields blank to use this calculation; enter a quoted fee to override it.</p>
-          <p className="field-hint" aria-live="polite">{escrow.perSideCents === null ? "Enter an offer price to calculate escrow fees." : `Scheduled fee: ${usd.format(escrow.perSideCents / 100)} per side · ${usd.format(escrow.perSideCents * 2 / 100)} for both sides.`}</p>
-        <div className="grid two">
-          {terms.providers.escrow.feePayer !== "SELLER" ? <EstimateMoneyField cents={estimates.buyerEscrowCents} error={fields["costsAndCredits.closingCostEstimates.buyerEscrowCents"]} id="loi-estimate-buyer-escrow" label={terms.providers.escrow.feePayer === "BUYER" ? "Escrow fees paid by buyer" : "Buyer escrow fees"} onChange={(value) => change("buyerEscrowCents", value)} /> : null}
-          {terms.providers.escrow.feePayer !== "BUYER" ? <EstimateMoneyField cents={estimates.sellerEscrowCents} error={fields["costsAndCredits.closingCostEstimates.sellerEscrowCents"]} id="loi-estimate-seller-escrow" label={terms.providers.escrow.feePayer === "SELLER" ? "Escrow fees paid by seller" : "Seller escrow fees"} onChange={(value) => change("sellerEscrowCents", value)} /> : null}
-        </div>
-        </section>
-        <div className="grid two">
-          {loiTitleFeePayer(terms) !== "SELLER" ? <EstimateMoneyField cents={estimates.buyerTitleInsuranceCents} error={fields["costsAndCredits.closingCostEstimates.buyerTitleInsuranceCents"]} id="loi-estimate-buyer-title" label={loiTitleFeePayer(terms) === "BUYER" ? "Title insurance fees paid by buyer" : "Buyer title insurance fees"} onChange={(value) => change("buyerTitleInsuranceCents", value)} /> : null}
-          {loiTitleFeePayer(terms) !== "BUYER" ? <EstimateMoneyField cents={estimates.sellerTitleInsuranceCents} error={fields["costsAndCredits.closingCostEstimates.sellerTitleInsuranceCents"]} id="loi-estimate-seller-title" label={loiTitleFeePayer(terms) === "SELLER" ? "Title insurance fees paid by seller" : "Seller title insurance fees"} onChange={(value) => change("sellerTitleInsuranceCents", value)} /> : null}
-          <EstimateMoneyField cents={estimates.buyerOtherClosingCostsCents} error={fields["costsAndCredits.closingCostEstimates.buyerOtherClosingCostsCents"]} id="loi-estimate-buyer-other" label="Other buyer closing costs" onChange={(value) => change("buyerOtherClosingCostsCents", value)} />
-          <EstimateMoneyField cents={estimates.sellerOtherClosingCostsCents} error={fields["costsAndCredits.closingCostEstimates.sellerOtherClosingCostsCents"]} id="loi-estimate-seller-other" label="Other seller closing costs" onChange={(value) => change("sellerOtherClosingCostsCents", value)} />
-        </div>
-        <p className="small">Other closing costs are additional expenses such as loan fees and recording fees. Exclude warranty, taxes, retrofit, HOA, personal property, and rent-back amounts entered separately, along with commissions, escrow, title, and seller credits.</p>
-        <section className="stack tight" aria-label="Transfer-tax estimates">
-          <SelectField error={fields["costsAndCredits.transferTaxSchedule"]} id="loi-transfer-tax-schedule" label="Transfer-tax estimate source" value={terms.costsAndCredits.transferTaxSchedule ?? "MANUAL"} options={[["MANUAL", "Enter a combined tax quote"], ["LA_CITY_2026_2027", "City of Los Angeles — July 2026–June 2027 rates"]]} onChange={(selected) => update("costsAndCredits.transferTaxSchedule", (current) => ({...current, costsAndCredits:{...current.costsAndCredits,transferTaxSchedule:selected as NonNullable<LoiTermsV1["costsAndCredits"]["transferTaxSchedule"]>}}))} />
-          <p className="field-hint">Use LA City rates only for a taxable full-price sale inside City of Los Angeles limits. A Los Angeles mailing address does not confirm city limits. For other cities, exemptions, a different taxable value or closing period, enter an escrow tax quote.</p>
-          <p className="field-hint"><strong>Measure ULA applies only inside the City of Los Angeles and is always charged to the seller:</strong> 4.0% of the full price for sales above $5,400,000 and below $10,900,000; 5.5% at $10,900,000 or above.</p>
-          {terms.costsAndCredits.transferTaxSchedule === "LA_CITY_2026_2027" ? <p className="field-hint">LA County: $0.55 per $500 (0.11%); LA City: $2.25 per $500 (0.45%), both rounded up and paid by the base transfer-tax payer chosen above. Stored tax quotes are ignored while this rate option is selected.</p> : null}
-          {terms.costsAndCredits.transferTaxSchedule === "LA_CITY_2026_2027" ? <p className="field-hint" aria-live="polite">{taxPreview ? `Scheduled taxes: LA County ${usd.format(taxPreview.laCountyTransferTaxCents / 100)} · LA City ${usd.format(taxPreview.laCityTransferTaxCents / 100)} · seller ULA ${usd.format(taxPreview.measureUlaCents / 100)}${taxPreview.measureUlaRateBps ? ` (${(taxPreview.measureUlaRateBps / 100).toFixed(1)}%)` : " (none at this price)"}.` : "Enter an offer price to calculate transfer taxes."}</p> : (
-            <EstimateMoneyField cents={estimates.sellerMeasureUlaCents ?? null} error={fields["costsAndCredits.closingCostEstimates.sellerMeasureUlaCents"]} id="loi-estimate-seller-ula" label="Measure ULA estimate (seller pays · City of Los Angeles only)" onChange={(value) => change("sellerMeasureUlaCents", value)} />
-          )}
-        </section>
-        <div className="stack" aria-label="Itemized closing-cost estimates">
-          <h3>Itemized expenses</h3>
-          <p className="small">Enter received estimates for the payers chosen above. Split equally divides the entered total. Each pays own requires separate amounts; leave unknown amounts blank. When changing from separate shares to one payer, re-enter the combined total if either share was unknown.</p>
-          {LOI_ITEMIZED_COST_FIELDS.map((field) => {
-            if (field.key === "transferTaxes" && terms.costsAndCredits.transferTaxSchedule === "LA_CITY_2026_2027") return null;
-            const payer = loiItemizedCostPayer(terms, field.key);
-            if (payer === "NOT_APPLICABLE") return null;
-            if (!payer) return <p className="small" key={field.key}>Choose who pays {field.label.toLowerCase()} above to enter an estimate.</p>;
-            const estimate = estimates.itemizedCosts?.[field.key];
-            const setEstimate = (part: "amountCents" | "buyerCents" | "sellerCents", amount: number | null) => update(`costsAndCredits.closingCostEstimates.itemizedCosts.${field.key}.${part}`, (value) => {
-              const current = value.costsAndCredits.closingCostEstimates ?? emptyClosingEstimates();
-              return { ...value, costsAndCredits: { ...value.costsAndCredits, closingCostEstimates: { ...current, itemizedCosts: { ...current.itemizedCosts, [field.key]: { ...current.itemizedCosts?.[field.key], [part]: amount } } } } };
-            });
-            const prefix = `costsAndCredits.closingCostEstimates.itemizedCosts.${field.key}`;
-            return <fieldset className="loi-fieldset stack tight" key={field.key}>
-              <legend>{field.label}</legend>
-              {field.key === "personalProperty" ? <p className="small">Enter only an additional charge for these items. Enter 0 when they are already included in the purchase price.</p> : null}
-              {payer === "EACH_OWN" ? <div className="grid two">
-                <EstimateMoneyField cents={estimate?.buyerCents ?? null} error={fields[`${prefix}.buyerCents`]} id={`${field.id}-buyer`} label={`Buyer ${field.label.toLowerCase()} estimate`} onChange={(amount) => setEstimate("buyerCents", amount)} />
-                <EstimateMoneyField cents={estimate?.sellerCents ?? null} error={fields[`${prefix}.sellerCents`]} id={`${field.id}-seller`} label={`Seller ${field.label.toLowerCase()} estimate`} onChange={(amount) => setEstimate("sellerCents", amount)} />
-              </div> : <EstimateMoneyField cents={estimate?.amountCents ?? null} error={fields[`${prefix}.amountCents`]} id={field.id} label={`${field.label} estimate (${payer === "SPLIT_EQUALLY" ? "split equally" : `${payer.toLowerCase()} pays`})`} onChange={(amount) => setEstimate("amountCents", amount)} />}
-            </fieldset>;
-          })}
-        </div>
-        {confirmOtherCosts ? <CheckboxField checked={estimates.otherCostsExcludeItemized === true} error={fields["costsAndCredits.closingCostEstimates.otherCostsExcludeItemized"]} id="loi-estimate-other-excludes-itemized" label="Other closing costs exclude warranty, itemized expenses, and rent-back amounts calculated separately" onChange={(checked) => change("otherCostsExcludeItemized", checked)} /> : null}
-        <CommissionAmountField error={fields["costsAndCredits.closingCostEstimates.sellerAgentCommissionAmount"]} id="loi-estimate-seller-commission" label="Seller agent commission estimate" onChange={(value) => change("sellerAgentCommissionAmount", value)} value={estimates.sellerAgentCommissionAmount} />
-        <p className="small">This seller-paid estimate is separate from the buyer agent commission. Enter 0 if there is no seller agent commission.</p>
-        <TextAreaField error={fields["costsAndCredits.closingCostEstimates.note"]} id="loi-estimate-note" label="Estimate source and included fees (optional)" maxLength={1000} onChange={(value) => change("note", value)} rows={3} value={estimates.note} />
-      </div>
-    </details>
+    <p className="small">Leave a cost blank to use our estimate, or enter your quote. Enter 0 for no charge.</p>
+    <div className="loi-estimate-list">
+      {showEscrow ? buyer
+        ? <EstimateMoneyField cents={estimates.buyerEscrowCents} error={fields["costsAndCredits.closingCostEstimates.buyerEscrowCents"]} id="loi-estimate-buyer-escrow" label={escrowLabel} onChange={(value) => change("buyerEscrowCents", value)} placeholder={estimate(escrow.buyerCents)} />
+        : <EstimateMoneyField cents={estimates.sellerEscrowCents} error={fields["costsAndCredits.closingCostEstimates.sellerEscrowCents"]} id="loi-estimate-seller-escrow" label={escrowLabel} onChange={(value) => change("sellerEscrowCents", value)} placeholder={estimate(escrow.sellerCents)} /> : null}
+      {showTitle ? buyer
+        ? <EstimateMoneyField cents={estimates.buyerTitleInsuranceCents} error={fields["costsAndCredits.closingCostEstimates.buyerTitleInsuranceCents"]} id="loi-estimate-buyer-title" label={titleLabel} onChange={(value) => change("buyerTitleInsuranceCents", value)} placeholder={estimate(scheduled?.buyerTitleCents, " · 0.25%")} />
+        : <EstimateMoneyField cents={estimates.sellerTitleInsuranceCents} error={fields["costsAndCredits.closingCostEstimates.sellerTitleInsuranceCents"]} id="loi-estimate-seller-title" label={titleLabel} onChange={(value) => change("sellerTitleInsuranceCents", value)} placeholder={estimate(scheduled?.sellerTitleCents, " · 0.25%")} /> : null}
+      {buyer
+        ? <EstimateMoneyField cents={estimates.buyerOtherClosingCostsCents} error={fields["costsAndCredits.closingCostEstimates.buyerOtherClosingCostsCents"]} id="loi-estimate-buyer-other" label="Misc. closing costs" onChange={(value) => change("buyerOtherClosingCostsCents", value)} placeholder={estimate(scheduled?.buyerOtherCents, " · 0.2%")} />
+        : <EstimateMoneyField cents={estimates.sellerOtherClosingCostsCents} error={fields["costsAndCredits.closingCostEstimates.sellerOtherClosingCostsCents"]} id="loi-estimate-seller-other" label="Misc. closing costs" onChange={(value) => change("sellerOtherClosingCostsCents", value)} />}
+      <SelectField error={fields["costsAndCredits.transferTaxSchedule"]} id="loi-transfer-tax-schedule" label="How should we estimate transfer tax?" value={terms.costsAndCredits.transferTaxSchedule ?? "MANUAL"} options={[["MANUAL", "I'll enter a quote"], ["LA_CITY_2026_2027", "City of Los Angeles rates"]]} onChange={(selected) => update("costsAndCredits.transferTaxSchedule", (current) => ({...current, costsAndCredits:{...current.costsAndCredits,transferTaxSchedule:selected as NonNullable<LoiTermsV1["costsAndCredits"]["transferTaxSchedule"]>}}))} />
+      {laCityRates ? <p className="field-hint" aria-live="polite">{taxPreview ? `County ${usd.format(taxPreview.laCountyTransferTaxCents / 100)} · City ${usd.format(taxPreview.laCityTransferTaxCents / 100)}${buyer ? "" : ` · Measure ULA ${usd.format(taxPreview.measureUlaCents / 100)}`}. Only for sales inside City of Los Angeles limits.` : "Enter an offer price to calculate transfer tax."}</p> : null}
+      {!laCityRates && !buyer ? <EstimateMoneyField cents={estimates.sellerMeasureUlaCents ?? null} error={fields["costsAndCredits.closingCostEstimates.sellerMeasureUlaCents"]} id="loi-estimate-seller-ula" label="Measure ULA (City of Los Angeles only)" onChange={(value) => change("sellerMeasureUlaCents", value)} /> : null}
+      {LOI_ITEMIZED_COST_FIELDS.map((field) => {
+        if (field.key === "transferTaxes" && laCityRates) return null;
+        const payer = loiItemizedCostPayer(terms, field.key);
+        if (!payer || payer === "NOT_APPLICABLE" || ((payer === "BUYER" || payer === "SELLER") && payer !== viewerRole)) return null;
+        const estimateFor = estimates.itemizedCosts?.[field.key];
+        const setEstimate = (part: "amountCents" | "buyerCents" | "sellerCents", amount: number | null) => update(`costsAndCredits.closingCostEstimates.itemizedCosts.${field.key}.${part}`, (value) => {
+          const current = value.costsAndCredits.closingCostEstimates ?? emptyClosingEstimates();
+          return { ...value, costsAndCredits: { ...value.costsAndCredits, closingCostEstimates: { ...current, itemizedCosts: { ...current.itemizedCosts, [field.key]: { ...current.itemizedCosts?.[field.key], [part]: amount } } } } };
+        });
+        const prefix = `costsAndCredits.closingCostEstimates.itemizedCosts.${field.key}`;
+        const hint = field.key === "personalProperty" ? "Enter 0 if included in the price." : undefined;
+        if (payer === "EACH_OWN") {
+          const part = buyer ? "buyerCents" : "sellerCents";
+          return <EstimateMoneyField cents={estimateFor?.[part] ?? null} error={fields[`${prefix}.${part}`]} hint={hint} id={`${field.id}-${buyer ? "buyer" : "seller"}`} key={field.key} label={`${field.label} (your share)`} onChange={(amount) => setEstimate(part, amount)} />;
+        }
+        return <EstimateMoneyField cents={estimateFor?.amountCents ?? null} error={fields[`${prefix}.amountCents`]} hint={hint} id={field.id} key={field.key} label={payer === "SPLIT_EQUALLY" ? `${field.label} (total, split equally)` : field.label} onChange={(amount) => setEstimate("amountCents", amount)} />;
+      })}
+    </div>
+    {confirmOtherCosts ? <CheckboxField checked={estimates.otherCostsExcludeItemized === true} error={fields["costsAndCredits.closingCostEstimates.otherCostsExcludeItemized"]} id="loi-estimate-other-excludes-itemized" label="My misc. amount does not repeat the costs listed above" onChange={(checked) => change("otherCostsExcludeItemized", checked)} /> : null}
+    {buyer ? null : <CommissionAmountField error={fields["costsAndCredits.closingCostEstimates.sellerAgentCommissionAmount"]} id="loi-estimate-seller-commission" label="Your listing agent's commission" onChange={(value) => change("sellerAgentCommissionAmount", value)} value={estimates.sellerAgentCommissionAmount} />}
+    <TextAreaField error={fields["costsAndCredits.closingCostEstimates.note"]} id="loi-estimate-note" label="Note about these estimates (optional)" maxLength={1000} onChange={(value) => change("note", value)} rows={2} value={estimates.note} />
+    <p className="small loi-estimate-exclusions">{LOI_CLOSING_COST_EXCLUSIONS}</p>
   </section>;
 }
 
 // Blank stays unknown, distinct from an explicit $0 estimate.
-function EstimateMoneyField({ cents, error, id, label, onChange }: { cents: number | null; error?: string; id: string; label: string; onChange: (value: number | null) => void }) {
-  return <MoneyInput blank="unknown" cents={cents} error={error} id={id} label={label} minCents={0} onChange={onChange} placeholder="Not estimated" />;
+function EstimateMoneyField({ cents, error, hint, id, label, onChange, placeholder = "Not estimated" }: { cents: number | null; error?: string; hint?: string; id: string; label: string; onChange: (value: number | null) => void; placeholder?: string }) {
+  return <MoneyInput blank="unknown" cents={cents} error={error} hint={hint} id={id} label={label} minCents={0} onChange={onChange} placeholder={placeholder} />;
 }
 function PayerField({ error, id, label, onChange, value }: { error?: string; id: string; label: string; onChange: (value: HoaPayer) => void; value: HoaPayer }) {
   return <SelectField error={error} id={id} label={label} onChange={(next) => onChange(next as HoaPayer)} options={[["NOT_APPLICABLE", "Not applicable"], ["BUYER", "Buyer"], ["SELLER", "Seller"], ["EACH_OWN", "Each pays own"]]} value={value} />;

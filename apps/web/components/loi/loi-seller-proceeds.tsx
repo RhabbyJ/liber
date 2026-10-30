@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
-import type { LoiComputedSummary, LoiTermsV1 } from "@liber/validators";
+import { loiSideEstimateComplete, loiSummaryFromVersion, type LoiComputedSummary, type LoiTermsV1 } from "@liber/validators";
+import { LOI_CLOSING_COST_EXCLUSIONS } from "./loi-editor-values";
 import { loiFeeBreakdown } from "./loi-fee-breakdown";
 import { formatLoiMoney } from "./loi-presentation";
 import { parseSellerLoanPayoff, sellerNetProceeds } from "./loi-seller-proceeds-values";
@@ -21,7 +22,7 @@ export function LoiSellerProceeds({ terms, summary, payoff: controlledPayoff, on
       <p id={`${inputId}-hint`} className="field-hint">{showDetails ? "Enter the total to pay off your existing loans, including payoff fees. Enter 0 if there is no loan. Do not repeat these charges in Other closing costs. " : "Enter 0 if there is no loan. "}This private estimate is not sent to the buyer and resets on refresh.</p>
       {parsed.error ? <p id={`${inputId}-error`} className="field-hint invalid">{parsed.error}</p> : null}
     </div>
-    {showDetails ? <ProceedsDetails terms={terms} summary={summary} payoffCents={parsed.cents} /> : <p className="field-hint">{!summary ? "Complete valid financial fields to see your proceeds." : summary.calculationVersion === 1 ? "Closing costs and seller proceeds were not calculated in this historical version." : summary.closingCostEstimateComplete ? "Based on entered estimates. Fee breakdown below." : "Estimate incomplete. Unknown fees are excluded; breakdown below."}</p>}
+    {showDetails ? <ProceedsDetails terms={terms} summary={summary} payoffCents={parsed.cents} /> : <p className="field-hint">{!summary ? "Complete valid financial fields to see your proceeds." : summary.calculationVersion === 1 ? "Closing costs and seller proceeds were not calculated in this historical version." : loiSideEstimateComplete(summary, "SELLER") ? "Based on entered estimates. Fee breakdown below." : "Estimate incomplete. Unknown fees are excluded; breakdown below."}</p>}
     <dl className="loi-summary-list" aria-live="polite" aria-atomic="true">
       <div><dt><strong>Net proceeds</strong></dt><dd style={{ flexShrink: 0, whiteSpace: "nowrap" }}><strong>{net === null ? parsed.error ? "Check payoff" : !summary || summary.calculationVersion === 1 ? "Not calculated" : "Enter payoff" : formatLoiMoney(net)}</strong></dd></div>
     </dl>
@@ -33,7 +34,7 @@ export function LoiSellerProceedsBreakdown({ terms, summary, payoff }: { terms: 
   const net = sellerNetProceeds(summary, parsed.cents);
   return <section className="card stack loi-proceeds-breakdown" aria-label="Seller proceeds breakdown">
     <h3>Seller proceeds breakdown</h3>
-    <p className="small">The private loan payoff includes all existing loans and payoff fees. Do not repeat those charges in Other closing costs.</p>
+    <p className="small">The private loan payoff includes all existing loans and payoff fees. Do not repeat those charges in Misc. closing costs.</p>
     <ProceedsDetails terms={terms} summary={summary} payoffCents={parsed.cents} />
     <dl className="loi-summary-list" aria-live="polite" aria-atomic="true">
       <div><dt><strong>Net proceeds</strong></dt><dd><strong>{net === null ? parsed.error ? "Check payoff" : !summary || summary.calculationVersion === 1 ? "Not calculated" : "Enter payoff above" : formatLoiMoney(net)}</strong></dd></div>
@@ -51,7 +52,7 @@ function ProceedsDetails({ terms, summary, payoffCents }: { terms: LoiTermsV1; s
         <ProceedsRow label="Seller credit to buyer" cents={terms.costsAndCredits.sellerCreditCents} subtract />
         <ProceedsRow label="Seller loan payoff" cents={payoffCents} subtract />
       </dl>
-      <p className="small">{summary.closingCostEstimateComplete ? "Based on entered estimates; actual charges may differ." : "Estimate incomplete: unknown fees are excluded."} {(summary.calculationVersion === 3 || (summary.calculationVersion === 4 || summary.calculationVersion === 5)) && summary.monthlyRentBackCents ? "Monthly rent-back is separate from closing proceeds. " : ""}Prorations and charges not entered are excluded.</p>
+      <p className="small">{loiSideEstimateComplete(summary, "SELLER") ? "Based on entered estimates; actual charges may differ." : "Estimate incomplete: unknown fees are excluded."} {loiSummaryFromVersion(summary, 3) && summary.monthlyRentBackCents ? "Monthly rent-back is separate from closing proceeds. " : ""}Prorations and charges not entered are excluded. {LOI_CLOSING_COST_EXCLUSIONS}</p>
     </>;
 }
 

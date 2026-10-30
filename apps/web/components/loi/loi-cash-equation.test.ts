@@ -27,7 +27,9 @@ describe("LOI displayed cash equations", () => {
   it("keeps historical version two and negative balances intact, and hides unsupported version one equations", () => {
     const current = calculateLoiSummary(cashTerms);
     const historical: LoiComputedSummary = { calculationVersion: 2, earnestMoneyBps: current.earnestMoneyBps, earnestMoneyCents: current.earnestMoneyCents, effectivePriceAfterSellerCreditCents: current.effectivePriceAfterSellerCreditCents, loanAmountCents: current.loanAmountCents, loanToValueBps: current.loanToValueBps, remainingDownPaymentAfterDepositCents: current.remainingDownPaymentAfterDepositCents, buyerAgentCommissionCents: 123, sellerAgentCommissionCents: 456, buyerClosingCostsCents: 789, sellerClosingCostsCents: 900, buyerCashDueAtClosingCents: -123, sellerCashBeforePayoffsCents: 456, closingCostEstimateComplete: false };
-    expect(loiCashEquations(cashTerms, historical).map((equation) => equation.totalCents)).toEqual([-123, 456]);
+    // The buyer total counts the deposit; the stored balance due at closing stays exactly as frozen.
+    expect(loiCashEquations(cashTerms, historical).map((equation) => equation.totalCents)).toEqual([-123 + current.earnestMoneyCents, 456]);
+    expect(loiCashEquations(cashTerms, historical)[0].paidAs?.map((part) => part.cents)).toEqual([current.earnestMoneyCents, -123]);
     expect(loiCashEquations(cashTerms, historical)[1].rows.find((row) => row.label === "Seller closing costs")?.cents).toBe(900);
     expect(loiCashEquations(cashTerms, { calculationVersion: 1, earnestMoneyBps: current.earnestMoneyBps, earnestMoneyCents: current.earnestMoneyCents, effectivePriceAfterSellerCreditCents: current.effectivePriceAfterSellerCreditCents, loanAmountCents: current.loanAmountCents, loanToValueBps: current.loanToValueBps, remainingDownPaymentAfterDepositCents: current.remainingDownPaymentAfterDepositCents })).toEqual([]);
   });

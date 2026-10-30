@@ -649,6 +649,56 @@
   margin-top: 0;
 }
 
+/* When the total above is paid: indented parts that add up to it. */
+.loi-page .loi-summary-list > .loi-cash-paid-as {
+  border-bottom: 0;
+  padding: 4px 0 4px 16px;
+}
+
+.loi-page .loi-summary-list > .loi-cash-paid-as :is(dt, dd) {
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+
+/* Closing-cost estimates read as one question and answer per line. */
+.loi-page #loi-editor .loi-estimate-list {
+  display: grid;
+}
+
+.loi-page #loi-editor .loi-estimate-list > .field {
+  align-items: center;
+  border-bottom: 1px solid var(--line-soft);
+  column-gap: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
+  padding: 10px 0;
+}
+
+.loi-page #loi-editor .loi-estimate-list > .field > :is(.field-hint, .loi-field-error) {
+  grid-column: 1 / -1;
+}
+
+.loi-page #loi-editor .loi-estimate-list > .field-hint {
+  margin: 0;
+  padding: 6px 0 10px;
+}
+
+.loi-page #loi-editor textarea#loi-estimate-note {
+  min-height: 64px;
+}
+
+.loi-page #loi-editor .loi-estimate-exclusions {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+@media (max-width: 520px) {
+  .loi-page #loi-editor .loi-estimate-list > .field {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 6px;
+  }
+}
+
 .loi-page .loi-summary-list dt strong,
 .loi-page .loi-summary-list dd strong {
   color: var(--ink-strong);
@@ -848,6 +898,106 @@
   line-height: 24px;
   margin: 0;
   text-align: left;
+}
+
+/* Seller costs read like the proceeds breakdown: item, amount, then an optional counter. */
+.loi-page .loi-seller-ledger {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+
+.loi-page .loi-ledger {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.loi-page .loi-ledger :is(th, td) {
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 14px;
+  line-height: 20px;
+  padding: 10px 0;
+  vertical-align: middle;
+}
+
+.loi-page .loi-ledger tbody th {
+  color: var(--ink-soft);
+  font-weight: 400;
+  text-align: left;
+}
+
+.loi-page .loi-ledger-detail {
+  color: var(--ink-muted);
+  display: block;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.loi-page .loi-ledger-amount {
+  color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  padding-left: 16px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.loi-page .loi-ledger-action {
+  padding-left: 24px;
+  text-align: right;
+  width: 1%;
+}
+
+.loi-page .loi-ledger-action .button {
+  min-height: 32px;
+  padding-inline: 12px;
+}
+
+.loi-page .loi-ledger tfoot :is(th, td) {
+  border-bottom: 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink-strong);
+  font-size: 16px;
+  font-weight: 700;
+  padding-top: 12px;
+  text-align: left;
+}
+
+.loi-page .loi-ledger tfoot .loi-ledger-amount {
+  text-align: right;
+}
+
+/* Phones: item and amount share a line; the counter button sits beneath. */
+@media (max-width: 520px) {
+  .loi-page .loi-ledger tr {
+    align-items: center;
+    border-bottom: 1px solid var(--line-soft);
+    column-gap: 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 10px 0;
+  }
+
+  .loi-page .loi-ledger :is(th, td) {
+    border: 0;
+    padding: 0;
+  }
+
+  .loi-page .loi-ledger td:empty {
+    display: none;
+  }
+
+  .loi-page .loi-ledger .loi-ledger-action {
+    grid-column: 1 / -1;
+    padding-top: 8px;
+    text-align: left;
+    width: auto;
+  }
+
+  .loi-page .loi-ledger tfoot tr {
+    border-bottom: 0;
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+  }
 }
 
 .loi-recalculated-head {

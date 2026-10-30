@@ -5,7 +5,9 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import * as validators from "@liber/validators";
 import { calculateLoiSummary, loiComputedSummaryV1Schema, type LoiComputedSummary, type LoiTermsV1 } from "@liber/validators";
+import * as editorValues from "./loi-editor-values";
 import { loiFeeBreakdown } from "./loi-fee-breakdown";
 import { formatLoiMoney } from "./loi-presentation";
 import { parseSellerLoanPayoff, sellerNetProceeds } from "./loi-seller-proceeds-values";
@@ -25,6 +27,8 @@ function renderProceeds(payoff: string, summary: LoiComputedSummary | null = cal
     : id === "./loi-fee-breakdown" ? { loiFeeBreakdown }
     : id === "./loi-presentation" ? { formatLoiMoney }
     : id === "./loi-seller-proceeds-values" ? { parseSellerLoanPayoff, sellerNetProceeds }
+    : id === "@liber/validators" ? validators
+    : id === "./loi-editor-values" ? editorValues
     : nodeRequire(id);
   new Function("require", "exports", compiled)(requireModule, exports);
   return renderToStaticMarkup(React.createElement(breakdown ? exports.LoiSellerProceedsBreakdown : exports.LoiSellerProceeds, { terms: displayedTerms, summary, payoff, showDetails: !compact }));

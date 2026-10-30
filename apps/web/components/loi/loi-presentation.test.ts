@@ -50,7 +50,7 @@ describe("LOI date hydration", () => {
   const compiledModule = compiledValues + transpileModule(
     readFileSync(new URL("./loi-presentation.ts", import.meta.url), "utf8"),
     { compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2022 } },
-  ).outputText.replace(/^import \{[^\n]+\} from "\.\/loi-editor-values";\r?$/m, "");
+  ).outputText.replace(/^import \{[^\n]+\} from "(?:\.\/loi-editor-values|@liber\/validators)";\r?$/gm, "");
 
   it.each(["UTC", "America/Los_Angeles", "Asia/Tokyo"])("keeps timestamps, DST, and invalid-date fallback stable on a %s host", (hostTimeZone) => {
     const output = execFileSync(process.execPath, ["--input-type=module", "-"], {
@@ -69,7 +69,12 @@ describe("LOI presentation registry v1", () => {
     const next = calculateLoiSummary(financedTerms);
     const rows = loiSummaryRows(next);
     expect(rows).toContainEqual(expect.objectContaining({ fieldId: "closingCostEstimateComplete", formattedValue: "Incomplete — missing fees are excluded from the subtotals" }));
-    expect(rows.find((row) => row.fieldId === "closingCostEstimateBasisV5")?.formattedValue).toContain("Mortgage payoffs and prorations are excluded");
+    const basis = rows.find((row) => row.fieldId === "closingCostEstimateBasisV6")?.formattedValue;
+    expect(basis).toContain("0.25% of the price");
+    expect(basis).toContain("Blank buyer misc. closing costs use 0.2% of the price");
+    expect(basis).toContain("Closing costs do not include property tax, homeowners insurance, or lender fees.");
+    expect(rows.find((row) => row.fieldId === "closingCostEstimateBasisV5")).toBeUndefined();
+    expect(rows).toContainEqual(expect.objectContaining({ fieldId: "buyerTotalCashNeededCents", rawValue: next.buyerCashDueAtClosingCents + next.earnestMoneyCents }));
     expect(recalculatedDiffs(old, next)).toContainEqual(expect.objectContaining({ fieldId: "buyerClosingCostsCents", from: "Not calculated in this version" }));
   });
 

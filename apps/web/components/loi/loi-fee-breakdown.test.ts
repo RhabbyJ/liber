@@ -32,11 +32,12 @@ describe("LOI itemized displayed fees", () => {
   it("lists all thirteen fee categories, allocates explicit shares and odd cents, and reconciles both totals", () => {
     const terms = completeTerms();
     const rows = expectBalanced(terms, calculateLoiSummary(terms));
-    expect(rows.map((row) => row.label)).toEqual(["Buyer agent commission", "Seller agent commission", "Escrow fees", "Title insurance", "Other closing costs", "Home warranty", "City and county transfer taxes", "Government-required retrofit items", "HOA document fees", "HOA certificate fees", "HOA transfer fees", "Included personal property", "Rent-back paid at closing"]);
+    expect(rows.map((row) => row.label)).toEqual(["Buyer agent commission", "Seller agent commission", "Escrow fees", "Title policy", "Misc. closing costs", "Home warranty", "City and county transfer taxes", "Government-required retrofit items", "HOA document fees", "HOA certificate fees", "HOA transfer fees", "Included personal property", "Rent-back paid at closing"]);
     expect(rows.find((row) => row.label === "Home warranty")).toMatchObject({ buyerCents: 250_00, sellerCents: 550_00 });
     expect(rows.find((row) => row.label === "City and county transfer taxes")).toMatchObject({ buyerCents: 51, sellerCents: 50 });
     expect(rows.find((row) => row.label === "HOA certificate fees")).toMatchObject({ buyerCents: 25_00, sellerCents: 30_00 });
     expect(rows.find((row) => row.label === "Rent-back paid at closing")).toMatchObject({ buyerCents: 0, sellerCents: 300_00 });
+    expect(rows.filter((row) => row.sellerOnly).map((row) => row.label)).toEqual(["Seller agent commission"]);
   });
 
   it.each(["BUYER", "SELLER"] as const)("moves warranty and buyer-agent commission to %s without changing the combined charge", (payer) => {
@@ -53,14 +54,14 @@ describe("LOI itemized displayed fees", () => {
     const summary = calculateLoiSummary(terms);
     const rows = expectBalanced(terms, summary);
     expect(rows.find((row) => row.label === "Escrow fees")).toMatchObject({ buyerCents: 0, sellerCents: 410_000 });
-    expect(rows.find((row) => row.label === "Title insurance")).toMatchObject({ buyerCents: 0, sellerCents: 0 });
+    expect(rows.find((row) => row.label === "Title policy")).toMatchObject({ buyerCents: 0, sellerCents: 0 });
     expect(summary.closingCostEstimateComplete).toBe(true);
   });
 
-  it("preserves omitted historical title payers and separate quotes", () => {
+  it("preserves omitted historical title payers and fills an unknown share with half the scheduled policy", () => {
     const initial = completeTerms();
     const terms: LoiTermsV1 = { ...initial, providers: { ...initial.providers, title: { choice: "LIBER_PREFERRED" } }, costsAndCredits: { ...initial.costsAndCredits, closingCostEstimates: { ...initial.costsAndCredits.closingCostEstimates!, buyerTitleInsuranceCents: 45_00, sellerTitleInsuranceCents: null } } };
-    expect(expectBalanced(terms, calculateLoiSummary(terms)).find((row) => row.label === "Title insurance")).toMatchObject({ buyerCents: 45_00, sellerCents: null });
+    expect(expectBalanced(terms, calculateLoiSummary(terms)).find((row) => row.label === "Title policy")).toMatchObject({ buyerCents: 45_00, sellerCents: 125_000 });
   });
 
   it("ignores stale excluded items and leaves monthly rent outside closing costs", () => {

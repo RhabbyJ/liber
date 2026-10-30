@@ -1,6 +1,6 @@
 "use client";
 
-import { loiCounterEditableTermsV1Schema, loiEditableTermsV1Schema, loiCounterEditableDraftTermsV1Schema, loiEditableDraftTermsV1Schema, previewLoiCalculation, type LoiCalculationIssue, type LoiComputedSummary, type LoiTermsV1 } from "@liber/validators";
+import { loiCounterEditableTermsV1Schema, loiEditableTermsV1Schema, loiCounterEditableDraftTermsV1Schema, loiEditableDraftTermsV1Schema, loiSideEstimateComplete, loiSummaryFromVersion, previewLoiCalculation, type LoiCalculationIssue, type LoiComputedSummary, type LoiTermsV1 } from "@liber/validators";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Icon } from "../icon";
@@ -11,6 +11,9 @@ import { LoiSellerProceeds, LoiSellerProceedsBreakdown } from "./loi-seller-proc
 import { parseSellerLoanPayoff, sellerNetProceeds } from "./loi-seller-proceeds-values";
 import { LoiCompletedDownload } from "./loi-completed-download";
 import { loiFeeBreakdown } from "./loi-fee-breakdown";
+import { LOI_CLOSING_COST_EXCLUSIONS } from "./loi-editor-values";
+import { loiSellerLedger, type LoiSellerLedger } from "./loi-seller-ledger";
+import { LoiReceivedCelebration } from "./loi-received-celebration";
 import "./loi-cash-callout.css";
 import "./loi-workspace.css";
 import { LoiActionBar } from "./loi-action-bar";
@@ -82,6 +85,18 @@ export function LoiWorkspace({ initialNegotiation, templateOwnerId }: { initialN
     ? history.find((revision) => revision.sequence === displayedRevision.sequence - 1) ?? null
     : null;
   const canEdit = canEditLoi(negotiation);
+  const [counterFocus, setCounterFocus] = useState<string | null>(null);
+  useEffect(() => {
+    if (!counterFocus || view.mode !== "EDITING") return;
+    // Runs after the editor renders and after the view heading scroll queued by startOrResume.
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(counterFocus);
+      target?.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "center" });
+      target?.focus({ preventScroll: true });
+      setCounterFocus(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [counterFocus, view.mode]);
 
   // One calculation per edit feeds the editor, snapshot, fee details, and action bar.
   const livePreview = useMemo(() => view.terms ? previewLoiCalculation(view.terms) : null, [view.terms]);
@@ -411,6 +426,12 @@ export function LoiWorkspace({ initialNegotiation, templateOwnerId }: { initialN
     focusWorkspaceView();
   }
 
+  function counterTerm(inputId: string) {
+    if (!canEdit) return;
+    startOrResume();
+    setCounterFocus(inputId);
+  }
+
   function enterReview() {
     if (!view.terms || view.dirty || view.draftVersion < 1 || view.staleDraft || !canEdit) {
       setError("Save the private draft before reviewing it.");
@@ -577,6 +598,8 @@ export function LoiWorkspace({ initialNegotiation, templateOwnerId }: { initialN
       <div className="loi-layout">
         <section aria-labelledby="loi-view-title" className="stack">
           <h2 className="loi-view-heading" id="loi-view-title" ref={viewHeading} tabIndex={-1}>{negotiation.status === "TERMS_ALIGNED" && view.mode !== "HISTORICAL" ? "Final terms · Read-only" : view.mode === "EDITING" ? "Draft your terms" : view.mode === "REVIEWING" ? "Review before you submit" : `LOI ${viewModeLabel(view.mode)}`}</h2>
+          {view.mode === "CURRENT" && negotiation.viewerRole === "SELLER" && canEdit && current?.sequence === 1
+            ? <LoiReceivedCelebration buyerName={current.terms.parties.buyerLegalName} priceCents={current.terms.purchasePriceCents} revisionId={current.id} /> : null}
           {view.mode === "CURRENT" && negotiation.viewerRole === "SELLER" && negotiation.allowedActions.includes("COUNTER") && current?.terms.disclosures.deathOnPropertyProvidedBy !== "SELLER" ? <section className="card stack tight loi-callout-card">
             <h3>Add your seller disclosure</h3>
             <p>The death-on-property question is yours to answer. Add your answer in a counter so the buyer can review the exact updated terms before alignment.</p>
@@ -618,6 +641,7 @@ export function LoiWorkspace({ initialNegotiation, templateOwnerId }: { initialN
             <TermsReview
               computedSummary={displayedRevision.computedSummary}
               heading={loiRevisionHeading(displayedRevision, negotiation.viewerRole)}
+              onCounter={view.mode === "CURRENT" && displayedRevision.id === current?.id && canEdit ? counterTerm : undefined}
               previousRevision={previousDisplayedRevision}
               propertySnapshot={negotiation.propertySnapshot}
               revision={displayedRevision}
@@ -762,9 +786,10 @@ function CompactDiffs({ calculatedDiffs, termDiffs }: { calculatedDiffs: LoiSema
   );
 }
 
-function TermsReview({ computedSummary, heading, previousRevision = null, propertySnapshot, responseDeadline, revision, role, terms }: {
+function TermsReview({ computedSummary, heading, onCounter, previousRevision = null, propertySnapshot, responseDeadline, revision, role, terms }: {
   computedSummary: LoiComputedSummary;
   heading: string;
+  onCounter?: (inputId: string) => void;
   previousRevision?: LoiRevision | null;
   propertySnapshot: unknown;
   responseDeadline?: string;
@@ -777,7 +802,9 @@ function TermsReview({ computedSummary, heading, previousRevision = null, proper
   const diffHeadingId = `${instanceId}-diffs`;
   const recalculatedHeadingId = `${instanceId}-recalculated`;
   const property = normalizePropertyIdentity(propertySnapshot);
-  const sections = loiTermSections(terms, role);
+  // Sellers read their costs as one priced ledger, which replaces the cost terms and calculated values.
+  const ledger = role === "SELLER" ? loiSellerLedger(terms, computedSummary) : null;
+  const sections = loiTermSections(terms, role).filter((section) => !ledger || section.title !== "Closing costs and credits");
   const termDiffs = previousRevision ? semanticTermDiffs(previousRevision.terms, terms, role) : [];
   const calculatedDiffs = previousRevision ? recalculatedDiffs(previousRevision.computedSummary, computedSummary) : [];
   return (
@@ -817,12 +844,14 @@ function TermsReview({ computedSummary, heading, previousRevision = null, proper
         ))}
       </div>
 
-      <section className="loi-recalculated stack tight" aria-labelledby={recalculatedHeadingId}>
+      {ledger ? <SellerLedger headingId={recalculatedHeadingId} ledger={ledger} onCounter={onCounter} /> : <section className="loi-recalculated stack tight" aria-labelledby={recalculatedHeadingId}>
         <div className="loi-recalculated-head"><h3 id={recalculatedHeadingId}>Calculated values</h3><span className="status-tag pending">Recalculated</span></div>
         <dl className="loi-review-grid">
-          {loiSummaryRows(computedSummary).map((row) => <div key={row.fieldId}><dt>{row.label}</dt><dd>{row.formattedValue}</dd></div>)}
+          {/* The full assumptions text stays in the PDF; on screen one short line is enough. */}
+          {loiSummaryRows(computedSummary).filter((row) => !row.fieldId.startsWith("closingCostEstimateBasis")).map((row) => <div key={row.fieldId}><dt>{row.label}</dt><dd>{row.formattedValue}</dd></div>)}
         </dl>
-      </section>
+        {computedSummary.calculationVersion === 1 ? null : <p className="field-hint">Estimates only; actual charges may differ. {LOI_CLOSING_COST_EXCLUSIONS}</p>}
+      </section>}
 
       <div className="inline-alert loi-nonbinding-notice">
         <Icon name="info" size={20} />
@@ -830,6 +859,26 @@ function TermsReview({ computedSummary, heading, previousRevision = null, proper
       </div>
     </section>
   );
+}
+
+function SellerLedger({ headingId, ledger, onCounter }: { headingId: string; ledger: LoiSellerLedger; onCounter?: (inputId: string) => void }) {
+  return <section className="loi-seller-ledger stack tight" aria-labelledby={headingId}>
+    <h3 id={headingId}>Your costs and credits</h3>
+    <table className="loi-ledger">
+      <thead className="visually-hidden"><tr><th scope="col">Item</th><th scope="col">Amount</th>{onCounter ? <th scope="col">Counter</th> : null}</tr></thead>
+      <tbody>
+        {ledger.lines.map((line) => <tr key={line.key}>
+          <th scope="row">{line.label}{line.detail ? <span className="loi-ledger-detail">{line.detail}</span> : null}</th>
+          <td className="loi-ledger-amount">{line.cents === null ? "Not estimated" : `${line.cost && line.cents !== 0 ? line.cents < 0 ? "+ " : "− " : ""}${formatLoiMoney(Math.abs(line.cents))}`}</td>
+          {onCounter ? <td className="loi-ledger-action">{line.counterInputId ? <button aria-label={`Counter: ${line.label}`} className="button secondary sm" onClick={() => onCounter(line.counterInputId!)} type="button">Counter</button> : null}</td> : null}
+        </tr>)}
+      </tbody>
+      <tfoot>
+        <tr><th scope="row">{ledger.totalLabel}</th><td className="loi-ledger-amount">{formatLoiMoney(ledger.totalCents)}</td>{onCounter ? <td /> : null}</tr>
+      </tfoot>
+    </table>
+    <p className="field-hint">{ledger.complete ? "Estimates only; actual charges may differ." : "Costs marked Not estimated are left out of the total."} {LOI_CLOSING_COST_EXCLUSIONS}</p>
+  </section>;
 }
 
 function PropertyIdentity({ property }: { property: ReturnType<typeof normalizePropertyIdentity> }) {
@@ -873,13 +922,12 @@ function Summary({ summary, terms, viewerRole = "BUYER", compact = false, detail
       <div aria-live="polite" aria-atomic="true">
         <p className="loi-cash-callout-label">Estimated total cash needed</p>
         <strong className="loi-cash-callout-amount">{formatLoiMoney(summary.buyerCashDueAtClosingCents + summary.earnestMoneyCents)}</strong>
-        <p className="loi-cash-callout-caption">Includes your deposit and entered closing fees</p>
+        <p className="loi-cash-callout-caption">Down payment and closing costs. Your deposit is part of this total.</p>
       </div>
       <dl className="loi-cash-callout-breakdown">
-        <div><dt>Earnest-money deposit</dt><dd>{formatLoiMoney(summary.earnestMoneyCents)}</dd></div>
-        <div><dt>Expected cash to close<br /><span className="muted small">Remaining balance</span></dt><dd>{formatLoiMoney(summary.buyerCashDueAtClosingCents)}</dd></div>
+        <div><dt>Earnest-money deposit<br /><span className="muted small">Paid after acceptance</span></dt><dd>{formatLoiMoney(summary.earnestMoneyCents)}</dd></div>
+        <div><dt>Balance due at closing</dt><dd>{formatLoiMoney(summary.buyerCashDueAtClosingCents)}</dd></div>
       </dl>
-      <p className="field-hint">Deposit + remaining closing balance. If your deposit is already paid, use the remaining balance.</p>
     </section> : null}
     {!detailsOnly ? <dl className="loi-summary-list">
       <div><dt>Purchase price</dt><dd>{formatLoiMoney(terms.purchasePriceCents)}</dd></div>
@@ -891,24 +939,25 @@ function Summary({ summary, terms, viewerRole = "BUYER", compact = false, detail
     {!compact && summary.calculationVersion !== 1 ? <section className="stack tight" aria-label={isBuyer ? "Buyer fee estimates" : "Seller fee estimates"}>
       <h3>{isBuyer ? "Your buyer fees" : "Your seller fees"}</h3>
       <dl className="loi-summary-list">
-        {loiFeeBreakdown(terms, summary).map((row) => {
+        {loiFeeBreakdown(terms, summary).filter((row) => !(isBuyer && row.sellerOnly)).map((row) => {
           const cents = isBuyer ? row.buyerCents : row.sellerCents;
           return <div key={row.label}><dt>{row.label}</dt><dd>{cents === null ? "Not estimated" : formatLoiMoney(cents)}</dd></div>;
         })}
         <div><dt><strong>{isBuyer ? "Buyer closing-cost estimate" : "Seller closing-cost estimate"}</strong></dt><dd><strong>{formatLoiMoney(isBuyer ? summary.buyerClosingCostsCents : summary.sellerClosingCostsCents)}</strong></dd></div>
       </dl>
-      <p className="field-hint">Your share only. Fees paid by the other party show $0.00. {(summary.calculationVersion === 4 || summary.calculationVersion === 5) ? "Escrow includes the scheduled fee unless you enter a quote." : "Escrow reflects the quotes stored with this version."}</p>
+      <p className="field-hint">Your share only. Fees paid by the other party show $0.00. {loiSummaryFromVersion(summary, 6) ? isBuyer ? "Blank escrow, title, and misc. costs use our estimates." : "Blank escrow and title costs use our estimates." : loiSummaryFromVersion(summary, 4) ? "Escrow includes the scheduled fee unless you enter a quote." : "Escrow reflects the quotes stored with this version."}</p>
     </section> : null}
     {!compact ? loiCashEquations(terms, summary).filter((equation) => equation.label === (isBuyer ? "Buyer cash calculation" : "Seller cash calculation")).map((equation) => <section className="stack tight" aria-label={equation.label} key={equation.label}>
       <h3>{equation.label}</h3>
       <dl className="loi-summary-list">
         {equation.rows.map((row) => <div key={row.label}><dt>{row.label}</dt><dd>{row.operator} {formatLoiMoney(row.cents)}</dd></div>)}
         <div><dt><strong>{equation.totalLabel}</strong></dt><dd><strong>= {formatLoiMoney(equation.totalCents)}</strong></dd></div>
+        {equation.paidAs?.map((part) => <div className="loi-cash-paid-as" key={part.label}><dt>{part.label}</dt><dd>{formatLoiMoney(part.cents)}</dd></div>)}
       </dl>
     </section>) : null}
-    {!compact && (summary.calculationVersion === 3 || (summary.calculationVersion === 4 || summary.calculationVersion === 5)) && summary.monthlyRentBackCents ? <p className="small">Monthly rent-back (separate from {isBuyer ? "closing cash" : "proceeds"}): {formatLoiMoney(summary.monthlyRentBackCents)}</p> : null}
-    {compact && summary.calculationVersion !== 1 && !summary.closingCostEstimateComplete ? <p className="field-hint">Estimate incomplete. Add remaining fees below.</p> : null}
-    {!compact && summary.calculationVersion !== 1 ? <p className="small">{summary.closingCostEstimateComplete ? "Based on your provided estimates; actual charges may differ." : "Estimates incomplete. Missing fees are excluded from these subtotals."} {isBuyer ? "Your cash calculation credits the deposit and seller credit once." : "Your proceeds subtract your fees, seller credit, and any seller-financed principal. Existing loan payoffs are separate."} Prorations and charges not entered are excluded. A negative balance is a modeled credit, subject to lender and escrow approval.</p> : null}
+    {!compact && loiSummaryFromVersion(summary, 3) && summary.monthlyRentBackCents ? <p className="small">Monthly rent-back (separate from {isBuyer ? "closing cash" : "proceeds"}): {formatLoiMoney(summary.monthlyRentBackCents)}</p> : null}
+    {compact && summary.calculationVersion !== 1 && !loiSideEstimateComplete(summary, viewerRole) ? <p className="field-hint">Estimate incomplete. Add remaining fees below.</p> : null}
+    {!compact && summary.calculationVersion !== 1 ? <p className="small">{loiSideEstimateComplete(summary, viewerRole) ? "Estimates only; actual charges may differ." : "Some of your fees are not estimated yet and are left out."} {LOI_CLOSING_COST_EXCLUSIONS} {isBuyer ? "" : "Your proceeds subtract your fees, seller credit, and any seller-financed principal. Existing loan payoffs are separate. "}Prorations are excluded. A negative balance is a modeled credit, subject to lender and escrow approval.</p> : null}
   </div>;
 }
 

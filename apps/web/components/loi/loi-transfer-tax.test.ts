@@ -13,7 +13,7 @@ describe("LA City transfer-tax schedule",()=>{
  });
  it.each([0,-1,1.5,10_000_000_001])("rejects invalid price %s",price=>{expect(calculateLoiLaCityTransferTaxes(price)).toBeNull();expect(calculateLoiPreview(terms(price))).toBeNull();});
  it("adds base taxes and per-side escrow once, ignoring a retained quote in rate mode",()=>{
-  const value=terms();expect(calculateLoiSummary(value)).toMatchObject({calculationVersion:5,buyerEscrowCents:205_000,sellerEscrowCents:205_000,buyerTransferTaxCents:0,sellerTransferTaxCents:560_000,sellerItemizedCostsCents:560_000,buyerClosingCostsCents:205_000,sellerClosingCostsCents:765_000,buyerCashDueAtClosingCents:97_205_000,sellerCashBeforePayoffsCents:99_235_000,closingCostEstimateComplete:true});
+  const value=terms();expect(calculateLoiSummary(value)).toMatchObject({calculationVersion:6,buyerEscrowCents:205_000,sellerEscrowCents:205_000,buyerTransferTaxCents:0,sellerTransferTaxCents:560_000,sellerItemizedCostsCents:560_000,buyerClosingCostsCents:205_000,sellerClosingCostsCents:765_000,buyerCashDueAtClosingCents:97_205_000,sellerCashBeforePayoffsCents:99_235_000,closingCostEstimateComplete:true});
   const fees=loiFeeBreakdown(value,calculateLoiSummary(value));expect(fees.find(row=>row.label==="City and county transfer taxes")).toMatchObject({buyerCents:0,sellerCents:560_000});
   expect(fees.some(row=>row.label==="Stored estimate adjustment")).toBe(false);
   expect(loiTermSections(value,"BUYER").flatMap(section=>section.rows).some(row=>row.fieldId.includes("itemizedCosts.transferTaxes"))).toBe(false);
@@ -62,11 +62,12 @@ describe("LA City transfer-tax schedule",()=>{
  });
  it("keeps frozen V4/V5 summaries and fees authoritative in history",()=>{
   const value=terms(),current=calculateLoiSummary(value);
-  const keys=new Set(["transferTaxSchedule","laCountyTransferTaxCents","laCityTransferTaxCents","measureUlaCents","measureUlaRateBps","buyerTransferTaxCents","sellerTransferTaxCents"]);
+  const v6Keys=new Set(["titlePolicyEstimateCents", "miscClosingCostEstimateCents", "buyerTitleInsuranceCents", "sellerTitleInsuranceCents", "buyerOtherClosingCostsCents", "sellerOtherClosingCostsCents", "buyerClosingCostEstimateComplete", "sellerClosingCostEstimateComplete"]);
+  const keys=new Set([...v6Keys,"transferTaxSchedule","laCountyTransferTaxCents","laCityTransferTaxCents","measureUlaCents","measureUlaRateBps","buyerTransferTaxCents","sellerTransferTaxCents"]);
   const old={...Object.fromEntries(Object.entries(current).filter(([key])=>!keys.has(key))),calculationVersion:4};
   expect(loiComputedSummaryV4Schema.parse(old)).toEqual(old);
-  const stored={...current,laCountyTransferTaxCents:123,sellerTransferTaxCents:456};expect(loiComputedSummaryV5Schema.parse(stored)).toEqual(stored);
-  const changed=terms(600_000_000);expect(loiFeeBreakdown(changed,stored).find(row=>row.label==="City and county transfer taxes")?.sellerCents).toBe(456);
+  const stored={...Object.fromEntries(Object.entries(current).filter(([key])=>!v6Keys.has(key))),calculationVersion:5,laCountyTransferTaxCents:123,sellerTransferTaxCents:456};expect(loiComputedSummaryV5Schema.parse(stored)).toEqual(stored);
+  const changed=terms(600_000_000);expect(loiFeeBreakdown(changed,loiComputedSummaryV5Schema.parse(stored)).find(row=>row.label==="City and county transfer taxes")?.sellerCents).toBe(456);
  });
  it("does not transfer an LA jurisdiction choice through a reusable template",()=>{
   const source=terms();const template=createLoiTemplate({id:"11111111-1111-4111-8111-111111111111",name:"Fixture",terms:source,now:"2026-10-07T12:00:00.000Z"});

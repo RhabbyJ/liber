@@ -13,6 +13,7 @@ import {
   loiComputedSummaryV3Schema,
   loiComputedSummaryV4Schema,
   loiComputedSummaryV5Schema,
+  loiComputedSummaryV6Schema,
   loiNegotiationIdSchema,
   parseLoiEditableTerms,
   parseLoiDraftTerms,
@@ -697,6 +698,7 @@ function decodeSummary(version: number, value: unknown) {
   if (version === 3) return loiComputedSummaryV3Schema.parse(value);
   if (version === 4) return loiComputedSummaryV4Schema.parse(value);
   if (version === 5) return loiComputedSummaryV5Schema.parse(value);
+  if (version === 6) return loiComputedSummaryV6Schema.parse(value);
   throw loiUnavailable();
 }
 

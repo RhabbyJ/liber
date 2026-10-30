@@ -12,6 +12,7 @@ import * as editorValues from "./loi-editor-values";
 import * as commissionValues from "./commission-amount-value";
 import * as moneyInput from "./loi-money-input";
 import { loiPresentationInputIds } from "./loi-presentation";
+import { loiSellerLedger } from "./loi-seller-ledger";
 import { cashTerms, financedTerms } from "./loi-test-fixtures.test-helper";
 
 // This workspace preserves JSX for Next; compile this component for real SSR assertions.
@@ -57,7 +58,37 @@ async function editorControlIds() {
 }
 
 describe("LOI editor and presentation registry", () => {
-  const render = (terms: LoiTermsV1) => renderToStaticMarkup(createElement(LoiEditor, { terms, fieldErrors: {}, preview: validators.previewLoiCalculation(terms), update: () => undefined }));
+  // True when the element with this id, or a fieldset around it, is disabled in the static markup.
+  const isDisabled = (html: string, id: string) => {
+    const index = html.indexOf(`id="${id}"`);
+    expect(index, id).toBeGreaterThan(-1);
+    const open: boolean[] = [];
+    for (const match of html.slice(0, index).matchAll(/<fieldset\b([^>]*)>|<\/fieldset>/g)) {
+      if (match[0].startsWith("</")) open.pop();
+      else open.push(/\sdisabled=""/.test(match[1] ?? ""));
+    }
+    const tag = html.slice(html.lastIndexOf("<", index), html.indexOf(">", index));
+    return open.some(Boolean) || /\sdisabled=""/.test(tag);
+  };
+
+  it.each([true, false])("points every seller ledger counter at an editable counter field (customary costs %s)", (customaryClosingCosts) => {
+    const terms: LoiTermsV1 = {
+      ...cashTerms,
+      possession: { type: "SELLER_RENT_BACK", days: 14, amountCents: 300_000, frequency: "THROUGH_ESCROW" },
+      hoa: { certificateFeePayer: "SELLER", documentFeePayer: "SELLER", transferFeePayer: "SELLER" },
+      personalProperty: { ...cashTerms.personalProperty, included: true, includedItems: ["Washer"], payer: "SELLER" },
+      representation: { agent: { company: "", email: "agent@example.test", license: "", name: "Agent", phone: "" }, buyerRepresented: true, commissionAmount: "2%", commissionPayer: "SELLER" },
+      costsAndCredits: { ...cashTerms.costsAndCredits, customaryClosingCosts, closingCostPayers: customaryClosingCosts ? undefined : { transferTaxes: "SELLER", governmentRetrofitItems: "SELLER" }, sellerCreditCents: 100_000, sellerCreditIncluded: true, homeWarranty: { company: "Warranty Co", included: true, maximumCents: 60_000, payer: "SELLER", payerNote: "", specialInclusions: "" } },
+    };
+    const ledger = loiSellerLedger(terms, validators.calculateLoiSummary(terms))!;
+    const html = renderToStaticMarkup(createElement(LoiEditor, { terms, counterBaseTerms: terms, mode: "COUNTER", fieldErrors: {}, preview: validators.previewLoiCalculation(terms), update: () => undefined, viewerRole: "SELLER" }));
+    const targets = ledger.lines.flatMap((line) => line.counterInputId ? [line.counterInputId] : []);
+    expect(targets.length).toBeGreaterThanOrEqual(12);
+    for (const id of targets) expect(isDisabled(html, id), id).toBe(false);
+    expect(targets).toContain("loi-agent-commission");
+  });
+
+  const render = (terms: LoiTermsV1, viewerRole: "BUYER" | "SELLER" = "BUYER") => renderToStaticMarkup(createElement(LoiEditor, { terms, fieldErrors: {}, preview: validators.previewLoiCalculation(terms), update: () => undefined, viewerRole }));
 
   it("leaves an absent starter offer price blank and tells the buyer what to enter", () => {
     const html = render({ ...cashTerms, purchasePriceCents: 0 });
@@ -67,14 +98,15 @@ describe("LOI editor and presentation registry", () => {
     expect(validators.loiEditableTermsV1Schema.safeParse({ ...cashTerms, purchasePriceCents: 0 }).success).toBe(false);
   });
 
-  it("states the City of LA seller-only ULA rule and asks for a separate ULA quote only in quoted mode", () => {
-    const quoted = render({ ...cashTerms, purchasePriceCents: 600_000_000, costsAndCredits: { ...cashTerms.costsAndCredits, transferTaxSchedule: "MANUAL" } });
-    expect(quoted).toContain("Measure ULA applies only inside the City of Los Angeles and is always charged to the seller:");
-    expect(quoted).toContain("4.0% of the full price for sales above $5,400,000 and below $10,900,000; 5.5% at $10,900,000 or above.");
-    expect(quoted).toContain('id="loi-estimate-seller-ula"');
-    const scheduled = render({ ...cashTerms, purchasePriceCents: 600_000_000, costsAndCredits: { ...cashTerms.costsAndCredits, transferTaxSchedule: "LA_CITY_2026_2027" } });
-    expect(scheduled).not.toContain('id="loi-estimate-seller-ula"');
-    expect(scheduled).toContain("seller ULA $240,000.00 (4.0%).");
+  it("asks only the seller for a Measure ULA quote and shows scheduled LA City taxes", () => {
+    const quoted: LoiTermsV1 = { ...cashTerms, purchasePriceCents: 600_000_000, costsAndCredits: { ...cashTerms.costsAndCredits, transferTaxSchedule: "MANUAL" } };
+    expect(render(quoted, "SELLER")).toContain('id="loi-estimate-seller-ula"');
+    expect(render(quoted)).not.toContain('id="loi-estimate-seller-ula"');
+    const scheduled: LoiTermsV1 = { ...quoted, costsAndCredits: { ...quoted.costsAndCredits, transferTaxSchedule: "LA_CITY_2026_2027" } };
+    const seller = render(scheduled, "SELLER");
+    expect(seller).not.toContain('id="loi-estimate-seller-ula"');
+    expect(seller).toContain("County $6,600.00 · City $27,000.00 · Measure ULA $240,000.00.");
+    expect(render(scheduled)).toContain("County $6,600.00 · City $27,000.00. Only for sales inside City of Los Angeles limits.");
   });
 
   it("offers Buyer, Seller, and Other for warranty and asks legacy each-own drafts to choose a payer", () => {
@@ -103,16 +135,21 @@ describe("LOI editor and presentation registry", () => {
     expect(noOther).not.toContain('id="loi-estimate-other-excludes-itemized"');
   });
 
-  it("renders customary seller estimates, separate each-own HOA amounts, and only additional personal-property charges", () => {
+  it("shows each party only its own itemized costs, with separate each-own HOA shares", () => {
     const terms: LoiTermsV1 = { ...cashTerms, hoa: { ...cashTerms.hoa, certificateFeePayer: "EACH_OWN" }, personalProperty: { ...cashTerms.personalProperty, included: true, includedItems: ["Washer"] }, costsAndCredits: { ...cashTerms.costsAndCredits, closingCostEstimates: { buyerEscrowCents: 0, sellerEscrowCents: 0, buyerTitleInsuranceCents: 0, sellerTitleInsuranceCents: 0, buyerOtherClosingCostsCents: 0, sellerOtherClosingCostsCents: 0, sellerAgentCommissionAmount: "0", note: "", itemizedCosts: { transferTaxes: { amountCents: 500_00 }, hoaCertificate: { buyerCents: 25_00, sellerCents: 0 }, personalProperty: { amountCents: 0 } } } } };
-    const html = render(terms);
-    expect(html).toContain("City and county transfer taxes estimate (seller pays)");
-    expect(html).toContain('id="loi-estimate-hoa-certificate-buyer"');
-    expect(html).toContain('id="loi-estimate-hoa-certificate-seller"');
-    expect(html).not.toContain('id="loi-estimate-hoa-certificate"');
-    expect(html).not.toContain('id="loi-estimate-hoa-document"');
-    expect(html).toContain("Enter 0 when they are already included in the purchase price");
-    for (const { inputId, fieldId } of loiPresentationInputIds(terms).filter((field) => field.fieldId.includes(".itemizedCosts."))) expect(html.includes(`id="${inputId}"`), fieldId).toBe(true);
+    const buyer = render(terms);
+    const seller = render(terms, "SELLER");
+    expect(buyer).not.toContain('id="loi-estimate-transfer-taxes"');
+    expect(seller).toContain('id="loi-estimate-transfer-taxes"');
+    expect(buyer).toContain('id="loi-estimate-hoa-certificate-buyer"');
+    expect(buyer).not.toContain('id="loi-estimate-hoa-certificate-seller"');
+    expect(seller).toContain('id="loi-estimate-hoa-certificate-seller"');
+    for (const html of [buyer, seller]) {
+      expect(html).not.toContain('id="loi-estimate-hoa-certificate"');
+      expect(html).not.toContain('id="loi-estimate-hoa-document"');
+    }
+    expect(seller).toContain("Enter 0 if included in the price.");
+    for (const { inputId, fieldId } of loiPresentationInputIds(terms).filter((field) => field.fieldId.includes(".itemizedCosts."))) expect(buyer.includes(`id="${inputId}"`) || seller.includes(`id="${inputId}"`), fieldId).toBe(true);
   });
 
   it("offers death-on-property input only to the seller and shows the seller's answer read-only for a buyer", () => {
@@ -125,17 +162,26 @@ describe("LOI editor and presentation registry", () => {
     expect(seller).toContain("Seller disclosure: death on the property");
   });
 
-  it("leaves fee estimates blank, distinguishes zero, and follows the proposed escrow payer", () => {
+  it("shows each party only its own costs, with scheduled estimates as placeholders and the exclusions disclaimer", () => {
     const initial = render(cashTerms);
-    expect(initial).toContain("$300 base + $1.75 per $1,000");
-    expect(initial).toContain('placeholder="Not estimated"');
     expect(initial).not.toContain('id="loi-estimate-buyer-escrow"');
-    const updated = render({ ...cashTerms, providers: { ...cashTerms.providers, escrow: { choice: "LIBER_PREFERRED", feePayer: "EACH_OWN" } }, costsAndCredits: { ...cashTerms.costsAndCredits, closingCostEstimates: { buyerEscrowCents: 0, sellerEscrowCents: null, buyerTitleInsuranceCents: 0, sellerTitleInsuranceCents: 300_00, buyerOtherClosingCostsCents: null, sellerOtherClosingCostsCents: null, sellerAgentCommissionAmount: "2%", note: "Pending quote" } } });
-    expect(updated).toContain('id="loi-estimate-buyer-escrow"');
-    expect(updated).toContain('id="loi-estimate-seller-escrow"');
-    expect(updated).toContain('value="2"');
-    expect(updated).toContain('aria-label="Seller agent commission estimate unit"');
-    expect(updated).toContain("Pending quote");
+    expect(initial).not.toContain('id="loi-estimate-buyer-title"');
+    expect(initial).toContain('placeholder="Est. $2,000.00 · 0.2%"');
+    expect(initial).toContain("Closing costs do not include property tax, homeowners insurance, or lender fees.");
+    expect(initial).not.toContain('id="loi-estimate-seller-commission"');
+    expect(initial).not.toContain('id="loi-estimate-seller-other"');
+    const shared: LoiTermsV1 = { ...cashTerms, providers: { escrow: { choice: "LIBER_PREFERRED", feePayer: "EACH_OWN" }, title: { choice: "LIBER_PREFERRED", feePayer: "EACH_OWN" } }, costsAndCredits: { ...cashTerms.costsAndCredits, closingCostEstimates: { buyerEscrowCents: 0, sellerEscrowCents: null, buyerTitleInsuranceCents: null, sellerTitleInsuranceCents: 300_00, buyerOtherClosingCostsCents: null, sellerOtherClosingCostsCents: null, sellerAgentCommissionAmount: "2%", note: "Pending quote" } } };
+    const buyer = render(shared);
+    expect(buyer.match(/<input[^>]*id="loi-estimate-buyer-escrow"[^>]*>/)?.[0]).not.toContain('value=""');
+    expect(buyer).toContain('placeholder="Est. $1,250.00 · 0.25%"');
+    expect(buyer).not.toContain('id="loi-estimate-seller-escrow"');
+    expect(buyer).not.toContain('id="loi-estimate-seller-commission"');
+    expect(buyer).toContain("Pending quote");
+    const seller = render(shared, "SELLER");
+    expect(seller).toContain('placeholder="Est. $2,050.00"');
+    expect(seller).toContain('id="loi-estimate-seller-commission"');
+    expect(seller).toContain('value="2"');
+    expect(seller).not.toContain('id="loi-estimate-buyer-escrow"');
   });
 
   it("shows explicit appraisal and seller-credit questions, revealing details only when selected", () => {

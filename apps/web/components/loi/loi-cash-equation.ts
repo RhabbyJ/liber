@@ -1,29 +1,35 @@
-import type { LoiComputedSummary, LoiTermsV1 } from "@liber/validators";
+import { loiSummaryFromVersion, type LoiComputedSummary, type LoiTermsV1 } from "@liber/validators";
 
 export type LoiCashEquation = {
   label: string;
   rows: { label: string; operator: "" | "+" | "−"; cents: number }[];
   totalLabel: string;
   totalCents: number;
+  // When the total is paid; the parts add up to the total.
+  paidAs?: { label: string; cents: number }[];
 };
 
 // Use the displayed summary, including immutable historical figures. Never
 // recalculate a submitted revision with a newer calculation version.
 export function loiCashEquations(terms: LoiTermsV1, summary: LoiComputedSummary): LoiCashEquation[] {
   if (summary.calculationVersion === 1) return [];
-  const rentBack = (summary.calculationVersion === 3 || (summary.calculationVersion === 4 || summary.calculationVersion === 5)) ? summary.rentBackAtClosingCents : 0;
+  const rentBack = loiSummaryFromVersion(summary, 3) ? summary.rentBackAtClosingCents : 0;
   return [
     {
       label: "Buyer cash calculation",
       rows: [
         { label: "Down payment / cash purchase", operator: "", cents: terms.purchasePriceCents - summary.loanAmountCents },
-        { label: "Earnest-money deposit", operator: "−", cents: summary.earnestMoneyCents },
         { label: "Buyer closing costs", operator: "+", cents: summary.buyerClosingCostsCents },
         { label: "Seller credit", operator: "−", cents: terms.costsAndCredits.sellerCreditCents },
         ...(rentBack ? [{ label: "Rent-back received at closing", operator: "−" as const, cents: rentBack }] : []),
       ],
-      totalLabel: "Expected cash to close",
-      totalCents: summary.buyerCashDueAtClosingCents,
+      // The deposit is part of the down payment, so it counts toward the total rather than adding to it.
+      totalLabel: "Estimated total cash needed",
+      totalCents: summary.buyerCashDueAtClosingCents + summary.earnestMoneyCents,
+      paidAs: [
+        { label: "Earnest-money deposit, paid after acceptance", cents: summary.earnestMoneyCents },
+        { label: "Balance due at closing", cents: summary.buyerCashDueAtClosingCents },
+      ],
     },
     {
       label: "Seller cash calculation",

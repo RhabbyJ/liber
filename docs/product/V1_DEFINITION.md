@@ -580,13 +580,15 @@ buyer and agent identity, property binding, price, deposit, funding, and seller
 disclosures. Counter templates respect the existing locked terms. Applied
 terms are unsaved edits that must pass the normal save and exact-draft review
 before submission. Users must review carried-over amounts for the new deal.
-The calculator labels the buyer's remaining amount Expected cash to close.
+The calculator's buyer total is Estimated total cash needed: down payment plus
+buyer closing costs, minus credits. The earnest-money deposit is part of that
+total, shown with the balance due at closing.
 Every draft edit updates the calculator immediately, including amounts typed
 with `$` or commas. Conflicting amounts (for example a down payment above the
 price) are flagged at the field and in the calculator instead of hiding it.
 On phones the key total also stays visible in the bottom action bar.
-It updates immediately from valid draft inputs, subtracting the deposit and
-seller credits and adding the expenses allocated to the buyer. Unknown costs
+It updates immediately from valid draft inputs, subtracting seller credits and
+adding the expenses allocated to the buyer. Unknown costs
 remain excluded and marked incomplete; historical stored values stay unchanged.
 After submitting an LOI or counter, the sender sees a primary Back to messages
 button linking to that negotiation's conversation. It remains available after
@@ -649,12 +651,14 @@ Messages may link to the workspace but cannot contain
 authoritative LOI terms or mutate LOI state.
 
 The September 25 meeting approves an optional closing-cost estimate section.
-Escrow uses the supplied $300 plus $1.75 per $1,000 per-side schedule. Title
-and other fee estimates use received quotes. Dollar/percentage
+Escrow uses the supplied $300 plus $1.75 per $1,000 per-side schedule. A blank
+title estimate uses one policy at 0.25% of the price, and blank buyer misc.
+closing costs use 0.2% of the price; entered quotes replace either estimate.
+Closing costs do not include property tax, homeowners insurance, or lender fees. Dollar/percentage
 commissions and buyer/seller fee allocations feed clearly labeled estimated
 closing-cost and cash summaries. Unknown fees stay distinct from explicit zero;
 shared LOI summaries exclude seller mortgage payoffs and prorations. New submitted revisions
-store calculation version 4; historical version 1, 2 and 3 summaries are never recomputed.
+store calculation version 6; historical version 1–5 summaries are never recomputed.
 Changing the escrow payer preserves the entered escrow estimate and charges it
 to that party's estimated closing costs. Recommended customary allocation shows
 Seller for city/county transfer taxes and government-required retrofit items;
@@ -669,7 +673,8 @@ Fee estimates are expanded by default. The live snapshot identifies the buyer
 agent commission payer and shows numeric buyer/seller cash equations using the
 displayed summary. All entered commission and fee allocations update these
 equations immediately. Switching Each Own escrow fees to one payer combines quotes and scheduled
-unquoted shares. Title still requires both quoted shares for a known total.
+unquoted shares. Switching Each Own title to one payer keeps a full combined quote, or falls back
+to the 0.25% policy estimate when either share was unknown.
 
 The seller has a private loan-payoff box and a live Net proceeds calculator.
 It lists the seller's share of every fee, seller credits, and closing rent-back,
@@ -817,3 +822,7 @@ LA City transfer-tax estimates, October 7, 2026: Calculation version 5 adds an o
 Rate sources verified October 7, 2026: [Los Angeles Office of Finance — Real Property Transfer Tax and Measure ULA FAQ](https://finance.lacity.gov/faq/measure-ula), [Los Angeles County Recorder — Documentary Transfer Tax](https://www.lavote.gov/home/recorder/property-document-recording/documentary-transfer-taxes). These rates are estimates for the selected taxable-price assumption; Liber does not determine jurisdiction, exemptions or actual closing tax liability.
 
 Measure ULA seller rule, October 14, 2026: Measure ULA is shown everywhere as City of Los Angeles only and always charged to the seller: 4.0% of the full price for sales above $5,400,000 and below $10,900,000; 5.5% at $10,900,000 or above; none at exactly $5,400,000 or less. LA City rate mode also shows the applied ULA rate in the summary. Quoted mode no longer folds ULA into the combined transfer-tax quote: the optional `closingCostEstimates.sellerMeasureUlaCents` field holds a separate ULA quote that is always allocated to the seller, regardless of the base transfer-tax payer, and is ignored while LA City rates are selected. Terms, review diffs, summaries, the fee ledger and the PDF show the ULA amount; reusable templates drop the quote and keep the target LOI's own value. Calculation version stays 5: summaries without the field are unchanged, and frozen revisions are never recomputed. No database migration, environment or dependency change.
+
+Buyer LOI simplification (CEO feedback), October 29, 2026: New LOI calculations use version 6. A blank title estimate uses one title policy at 0.25% of the price for the title payer, split evenly for Each pays own with the odd cent on the buyer; a blank buyer misc. closing-cost field uses 0.2% of the price. Entered quotes replace these schedules and 0 still means no charge; blank seller misc. costs stay unknown. Version 6 freezes the resolved title and misc amounts with the scheduled values and adds buyer- and seller-side completeness flags, so a blank seller estimate no longer marks the buyer's figures incomplete. The buyer cash card and Buyer cash calculation show the deposit as part of Estimated total cash needed (down payment plus buyer closing costs, minus seller credit and through-escrow rent-back), split into the earnest-money deposit paid after acceptance and the balance due at closing; the underlying math is unchanged. The Closing-cost estimates section shows one short line per cost for the viewer's own side, with the scheduled estimate as the placeholder, and drops the explanatory paragraphs. Buyers no longer see the seller agent commission estimate or its $0 fee row; the buyer agent commission stays in section 6. Editor, summaries, seller proceeds and the stored assumptions state that closing costs do not include property tax, homeowners insurance, or lender fees. Version 1–5 summaries keep their stored values and decoders. No database migration, environment or dependency change.
+
+Seller LOI cost ledger (CEO feedback), October 29, 2026: In the seller view of any LOI version with calculated costs, a Your costs and credits ledger replaces the Closing costs and credits terms and the Calculated values list. It uses the seller proceeds breakdown layout: purchase price, then each seller cost or credit with its amount, then Your cash before loan payoff, which always equals the stored seller cash. Lines that cost the seller nothing in this deal are left out (for example a buyer-paid commission, Measure ULA at or below its threshold, rent-back that is not paid through escrow, and explicit $0 estimates); unknown estimates stay as Not estimated. On the current version, when the seller may counter, a third column offers Counter on each line whose term can change in a counter; it opens the existing counter draft and focuses that term. Funding and Measure ULA have no counter. Who may counter, alternation, and immutability are unchanged. The transfer-tax term now reads as a plain description of the amount and payer, for example "County and city tax on the sale price, at City of Los Angeles rates · seller pays". On screen the long estimate-assumptions text is replaced by one short line; the PDF keeps the full text. When a seller first opens a received initial LOI, a small New offer card with a one-time confetti burst appears; it is remembered per version in the browser, skips motion under prefers-reduced-motion, and is turned off with `LOI_RECEIVED_CELEBRATION_ENABLED` in `components/loi/loi-received-celebration.tsx`. No calculation, database, environment or dependency change.

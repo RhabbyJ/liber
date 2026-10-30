@@ -22,7 +22,7 @@ function completeTerms(): LoiTermsV1 {
 
 function summary(terms: LoiTermsV1) {
   const result = calculateLoiPreview(terms);
-  if (!result || result.calculationVersion !== 5) throw new Error("Expected current live financial preview.");
+  if (!result || result.calculationVersion !== 6) throw new Error("Expected current live financial preview.");
   return result;
 }
 
@@ -92,8 +92,9 @@ describe("live LOI payer cash math", () => {
     expectMovedExpense(buyer, seller, -260_000);
     expect(summary(buyer).closingCostEstimateComplete).toBe(true);
     const separate = change(seller, "EACH_OWN");
-    expect(summary(separate).closingCostEstimateComplete).toBe(kind === "escrow");
-    expect(summary(separate).buyerClosingCostsCents).toBe(kind === "escrow" ? 205_000 : 0);
+    // A blank share uses the schedule: one escrow fee per side, or half of the 0.25% title policy.
+    expect(summary(separate).closingCostEstimateComplete).toBe(true);
+    expect(summary(separate).buyerClosingCostsCents).toBe(kind === "escrow" ? 205_000 : 125_000);
     expect(summary(separate).sellerClosingCostsCents).toBe(260_000);
   });
 
@@ -107,13 +108,14 @@ describe("live LOI payer cash math", () => {
       const sellerKey = kind === "escrow" ? "sellerEscrowCents" : "sellerTitleInsuranceCents";
       estimates[buyerKey] = unknownBuyer ? null : 120_000;
       estimates[sellerKey] = unknownBuyer ? 140_000 : null;
-      expect(summary(terms).closingCostEstimateComplete).toBe(kind === "escrow");
+      expect(summary(terms).closingCostEstimateComplete).toBe(true);
       const moved = kind === "escrow"
         ? updateLoiEscrowProvider(terms, { ...terms.providers.escrow, feePayer: payer })
         : updateLoiTitleFeePayer(terms, payer);
       const combined = kind === "escrow" ? 205_000 + (unknownBuyer ? 140_000 : 120_000) : null;
       expect(moved.costsAndCredits.closingCostEstimates).toMatchObject({ [buyerKey]: payer === "BUYER" ? combined : null, [sellerKey]: payer === "SELLER" ? combined : null });
-      expect(summary(moved)).toMatchObject({ buyerClosingCostsCents: payer === "BUYER" ? combined ?? 0 : 0, sellerClosingCostsCents: payer === "SELLER" ? combined ?? 0 : 0, closingCostEstimateComplete: kind === "escrow" });
+      // A cleared title quote falls back to the full 0.25% policy estimate.
+      expect(summary(moved)).toMatchObject({ buyerClosingCostsCents: payer === "BUYER" ? combined ?? 250_000 : 0, sellerClosingCostsCents: payer === "SELLER" ? combined ?? 250_000 : 0, closingCostEstimateComplete: true });
 
       // Explicit zero establishes the other party owes nothing; it is a full quote.
       estimates[buyerKey] = unknownBuyer ? 0 : 120_000;
