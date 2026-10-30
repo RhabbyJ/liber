@@ -911,6 +911,75 @@
   padding-top: 0;
 }
 
+/* Full calculated values, collapsed at the bottom of a review. */
+.loi-page .loi-more-info {
+  border-top: 1px solid var(--line);
+}
+
+.loi-page .loi-more-info > summary {
+  align-items: baseline;
+  color: var(--ink-strong);
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 15px;
+  font-weight: 700;
+  gap: 4px 12px;
+  line-height: 22px;
+  list-style: none;
+  min-height: 48px;
+  padding: 14px 24px 14px 0;
+  position: relative;
+}
+
+.loi-page .loi-more-info > summary span {
+  color: var(--ink-muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.loi-page .loi-more-info > summary::-webkit-details-marker {
+  display: none;
+}
+
+.loi-page .loi-more-info > summary::after {
+  border-bottom: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  content: "";
+  height: 8px;
+  position: absolute;
+  right: 4px;
+  top: 20px;
+  transform: rotate(45deg);
+  transition: transform var(--dur) var(--ease);
+  width: 8px;
+}
+
+.loi-page .loi-more-info[open] > summary::after {
+  top: 24px;
+  transform: rotate(225deg);
+}
+
+.loi-page .loi-more-info > summary:focus-visible {
+  border-radius: var(--r-xs);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.loi-page .loi-more-info .loi-review-grid {
+  padding-bottom: 12px;
+}
+
+.loi-page .loi-more-info .loi-review-grid > .wide {
+  grid-column: 1 / -1;
+}
+
+.loi-page .loi-more-info .loi-review-grid > .wide dd {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
 /* Seller costs read like the proceeds breakdown: item, amount, then an optional counter. */
 .loi-page .loi-seller-ledger {
   border-top: 1px solid var(--line);

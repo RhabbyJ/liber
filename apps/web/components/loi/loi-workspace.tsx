@@ -853,8 +853,13 @@ function TermsReview({ computedSummary, heading, onCounter, payoff = "", previou
         ))}
       </div>
 
-      {/* Version 1 stored only these basic figures; the PDF keeps every calculated value. */}
-      {hasCosts ? null : <section className="loi-recalculated stack tight" aria-labelledby={recalculatedHeadingId}>
+      {/* Every calculated value stays one click away. Version 1 stored only these basic figures, so they stay open. */}
+      {hasCosts ? <details className="loi-more-info">
+        <summary>More info<span>All calculated values and estimate assumptions</span></summary>
+        <dl className="loi-review-grid">
+          {loiSummaryRows(computedSummary).map((row) => <div className={row.fieldId.startsWith("closingCostEstimateBasis") ? "wide" : undefined} key={row.fieldId}><dt>{row.label}</dt><dd>{row.formattedValue}</dd></div>)}
+        </dl>
+      </details> : <section className="loi-recalculated stack tight" aria-labelledby={recalculatedHeadingId}>
         <div className="loi-recalculated-head"><h3 id={recalculatedHeadingId}>Calculated values</h3></div>
         <dl className="loi-review-grid">
           {loiSummaryRows(computedSummary).map((row) => <div key={row.fieldId}><dt>{row.label}</dt><dd>{row.formattedValue}</dd></div>)}

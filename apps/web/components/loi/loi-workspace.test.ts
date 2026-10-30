@@ -40,13 +40,18 @@ describe("LOI workspace rendered contract", () => {
     return renderToStaticMarkup(createElement(exports.TermsReview!, props));
   }
 
-  it.each(["BUYER", "SELLER"] as const)("leads the %s review with the plain cost breakdown and leaves out calculated-value jargon", async (role) => {
+  it.each(["BUYER", "SELLER"] as const)("leads the %s review with the plain cost breakdown and tucks calculated values into a closed More info dropdown", async (role) => {
     const current = revision(1, cashTerms);
     const html = await renderReview({ computedSummary: current.computedSummary, heading: "Offer", payoff: "250000", propertySnapshot: null, revision: current, role, terms: cashTerms });
     const costs = html.indexOf(role === "BUYER" ? "Buyer cash calculation" : "Your costs and credits");
     expect(costs).toBeGreaterThan(-1);
     expect(costs).toBeLessThan(html.indexOf(">Parties<"));
-    for (const jargon of ["Calculated values", "Loan-to-value", "Estimate assumptions", "Effective price after seller credit"]) expect(html).not.toContain(jargon);
+    // Every calculated value is still there, but only inside the collapsed dropdown after the terms.
+    const moreInfo = html.indexOf("<details class=\"loi-more-info\">");
+    expect(moreInfo).toBeGreaterThan(html.indexOf(">Parties<"));
+    expect(html).toContain("<summary>More info<span>All calculated values and estimate assumptions</span></summary>");
+    for (const detail of ["Loan-to-value ratio", "Estimate assumptions", "Effective price after seller credit"]) expect(html.indexOf(detail)).toBeGreaterThan(moreInfo);
+    expect(html).not.toContain("Calculated values</h3>");
     if (role === "SELLER") {
       expect(html).toContain("Your loan payoff (private)");
       expect(html).toContain("<th scope=\"row\">Net proceeds</th><td class=\"loi-ledger-amount\">" + formatLoiMoney(calculateLoiSummary(cashTerms).sellerCashBeforePayoffsCents - 25_000_000) + "</td>");
