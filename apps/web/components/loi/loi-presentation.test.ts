@@ -69,11 +69,11 @@ describe("LOI presentation registry v1", () => {
     const next = calculateLoiSummary(financedTerms);
     const rows = loiSummaryRows(next);
     expect(rows).toContainEqual(expect.objectContaining({ fieldId: "closingCostEstimateComplete", formattedValue: "Incomplete — missing fees are excluded from the subtotals" }));
-    const basis = rows.find((row) => row.fieldId === "closingCostEstimateBasisV6")?.formattedValue;
+    const basis = rows.find((row) => row.fieldId === "closingCostEstimateBasisV7")?.formattedValue;
     expect(basis).toContain("0.25% of the price");
-    expect(basis).toContain("Blank buyer misc. closing costs use 0.2% of the price");
+    expect(basis).toContain("Blank misc. closing costs use 0.2% of the price for each side");
     expect(basis).toContain("Closing costs do not include property tax, homeowners insurance, or lender fees.");
-    expect(rows.find((row) => row.fieldId === "closingCostEstimateBasisV5")).toBeUndefined();
+    for (const older of ["closingCostEstimateBasisV5", "closingCostEstimateBasisV6"]) expect(rows.find((row) => row.fieldId === older)).toBeUndefined();
     expect(rows).toContainEqual(expect.objectContaining({ fieldId: "buyerTotalCashNeededCents", rawValue: next.buyerCashDueAtClosingCents + next.earnestMoneyCents }));
     expect(recalculatedDiffs(old, next)).toContainEqual(expect.objectContaining({ fieldId: "buyerClosingCostsCents", from: "Not calculated in this version" }));
   });

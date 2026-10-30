@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateLoiEscrowFees, calculateLoiPreview, calculateLoiSummary, loiComputedSummaryV3Schema, loiComputedSummaryV6Schema, type LoiTermsV1 } from "@liber/validators";
+import { calculateLoiEscrowFees, calculateLoiPreview, calculateLoiSummary, loiComputedSummaryV3Schema, loiComputedSummaryV7Schema, type LoiTermsV1 } from "@liber/validators";
 import { cashTerms } from "./loi-test-fixtures.test-helper";
 import { updateLoiEscrowProvider } from "./loi-editor-values";
 import { loiFeeBreakdown } from "./loi-fee-breakdown";
@@ -24,7 +24,7 @@ describe("scheduled escrow fees", () => {
     const value=terms(); const updated={...value,providers:{...value.providers,escrow:{...value.providers.escrow,feePayer:payer}}};
     const buyer=payer==="SELLER"?0:payer==="BUYER"?410_000:205_000;
     const seller=payer==="BUYER"?0:payer==="SELLER"?410_000:205_000;
-    expect(calculateLoiSummary(updated)).toMatchObject({calculationVersion:6,escrowFeePerSideCents:205_000,buyerEscrowCents:buyer,sellerEscrowCents:seller,buyerClosingCostsCents:buyer,sellerClosingCostsCents:seller,buyerCashDueAtClosingCents:97_000_000+buyer,sellerCashBeforePayoffsCents:100_000_000-seller,closingCostEstimateComplete:true});
+    expect(calculateLoiSummary(updated)).toMatchObject({calculationVersion:7,escrowFeePerSideCents:205_000,buyerEscrowCents:buyer,sellerEscrowCents:seller,buyerClosingCostsCents:buyer,sellerClosingCostsCents:seller,buyerCashDueAtClosingCents:97_000_000+buyer,sellerCashBeforePayoffsCents:100_000_000-seller,closingCostEstimateComplete:true});
   });
   it("reprices automatic fees after a payer change while retaining quotes and zero overrides", () => {
     const value=terms();
@@ -43,7 +43,7 @@ describe("scheduled escrow fees", () => {
     const v3={...legacy,calculationVersion:3,buyerClosingCostsCents:0,sellerClosingCostsCents:0,buyerCashDueAtClosingCents:97_000_000,sellerCashBeforePayoffsCents:100_000_000};
     expect(loiComputedSummaryV3Schema.parse(v3)).toEqual(v3);
     const stored={...current,buyerEscrowCents:12345};
-    expect(loiComputedSummaryV6Schema.parse(stored).buyerEscrowCents).toBe(12345);
+    expect(loiComputedSummaryV7Schema.parse(stored).buyerEscrowCents).toBe(12345);
     expect(loiFeeBreakdown({...value,purchasePriceCents:75_000_000},stored).find(row=>row.label==="Escrow fees")?.buyerCents).toBe(12345);
   });
 });

@@ -14,7 +14,9 @@ describe("seller LOI cost ledger", () => {
     // Customary costs put transfer taxes and retrofit on the seller; their quotes are still unknown.
     expect(keys(cashTerms)).toEqual(["price", "sellerAgentCommission", "escrow", "title", "misc", "transferTaxes", "governmentRetrofit"]);
     const ledger = ledgerFor(cashTerms);
-    expect(ledger.lines.find((line) => line.key === "misc")?.cents).toBeNull();
+    expect(ledger.lines.find((line) => line.key === "transferTaxes")?.cents).toBeNull();
+    // A blank seller misc estimate uses 0.2% of the price.
+    expect(ledger.lines.find((line) => line.key === "misc")?.cents).toBe(200_000);
     expect(ledger.lines.find((line) => line.key === "title")?.cents).toBe(250_000);
     expect(ledger.complete).toBe(false);
   });

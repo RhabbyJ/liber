@@ -945,7 +945,7 @@ function Summary({ summary, terms, viewerRole = "BUYER", compact = false, detail
         })}
         <div><dt><strong>{isBuyer ? "Buyer closing-cost estimate" : "Seller closing-cost estimate"}</strong></dt><dd><strong>{formatLoiMoney(isBuyer ? summary.buyerClosingCostsCents : summary.sellerClosingCostsCents)}</strong></dd></div>
       </dl>
-      <p className="field-hint">Your share only. Fees paid by the other party show $0.00. {loiSummaryFromVersion(summary, 6) ? isBuyer ? "Blank escrow, title, and misc. costs use our estimates." : "Blank escrow and title costs use our estimates." : loiSummaryFromVersion(summary, 4) ? "Escrow includes the scheduled fee unless you enter a quote." : "Escrow reflects the quotes stored with this version."}</p>
+      <p className="field-hint">Your share only. Fees paid by the other party show $0.00. {loiSummaryFromVersion(summary, 6) ? isBuyer || loiSummaryFromVersion(summary, 7) ? "Blank escrow, title, and misc. costs use our estimates." : "Blank escrow and title costs use our estimates." : loiSummaryFromVersion(summary, 4) ? "Escrow includes the scheduled fee unless you enter a quote." : "Escrow reflects the quotes stored with this version."}</p>
     </section> : null}
     {!compact ? loiCashEquations(terms, summary).filter((equation) => equation.label === (isBuyer ? "Buyer cash calculation" : "Seller cash calculation")).map((equation) => <section className="stack tight" aria-label={equation.label} key={equation.label}>
       <h3>{equation.label}</h3>

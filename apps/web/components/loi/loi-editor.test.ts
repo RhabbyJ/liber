@@ -179,6 +179,7 @@ describe("LOI editor and presentation registry", () => {
     expect(buyer).toContain("Pending quote");
     const seller = render(shared, "SELLER");
     expect(seller).toContain('placeholder="Est. $2,050.00"');
+    expect(seller.match(/<input[^>]*id="loi-estimate-seller-other"[^>]*>/)?.[0]).toContain('placeholder="Est. $2,000.00 · 0.2%"');
     expect(seller).toContain('id="loi-estimate-seller-commission"');
     expect(seller).toContain('value="2"');
     expect(seller).not.toContain('id="loi-estimate-buyer-escrow"');

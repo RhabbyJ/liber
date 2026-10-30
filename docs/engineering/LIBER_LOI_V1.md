@@ -670,7 +670,7 @@ durations use bounded integer days or months. The maximum monetary value is
 ### Versioned calculations
 
 `schemaVersion = 1` remains the terms format; new revisions persist
-`calculationVersion = 6`. Existing calculation-version-1 through version-5 records retain their
+`calculationVersion = 7`. Existing calculation-version-1 through version-6 records retain their
 original stored summary and version-specific decoder. Optional JSON fields preserve the existing
 terms schema and require no database migration. The server loads the exact saved
 draft and recomputes the summary; no route accepts a client-computed summary.
@@ -718,11 +718,13 @@ Calculation version 6 resolves a blank title estimate to one title policy at
 buyer) and a blank buyer misc. closing-cost estimate to 0.2% of the price. It
 stores the scheduled amounts, the resolved buyer/seller title and misc amounts,
 and separate buyer and seller completeness flags; the combined flag is their
-conjunction. Blank seller misc. costs stay unknown. Closing costs exclude
-property tax, homeowners insurance, and lender fees.
-New revisions store version 6; historical version 1–5 summaries retain their stored
-values and decoders. No migration is needed. Once version-6 revisions exist,
-rollback targets must retain version-6 decoding.
+conjunction. Version 6 keeps blank seller misc. costs unknown; calculation
+version 7 also resolves them to 0.2% of the price, so the stored seller misc.
+amount is always known. Closing costs exclude property tax, homeowners
+insurance, and lender fees.
+New revisions store version 7; historical version 1–6 summaries retain their stored
+values and decoders. No migration is needed. Once version-7 revisions exist,
+rollback targets must retain version-7 decoding.
 Escrow uses the supplied per-side schedule below. Other costs use entered
 quotes; mortgage balances are not inferred.
 Unknown amounts are excluded from subtotals and visibly flagged as incomplete.
@@ -1920,6 +1922,8 @@ Measure ULA seller rule, October 14, 2026: Measure ULA is shown everywhere as Ci
 Buyer LOI simplification (CEO feedback), October 29, 2026: New LOI calculations use version 6. A blank title estimate uses one title policy at 0.25% of the price for the title payer, split evenly for Each pays own with the odd cent on the buyer; a blank buyer misc. closing-cost field uses 0.2% of the price. Entered quotes replace these schedules and 0 still means no charge; blank seller misc. costs stay unknown. Version 6 freezes the resolved title and misc amounts with the scheduled values and adds buyer- and seller-side completeness flags, so a blank seller estimate no longer marks the buyer's figures incomplete. The buyer cash card and Buyer cash calculation show the deposit as part of Estimated total cash needed (down payment plus buyer closing costs, minus seller credit and through-escrow rent-back), split into the earnest-money deposit paid after acceptance and the balance due at closing; the underlying math is unchanged. The Closing-cost estimates section shows one short line per cost for the viewer's own side, with the scheduled estimate as the placeholder, and drops the explanatory paragraphs. Buyers no longer see the seller agent commission estimate or its $0 fee row; the buyer agent commission stays in section 6. Editor, summaries, seller proceeds and the stored assumptions state that closing costs do not include property tax, homeowners insurance, or lender fees. Version 1–5 summaries keep their stored values and decoders. No database migration, environment or dependency change.
 
 Seller LOI cost ledger (CEO feedback), October 29, 2026: In the seller view of any LOI version with calculated costs, a Your costs and credits ledger replaces the Closing costs and credits terms and the Calculated values list. It uses the seller proceeds breakdown layout: purchase price, then each seller cost or credit with its amount, then Your cash before loan payoff, which always equals the stored seller cash. Lines that cost the seller nothing in this deal are left out (for example a buyer-paid commission, Measure ULA at or below its threshold, rent-back that is not paid through escrow, and explicit $0 estimates); unknown estimates stay as Not estimated. On the current version, when the seller may counter, a third column offers Counter on each line whose term can change in a counter; it opens the existing counter draft and focuses that term. Funding and Measure ULA have no counter. Who may counter, alternation, and immutability are unchanged. The transfer-tax term now reads as a plain description of the amount and payer, for example "County and city tax on the sale price, at City of Los Angeles rates · seller pays". On screen the long estimate-assumptions text is replaced by one short line; the PDF keeps the full text. When a seller first opens a received initial LOI, a small New offer card with a one-time confetti burst appears; it is remembered per version in the browser, skips motion under prefers-reduced-motion, and is turned off with `LOI_RECEIVED_CELEBRATION_ENABLED` in `components/loi/loi-received-celebration.tsx`. No calculation, database, environment or dependency change.
+
+Seller misc. closing-cost default, October 30, 2026: New LOI calculations use version 7. A blank seller misc. closing-cost estimate now also uses 0.2% of the price, matching the buyer side, so seller costs and proceeds always include a misc. estimate; entered quotes and explicit 0 still replace it. The seller editor shows the scheduled amount as the placeholder. Version 6 summaries keep a blank seller misc. estimate as unknown, and version 1–6 summaries keep their stored values and decoders. No database migration, environment or dependency change.
 
 
 LA City transfer-tax release verification, October 7, 2026: Deployment dpl_7AvbrYvasSKsLpJm3LdqUPEPwQpA is READY on both public aliases. Optional LA City July 2026–June 2027 rates are explicitly selected; manual quotes remain default. Official city/county sources confirm whole-price ULA and the strictly-above $5.4M / at-or-above $10.9M thresholds. V5 freezes taxes and allocations; immutable V1–V4 decoders preserved. Exact live-baseline release passed 75 validator and 324 web tests, plus 34 tax/editor checks after exempt-mode validation, typecheck, lint, build, static migration and no-auth-bypass checks. Nine disposable SQL integration tests skipped without a target. Browser verified rate selection, both thresholds, full-price ULA, quote restoration, save/reload and review on synthetic local data. Protected login 200, anonymous LOI detail 401; both aliases and live route/security smoke passed; immediate deployment error/fatal scan returned no groups. No shared-data writes for verification, migration, dependency or environment changes. Product, architecture and section contracts updated. No automatic jurisdiction/exemption determination or other-city schedule added. Existing dependency findings and inherited review-grid money wrapping remain. After V5 records exist, rollback must retain V5 decoding. Snapshot .artifacts/loi-transfer-tax-release-1791397258585/site; verification .artifacts/loi-transfer-tax-release-1791397258585/verification.json.

@@ -22,7 +22,7 @@ function completeTerms(): LoiTermsV1 {
 
 function summary(terms: LoiTermsV1) {
   const result = calculateLoiPreview(terms);
-  if (!result || result.calculationVersion !== 6) throw new Error("Expected current live financial preview.");
+  if (!result || result.calculationVersion !== 7) throw new Error("Expected current live financial preview.");
   return result;
 }
 

@@ -176,7 +176,7 @@ describe("LOI service behavior", () => {
     const result = await saveLoiDraft({ expectedDraftVersion: 0, expectedSequence: sequence, negotiationId, terms: next });
     expect(mocks.prisma.loiDraft.create.mock.calls[0]![0].data.terms.costsAndCredits.closingCostEstimates).toEqual(estimates);
     expect(mocks.prisma.loiDraft.create.mock.calls[0]![0].data.terms.providers.title).toEqual({ ...terms.providers.title, feePayer: "BUYER" });
-    expect(result.preview).toMatchObject({ calculationVersion: 6, buyerClosingCostsCents: 200_000, sellerClosingCostsCents: 300_000, closingCostEstimateComplete: true });
+    expect(result.preview).toMatchObject({ calculationVersion: 7, buyerClosingCostsCents: 200_000, sellerClosingCostsCents: 300_000, closingCostEstimateComplete: true });
   });
 
   it("does not let an initial buyer submission author or forge attribution for the seller disclosure", async () => {
@@ -184,8 +184,8 @@ describe("LOI service behavior", () => {
     await submitLoiRevision(submitRequest);
     const saved = mocks.prisma.loiRevision.create.mock.calls[0]![0].data;
     expect(saved.terms.disclosures).toEqual({ ...terms.disclosures, deathOnProperty: "UNKNOWN" });
-    expect(saved.calculationVersion).toBe(6);
-    expect(saved.computedSummary.calculationVersion).toBe(6);
+    expect(saved.calculationVersion).toBe(7);
+    expect(saved.computedSummary.calculationVersion).toBe(7);
   });
 
   it.each(["BUYER", "SELLER"] as const)("enforces server-authored disclosure ownership for a %s counter draft", async (role) => {
@@ -209,7 +209,7 @@ describe("LOI service behavior", () => {
     const saved = mocks.prisma.loiDraft.create.mock.calls[0]![0].data.terms;
     expect(saved.disclosures).toMatchObject({ deathOnProperty: role === "BUYER" ? "NO" : "YES", deathOnPropertyProvidedBy: "SELLER" });
     expect(saved.costsAndCredits.closingCostEstimates).toEqual(estimates);
-    expect(result.preview).toMatchObject({ calculationVersion: 6, sellerClosingCostsCents: 500_00, closingCostEstimateComplete: false });
+    expect(result.preview).toMatchObject({ calculationVersion: 7, sellerClosingCostsCents: 500_00, closingCostEstimateComplete: false });
   });
 
   it("rechecks a saved buyer counter against the seller's immutable answer during submission", async () => {
@@ -232,7 +232,7 @@ describe("LOI service behavior", () => {
     stubSubmission(next);
     await submitLoiRevision(submitRequest);
     const saved=mocks.prisma.loiRevision.create.mock.calls[0]![0].data;
-    expect(saved.calculationVersion).toBe(6);
+    expect(saved.calculationVersion).toBe(7);
     expect(saved.computedSummary).toMatchObject({transferTaxSchedule:"LA_CITY_2026_2027",laCountyTransferTaxCents:660_000,laCityTransferTaxCents:2_700_000,measureUlaCents:24_000_000,measureUlaRateBps:400,buyerTransferTaxCents:0,sellerTransferTaxCents:27_360_000});
   });
 
@@ -437,7 +437,7 @@ describe("LOI service behavior", () => {
     expect(result.revisions[0]?.computedSummary.earnestMoneyCents).toBe(1);
   });
 
-  it.each([2, 3, 4, 5, 6] as const)("reads a stored calculation version %s without recomputing its cash amounts", async (version) => {
+  it.each([2, 3, 4, 5, 6, 7] as const)("reads a stored calculation version %s without recomputing its cash amounts", async (version) => {
     const computed = calculateLoiSummary(terms);
     const v3OnlyKeys = new Set(["buyerHomeWarrantyCents", "sellerHomeWarrantyCents", "buyerItemizedCostsCents", "sellerItemizedCostsCents", "rentBackAtClosingCents", "monthlyRentBackCents"]);
     const v4OnlyKeys = new Set(["escrowFeePerSideCents", "buyerEscrowCents", "sellerEscrowCents"]);
@@ -468,7 +468,7 @@ describe("LOI service behavior", () => {
     mocks.prisma.loiNegotiation.findUnique.mockResolvedValue(negotiation(1, "AWAITING_SELLER_RESPONSE"));
     mocks.prisma.loiDraft.findUnique.mockResolvedValue(null);
     const result = await saveLoiDraft({ expectedDraftVersion: 0, expectedSequence: 1, negotiationId, terms: next });
-    expect(result.preview).toMatchObject({ calculationVersion: 6, buyerHomeWarrantyCents: 25000, sellerHomeWarrantyCents: 45000, sellerItemizedCostsCents: 100000, rentBackAtClosingCents: 150000, buyerClosingCostsCents: 25000, sellerClosingCostsCents: 295000, closingCostEstimateComplete: true });
+    expect(result.preview).toMatchObject({ calculationVersion: 7, buyerHomeWarrantyCents: 25000, sellerHomeWarrantyCents: 45000, sellerItemizedCostsCents: 100000, rentBackAtClosingCents: 150000, buyerClosingCostsCents: 25000, sellerClosingCostsCents: 295000, closingCostEstimateComplete: true });
     const saved = mocks.prisma.loiDraft.create.mock.calls[0]![0].data.terms;
     expect(saved.costsAndCredits.homeWarranty).toMatchObject({ company: "Fixture Warranty", payer: "OTHER", buyerShareCents: 25000, sellerShareCents: 45000 });
     expect(saved.costsAndCredits.closingCostEstimates.itemizedCosts).toEqual(next.costsAndCredits.closingCostEstimates!.itemizedCosts);

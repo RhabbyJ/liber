@@ -1,10 +1,10 @@
 import { z } from "zod";
 
 export const LOI_SCHEMA_VERSION = 1;
-export const LOI_CALCULATION_VERSION = 6;
+export const LOI_CALCULATION_VERSION = 7;
 export const LOI_MAX_PRICE_CENTS = 10_000_000_000;
 export const LOI_STANDARD_DEPOSIT_BPS = 300;
-// Calculation v6 estimates used when the title or buyer misc closing-cost field is left blank.
+// Estimates used when the title or misc closing-cost field is left blank (v6: buyer misc only; v7: both sides).
 export const LOI_TITLE_POLICY_RATE_BPS = 25;
 export const LOI_MISC_CLOSING_COST_RATE_BPS = 20;
 export const LOI_MAX_ESCROW_DAYS = 90;
@@ -337,9 +337,9 @@ export function calculateLoiEscrowFees(purchasePriceCents: number, payer: "BUYER
 }
 
 // Blank title fields use one policy at 0.25% of price for the title payer; Each pays own
-// splits it, with the indivisible cent on the buyer. Blank buyer misc costs use 0.2% of price.
-// Entered amounts override the schedule; zero means no charge. Seller misc costs stay as entered.
-export function calculateLoiScheduledClosingCosts(purchasePriceCents: number, titlePayer: "BUYER" | "SELLER" | "EACH_OWN", estimates?: { buyerTitleInsuranceCents: number | null; sellerTitleInsuranceCents: number | null; buyerOtherClosingCostsCents: number | null }) {
+// splits it, with the indivisible cent on the buyer. Blank misc costs use 0.2% of price for
+// each side. Entered amounts override the schedule; zero means no charge.
+export function calculateLoiScheduledClosingCosts(purchasePriceCents: number, titlePayer: "BUYER" | "SELLER" | "EACH_OWN", estimates?: { buyerTitleInsuranceCents: number | null; sellerTitleInsuranceCents: number | null; buyerOtherClosingCostsCents: number | null; sellerOtherClosingCostsCents: number | null }) {
   if (!Number.isSafeInteger(purchasePriceCents) || purchasePriceCents <= 0 || purchasePriceCents > LOI_MAX_PRICE_CENTS) return null;
   const titlePolicyCents = roundHalfUp(purchasePriceCents * LOI_TITLE_POLICY_RATE_BPS, 10_000);
   const miscCents = roundHalfUp(purchasePriceCents * LOI_MISC_CLOSING_COST_RATE_BPS, 10_000);
@@ -351,6 +351,7 @@ export function calculateLoiScheduledClosingCosts(purchasePriceCents: number, ti
     buyerTitleCents: titlePayer === "SELLER" ? 0 : estimates?.buyerTitleInsuranceCents ?? titleShare("BUYER"),
     sellerTitleCents: titlePayer === "BUYER" ? 0 : estimates?.sellerTitleInsuranceCents ?? titleShare("SELLER"),
     buyerOtherCents: estimates?.buyerOtherClosingCostsCents ?? miscCents,
+    sellerOtherCents: estimates?.sellerOtherClosingCostsCents ?? miscCents,
   };
 }
 
@@ -429,16 +430,22 @@ export const loiComputedSummaryV6Schema = loiComputedSummaryV5Schema.extend({
   sellerClosingCostEstimateComplete: z.boolean(),
 }).strict();
 export type LoiComputedSummaryV6 = z.infer<typeof loiComputedSummaryV6Schema>;
-export type LoiComputedSummary = z.infer<typeof loiComputedSummaryV1Schema> | z.infer<typeof loiComputedSummaryV2Schema> | z.infer<typeof loiComputedSummaryV3Schema> | z.infer<typeof loiComputedSummaryV4Schema> | z.infer<typeof loiComputedSummaryV5Schema> | LoiComputedSummaryV6;
-type LoiCalculationVersionsFrom = { 2: 2 | 3 | 4 | 5 | 6; 3: 3 | 4 | 5 | 6; 4: 4 | 5 | 6; 5: 5 | 6; 6: 6 };
+// V7 also schedules the seller's blank misc costs at 0.2%, so the seller amount is always known.
+export const loiComputedSummaryV7Schema = loiComputedSummaryV6Schema.extend({
+  calculationVersion: z.literal(7),
+  sellerOtherClosingCostsCents: cents,
+}).strict();
+export type LoiComputedSummaryV7 = z.infer<typeof loiComputedSummaryV7Schema>;
+export type LoiComputedSummary = z.infer<typeof loiComputedSummaryV1Schema> | z.infer<typeof loiComputedSummaryV2Schema> | z.infer<typeof loiComputedSummaryV3Schema> | z.infer<typeof loiComputedSummaryV4Schema> | z.infer<typeof loiComputedSummaryV5Schema> | LoiComputedSummaryV6 | LoiComputedSummaryV7;
+type LoiCalculationVersionsFrom = { 2: 2 | 3 | 4 | 5 | 6 | 7; 3: 3 | 4 | 5 | 6 | 7; 4: 4 | 5 | 6 | 7; 5: 5 | 6 | 7; 6: 6 | 7; 7: 7 };
 // Each summary version extends the previous one, so a newer summary carries every older field.
 export function loiSummaryFromVersion<V extends keyof LoiCalculationVersionsFrom>(summary: LoiComputedSummary, version: V): summary is Extract<LoiComputedSummary, { calculationVersion: LoiCalculationVersionsFrom[V] }> {
   return summary.calculationVersion >= version;
 }
-// V6 tracks each side separately; older versions only stored the combined flag.
+// V6 and later track each side separately; older versions only stored the combined flag.
 export function loiSideEstimateComplete(summary: LoiComputedSummary, side: "BUYER" | "SELLER") {
   if (summary.calculationVersion === 1) return false;
-  if (summary.calculationVersion === 6) return side === "BUYER" ? summary.buyerClosingCostEstimateComplete : summary.sellerClosingCostEstimateComplete;
+  if (loiSummaryFromVersion(summary, 6)) return side === "BUYER" ? summary.buyerClosingCostEstimateComplete : summary.sellerClosingCostEstimateComplete;
   return summary.closingCostEstimateComplete;
 }
 
@@ -505,12 +512,12 @@ function roundHalfUp(numerator: number, denominator: number) {
   return Math.floor((numerator + Math.floor(denominator / 2)) / denominator);
 }
 
-export function calculateLoiSummary(input: LoiTermsV1): LoiComputedSummaryV6 {
+export function calculateLoiSummary(input: LoiTermsV1): LoiComputedSummaryV7 {
   const terms = loiTermsV1Schema.parse(input);
   return calculateValidatedLoiSummary(terms);
 }
 
-export type LoiLivePreview = { issues: LoiCalculationIssue[]; summary: LoiComputedSummaryV6 };
+export type LoiLivePreview = { issues: LoiCalculationIssue[]; summary: LoiComputedSummaryV7 };
 
 // Live editor preview. Only the financial projection must be well formed; the
 // figures follow the entered amounts even while `issues` reports a conflict.
@@ -616,7 +623,7 @@ function calculateAdditionalCosts(terms: LoiCalculationInput) {
   };
 }
 
-function calculateValidatedLoiSummary(terms: LoiCalculationInput): LoiComputedSummaryV6 {
+function calculateValidatedLoiSummary(terms: LoiCalculationInput): LoiComputedSummaryV7 {
   const downPaymentCents = terms.funding.type === "FINANCED"
     ? terms.funding.downPaymentCents
     : terms.funding.type === "SELLER_FINANCING" ? terms.funding.cashDownPaymentCents : terms.purchasePriceCents;
@@ -643,12 +650,12 @@ function calculateValidatedLoiSummary(terms: LoiCalculationInput): LoiComputedSu
   const scheduled = calculateLoiScheduledClosingCosts(terms.purchasePriceCents, titlePayer, estimates);
   if (!scheduled) throw new Error("A positive price is required for title and closing-cost estimates.");
   const buyerTitleInsuranceCents = scheduled.buyerTitleCents, sellerTitleInsuranceCents = scheduled.sellerTitleCents;
-  const buyerOtherClosingCostsCents = scheduled.buyerOtherCents, sellerOtherClosingCostsCents = estimates?.sellerOtherClosingCostsCents ?? null;
+  const buyerOtherClosingCostsCents = scheduled.buyerOtherCents, sellerOtherClosingCostsCents = scheduled.sellerOtherCents;
   const commissionPayer = terms.representation.commissionPayer;
   const buyerClosingCostsCents = buyerEscrowCents + buyerTitleInsuranceCents + buyerOtherClosingCostsCents
     + (commissionPayer === "BUYER" ? buyerAgentCommissionCents ?? 0 : 0) + additionalCosts.buyerTotalCents;
   const sellerClosingCostsCents = sellerEscrowCents + sellerTitleInsuranceCents
-    + (sellerOtherClosingCostsCents ?? 0) + (sellerAgentCommissionCents ?? 0)
+    + sellerOtherClosingCostsCents + (sellerAgentCommissionCents ?? 0)
     + (commissionPayer === "SELLER" ? buyerAgentCommissionCents ?? 0 : 0) + additionalCosts.sellerTotalCents;
   // An entered "other" amount must confirm it excludes separately calculated expenses.
   const otherCostsConfirmed = !estimates || ((estimates.buyerOtherClosingCostsCents ?? 0) === 0 && (estimates.sellerOtherClosingCostsCents ?? 0) === 0)
@@ -657,7 +664,7 @@ function calculateValidatedLoiSummary(terms: LoiCalculationInput): LoiComputedSu
   const commissionKnown = buyerAgentCommissionCents !== null && (!terms.representation.buyerRepresented || commissionPayer !== null);
   const buyerClosingCostEstimateComplete = additionalCosts.buyerComplete && otherCostsConfirmed && (commissionKnown || commissionPayer === "SELLER");
   const sellerClosingCostEstimateComplete = additionalCosts.sellerComplete && otherCostsConfirmed && (commissionKnown || commissionPayer === "BUYER")
-    && sellerOtherClosingCostsCents !== null && sellerAgentCommissionCents !== null;
+    && sellerAgentCommissionCents !== null;
   return {
     calculationVersion: LOI_CALCULATION_VERSION,
     titlePolicyEstimateCents: scheduled.titlePolicyCents,
